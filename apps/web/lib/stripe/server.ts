@@ -2,7 +2,45 @@ import Stripe from 'stripe'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+/**
+ * Lazy Stripe client factory.
+ *
+ * Instantiated on first call, not at module evaluation time.
+ * This follows the same pattern as the Supabase client — avoids
+ * "Neither apiKey nor config.authenticator provided" during Next.js
+ * static build when STRIPE_SECRET_KEY is not set in the build environment.
+ */
+let _stripe: Stripe | null = null
+
+export function getStripeServer(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+  }
+  return _stripe
+}
+
+/**
+ * Re-exported as `stripe` for backward-compatible usage in the webhook handler.
+ * Callers should use getStripeServer() directly in new code.
+ */
+export const stripe = {
+  webhooks: {
+    constructEvent: (...args: Parameters<Stripe['webhooks']['constructEvent']>) =>
+      getStripeServer().webhooks.constructEvent(...args),
+  },
+  checkout: {
+    sessions: {
+      create: (...args: Parameters<Stripe['checkout']['sessions']['create']>) =>
+        getStripeServer().checkout.sessions.create(...args),
+    },
+  },
+  billingPortal: {
+    sessions: {
+      create: (...args: Parameters<Stripe['billingPortal']['sessions']['create']>) =>
+        getStripeServer().billingPortal.sessions.create(...args),
+    },
+  },
+}
 
 /**
  * Create a Stripe Checkout Session for upgrading to a paid plan.
@@ -45,6 +83,8 @@ export async function createCheckoutSession(
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
+  const stripeClient = getStripeServer()
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: 'subscription',
     line_items: [{ price: priceId, quantity: 1 }],
@@ -61,7 +101,7 @@ export async function createCheckoutSession(
     sessionParams.customer_email = userEmail
   }
 
-  const session = await stripe.checkout.sessions.create(sessionParams)
+  const session = await stripeClient.checkout.sessions.create(sessionParams)
   return session.url!
 }
 
@@ -73,7 +113,7 @@ export async function createPortalSession(
 ): Promise<string> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripeServer().billingPortal.sessions.create({
     customer: stripeCustomerId,
     return_url: `${baseUrl}/billing`,
   })
