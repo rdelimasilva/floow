@@ -13,7 +13,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **AUTH-02**: User receives email verification after signup
 - [ ] **AUTH-03**: User can login via magic link
 - [ ] **AUTH-04**: User can login via OAuth (Google, Apple)
-- [ ] **AUTH-05**: Multi-tenant org isolation with RLS
+- [x] **AUTH-05**: Multi-tenant org isolation with RLS
 - [ ] **AUTH-06**: User session persists across browser refresh
 
 ### Finance Engine
@@ -105,7 +105,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-03 | Phase 1 | Pending |
 | AUTH-04 | Phase 1 | Pending |
-| AUTH-05 | Phase 1 | Pending |
+| AUTH-05 | Phase 1 | Complete (01-01) |
 | AUTH-06 | Phase 1 | Pending |
 | FIN-01 | Phase 2 | Pending |
 | FIN-02 | Phase 2 | Pending |
