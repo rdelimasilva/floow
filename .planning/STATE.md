@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-stopped_at: "01-02-PLAN.md complete"
-last_updated: "2026-03-10T19:59:41Z"
+status: executing
+stopped_at: 01-03-PLAN.md checkpoint — Task 4 human verification pending
+last_updated: "2026-03-10T20:12:14.056Z"
 last_activity: 2026-03-10 — Plan 01-02 complete (Supabase schema, Drizzle ORM, RLS policies, trigger, JWT hook)
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 14
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
   percent: 14
 ---
 
@@ -50,6 +50,7 @@ Progress: [██░░░░░░░░] 14%
 - Trend: Baseline
 
 *Updated after each plan completion*
+| Phase 01 P03 | 6 | 3 tasks | 23 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ Recent decisions affecting current work:
 - [01-02]: RLS uses get_user_org_ids() SECURITY DEFINER helper — critical for query performance at scale
 - [01-02]: on_auth_user_created trigger wrapped in EXCEPTION WHEN OTHERS — prevents blocking signups
 - [01-02]: supabase init created manually (interactive CLI not automatable)
+- [Phase 01-03]: Supabase client instantiated inside event handlers not at component level — avoids build-time errors when env vars absent during Next.js static prerendering
+- [Phase 01-03]: SignOutButton extracted as separate client component — app layout is Server Component, sign-out requires browser client and router
+- [Phase 01-03]: All auth methods presented as peer options in Login/Signup tabs (LOCKED DECISION) — Google, Apple, email/password, magic link equal prominence
 
 ### Pending Todos
 
@@ -82,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T19:59:41Z
-Stopped at: Completed 01-02-PLAN.md (Supabase schema + Drizzle ORM)
-Resume file: .planning/phases/01-platform-foundation/01-03-PLAN.md
+Last session: 2026-03-10T20:11:53.531Z
+Stopped at: 01-03-PLAN.md checkpoint — Task 4 human verification pending
+Resume file: None
