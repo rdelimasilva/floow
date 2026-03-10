@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Checkpoint: 01-04 Tasks 1-2 complete, Task 3 human-verify pending"
-last_updated: "2026-03-10T22:20:46.925Z"
-last_activity: 2026-03-10 — Plan 01-03 complete (auth flows, Supabase clients, middleware, OAuth, dashboard shell)
+stopped_at: Completed 01-04-PLAN.md — Phase 01 Platform Foundation fully complete
+last_updated: "2026-03-10T22:40:14.904Z"
+last_activity: 2026-03-10 — Plan 01-04 complete (Stripe billing, checkout, webhooks, billing UI) — Phase 1 fully complete
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 4
   completed_plans: 4
-  percent: 75
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 
 ## Current Position
 
-Phase: 1 of 4 (Platform Foundation)
-Plan: 3 of 4 in current phase (01-03 complete)
-Status: In progress — ready for Plan 01-04
-Last activity: 2026-03-10 — Plan 01-03 complete (auth flows, Supabase clients, middleware, OAuth, dashboard shell)
+Phase: 1 of 4 (Platform Foundation) — COMPLETE
+Plan: 4 of 4 in current phase (01-04 complete)
+Status: Phase 1 complete — ready for Phase 2
+Last activity: 2026-03-10 — Plan 01-04 complete (Stripe billing, checkout, webhooks, billing UI)
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [████████░░] 75%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Platform Foundation | 3/4 | ~75 min | 25 min |
+| 1. Platform Foundation | 4/4 | ~110 min | 28 min |
 
 **Recent Trend:**
 - Last 5 plans: 01-01 (27 min), 01-02 (42 min)
@@ -51,6 +51,7 @@ Progress: [████████░░] 75%
 
 *Updated after each plan completion*
 | Phase 01 P03 | 6 | 3 tasks | 23 files |
+| Phase 01 P04 | 35 | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - [Phase 01-03]: Supabase client instantiated inside event handlers not at component level — avoids build-time errors when env vars absent during Next.js static prerendering
 - [Phase 01-03]: SignOutButton extracted as separate client component — app layout is Server Component, sign-out requires browser client and router
 - [Phase 01-03]: All auth methods presented as peer options in Login/Signup tabs (LOCKED DECISION) — Google, Apple, email/password, magic link equal prominence
+- [Phase 01-04]: Lazy Stripe client instantiation via getStripeServer() factory — established as project pattern for all external service clients in Next.js App Router (mirrors Supabase client pattern from 01-03)
+- [Phase 01-04]: Webhook correlation uses client_reference_id=orgId (not userId) — billing is org-scoped, not user-scoped
+- [Phase 01-04]: Server actions for checkout/portal (not API routes) — simpler, co-located with billing page, no extra endpoint needed
 
 ### Pending Todos
 
@@ -86,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T22:20:46.924Z
-Stopped at: Checkpoint: 01-04 Tasks 1-2 complete, Task 3 human-verify pending
+Last session: 2026-03-10T22:40:14.902Z
+Stopped at: Completed 01-04-PLAN.md — Phase 01 Platform Foundation fully complete
 Resume file: None

@@ -55,9 +55,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Billing
 
-- [ ] **BILL-01**: Freemium plans via Stripe
-- [ ] **BILL-02**: Checkout and subscription management
-- [ ] **BILL-03**: Stripe webhooks for payment events
+- [x] **BILL-01**: Freemium plans via Stripe
+- [x] **BILL-02**: Checkout and subscription management
+- [x] **BILL-03**: Stripe webhooks for payment events
 
 ## v2 Requirements
 
@@ -129,9 +129,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DASH-03 | Phase 3 | Pending |
 | DASH-04 | Phase 3 | Pending |
 | VAL-01 | Phase 2 | Pending |
-| BILL-01 | Phase 1 | Pending |
-| BILL-02 | Phase 1 | Pending |
-| BILL-03 | Phase 1 | Pending |
+| BILL-01 | Phase 1 | Complete |
+| BILL-02 | Phase 1 | Complete |
+| BILL-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 31 total
