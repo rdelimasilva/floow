@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-04-PLAN.md — Phase 01 Platform Foundation fully complete
-last_updated: "2026-03-10T22:40:14.904Z"
-last_activity: 2026-03-10 — Plan 01-04 complete (Stripe billing, checkout, webhooks, billing UI) — Phase 1 fully complete
+status: completed
+stopped_at: Completed 01-05-PLAN.md — middleware inversion-based route protection gap closure
+last_updated: "2026-03-10T23:15:05.341Z"
+last_activity: 2026-03-10 — Plan 01-04 complete (Stripe billing, checkout, webhooks, billing UI)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 5
+  completed_plans: 5
   percent: 100
 ---
 
@@ -52,6 +52,7 @@ Progress: [██████████] 100%
 *Updated after each plan completion*
 | Phase 01 P03 | 6 | 3 tasks | 23 files |
 | Phase 01 P04 | 35 | 3 tasks | 12 files |
+| Phase 01 P05 | 1 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,7 @@ Recent decisions affecting current work:
 - [Phase 01-04]: Lazy Stripe client instantiation via getStripeServer() factory — established as project pattern for all external service clients in Next.js App Router (mirrors Supabase client pattern from 01-03)
 - [Phase 01-04]: Webhook correlation uses client_reference_id=orgId (not userId) — billing is org-scoped, not user-scoped
 - [Phase 01-04]: Server actions for checkout/portal (not API routes) — simpler, co-located with billing page, no extra endpoint needed
+- [Phase 01-05]: Inversion-based middleware protection: allowlist public routes (/auth, /api/webhooks, /) instead of blocklisting — ensures any future (app)/ route is automatically protected without code changes
 
 ### Pending Todos
 
@@ -90,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T22:40:14.902Z
-Stopped at: Completed 01-04-PLAN.md — Phase 01 Platform Foundation fully complete
+Last session: 2026-03-10T23:15:05.339Z
+Stopped at: Completed 01-05-PLAN.md — middleware inversion-based route protection gap closure
 Resume file: None
