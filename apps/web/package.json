@@ -1,0 +1,42 @@
+{
+  "name": "@floow/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "next": "^15.3.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "@supabase/supabase-js": "^2.49.0",
+    "@supabase/ssr": "^0.9.0",
+    "react-hook-form": "^7.54.0",
+    "@hookform/resolvers": "^3.10.0",
+    "zod": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "stripe": "^17.7.0",
+    "@stripe/stripe-js": "^8.9.0",
+    "@floow/db": "workspace:*",
+    "@floow/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.5.0",
+    "autoprefixer": "^10.4.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/node": "^22.0.0",
+    "vitest": "^3.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "jsdom": "^26.0.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/jest-dom": "^6.6.0"
+  }
+}

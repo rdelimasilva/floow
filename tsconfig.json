@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": true,
+    "composite": false,
+    "paths": {
+      "@floow/db": ["./packages/db/src"],
+      "@floow/shared": ["./packages/shared/src"],
+      "@floow/core-finance": ["./packages/core-finance/src"]
+    }
+  },
+  "exclude": ["node_modules"]
+}
