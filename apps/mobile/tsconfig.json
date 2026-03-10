@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@floow/shared": ["../../packages/shared/src"]
+    }
+  },
+  "exclude": ["node_modules"]
+}
