@@ -19,7 +19,7 @@
     ],
     "paths": {
       "@/*": [
-        "./src/*"
+        "./*"
       ],
       "@floow/db": [
         "../../packages/db/src"
