@@ -1,0 +1,75 @@
+'use client'
+
+import { useState } from 'react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { OAuthButtons } from './oauth-buttons'
+import { LoginForm } from './login-form'
+import { SignupForm } from './signup-form'
+import { MagicLinkForm } from './magic-link-form'
+
+export function AuthTabs() {
+  const [showMagicLink, setShowMagicLink] = useState(false)
+
+  return (
+    <Tabs defaultValue="login" className="w-full" onValueChange={() => setShowMagicLink(false)}>
+      <TabsList className="grid w-full grid-cols-2 mb-6">
+        <TabsTrigger value="login">Login</TabsTrigger>
+        <TabsTrigger value="signup">Sign Up</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="login" className="space-y-4">
+        {/* OAuth — presented as peer options, not secondary (LOCKED DECISION) */}
+        <OAuthButtons />
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-gray-200" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-white px-2 text-gray-400">or</span>
+          </div>
+        </div>
+
+        {showMagicLink ? (
+          <>
+            <MagicLinkForm />
+            <button
+              type="button"
+              onClick={() => setShowMagicLink(false)}
+              className="w-full text-center text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
+            >
+              Use email and password instead
+            </button>
+          </>
+        ) : (
+          <>
+            <LoginForm />
+            <button
+              type="button"
+              onClick={() => setShowMagicLink(true)}
+              className="w-full text-center text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
+            >
+              Use magic link instead
+            </button>
+          </>
+        )}
+      </TabsContent>
+
+      <TabsContent value="signup" className="space-y-4">
+        {/* OAuth — presented as peer options, not secondary (LOCKED DECISION) */}
+        <OAuthButtons />
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-gray-200" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-white px-2 text-gray-400">or</span>
+          </div>
+        </div>
+
+        <SignupForm />
+      </TabsContent>
+    </Tabs>
+  )
+}
