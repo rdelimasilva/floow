@@ -29,13 +29,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Each user's data is fully isolated — no tenant can access another tenant's data (RLS enforced)
   4. User can subscribe to a paid plan via Stripe checkout and the app reflects their plan status
   5. Stripe webhooks update subscription state (payment success, cancellation, renewal)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: Monorepo scaffold (Turborepo, pnpm, app/package structure, CI/CD)
-- [ ] 01-02: Supabase project, schema foundations, RLS policies, Drizzle ORM setup
-- [ ] 01-03: Auth flows (email/password, magic link, OAuth Google/Apple, session persistence)
-- [ ] 01-04: Stripe billing (freemium plans, checkout, subscription management, webhooks)
+- [ ] 01-01-PLAN.md — Monorepo scaffold (Turborepo, pnpm, app/package structure, shadcn/ui, Vitest)
+- [ ] 01-02-PLAN.md — Supabase schema, RLS policies, triggers, Drizzle ORM setup
+- [ ] 01-03-PLAN.md — Auth flows (email/password, magic link, OAuth Google/Apple, session persistence)
+- [ ] 01-04-PLAN.md — Stripe billing (freemium plans, checkout, subscription management, webhooks)
 
 ### Phase 2: Finance Engine
 **Goal**: Users can track their daily financial life — accounts, transactions, cash flow — and view a consolidated financial dashboard with patrimony snapshots
@@ -99,7 +99,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Platform Foundation | 0/4 | Not started | - |
+| 1. Platform Foundation | 0/4 | Planning complete | - |
 | 2. Finance Engine | 0/4 | Not started | - |
 | 3. Investments Engine | 0/4 | Not started | - |
 | 4. Planning Engine | 0/2 | Not started | - |
