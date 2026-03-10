@@ -1,1 +1,4 @@
-// Schema and client exports will be added in Plan 01-02
+// Barrel export — single import point for all @floow/db consumers
+export * from './schema/auth'
+export * from './schema/billing'
+export * from './client'
