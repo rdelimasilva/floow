@@ -1,16 +1,23 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
+// Public routes that do NOT require authentication.
+// Protect all routes by default — only explicitly listed paths are accessible without auth.
+const publicRoutes = ['/auth', '/api/webhooks']
+
+function isPublicRoute(pathname: string): boolean {
+  if (pathname === '/') return true
+  return publicRoutes.some((prefix) => pathname.startsWith(prefix))
+}
+
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request)
 
   const pathname = request.nextUrl.pathname
 
-  // Protect app routes — redirect unauthenticated users to /auth
-  if (
-    !user &&
-    (pathname.startsWith('/(app)') || pathname.startsWith('/dashboard'))
-  ) {
+  // Redirect unauthenticated users to /auth for any non-public route.
+  // This covers /dashboard, /billing, and any future route under (app)/ automatically.
+  if (!user && !isPublicRoute(pathname)) {
     return NextResponse.redirect(new URL('/auth', request.url))
   }
 
