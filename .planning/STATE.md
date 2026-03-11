@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 03-02-PLAN.md — investment CRUD layer, INV-07 cash flow integration, position table with PnL, price history panel
-last_updated: "2026-03-11T03:30:47.314Z"
+stopped_at: Completed 03-03-PLAN.md — investment dashboards (DASH-02/03/04), allocation pie chart, net worth line chart, income bar chart, patrimony snapshot extended
+last_updated: "2026-03-11T03:37:54.596Z"
 last_activity: 2026-03-10 — Plan 02-04 complete (financial dashboard RSC, patrimony snapshot engine, human verification passed)
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
   percent: 100
 ---
 
@@ -59,6 +59,7 @@ Progress: [██████████] 100%
 | Phase 02-finance-engine P04 | ~90 | 3 tasks | 12 files |
 | Phase 03-investments-engine P03-01 | 5 | 3 tasks | 12 files |
 | Phase 03-investments-engine P03-02 | 5 | 2 tasks | 10 files |
+| Phase 03-investments-engine P03-03 | 4 | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,8 @@ Recent decisions affecting current work:
 - [Phase 03-01]: accountId in portfolioEvents is application-level FK (not DB FK): avoids cross-schema complications between assets and accounts tables
 - [Phase 03-02]: CASH_FLOW_EVENT_TYPES map in actions.ts: buy=expense/sign-1, sell/dividend/interest/amortization=income/sign+1, split=null — single source of truth for INV-07 logic
 - [Phase 03-02]: inArray with drizzle enum column requires mutable Array type (not readonly as const) — TypeScript overload resolution requirement
+- [Phase 03-investments-engine]: investmentValueCents optional param with default 0 in computeSnapshot — backward compatible, Phase 2 callers unchanged
+- [Phase 03-investments-engine]: Client chart components import from @floow/core-finance/src/balance submodule not barrel — prevents ofx-js bundling into browser bundle
 
 ### Pending Todos
 
@@ -118,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T03:30:47.312Z
-Stopped at: Completed 03-02-PLAN.md — investment CRUD layer, INV-07 cash flow integration, position table with PnL, price history panel
+Last session: 2026-03-11T03:37:54.594Z
+Stopped at: Completed 03-03-PLAN.md — investment dashboards (DASH-02/03/04), allocation pie chart, net worth line chart, income bar chart, patrimony snapshot extended
 Resume file: None

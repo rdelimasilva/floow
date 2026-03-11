@@ -29,10 +29,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **INV-01**: User can register assets (ações BR, FIIs, ETFs, cripto, renda fixa, internacional)
 - [x] **INV-02**: User can register holding events (compra, venda, dividendo, juros, split, amortização)
 - [x] **INV-03**: User can view consolidated position with average price
-- [ ] **INV-04**: User can view dividends and income details
+- [x] **INV-04**: User can view dividends and income details
 - [x] **INV-05**: User can view PnL per asset and total
-- [ ] **INV-06**: User can view historical prices and asset evolution
-- [ ] **INV-07**: Investment events integrate with cash flow (aporte=debit, resgate=credit, dividend=credit)
+- [x] **INV-06**: User can view historical prices and asset evolution
+- [x] **INV-07**: Investment events integrate with cash flow (aporte=debit, resgate=credit, dividend=credit)
 
 ### Planning Engine
 
@@ -45,9 +45,9 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Dashboards
 
 - [x] **DASH-01**: Financial dashboard (account summary, balance, cash flow)
-- [ ] **DASH-02**: Investment dashboard (portfolio, current value, PnL, allocation chart)
-- [ ] **DASH-03**: Net worth evolution chart (time → patrimônio)
-- [ ] **DASH-04**: Income dashboard (dividends, interest, monthly passive income)
+- [x] **DASH-02**: Investment dashboard (portfolio, current value, PnL, allocation chart)
+- [x] **DASH-03**: Net worth evolution chart (time → patrimônio)
+- [x] **DASH-04**: Income dashboard (dividends, interest, monthly passive income)
 
 ### Valuation
 
@@ -115,19 +115,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INV-01 | Phase 3 | Complete |
 | INV-02 | Phase 3 | Complete |
 | INV-03 | Phase 3 | Complete |
-| INV-04 | Phase 3 | Pending |
+| INV-04 | Phase 3 | Complete |
 | INV-05 | Phase 3 | Complete |
-| INV-06 | Phase 3 | Pending |
-| INV-07 | Phase 3 | Pending |
+| INV-06 | Phase 3 | Complete |
+| INV-07 | Phase 3 | Complete |
 | PLAN-01 | Phase 4 | Pending |
 | PLAN-02 | Phase 4 | Pending |
 | PLAN-03 | Phase 4 | Pending |
 | PLAN-04 | Phase 4 | Pending |
 | PLAN-05 | Phase 4 | Pending |
 | DASH-01 | Phase 2 | Complete |
-| DASH-02 | Phase 3 | Pending |
-| DASH-03 | Phase 3 | Pending |
-| DASH-04 | Phase 3 | Pending |
+| DASH-02 | Phase 3 | Complete |
+| DASH-03 | Phase 3 | Complete |
+| DASH-04 | Phase 3 | Complete |
 | VAL-01 | Phase 2 | Complete |
 | BILL-01 | Phase 1 | Complete |
 | BILL-02 | Phase 1 | Complete |
