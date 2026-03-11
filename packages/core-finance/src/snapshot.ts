@@ -16,16 +16,19 @@ import type { Account, NewPatrimonySnapshot } from '@floow/db'
  * Rules:
  *  - credit_card type accounts: balance (typically negative) → liability (absolute value)
  *  - All other account types: balance → liquid assets
+ *  - investmentValueCents (optional) is added to liquidAssetsCents and included in breakdown
  *  - netWorthCents = liquidAssetsCents - liabilitiesCents
- *  - breakdown: JSON-serialized object with per-account-type totals
+ *  - breakdown: JSON-serialized object with per-account-type totals + 'investments' key
  *
  * @param accountList - Array of Account objects (should be active accounts only)
  * @param orgId - Organization ID to attach to the snapshot
+ * @param investmentValueCents - Optional total portfolio value in cents (default 0). Backward compatible.
  * @returns NewPatrimonySnapshot ready for DB insertion (no id/createdAt)
  */
 export function computeSnapshot(
   accountList: Account[],
   orgId: string,
+  investmentValueCents: number = 0,
 ): NewPatrimonySnapshot {
   const breakdown: Record<string, number> = {}
 
@@ -46,6 +49,12 @@ export function computeSnapshot(
     } else {
       liquidAssetsCents += bal
     }
+  }
+
+  // Include investment portfolio value in liquid assets and breakdown
+  if (investmentValueCents > 0) {
+    liquidAssetsCents += investmentValueCents
+    breakdown['investments'] = investmentValueCents
   }
 
   const netWorthCents = liquidAssetsCents - liabilitiesCents

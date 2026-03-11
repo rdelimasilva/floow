@@ -5,8 +5,9 @@ import {
   assets,
   portfolioEvents,
   assetPrices,
+  patrimonySnapshots,
 } from '@floow/db'
-import { eq, and, desc, asc, inArray } from 'drizzle-orm'
+import { eq, and, desc, asc, inArray, gte } from 'drizzle-orm'
 import { assertEnv } from '@floow/shared'
 import { computePosition } from '@floow/core-finance/src/portfolio'
 import { getOrgId } from '@/lib/finance/queries'
@@ -280,4 +281,25 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
       name: asset?.name ?? '',
     }
   })
+}
+
+/**
+ * Returns historical patrimony snapshots for the given org, ordered by snapshotDate ascending.
+ * Used by the net worth evolution chart (DASH-03).
+ *
+ * @param orgId - Organization ID
+ * @param months - Number of most recent months to include (default: 12)
+ * @returns Array of PatrimonySnapshot rows ordered oldest-first for chronological chart display
+ */
+export async function getPatrimonySnapshots(orgId: string, months: number = 12) {
+  const db = createDb(DATABASE_URL)
+
+  const cutoff = new Date()
+  cutoff.setMonth(cutoff.getMonth() - months)
+
+  return db
+    .select()
+    .from(patrimonySnapshots)
+    .where(and(eq(patrimonySnapshots.orgId, orgId), gte(patrimonySnapshots.snapshotDate, cutoff)))
+    .orderBy(asc(patrimonySnapshots.snapshotDate))
 }

@@ -6,6 +6,7 @@ import { createAccountSchema, createTransactionSchema, assertEnv } from '@floow/
 import { eq, sql, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { computeAndSaveSnapshot } from '@floow/core-finance/src/snapshot-db'
+import { getPositions } from '@/lib/investments/queries'
 
 const DATABASE_URL = assertEnv('DATABASE_URL')
 
@@ -200,7 +201,18 @@ export async function refreshSnapshot() {
   const orgId = await getOrgId()
   const db = createDb(DATABASE_URL)
 
-  const snapshot = await computeAndSaveSnapshot(db, orgId)
+  // Include investment portfolio value in net worth calculation (DASH-03 / Phase 3)
+  // Gracefully handles the case where no investments exist (returns 0)
+  let investmentValueCents = 0
+  try {
+    const positions = await getPositions(orgId)
+    investmentValueCents = positions.reduce((sum, p) => sum + p.currentValueCents, 0)
+  } catch {
+    // If investment queries fail (e.g., table not yet migrated), fall back to 0
+    investmentValueCents = 0
+  }
+
+  const snapshot = await computeAndSaveSnapshot(db, orgId, investmentValueCents)
 
   revalidatePath('/dashboard')
 

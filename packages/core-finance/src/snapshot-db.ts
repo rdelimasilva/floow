@@ -18,11 +18,15 @@ import { computeSnapshot } from './snapshot'
  *
  * @param db - Drizzle database instance (from createDb)
  * @param orgId - Organization ID
+ * @param investmentValueCents - Optional total portfolio value in cents (default 0).
+ *   The caller (refreshSnapshot action) should compute this from getPositions() before calling.
+ *   Keeping this param here avoids importing apps/web code into the package.
  * @returns The saved PatrimonySnapshot row
  */
 export async function computeAndSaveSnapshot(
   db: ReturnType<typeof createDb>,
   orgId: string,
+  investmentValueCents: number = 0,
 ) {
   // Fetch all active accounts for this org
   const activeAccounts = await db
@@ -30,7 +34,7 @@ export async function computeAndSaveSnapshot(
     .from(accounts)
     .where(and(eq(accounts.orgId, orgId), eq(accounts.isActive, true)))
 
-  const snapshot = computeSnapshot(activeAccounts, orgId)
+  const snapshot = computeSnapshot(activeAccounts, orgId, investmentValueCents)
 
   const [saved] = await db
     .insert(patrimonySnapshots)
