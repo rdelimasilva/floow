@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-stopped_at: Completed 02-01-PLAN.md — finance data layer (schema, migration, core-finance bootstrap)
-last_updated: "2026-03-11T00:46:00Z"
+status: completed
+stopped_at: Completed 02-02-PLAN.md — finance UI pages and server actions
+last_updated: "2026-03-11T00:59:11.033Z"
 last_activity: 2026-03-11 — Plan 02-01 complete (Drizzle finance schema, SQL migration, core-finance balance utilities)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 9
+  completed_plans: 7
   percent: 25
 ---
 
@@ -54,6 +54,7 @@ Progress: [██████░░░░] 25%
 | Phase 01 P04 | 35 | 3 tasks | 12 files |
 | Phase 01 P05 | 1 | 1 tasks | 1 files |
 | Phase 02 P01 | 4 | 2 tasks | 14 files |
+| Phase 02-finance-engine P02-02 | 8 | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Recent decisions affecting current work:
 - [Phase 02-01]: uniqueIndex('uq_transactions_external_account') on (externalId, accountId) — PostgreSQL NULLs are distinct so non-null externalId rows get constrained; enables ON CONFLICT DO NOTHING in Plan 02-03
 - [Phase 02-01]: categories.orgId nullable — NULL = system-wide defaults visible to all authenticated users via extra RLS SELECT policy
 - [Phase 02-01]: core-finance tsconfig: removed rootDir constraint to allow @floow/db cross-package imports via path aliases
+- [Phase 02-finance-engine]: Server actions call getOrgId() reading org from JWT app_metadata.org_ids[0] — no extra DB lookup needed, stateless, matches auth trigger pattern
+- [Phase 02-finance-engine]: Transfer balance updates: two separate atomic SQL calls (not a DB transaction) — acceptable for MVP; true tx would require Drizzle .transaction() and shared connection
+- [Phase 02-finance-engine]: TransactionForm uses Controller from react-hook-form for shadcn Select — Radix Select is controlled component, register() doesn't work directly
 
 ### Pending Todos
 
@@ -97,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T00:46:00Z
-Stopped at: Completed 02-01-PLAN.md — finance data layer (schema, migration, core-finance bootstrap)
+Last session: 2026-03-11T00:59:11.031Z
+Stopped at: Completed 02-02-PLAN.md — finance UI pages and server actions
 Resume file: None
