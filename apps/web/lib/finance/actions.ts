@@ -2,12 +2,31 @@
 
 import { revalidatePath } from 'next/cache'
 import { createDb, accounts, transactions } from '@floow/db'
-import { createAccountSchema, createTransactionSchema } from '@floow/shared'
-import { eq, sql } from 'drizzle-orm'
+import { createAccountSchema, createTransactionSchema, assertEnv } from '@floow/shared'
+import { eq, sql, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { computeAndSaveSnapshot } from '@floow/core-finance/src/snapshot-db'
 
-const DATABASE_URL = process.env.DATABASE_URL ?? ''
+const DATABASE_URL = assertEnv('DATABASE_URL')
+
+type Db = ReturnType<typeof createDb>
+
+/**
+ * Verifies that an account belongs to the given org.
+ * Throws if the account does not exist or belongs to a different org.
+ * Accepts either a db instance or a transaction client (both share the same query API).
+ */
+async function assertAccountOwnership(db: Db, accountId: string, orgId: string): Promise<void> {
+  const [row] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
+    .limit(1)
+
+  if (!row) {
+    throw new Error(`Account ${accountId} not found or does not belong to this organization`)
+  }
+}
 
 /**
  * Server action: create a new financial account for the authenticated user's org.
@@ -52,6 +71,9 @@ export async function createAccount(formData: FormData) {
  *
  * CRITICAL: Uses sql`balance_cents + ${delta}` for atomic balance updates
  * (never read-modify-write — race condition risk).
+ *
+ * Wrapped in a db.transaction so failure at any step rolls back all writes.
+ * Ownership of all accounts is verified against the user's orgId before writes.
  */
 export async function createTransaction(formData: FormData) {
   const orgId = await getOrgId()
@@ -74,82 +96,99 @@ export async function createTransaction(formData: FormData) {
       throw new Error('transferToAccountId is required for transfer transactions')
     }
 
-    const transferGroupId = crypto.randomUUID()
+    const transferToAccountId = input.transferToAccountId
 
-    // Insert source (debit) row — negative amount
-    const [sourceTransaction] = await db
-      .insert(transactions)
-      .values({
-        orgId,
-        accountId: input.accountId,
-        categoryId: input.categoryId ?? null,
-        type: 'transfer',
-        amountCents: -input.amountCents,
-        description: input.description,
-        date: new Date(input.date),
-        transferGroupId,
-      })
-      .returning()
+    const result = await db.transaction(async (tx) => {
+      // Verify both accounts belong to the org before any write
+      await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
+      await assertAccountOwnership(tx as unknown as Db, transferToAccountId, orgId)
 
-    // Insert destination (credit) row — positive amount
-    const [destTransaction] = await db
-      .insert(transactions)
-      .values({
-        orgId,
-        accountId: input.transferToAccountId,
-        categoryId: input.categoryId ?? null,
-        type: 'transfer',
-        amountCents: input.amountCents,
-        description: input.description,
-        date: new Date(input.date),
-        transferGroupId,
-      })
-      .returning()
+      const transferGroupId = crypto.randomUUID()
 
-    // Atomic balance update: source account decremented
-    await db
-      .update(accounts)
-      .set({ balanceCents: sql`balance_cents + ${-input.amountCents}` })
-      .where(eq(accounts.id, input.accountId))
+      // Insert source (debit) row — negative amount
+      const [sourceTransaction] = await tx
+        .insert(transactions)
+        .values({
+          orgId,
+          accountId: input.accountId,
+          categoryId: input.categoryId ?? null,
+          type: 'transfer',
+          amountCents: -input.amountCents,
+          description: input.description,
+          date: new Date(input.date),
+          transferGroupId,
+        })
+        .returning()
 
-    // Atomic balance update: destination account incremented
-    await db
-      .update(accounts)
-      .set({ balanceCents: sql`balance_cents + ${input.amountCents}` })
-      .where(eq(accounts.id, input.transferToAccountId))
+      // Insert destination (credit) row — positive amount
+      const [destTransaction] = await tx
+        .insert(transactions)
+        .values({
+          orgId,
+          accountId: transferToAccountId,
+          categoryId: input.categoryId ?? null,
+          type: 'transfer',
+          amountCents: input.amountCents,
+          description: input.description,
+          date: new Date(input.date),
+          transferGroupId,
+        })
+        .returning()
+
+      // Atomic balance update: source account decremented
+      await tx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${-input.amountCents}` })
+        .where(eq(accounts.id, input.accountId))
+
+      // Atomic balance update: destination account incremented
+      await tx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${input.amountCents}` })
+        .where(eq(accounts.id, transferToAccountId))
+
+      return [sourceTransaction, destTransaction]
+    })
 
     revalidatePath('/transactions')
     revalidatePath('/accounts')
 
-    return [sourceTransaction, destTransaction]
+    return result
   }
 
   // income or expense
   const signedAmount = input.type === 'income' ? input.amountCents : -input.amountCents
 
-  const [transaction] = await db
-    .insert(transactions)
-    .values({
-      orgId,
-      accountId: input.accountId,
-      categoryId: input.categoryId ?? null,
-      type: input.type,
-      amountCents: signedAmount,
-      description: input.description,
-      date: new Date(input.date),
-    })
-    .returning()
+  const result = await db.transaction(async (tx) => {
+    // Verify the account belongs to the org before any write
+    await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
 
-  // Atomic balance update
-  await db
-    .update(accounts)
-    .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
-    .where(eq(accounts.id, input.accountId))
+    const [transaction] = await tx
+      .insert(transactions)
+      .values({
+        orgId,
+        accountId: input.accountId,
+        categoryId: input.categoryId ?? null,
+        type: input.type,
+        amountCents: signedAmount,
+        description: input.description,
+        date: new Date(input.date),
+      })
+      .returning()
+
+    // Atomic balance update
+    await tx
+      .update(accounts)
+      .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
+      .where(eq(accounts.id, input.accountId))
+
+    return transaction
+  })
 
   revalidatePath('/transactions')
   revalidatePath('/accounts')
 
-  return transaction
+  return result
 }
 
 /**

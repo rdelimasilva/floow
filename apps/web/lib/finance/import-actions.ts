@@ -4,10 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { createDb, accounts, transactions } from '@floow/db'
 import { parseOFXFile, parseCSVFile } from '@floow/core-finance'
 import type { CsvColumnMapping } from '@floow/core-finance'
-import { eq, sql } from 'drizzle-orm'
+import { eq, sql, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
+import { assertEnv } from '@floow/shared'
 
-const DATABASE_URL = process.env.DATABASE_URL ?? ''
+const DATABASE_URL = assertEnv('DATABASE_URL')
 
 /**
  * Result returned after an import operation.
@@ -26,6 +27,10 @@ export interface ImportResult {
  *
  * Balance update: after insert, sums the amountCents of all actually-inserted
  * rows (returned via .returning()) and applies an atomic SQL increment.
+ *
+ * Ownership: verifies the target account belongs to the user's org before
+ * any write operation. Both the ownership check and writes are wrapped in a
+ * transaction so a failure at any step rolls back all changes atomically.
  *
  * FormData fields:
  * - file: File (OFX or CSV)
@@ -48,7 +53,7 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
   const content = await file.text()
   const isOFX = file.name.toLowerCase().endsWith('.ofx')
 
-  // Parse file into normalized transactions
+  // Parse file into normalized transactions (done outside transaction — pure computation)
   const normalized = isOFX
     ? await parseOFXFile(content)
     : parseCSVFile(content, {
@@ -76,30 +81,45 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
     importedAt,
   }))
 
-  // Insert with ON CONFLICT DO NOTHING for deduplication.
-  // The UNIQUE INDEX uq_transactions_external_account(external_id, account_id)
-  // from Plan 02-01 enables this. Returns only actually-inserted rows.
-  const insertedRows = await db
-    .insert(transactions)
-    .values(rows)
-    .onConflictDoNothing({ target: [transactions.externalId, transactions.accountId] })
-    .returning({ id: transactions.id, amountCents: transactions.amountCents })
+  const { imported, skipped } = await db.transaction(async (tx) => {
+    // Ownership check: verify the target account belongs to the org before any write
+    const [accountRow] = await tx
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
+      .limit(1)
 
-  const imported = insertedRows.length
-  const skipped = normalized.length - imported
-
-  // Update account balance atomically using sum of inserted amounts.
-  // Uses sql`balance_cents + ${delta}` to avoid read-modify-write race conditions.
-  if (imported > 0) {
-    const totalDelta = insertedRows.reduce((sum, row) => sum + row.amountCents, 0)
-
-    if (totalDelta !== 0) {
-      await db
-        .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${totalDelta}` })
-        .where(eq(accounts.id, accountId))
+    if (!accountRow) {
+      throw new Error(`Account ${accountId} not found or does not belong to this organization`)
     }
-  }
+
+    // Insert with ON CONFLICT DO NOTHING for deduplication.
+    // The UNIQUE INDEX uq_transactions_external_account(external_id, account_id)
+    // from Plan 02-01 enables this. Returns only actually-inserted rows.
+    const insertedRows = await tx
+      .insert(transactions)
+      .values(rows)
+      .onConflictDoNothing({ target: [transactions.externalId, transactions.accountId] })
+      .returning({ id: transactions.id, amountCents: transactions.amountCents })
+
+    const importedCount = insertedRows.length
+    const skippedCount = normalized.length - importedCount
+
+    // Update account balance atomically using sum of inserted amounts.
+    // Uses sql`balance_cents + ${delta}` to avoid read-modify-write race conditions.
+    if (importedCount > 0) {
+      const totalDelta = insertedRows.reduce((sum, row) => sum + row.amountCents, 0)
+
+      if (totalDelta !== 0) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${totalDelta}` })
+          .where(eq(accounts.id, accountId))
+      }
+    }
+
+    return { imported: importedCount, skipped: skippedCount }
+  })
 
   revalidatePath('/transactions')
   revalidatePath('/accounts')
