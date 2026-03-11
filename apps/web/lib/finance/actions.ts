@@ -1,11 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getDb, accounts, transactions } from '@floow/db'
+import { getDb, accounts, transactions, patrimonySnapshots } from '@floow/db'
 import { createAccountSchema, createTransactionSchema } from '@floow/shared'
+import { computeSnapshot } from '@floow/core-finance'
 import { eq, sql, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
-import { computeAndSaveSnapshot } from '@floow/core-finance/src/snapshot-db'
 import { getPositions } from '@/lib/investments/queries'
 
 type Db = ReturnType<typeof getDb>
@@ -210,9 +210,19 @@ export async function refreshSnapshot() {
     investmentValueCents = 0
   }
 
-  const snapshot = await computeAndSaveSnapshot(db, orgId, investmentValueCents)
+  const activeAccounts = await db
+    .select()
+    .from(accounts)
+    .where(and(eq(accounts.orgId, orgId), eq(accounts.isActive, true)))
+
+  const snapshot = computeSnapshot(activeAccounts, orgId, investmentValueCents)
+
+  const [saved] = await db
+    .insert(patrimonySnapshots)
+    .values(snapshot)
+    .returning()
 
   revalidatePath('/dashboard')
 
-  return snapshot
+  return saved
 }
