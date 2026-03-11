@@ -47,6 +47,12 @@ export default async function AppLayout({
                   Transacoes
                 </Link>
                 <Link
+                  href="/investments"
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Investimentos
+                </Link>
+                <Link
                   href="/billing"
                   className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
                 >
