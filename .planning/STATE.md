@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 02-02-PLAN.md — finance UI pages and server actions
-last_updated: "2026-03-11T00:59:11.033Z"
+stopped_at: Completed 02-03-PLAN.md — OFX/CSV parsers, cash flow aggregation, import page with preview and dedup
+last_updated: "2026-03-11T01:01:09.617Z"
 last_activity: 2026-03-11 — Plan 02-01 complete (Drizzle finance schema, SQL migration, core-finance balance utilities)
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
   percent: 25
 ---
 
@@ -55,6 +55,7 @@ Progress: [██████░░░░] 25%
 | Phase 01 P05 | 1 | 1 tasks | 1 files |
 | Phase 02 P01 | 4 | 2 tasks | 14 files |
 | Phase 02-finance-engine P02-02 | 8 | 2 tasks | 16 files |
+| Phase 02-finance-engine P03 | 9 | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 02-finance-engine]: Server actions call getOrgId() reading org from JWT app_metadata.org_ids[0] — no extra DB lookup needed, stateless, matches auth trigger pattern
 - [Phase 02-finance-engine]: Transfer balance updates: two separate atomic SQL calls (not a DB transaction) — acceptable for MVP; true tx would require Drizzle .transaction() and shared connection
 - [Phase 02-finance-engine]: TransactionForm uses Controller from react-hook-form for shadcn Select — Radix Select is controlled component, register() doesn't work directly
+- [Phase 02-03]: ofx-js.d.ts in packages/core-finance/src/types/ — inside src/ tree so web typecheck resolves it via path alias
+- [Phase 02-03]: CashFlowChart negates expense for display (both bars above X axis) while raw data keeps negative amountCents convention
+- [Phase 02-03]: importTransactions balance delta computed from .returning() inserted rows — skipped duplicates excluded from balance update
 
 ### Pending Todos
 
@@ -101,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T00:59:11.031Z
-Stopped at: Completed 02-02-PLAN.md — finance UI pages and server actions
+Last session: 2026-03-11T01:01:09.615Z
+Stopped at: Completed 02-03-PLAN.md — OFX/CSV parsers, cash flow aggregation, import page with preview and dedup
 Resume file: None

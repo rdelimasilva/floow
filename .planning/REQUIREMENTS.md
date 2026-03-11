@@ -21,8 +21,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **FIN-01**: User can create and manage accounts (corrente, poupança, corretora)
 - [x] **FIN-02**: User can register transactions (receita, despesa, transferência)
 - [x] **FIN-03**: User can categorize transactions
-- [ ] **FIN-04**: User can view monthly cash flow
-- [ ] **FIN-05**: User can import OFX/CSV bank statements
+- [x] **FIN-04**: User can view monthly cash flow
+- [x] **FIN-05**: User can import OFX/CSV bank statements
 
 ### Investments Engine
 
@@ -110,8 +110,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIN-01 | Phase 2 | Complete |
 | FIN-02 | Phase 2 | Complete |
 | FIN-03 | Phase 2 | Complete |
-| FIN-04 | Phase 2 | Pending |
-| FIN-05 | Phase 2 | Pending |
+| FIN-04 | Phase 2 | Complete |
+| FIN-05 | Phase 2 | Complete |
 | INV-01 | Phase 3 | Pending |
 | INV-02 | Phase 3 | Pending |
 | INV-03 | Phase 3 | Pending |
