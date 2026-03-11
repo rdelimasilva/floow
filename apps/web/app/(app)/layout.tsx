@@ -35,6 +35,18 @@ export default async function AppLayout({
                   Dashboard
                 </Link>
                 <Link
+                  href="/accounts"
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Contas
+                </Link>
+                <Link
+                  href="/transactions"
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Transacoes
+                </Link>
+                <Link
                   href="/billing"
                   className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
                 >

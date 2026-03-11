@@ -5,6 +5,8 @@
  * CRITICAL: OFX dates are YYYYMMDDHHMMSS.SSS[±hh:TZ] — NOT ISO 8601.
  * Do NOT pass raw OFX dates to `new Date()`. Use parseOFXDate() instead.
  */
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — ofx-js has no type declarations; see ofx-js.d.ts ambient declaration
 import { parse as parseOFX } from 'ofx-js'
 import type { NormalizedTransaction } from '../types'
 
