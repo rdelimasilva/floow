@@ -2,4 +2,5 @@
 export * from './schema/auth'
 export * from './schema/billing'
 export * from './schema/finance'
+export * from './schema/investments'
 export * from './client'

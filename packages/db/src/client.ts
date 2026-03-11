@@ -5,8 +5,9 @@ import postgres from 'postgres'
 import * as schema from './schema/auth'
 import * as billingSchema from './schema/billing'
 import * as financeSchema from './schema/finance'
+import * as investmentsSchema from './schema/investments'
 
-const fullSchema = { ...schema, ...billingSchema, ...financeSchema }
+const fullSchema = { ...schema, ...billingSchema, ...financeSchema, ...investmentsSchema }
 
 /**
  * Asserts that an environment variable is set and non-empty.
