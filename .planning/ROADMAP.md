@@ -36,7 +36,7 @@ Plans:
 - [x] 01-02-PLAN.md — Supabase schema, RLS policies, triggers, Drizzle ORM setup
 - [x] 01-03-PLAN.md — Auth flows (email/password, magic link, OAuth Google/Apple, session persistence)
 - [x] 01-04-PLAN.md — Stripe billing (freemium plans, checkout, subscription management, webhooks)
-- [ ] 01-05-PLAN.md — Gap closure: fix middleware route protection (inversion-based pattern)
+- [x] 01-05-PLAN.md — Gap closure: fix middleware route protection (inversion-based pattern)
 
 ### Phase 2: Finance Engine
 **Goal**: Users can track their daily financial life — accounts, transactions, cash flow — and view a consolidated financial dashboard with patrimony snapshots
@@ -49,13 +49,13 @@ Plans:
   4. User can import bank statements via OFX or CSV to populate transaction history
   5. Financial dashboard shows account summary, balances, and cash flow at a glance
   6. System generates a patrimony snapshot capturing net worth, liquid assets, liabilities, and breakdown
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: Account and transaction data model (Drizzle schema, RLS, core-finance package)
-- [ ] 02-02: Transaction registration and categorization (web + API)
-- [ ] 02-03: OFX/CSV import and cash flow views
-- [ ] 02-04: Financial dashboard (DASH-01) and patrimony snapshot engine (VAL-01)
+- [ ] 02-01-PLAN.md — Finance data layer (Drizzle schema, RLS, SQL migration, core-finance bootstrap with balance utilities)
+- [ ] 02-02-PLAN.md — Account and transaction CRUD (server actions, query helpers, account/transaction pages with navigation)
+- [ ] 02-03-PLAN.md — OFX/CSV import parsers, cash flow aggregation, import page with preview
+- [ ] 02-04-PLAN.md — Financial dashboard (DASH-01) and patrimony snapshot engine (VAL-01)
 
 ### Phase 3: Investments Engine
 **Goal**: Users can manage their complete investment portfolio across all asset classes, see consolidated positions with PnL, and visualize wealth evolution
