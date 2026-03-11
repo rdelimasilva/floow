@@ -90,6 +90,10 @@ function setupUserMock(orgId = 'org-test-123') {
   })
 }
 
+const TEST_SOURCE_ACCOUNT_ID = '11111111-1111-1111-1111-111111111111'
+const TEST_DEST_ACCOUNT_ID = '22222222-2222-2222-2222-222222222222'
+const TEST_CATEGORY_ID = '33333333-3333-3333-3333-333333333333'
+
 function buildFormData(fields: Record<string, string>): FormData {
   const fd = new FormData()
   for (const [k, v] of Object.entries(fields)) {
@@ -113,12 +117,12 @@ describe('createTransaction', () => {
     const { createTransaction } = await import('@/lib/finance/actions')
 
     const formData = buildFormData({
-      accountId: 'acct-source-uuid',
+      accountId: TEST_SOURCE_ACCOUNT_ID,
       type: 'transfer',
       amountCents: '5000',
       description: 'Transfer test',
       date: '2026-01-01',
-      transferToAccountId: 'acct-dest-uuid',
+      transferToAccountId: TEST_DEST_ACCOUNT_ID,
     })
 
     await createTransaction(formData)
@@ -145,12 +149,12 @@ describe('createTransaction', () => {
     }))
 
     const formData = buildFormData({
-      accountId: 'acct-source-uuid',
+      accountId: TEST_SOURCE_ACCOUNT_ID,
       type: 'transfer',
       amountCents: '5000',
       description: 'Transfer test',
       date: '2026-01-01',
-      transferToAccountId: 'acct-dest-uuid',
+      transferToAccountId: TEST_DEST_ACCOUNT_ID,
     })
 
     await createTransaction(formData)
@@ -180,12 +184,12 @@ describe('createTransaction', () => {
     }))
 
     const formData = buildFormData({
-      accountId: 'acct-source-uuid',
+      accountId: TEST_SOURCE_ACCOUNT_ID,
       type: 'transfer',
       amountCents: '5000',
       description: 'Transfer test',
       date: '2026-01-01',
-      transferToAccountId: 'acct-dest-uuid',
+      transferToAccountId: TEST_DEST_ACCOUNT_ID,
     })
 
     await createTransaction(formData)
@@ -210,12 +214,12 @@ describe('createTransaction', () => {
     }))
 
     const formData = buildFormData({
-      accountId: 'acct-source-uuid',
+      accountId: TEST_SOURCE_ACCOUNT_ID,
       type: 'transfer',
       amountCents: '5000',
       description: 'Transfer test',
       date: '2026-01-01',
-      transferToAccountId: 'acct-dest-uuid',
+      transferToAccountId: TEST_DEST_ACCOUNT_ID,
     })
 
     await createTransaction(formData)
@@ -252,8 +256,8 @@ describe('createTransaction', () => {
     }))
 
     const formData = buildFormData({
-      accountId: 'acct-source-uuid',
-      categoryId: 'cat-uuid-1',
+      accountId: TEST_SOURCE_ACCOUNT_ID,
+      categoryId: TEST_CATEGORY_ID,
       type: 'income',
       amountCents: '10000',
       description: 'Salary',
@@ -295,8 +299,8 @@ describe('createTransaction', () => {
     }))
 
     const formData = buildFormData({
-      accountId: 'acct-source-uuid',
-      categoryId: 'cat-uuid-1',
+      accountId: TEST_SOURCE_ACCOUNT_ID,
+      categoryId: TEST_CATEGORY_ID,
       type: 'expense',
       amountCents: '3500',
       description: 'Groceries',

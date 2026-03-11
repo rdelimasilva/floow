@@ -9,11 +9,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@floow/db": "workspace:*",
     "drizzle-orm": "^0.40.0",
-    "zod": "catalog:",
-    "@floow/db": "workspace:*"
+    "ofx-js": "^0.2.0",
+    "papaparse": "^5.5.3",
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/papaparse": "^5.5.2",
     "typescript": "catalog:",
     "vitest": "^3.0.0"
   }
