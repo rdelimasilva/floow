@@ -16,7 +16,8 @@
     "paths": {
       "@floow/db": ["./packages/db/src"],
       "@floow/shared": ["./packages/shared/src"],
-      "@floow/core-finance": ["./packages/core-finance/src"]
+      "@floow/core-finance": ["./packages/core-finance/src"],
+      "@floow/core-finance/*": ["./packages/core-finance/*"]
     }
   },
   "exclude": ["node_modules"]
