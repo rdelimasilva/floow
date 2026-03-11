@@ -18,9 +18,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Finance Engine
 
-- [ ] **FIN-01**: User can create and manage accounts (corrente, poupança, corretora)
-- [ ] **FIN-02**: User can register transactions (receita, despesa, transferência)
-- [ ] **FIN-03**: User can categorize transactions
+- [x] **FIN-01**: User can create and manage accounts (corrente, poupança, corretora)
+- [x] **FIN-02**: User can register transactions (receita, despesa, transferência)
+- [x] **FIN-03**: User can categorize transactions
 - [ ] **FIN-04**: User can view monthly cash flow
 - [ ] **FIN-05**: User can import OFX/CSV bank statements
 
@@ -107,9 +107,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-04 | Phase 1 | Complete |
 | AUTH-05 | Phase 1 | Complete (01-01) |
 | AUTH-06 | Phase 1 | Complete |
-| FIN-01 | Phase 2 | Pending |
-| FIN-02 | Phase 2 | Pending |
-| FIN-03 | Phase 2 | Pending |
+| FIN-01 | Phase 2 | Complete |
+| FIN-02 | Phase 2 | Complete |
+| FIN-03 | Phase 2 | Complete |
 | FIN-04 | Phase 2 | Pending |
 | FIN-05 | Phase 2 | Pending |
 | INV-01 | Phase 3 | Pending |

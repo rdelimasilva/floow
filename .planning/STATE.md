@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 01-05-PLAN.md — middleware inversion-based route protection gap closure
-last_updated: "2026-03-10T23:31:02.325Z"
-last_activity: 2026-03-10 — Plan 01-04 complete (Stripe billing, checkout, webhooks, billing UI)
+status: in_progress
+stopped_at: Completed 02-01-PLAN.md — finance data layer (schema, migration, core-finance bootstrap)
+last_updated: "2026-03-11T00:46:00Z"
+last_activity: 2026-03-11 — Plan 02-01 complete (Drizzle finance schema, SQL migration, core-finance balance utilities)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_plans: 6
+  completed_plans: 6
+  percent: 25
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** O investidor experiente consegue ver seu patrimônio consolidado — finanças, investimentos e projeções futuras — tudo num único lugar.
-**Current focus:** Phase 1 — Platform Foundation
+**Current focus:** Phase 2 — Finance Engine
 
 ## Current Position
 
-Phase: 1 of 4 (Platform Foundation) — COMPLETE
-Plan: 4 of 4 in current phase (01-04 complete)
-Status: Phase 1 complete — ready for Phase 2
-Last activity: 2026-03-10 — Plan 01-04 complete (Stripe billing, checkout, webhooks, billing UI)
+Phase: 2 of 4 (Finance Engine) — IN PROGRESS
+Plan: 1 of N in current phase (02-01 complete)
+Status: Phase 2 started — finance data layer complete
+Last activity: 2026-03-11 — Plan 02-01 complete (Drizzle finance schema, SQL migration, core-finance balance utilities)
 
-Progress: [██████████] 100%
+Progress: [██████░░░░] 25%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [██████████] 100%
 | Phase 01 P03 | 6 | 3 tasks | 23 files |
 | Phase 01 P04 | 35 | 3 tasks | 12 files |
 | Phase 01 P05 | 1 | 1 tasks | 1 files |
+| Phase 02 P01 | 4 | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,10 @@ Recent decisions affecting current work:
 - [Phase 01-04]: Webhook correlation uses client_reference_id=orgId (not userId) — billing is org-scoped, not user-scoped
 - [Phase 01-04]: Server actions for checkout/portal (not API routes) — simpler, co-located with billing page, no extra endpoint needed
 - [Phase 01-05]: Inversion-based middleware protection: allowlist public routes (/auth, /api/webhooks, /) instead of blocklisting — ensures any future (app)/ route is automatically protected without code changes
+- [Phase 02-01]: Integer cents for all monetary values — avoids floating-point errors in financial calculations
+- [Phase 02-01]: uniqueIndex('uq_transactions_external_account') on (externalId, accountId) — PostgreSQL NULLs are distinct so non-null externalId rows get constrained; enables ON CONFLICT DO NOTHING in Plan 02-03
+- [Phase 02-01]: categories.orgId nullable — NULL = system-wide defaults visible to all authenticated users via extra RLS SELECT policy
+- [Phase 02-01]: core-finance tsconfig: removed rootDir constraint to allow @floow/db cross-package imports via path aliases
 
 ### Pending Todos
 
@@ -92,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T23:15:05.339Z
-Stopped at: Completed 01-05-PLAN.md — middleware inversion-based route protection gap closure
+Last session: 2026-03-11T00:46:00Z
+Stopped at: Completed 02-01-PLAN.md — finance data layer (schema, migration, core-finance bootstrap)
 Resume file: None
