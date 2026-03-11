@@ -52,10 +52,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Finance data layer (Drizzle schema, RLS, SQL migration, core-finance bootstrap with balance utilities)
-- [ ] 02-02-PLAN.md — Account and transaction CRUD (server actions, query helpers, account/transaction pages with navigation)
-- [ ] 02-03-PLAN.md — OFX/CSV import parsers, cash flow aggregation, import page with preview
-- [ ] 02-04-PLAN.md — Financial dashboard (DASH-01) and patrimony snapshot engine (VAL-01)
+- [x] 02-01-PLAN.md — Finance data layer (Drizzle schema, RLS, SQL migration, core-finance bootstrap with balance utilities)
+- [x] 02-02-PLAN.md — Account and transaction CRUD (server actions, query helpers, account/transaction pages with navigation)
+- [x] 02-03-PLAN.md — OFX/CSV import parsers, cash flow aggregation, import page with preview
+- [x] 02-04-PLAN.md — Financial dashboard (DASH-01) and patrimony snapshot engine (VAL-01)
 
 ### Phase 3: Investments Engine
 **Goal**: Users can manage their complete investment portfolio across all asset classes, see consolidated positions with PnL, and visualize wealth evolution
@@ -69,13 +69,13 @@ Plans:
   5. Investment dashboard shows portfolio value, PnL, and allocation chart by asset class
   6. Net worth evolution chart displays how total patrimony changed over time
   7. Income dashboard shows dividend history, interest, and estimated monthly passive income
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 03-01: Asset registry and portfolio event model (Drizzle schema, RLS, core-finance extension)
-- [ ] 03-02: Position calculation engine (average price, PnL, split/amortization logic)
-- [ ] 03-03: Cash flow integration (INV-07) and historical price/valuation tracking (INV-06)
-- [ ] 03-04: Investment dashboards (DASH-02, DASH-03, DASH-04)
+- [ ] 03-01-PLAN.md — Investment data layer and TDD position/income engines (schema, RLS, computePosition, aggregateIncome)
+- [ ] 03-02-PLAN.md — Investment CRUD, cash flow integration (INV-07), price tracking, position table UI
+- [ ] 03-03-PLAN.md — Investment dashboards (DASH-02 allocation, DASH-03 net worth evolution, DASH-04 income)
+- [ ] 03-04-PLAN.md — Human verification checkpoint (end-to-end investments engine)
 
 ### Phase 4: Planning Engine
 **Goal**: Users can simulate retirement scenarios, calculate their financial independence timeline, and plan wealth transfer to heirs
