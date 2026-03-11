@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { assertEnv } from '@floow/shared'
 
 /**
  * Lazy Stripe client factory.
@@ -14,7 +15,7 @@ let _stripe: Stripe | null = null
 
 export function getStripeServer(): Stripe {
   if (!_stripe) {
-    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+    _stripe = new Stripe(assertEnv('STRIPE_SECRET_KEY'))
   }
   return _stripe
 }
@@ -55,8 +56,8 @@ export async function createCheckoutSession(
   // Look up existing stripe_customer_id from subscriptions table
   const cookieStore = await cookies()
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    assertEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    assertEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
     {
       cookies: {
         getAll() {

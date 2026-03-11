@@ -2,3 +2,4 @@
 export * from './schemas/auth'
 export * from './schemas/billing'
 export * from './schemas/finance'
+export * from './env'

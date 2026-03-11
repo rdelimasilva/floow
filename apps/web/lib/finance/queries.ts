@@ -3,8 +3,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createDb, accounts, transactions, categories, patrimonySnapshots } from '@floow/db'
 import { eq, and, desc, isNull, or, gte } from 'drizzle-orm'
+import { assertEnv } from '@floow/shared'
 
-const DATABASE_URL = process.env.DATABASE_URL ?? ''
+const DATABASE_URL = assertEnv('DATABASE_URL')
 
 /**
  * Extracts the orgId from the authenticated user's JWT app_metadata.
