@@ -5,6 +5,7 @@ import { createDb, accounts, transactions } from '@floow/db'
 import { createAccountSchema, createTransactionSchema } from '@floow/shared'
 import { eq, sql } from 'drizzle-orm'
 import { getOrgId } from './queries'
+import { computeAndSaveSnapshot } from '@floow/core-finance/src/snapshot-db'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? ''
 
@@ -149,4 +150,20 @@ export async function createTransaction(formData: FormData) {
   revalidatePath('/accounts')
 
   return transaction
+}
+
+/**
+ * Server action: compute and save a new patrimony snapshot for the authenticated user's org.
+ * Fetches all active accounts, computes net worth, and saves to patrimony_snapshots.
+ * Revalidates the dashboard page so the updated snapshot appears immediately.
+ */
+export async function refreshSnapshot() {
+  const orgId = await getOrgId()
+  const db = createDb(DATABASE_URL)
+
+  const snapshot = await computeAndSaveSnapshot(db, orgId)
+
+  revalidatePath('/dashboard')
+
+  return snapshot
 }

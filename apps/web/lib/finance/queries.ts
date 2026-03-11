@@ -1,8 +1,8 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { createDb, accounts, transactions, categories } from '@floow/db'
-import { eq, and, desc, isNull, or } from 'drizzle-orm'
+import { createDb, accounts, transactions, categories, patrimonySnapshots } from '@floow/db'
+import { eq, and, desc, isNull, or, gte } from 'drizzle-orm'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? ''
 
@@ -93,4 +93,43 @@ export async function getCategories(orgId: string) {
     .from(categories)
     .where(or(eq(categories.orgId, orgId), isNull(categories.orgId)))
     .orderBy(categories.type, categories.name)
+}
+
+/**
+ * Returns the most recent patrimony snapshot for the given org, or null if none exists.
+ */
+export async function getLatestSnapshot(orgId: string) {
+  const db = createDb(DATABASE_URL)
+  const results = await db
+    .select()
+    .from(patrimonySnapshots)
+    .where(eq(patrimonySnapshots.orgId, orgId))
+    .orderBy(desc(patrimonySnapshots.snapshotDate))
+    .limit(1)
+
+  return results[0] ?? null
+}
+
+/**
+ * Returns transactions from the last N months for cash flow chart aggregation.
+ * Defaults to 6 months. Ordered by date descending.
+ */
+export async function getRecentTransactions(orgId: string, months: number = 6) {
+  const db = createDb(DATABASE_URL)
+
+  const cutoff = new Date()
+  cutoff.setMonth(cutoff.getMonth() - months)
+
+  return db
+    .select({
+      id: transactions.id,
+      orgId: transactions.orgId,
+      accountId: transactions.accountId,
+      type: transactions.type,
+      amountCents: transactions.amountCents,
+      date: transactions.date,
+    })
+    .from(transactions)
+    .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff)))
+    .orderBy(desc(transactions.date))
 }
