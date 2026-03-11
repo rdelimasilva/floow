@@ -44,14 +44,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Dashboards
 
-- [ ] **DASH-01**: Financial dashboard (account summary, balance, cash flow)
+- [x] **DASH-01**: Financial dashboard (account summary, balance, cash flow)
 - [ ] **DASH-02**: Investment dashboard (portfolio, current value, PnL, allocation chart)
 - [ ] **DASH-03**: Net worth evolution chart (time → patrimônio)
 - [ ] **DASH-04**: Income dashboard (dividends, interest, monthly passive income)
 
 ### Valuation
 
-- [ ] **VAL-01**: System generates patrimony snapshots (net worth, liquid assets, liabilities, breakdown)
+- [x] **VAL-01**: System generates patrimony snapshots (net worth, liquid assets, liabilities, breakdown)
 
 ### Billing
 
@@ -124,11 +124,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLAN-03 | Phase 4 | Pending |
 | PLAN-04 | Phase 4 | Pending |
 | PLAN-05 | Phase 4 | Pending |
-| DASH-01 | Phase 2 | Pending |
+| DASH-01 | Phase 2 | Complete |
 | DASH-02 | Phase 3 | Pending |
 | DASH-03 | Phase 3 | Pending |
 | DASH-04 | Phase 3 | Pending |
-| VAL-01 | Phase 2 | Pending |
+| VAL-01 | Phase 2 | Complete |
 | BILL-01 | Phase 1 | Complete |
 | BILL-02 | Phase 1 | Complete |
 | BILL-03 | Phase 1 | Complete |

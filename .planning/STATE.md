@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 02-03-PLAN.md — OFX/CSV parsers, cash flow aggregation, import page with preview and dedup
-last_updated: "2026-03-11T01:01:09.617Z"
-last_activity: 2026-03-11 — Plan 02-01 complete (Drizzle finance schema, SQL migration, core-finance balance utilities)
+stopped_at: Completed 02-04-PLAN.md — financial dashboard with account summary, cash flow chart, and patrimony snapshot
+last_updated: "2026-03-10T00:00:00.000Z"
+last_activity: 2026-03-10 — Plan 02-04 complete (financial dashboard RSC, patrimony snapshot engine, human verification passed)
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
   percent: 25
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 
 ## Current Position
 
-Phase: 2 of 4 (Finance Engine) — IN PROGRESS
-Plan: 1 of N in current phase (02-01 complete)
-Status: Phase 2 started — finance data layer complete
-Last activity: 2026-03-11 — Plan 02-01 complete (Drizzle finance schema, SQL migration, core-finance balance utilities)
+Phase: 2 of 4 (Finance Engine) — COMPLETE
+Plan: 4 of 4 in phase 02 (02-04 complete)
+Status: Phase 2 fully complete — Finance Engine shipped and human-verified end-to-end
+Last activity: 2026-03-10 — Plan 02-04 complete (financial dashboard RSC, patrimony snapshot engine, human verification passed)
 
-Progress: [██████░░░░] 25%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [██████░░░░] 25%
 | Phase 02 P01 | 4 | 2 tasks | 14 files |
 | Phase 02-finance-engine P02-02 | 8 | 2 tasks | 16 files |
 | Phase 02-finance-engine P03 | 9 | 2 tasks | 14 files |
+| Phase 02-finance-engine P04 | ~90 | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,10 @@ Recent decisions affecting current work:
 - [Phase 02-03]: ofx-js.d.ts in packages/core-finance/src/types/ — inside src/ tree so web typecheck resolves it via path alias
 - [Phase 02-03]: CashFlowChart negates expense for display (both bars above X axis) while raw data keeps negative amountCents convention
 - [Phase 02-03]: importTransactions balance delta computed from .returning() inserted rows — skipped duplicates excluded from balance update
+- [Phase 02-04]: computeSnapshot is a pure function taking Account[] — no DB dependency, fully testable in isolation; computeAndSaveSnapshot is thin DB wrapper (pattern for all future domain computations)
+- [Phase 02-04]: Client components import directly from submodule (e.g., @floow/core-finance/snapshot) not barrel index — prevents webpack bundling ofx-js (Node-only) into browser bundle
+- [Phase 02-04]: db.transaction() wraps transfer balance updates and import insertions for atomicity — replaces earlier two-separate-SQL-calls pattern from Plan 02-02
+- [Phase 02-04]: Fail-fast env var validation at startup — missing vars cause immediate descriptive error instead of silent runtime failure deep in call stack
 
 ### Pending Todos
 
@@ -105,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T01:01:09.615Z
-Stopped at: Completed 02-03-PLAN.md — OFX/CSV parsers, cash flow aggregation, import page with preview and dedup
+Last session: 2026-03-10T00:00:00.000Z
+Stopped at: Completed 02-04-PLAN.md — financial dashboard, patrimony snapshot, human verification passed. Phase 2 complete.
 Resume file: None
