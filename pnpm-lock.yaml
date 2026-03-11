@@ -184,6 +184,12 @@ importers:
 
   packages/core-finance:
     dependencies:
+      '@floow/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.40.0
+        version: 0.40.1(gel@2.2.0)(postgres@3.4.8)
       zod:
         specifier: 'catalog:'
         version: 3.25.76
@@ -191,6 +197,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@22.19.15)(jiti@1.21.7)(jsdom@26.1.0)(lightningcss@1.27.0)(terser@5.46.0)
 
   packages/db:
     dependencies:

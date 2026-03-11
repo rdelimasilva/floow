@@ -5,12 +5,16 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "zod": "catalog:"
+    "drizzle-orm": "^0.40.0",
+    "zod": "catalog:",
+    "@floow/db": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "^3.0.0"
   }
 }
