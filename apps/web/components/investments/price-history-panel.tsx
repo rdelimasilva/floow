@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getPriceHistory } from '@/lib/investments/queries'
+import { getPriceHistory } from '@/lib/investments/client-actions'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { PriceHistoryEntry } from '@/lib/investments/queries'
 

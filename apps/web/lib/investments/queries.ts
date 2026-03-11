@@ -1,18 +1,13 @@
-'use server'
-
 import {
-  createDb,
+  getDb,
   assets,
   portfolioEvents,
   assetPrices,
   patrimonySnapshots,
 } from '@floow/db'
 import { eq, and, desc, asc, inArray, gte } from 'drizzle-orm'
-import { assertEnv } from '@floow/shared'
 import { computePosition } from '@floow/core-finance/src/portfolio'
 import { getOrgId } from '@/lib/finance/queries'
-
-const DATABASE_URL = assertEnv('DATABASE_URL')
 
 // ---------------------------------------------------------------------------
 // Type Definitions
@@ -61,7 +56,7 @@ export interface IncomeEventWithAsset {
  * Returns all assets for the given org, ordered by ticker.
  */
 export async function getAssets(orgId: string) {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
   return db
     .select()
     .from(assets)
@@ -74,7 +69,7 @@ export async function getAssets(orgId: string) {
  * Ordered by eventDate descending (most recent first).
  */
 export async function getPortfolioEvents(orgId: string, assetId?: string) {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const where = assetId
     ? and(eq(portfolioEvents.orgId, orgId), eq(portfolioEvents.assetId, assetId))
@@ -92,7 +87,7 @@ export async function getPortfolioEvents(orgId: string, assetId?: string) {
  * Uses a subquery approach: fetch all prices, group by assetId keeping the latest priceDate.
  */
 export async function getLatestPrices(orgId: string): Promise<Map<string, number>> {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   // Fetch all prices for the org, ordered by priceDate descending
   const allPrices = await db
@@ -121,7 +116,7 @@ export async function getLatestPrices(orgId: string): Promise<Map<string, number
  * Fulfills INV-06: view historical prices and asset evolution per asset.
  */
 export async function getPriceHistory(orgId: string, assetId: string): Promise<PriceHistoryEntry[]> {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const rows = await db
     .select({
@@ -144,7 +139,7 @@ export async function getPriceHistory(orgId: string, assetId: string): Promise<P
  * (fully sold positions with historical gains remain visible).
  */
 export async function getPositions(orgId: string): Promise<EnrichedPosition[]> {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   // Fetch all assets and their events in parallel
   const [allAssets, allEvents, latestPrices] = await Promise.all([
@@ -220,7 +215,7 @@ export async function getPositions(orgId: string): Promise<EnrichedPosition[]> {
  * Joined with assets to include ticker/name.
  */
 export async function getIncomeEvents(orgId: string, months: number = 12): Promise<IncomeEventWithAsset[]> {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const INCOME_TYPES: Array<'dividend' | 'interest' | 'amortization'> = ['dividend', 'interest', 'amortization']
 
@@ -292,7 +287,7 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
  * @returns Array of PatrimonySnapshot rows ordered oldest-first for chronological chart display
  */
 export async function getPatrimonySnapshots(orgId: string, months: number = 12) {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const cutoff = new Date()
   cutoff.setMonth(cutoff.getMonth() - months)

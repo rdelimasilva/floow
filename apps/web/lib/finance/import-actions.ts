@@ -1,14 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createDb, accounts, transactions } from '@floow/db'
+import { getDb, accounts, transactions } from '@floow/db'
 import { parseOFXFile, parseCSVFile } from '@floow/core-finance'
 import type { CsvColumnMapping } from '@floow/core-finance'
 import { eq, sql, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
-import { assertEnv } from '@floow/shared'
-
-const DATABASE_URL = assertEnv('DATABASE_URL')
 
 /**
  * Result returned after an import operation.
@@ -42,7 +39,7 @@ export interface ImportResult {
  */
 export async function importTransactions(formData: FormData): Promise<ImportResult> {
   const orgId = await getOrgId()
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const file = formData.get('file') as File | null
   if (!file) throw new Error('No file provided')

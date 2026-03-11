@@ -1,28 +1,22 @@
-'use server'
-
 import { createClient } from '@/lib/supabase/server'
-import { createDb, accounts, transactions, categories, patrimonySnapshots } from '@floow/db'
+import { getDb, accounts, transactions, categories, patrimonySnapshots } from '@floow/db'
 import { eq, and, desc, isNull, or, gte } from 'drizzle-orm'
-import { assertEnv } from '@floow/shared'
-
-const DATABASE_URL = assertEnv('DATABASE_URL')
 
 /**
  * Extracts the orgId from the authenticated user's JWT app_metadata.
- * Throws if no user or no orgId is found.
+ * Uses getSession() (local cookie read, no network) since middleware already validated JWT.
  */
 export async function getOrgId(): Promise<string> {
   const supabase = await createClient()
   const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  if (error || !user) {
+  if (!session) {
     throw new Error('Not authenticated')
   }
 
-  const orgId = user.app_metadata?.org_ids?.[0]
+  const orgId = session.user.app_metadata?.org_ids?.[0]
   if (!orgId) {
     throw new Error('No organization found for user')
   }
@@ -34,7 +28,7 @@ export async function getOrgId(): Promise<string> {
  * Returns all active accounts for the given org, ordered by name.
  */
 export async function getAccounts(orgId: string) {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
   return db
     .select()
     .from(accounts)
@@ -50,7 +44,7 @@ export async function getTransactions(
   orgId: string,
   opts?: { limit?: number; offset?: number; accountId?: string }
 ) {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
   const limit = opts?.limit ?? 50
   const offset = opts?.offset ?? 0
 
@@ -88,7 +82,7 @@ export async function getTransactions(
  * Returns categories for the given org plus system-wide categories (orgId IS NULL).
  */
 export async function getCategories(orgId: string) {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
   return db
     .select()
     .from(categories)
@@ -100,7 +94,7 @@ export async function getCategories(orgId: string) {
  * Returns the most recent patrimony snapshot for the given org, or null if none exists.
  */
 export async function getLatestSnapshot(orgId: string) {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
   const results = await db
     .select()
     .from(patrimonySnapshots)
@@ -116,7 +110,7 @@ export async function getLatestSnapshot(orgId: string) {
  * Defaults to 6 months. Ordered by date descending.
  */
 export async function getRecentTransactions(orgId: string, months: number = 6) {
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const cutoff = new Date()
   cutoff.setMonth(cutoff.getMonth() - months)

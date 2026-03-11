@@ -1,16 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createDb, accounts, transactions } from '@floow/db'
-import { createAccountSchema, createTransactionSchema, assertEnv } from '@floow/shared'
+import { getDb, accounts, transactions } from '@floow/db'
+import { createAccountSchema, createTransactionSchema } from '@floow/shared'
 import { eq, sql, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { computeAndSaveSnapshot } from '@floow/core-finance/src/snapshot-db'
 import { getPositions } from '@/lib/investments/queries'
 
-const DATABASE_URL = assertEnv('DATABASE_URL')
-
-type Db = ReturnType<typeof createDb>
+type Db = ReturnType<typeof getDb>
 
 /**
  * Verifies that an account belongs to the given org.
@@ -35,7 +33,7 @@ async function assertAccountOwnership(db: Db, accountId: string, orgId: string):
  */
 export async function createAccount(formData: FormData) {
   const orgId = await getOrgId()
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const input = createAccountSchema.parse({
     name: formData.get('name'),
@@ -78,7 +76,7 @@ export async function createAccount(formData: FormData) {
  */
 export async function createTransaction(formData: FormData) {
   const orgId = await getOrgId()
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const rawAmountCents = parseInt(formData.get('amountCents') as string, 10)
 
@@ -199,7 +197,7 @@ export async function createTransaction(formData: FormData) {
  */
 export async function refreshSnapshot() {
   const orgId = await getOrgId()
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   // Include investment portfolio value in net worth calculation (DASH-03 / Phase 3)
   // Gracefully handles the case where no investments exist (returns 0)

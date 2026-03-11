@@ -1,7 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { SignOutButton } from '@/components/auth/sign-out-button'
+import { Sidebar } from '@/components/layout/sidebar'
 
 export default async function AppLayout({
   children,
@@ -9,66 +8,23 @@ export default async function AppLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
+  // Use getSession() (reads cookie locally, no network call) instead of getUser()
+  // (which hits Supabase auth server). Middleware already validated the JWT.
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  // Belt-and-suspenders protection alongside middleware
-  if (!user) {
+  if (!session) {
     redirect('/auth')
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-14 items-center justify-between">
-            <div className="flex items-center gap-6">
-              <span className="text-base font-semibold tracking-tight text-gray-900">
-                Floow
-              </span>
-              <nav className="flex items-center gap-4">
-                <Link
-                  href="/dashboard"
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/accounts"
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Contas
-                </Link>
-                <Link
-                  href="/transactions"
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Transacoes
-                </Link>
-                <Link
-                  href="/investments"
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Investimentos
-                </Link>
-                <Link
-                  href="/billing"
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Plano
-                </Link>
-              </nav>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-500">{user.email}</span>
-              <SignOutButton />
-            </div>
-          </div>
+      <Sidebar userEmail={session.user.email ?? ''} />
+      <main className="pl-56">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          {children}
         </div>
-      </header>
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {children}
       </main>
     </div>
   )

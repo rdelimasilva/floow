@@ -2,19 +2,17 @@
 
 import { revalidatePath } from 'next/cache'
 import {
-  createDb,
+  getDb,
   assets,
   portfolioEvents,
   assetPrices,
   transactions,
   accounts,
 } from '@floow/db'
-import { createAssetSchema, createPortfolioEventSchema, assertEnv } from '@floow/shared'
+import { createAssetSchema, createPortfolioEventSchema } from '@floow/shared'
 import { eq, sql } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
 import { getAssets } from './queries'
-
-const DATABASE_URL = assertEnv('DATABASE_URL')
 
 // ---------------------------------------------------------------------------
 // Cash flow mapping for INV-07 integration
@@ -41,7 +39,7 @@ const CASH_FLOW_EVENT_TYPES: Record<string, { transactionType: 'income' | 'expen
  */
 export async function createAsset(formData: FormData) {
   const orgId = await getOrgId()
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const input = createAssetSchema.parse({
     ticker: formData.get('ticker'),
@@ -87,7 +85,7 @@ export async function createAsset(formData: FormData) {
  */
 export async function createPortfolioEvent(formData: FormData) {
   const orgId = await getOrgId()
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const rawQuantity = formData.get('quantity')
   const rawPriceCents = formData.get('priceCents')
@@ -178,7 +176,7 @@ export async function createPortfolioEvent(formData: FormData) {
  */
 export async function updateAssetPrice(formData: FormData) {
   const orgId = await getOrgId()
-  const db = createDb(DATABASE_URL)
+  const db = getDb()
 
   const assetId = formData.get('assetId') as string
   const priceCents = parseInt(formData.get('priceCents') as string, 10)

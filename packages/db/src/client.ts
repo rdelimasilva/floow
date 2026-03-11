@@ -1,5 +1,3 @@
-// Use anon key connection for user-context queries (RLS enforced).
-// Use service_role for admin/migration operations only.
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema/auth'
@@ -9,12 +7,6 @@ import * as investmentsSchema from './schema/investments'
 
 const fullSchema = { ...schema, ...billingSchema, ...financeSchema, ...investmentsSchema }
 
-/**
- * Asserts that an environment variable is set and non-empty.
- * Throws a clear error at startup if the variable is absent.
- *
- * Inlined here to avoid a circular dependency with @floow/shared.
- */
 function assertEnv(name: string): string {
   const value = process.env[name]
   if (!value || value.trim() === '') {
@@ -28,21 +20,15 @@ function assertEnv(name: string): string {
 
 /**
  * Creates a Drizzle client connected to the given Postgres URL.
- * Used for server-side queries.
- *
- * @param connectionString - Postgres connection URL
+ * Disables prepared statements for PgBouncer compatibility (transaction mode).
  */
 export function createDb(connectionString: string) {
-  const client = postgres(connectionString)
+  const client = postgres(connectionString, { prepare: false })
   return drizzle(client, { schema: fullSchema })
 }
 
 /**
- * Singleton Drizzle client reading from DATABASE_URL environment variable.
- * Use anon key URL for user-context queries (RLS enforced).
- * Use service_role URL for admin/migration operations only.
- *
- * Fails fast at startup if DATABASE_URL is missing or empty.
+ * Singleton Drizzle client reading from DATABASE_URL.
  * Lazy-evaluated to avoid errors during Next.js static build phases.
  */
 let _db: ReturnType<typeof createDb> | null = null
@@ -53,9 +39,3 @@ export function getDb(): ReturnType<typeof createDb> {
   }
   return _db
 }
-
-/**
- * @deprecated Use getDb() for new code. This singleton is kept for backward compatibility
- * but will throw at module load time if DATABASE_URL is absent.
- */
-export const db = createDb(process.env.DATABASE_URL ?? '')
