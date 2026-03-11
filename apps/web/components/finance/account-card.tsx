@@ -2,7 +2,7 @@
 
 import { Banknote, PiggyBank, TrendingUp, CreditCard, Wallet } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import type { Account } from '@floow/db'
 
 const ACCOUNT_TYPE_CONFIG = {

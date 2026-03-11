@@ -72,7 +72,24 @@ function setupDbMock() {
     set: mockUpdateSet,
   }))
 
-  const db = { insert: mockInsert, update: mockUpdate }
+  // Mock select for assertAccountOwnership — returns a row so ownership check passes
+  const mockSelect = vi.fn().mockReturnValue({
+    from: () => ({
+      where: () => ({
+        limit: () => Promise.resolve([{ id: 'account-id' }]),
+      }),
+    }),
+  })
+
+  // Build tx object with same API as db (used inside db.transaction callback)
+  const makeTx = () => ({ insert: mockInsert, update: mockUpdate, select: mockSelect })
+
+  // db.transaction calls the callback with a tx that mirrors the db API
+  const mockTransaction = vi.fn().mockImplementation(async (fn: (tx: unknown) => unknown) => {
+    return fn(makeTx())
+  })
+
+  const db = { insert: mockInsert, update: mockUpdate, select: mockSelect, transaction: mockTransaction }
   mockCreateDb.mockReturnValue(db)
 
   return { db, insertCalls, updateCalls }
