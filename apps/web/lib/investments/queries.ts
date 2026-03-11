@@ -6,7 +6,7 @@ import {
   patrimonySnapshots,
 } from '@floow/db'
 import { eq, and, desc, asc, inArray, gte } from 'drizzle-orm'
-import { computePosition } from '@floow/core-finance/src/portfolio'
+import { computePosition } from '@floow/core-finance'
 import { getOrgId } from '@/lib/finance/queries'
 
 // ---------------------------------------------------------------------------

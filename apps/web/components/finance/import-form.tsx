@@ -2,10 +2,7 @@
 
 import { useState, useRef } from 'react'
 import Link from 'next/link'
-import { parseOFXFile } from '@floow/core-finance/src/import/ofx'
-import { parseCSVFile } from '@floow/core-finance/src/import/csv'
-import type { NormalizedTransaction } from '@floow/core-finance/src/types'
-import type { CsvColumnMapping } from '@floow/core-finance/src/import/csv'
+import { parseOFXFile, parseCSVFile, type NormalizedTransaction, type CsvColumnMapping } from '@floow/core-finance'
 import type { Account } from '@floow/db'
 import { importTransactions } from '@/lib/finance/import-actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

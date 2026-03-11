@@ -2,7 +2,7 @@
 
 import { PieChart, Pie, Cell } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
-import { formatBRL } from '@floow/core-finance/src/balance'
+import { formatBRL } from '@floow/core-finance'
 import type { EnrichedPosition } from '@/lib/investments/queries'
 
 // Color palette per asset class

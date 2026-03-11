@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { formatBRL } from '@floow/core-finance/src/balance'
+import { formatBRL } from '@floow/core-finance'
 import { AccountCard } from './account-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

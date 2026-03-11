@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { formatBRL } from '@floow/core-finance/src/balance'
+import { formatBRL } from '@floow/core-finance'
 import { updateAssetPrice } from '@/lib/investments/actions'
 import { PriceHistoryPanel } from './price-history-panel'
 import { Button } from '@/components/ui/button'

@@ -1,7 +1,6 @@
 import { getOrgId } from '@/lib/finance/queries'
 import { getIncomeEvents } from '@/lib/investments/queries'
-import { aggregateIncome, estimateMonthlyIncome } from '@floow/core-finance/src/income'
-import { formatBRL } from '@floow/core-finance/src/balance'
+import { aggregateIncome, estimateMonthlyIncome, formatBRL } from '@floow/core-finance'
 import { IncomeChart } from '@/components/investments/income-chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'

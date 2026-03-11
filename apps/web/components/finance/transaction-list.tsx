@@ -1,6 +1,6 @@
 'use client'
 
-import { formatBRL } from '@floow/core-finance/src/balance'
+import { formatBRL } from '@floow/core-finance'
 
 interface TransactionRow {
   id: string

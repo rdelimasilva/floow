@@ -1,7 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
-import { formatBRL } from '@floow/core-finance/src/balance'
+import { formatBRL } from '@floow/core-finance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { PatrimonySnapshot } from '@floow/db'

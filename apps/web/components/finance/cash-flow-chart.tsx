@@ -2,7 +2,7 @@
 
 import { BarChart, Bar, XAxis, CartesianGrid } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
-import type { CashFlowMonth } from '@floow/core-finance/src/types'
+import type { CashFlowMonth } from '@floow/core-finance'
 
 const chartConfig = {
   income: {

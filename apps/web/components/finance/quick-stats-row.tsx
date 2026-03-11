@@ -1,6 +1,6 @@
 'use client'
 
-import { formatBRL } from '@floow/core-finance/src/balance'
+import { formatBRL } from '@floow/core-finance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface QuickStatsRowProps {

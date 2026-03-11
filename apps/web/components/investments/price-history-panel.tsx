@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getPriceHistory } from '@/lib/investments/client-actions'
-import { formatBRL } from '@floow/core-finance/src/balance'
+import { formatBRL } from '@floow/core-finance'
 import type { PriceHistoryEntry } from '@/lib/investments/queries'
 
 interface PriceHistoryPanelProps {
