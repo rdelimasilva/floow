@@ -26,11 +26,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Investments Engine
 
-- [ ] **INV-01**: User can register assets (ações BR, FIIs, ETFs, cripto, renda fixa, internacional)
-- [ ] **INV-02**: User can register holding events (compra, venda, dividendo, juros, split, amortização)
-- [ ] **INV-03**: User can view consolidated position with average price
+- [x] **INV-01**: User can register assets (ações BR, FIIs, ETFs, cripto, renda fixa, internacional)
+- [x] **INV-02**: User can register holding events (compra, venda, dividendo, juros, split, amortização)
+- [x] **INV-03**: User can view consolidated position with average price
 - [ ] **INV-04**: User can view dividends and income details
-- [ ] **INV-05**: User can view PnL per asset and total
+- [x] **INV-05**: User can view PnL per asset and total
 - [ ] **INV-06**: User can view historical prices and asset evolution
 - [ ] **INV-07**: Investment events integrate with cash flow (aporte=debit, resgate=credit, dividend=credit)
 
@@ -112,11 +112,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIN-03 | Phase 2 | Complete |
 | FIN-04 | Phase 2 | Complete |
 | FIN-05 | Phase 2 | Complete |
-| INV-01 | Phase 3 | Pending |
-| INV-02 | Phase 3 | Pending |
-| INV-03 | Phase 3 | Pending |
+| INV-01 | Phase 3 | Complete |
+| INV-02 | Phase 3 | Complete |
+| INV-03 | Phase 3 | Complete |
 | INV-04 | Phase 3 | Pending |
-| INV-05 | Phase 3 | Pending |
+| INV-05 | Phase 3 | Complete |
 | INV-06 | Phase 3 | Pending |
 | INV-07 | Phase 3 | Pending |
 | PLAN-01 | Phase 4 | Pending |

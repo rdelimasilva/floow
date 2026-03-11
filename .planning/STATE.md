@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 02-04-PLAN.md — financial dashboard, patrimony snapshot, human verification passed. Phase 2 complete.
-last_updated: "2026-03-11T02:37:45.954Z"
+stopped_at: Completed 03-01-PLAN.md — investment schema, SQL migration with RLS, computePosition and aggregateIncome pure functions with TDD tests
+last_updated: "2026-03-11T03:22:39.468Z"
 last_activity: 2026-03-10 — Plan 02-04 complete (financial dashboard RSC, patrimony snapshot engine, human verification passed)
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 13
+  completed_plans: 10
   percent: 100
 ---
 
@@ -57,6 +57,7 @@ Progress: [██████████] 100%
 | Phase 02-finance-engine P02-02 | 8 | 2 tasks | 16 files |
 | Phase 02-finance-engine P03 | 9 | 2 tasks | 14 files |
 | Phase 02-finance-engine P04 | ~90 | 3 tasks | 12 files |
+| Phase 03-investments-engine P03-01 | 5 | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,10 @@ Recent decisions affecting current work:
 - [Phase 02-04]: Client components import directly from submodule (e.g., @floow/core-finance/snapshot) not barrel index — prevents webpack bundling ofx-js (Node-only) into browser bundle
 - [Phase 02-04]: db.transaction() wraps transfer balance updates and import insertions for atomicity — replaces earlier two-separate-SQL-calls pattern from Plan 02-02
 - [Phase 02-04]: Fail-fast env var validation at startup — missing vars cause immediate descriptive error instead of silent runtime failure deep in call stack
+- [Phase 03-01]: PortfolioEventRow for DB inferred type (not PortfolioEvent) to avoid name clash with pure function PortfolioEventInput interface in portfolio.ts
+- [Phase 03-01]: UTC date methods in aggregateIncome: getUTCFullYear/getUTCMonth instead of local time getFullYear/getMonth to prevent timezone bugs when dates parsed as UTC midnight strings
+- [Phase 03-01]: splitRatio stored as string in PortfolioEventInput: numeric precision preserved without floating-point errors, parsed via parseFloat only when needed
+- [Phase 03-01]: accountId in portfolioEvents is application-level FK (not DB FK): avoids cross-schema complications between assets and accounts tables
 
 ### Pending Todos
 
@@ -110,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T00:00:00.000Z
-Stopped at: Completed 02-04-PLAN.md — financial dashboard, patrimony snapshot, human verification passed. Phase 2 complete.
+Last session: 2026-03-11T03:22:39.466Z
+Stopped at: Completed 03-01-PLAN.md — investment schema, SQL migration with RLS, computePosition and aggregateIncome pure functions with TDD tests
 Resume file: None
