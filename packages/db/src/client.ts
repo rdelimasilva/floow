@@ -4,8 +4,9 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema/auth'
 import * as billingSchema from './schema/billing'
+import * as financeSchema from './schema/finance'
 
-const fullSchema = { ...schema, ...billingSchema }
+const fullSchema = { ...schema, ...billingSchema, ...financeSchema }
 
 /**
  * Creates a Drizzle client connected to the given Postgres URL.
