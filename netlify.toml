@@ -1,10 +1,7 @@
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
 [build]
   base = "/"
   command = "npx pnpm@9.15.0 install --frozen-lockfile && npx pnpm@9.15.0 build --filter=@floow/web..."
   publish = "apps/web/.next"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
