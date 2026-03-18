@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 04-planning-engine/04-01-PLAN.md
-last_updated: "2026-03-18T03:25:39.195Z"
+stopped_at: "Checkpoint reached: 04-03 Task 3 — human verification of complete Planning Engine"
+last_updated: "2026-03-18T03:33:12.253Z"
 last_activity: 2026-03-10 — Plan 02-04 complete (financial dashboard RSC, patrimony snapshot engine, human verification passed)
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 16
   percent: 100
 ---
 
@@ -61,6 +61,8 @@ Progress: [██████████] 100%
 | Phase 03-investments-engine P03-02 | 5 | 2 tasks | 10 files |
 | Phase 03-investments-engine P03-03 | 4 | 3 tasks | 10 files |
 | Phase 04-planning-engine P04-01 | 5 | 3 tasks | 13 files |
+| Phase 04 P02 | 5 | 3 tasks | 10 files |
+| Phase 04-planning-engine P04-03 | 12 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -114,6 +116,8 @@ Recent decisions affecting current work:
 - [Phase 04]: retirementPlans/withdrawalStrategies/successionPlans use uniqueIndex on orgId — one per org, enables onConflictDoUpdate upsert pattern
 - [Phase 04]: calcItcmd uses ITCMD_RATES_BY_STATE with 5% fallback for unknown state; all 27 Brazilian states covered at 2024-2025 max marginal rates
 - [Phase 04]: validateHeirPercentages uses Math.round(sum) === 100 — handles floating-point precision (33.33 * 3 rounds correctly)
+- [Phase 04]: formatBRL used as formatBRL(cents/100) in planning components — stores integer cents internally, converts at display boundary
+- [Phase 04]: SimulationForm uses mode:onChange with watch() for real-time chart updates — useMemo prevents redundant recalculation
 
 ### Pending Todos
 
@@ -125,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T03:25:39.193Z
-Stopped at: Completed 04-planning-engine/04-01-PLAN.md
+Last session: 2026-03-18T03:33:08.824Z
+Stopped at: Checkpoint reached: 04-03 Task 3 — human verification of complete Planning Engine
 Resume file: None
