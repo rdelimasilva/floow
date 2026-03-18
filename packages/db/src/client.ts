@@ -4,8 +4,9 @@ import * as schema from './schema/auth'
 import * as billingSchema from './schema/billing'
 import * as financeSchema from './schema/finance'
 import * as investmentsSchema from './schema/investments'
+import * as planningSchema from './schema/planning'
 
-const fullSchema = { ...schema, ...billingSchema, ...financeSchema, ...investmentsSchema }
+const fullSchema = { ...schema, ...billingSchema, ...financeSchema, ...investmentsSchema, ...planningSchema }
 
 function assertEnv(name: string): string {
   const value = process.env[name]
