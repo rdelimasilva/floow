@@ -78,7 +78,7 @@ Plans:
 - [ ] 03-04-PLAN.md — Human verification checkpoint (end-to-end investments engine)
 
 ### Phase 4: Planning Engine
-**Goal**: Users can simulate retirement scenarios, calculate their financial independence timeline, and plan wealth transfer to heirs
+**Goal**: Users can simulate retirement scenarios, calculate their financial independence timeline, plan withdrawal strategies, and create succession plans with ITCMD estimation
 **Depends on**: Phase 3
 **Requirements**: PLAN-01, PLAN-02, PLAN-03, PLAN-04, PLAN-05
 **Success Criteria** (what must be TRUE):
@@ -87,11 +87,12 @@ Plans:
   3. User can view estimated monthly passive income based on current portfolio composition
   4. User can define a withdrawal strategy (amount, sequence, order of asset liquidation)
   5. User can create a succession plan specifying liquidity needs and distribution percentages per heir
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: Retirement and financial independence simulation engine (PLAN-01, PLAN-02, PLAN-03)
-- [ ] 04-02: Withdrawal strategy and succession planning (PLAN-04, PLAN-05)
+- [ ] 04-01-PLAN.md — Data layer + pure computation engine with TDD (DB schema, SQL migration, Zod schemas, simulation/withdrawal/succession functions)
+- [ ] 04-02-PLAN.md — Retirement simulation, FI calculator, planning hub, and sidebar navigation (PLAN-01, PLAN-02, PLAN-03)
+- [ ] 04-03-PLAN.md — Withdrawal strategy, succession planning, and human verification (PLAN-04, PLAN-05)
 
 ## Progress
 
@@ -103,4 +104,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Platform Foundation | 5/5 | Complete   | 2026-03-10 |
 | 2. Finance Engine | 4/4 | Complete   | 2026-03-11 |
 | 3. Investments Engine | 2/4 | In Progress|  |
-| 4. Planning Engine | 0/2 | Not started | - |
+| 4. Planning Engine | 0/3 | Not started | - |
