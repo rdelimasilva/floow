@@ -41,6 +41,8 @@ O investidor experiente consegue ver seu patrimônio consolidado — finanças d
 - [ ] CRUD completo (edit/delete) em contas, transações, ativos, eventos
 - [ ] Filtros e paginação em listagens
 - [ ] Toast notifications para feedback de ações
+- [ ] Conciliação no import: matching de transações importadas com existentes (valor+data+conta) com preview
+- [ ] Vinculação de portfolio event a transaction existente (skip cash flow quando extrato já importado)
 - [ ] Atualização automática de preços via API
 - [ ] Import de corretora (Pluggy/Belvo)
 - [ ] Benchmark comparison (CDI, IBOV, S&P500)

@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/sidebar'
+import { SidebarLayout } from '@/components/layout/sidebar-layout'
+import { SidebarProvider } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/providers/toast-provider'
 
 export default async function AppLayout({
@@ -9,8 +11,6 @@ export default async function AppLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-  // Use getSession() (reads cookie locally, no network call) instead of getUser()
-  // (which hits Supabase auth server). Middleware already validated the JWT.
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -19,16 +19,23 @@ export default async function AppLayout({
     redirect('/auth')
   }
 
+  const user = session.user
+  const meta = user.user_metadata ?? {}
+
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-gray-50">
-        <Sidebar userEmail={session.user.email ?? ''} />
-        <main className="lg:pl-56">
-          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <SidebarProvider>
+        <div className="min-h-screen bg-gray-50">
+          <Sidebar
+            userEmail={user.email ?? ''}
+            userName={meta.full_name ?? meta.name ?? null}
+            avatarUrl={meta.avatar_url ?? meta.picture ?? null}
+          />
+          <SidebarLayout>
             {children}
-          </div>
-        </main>
-      </div>
+          </SidebarLayout>
+        </div>
+      </SidebarProvider>
     </ToastProvider>
   )
 }
