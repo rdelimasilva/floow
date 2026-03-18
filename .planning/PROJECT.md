@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Floow é um gestor financeiro completo para investidores experientes — um SaaS multi-tenant que combina controle financeiro diário, gestão de carteira de investimentos e planejamento financeiro de longo prazo. Disponível em web (Next.js) e mobile (Expo/React Native), com backend serverless via Supabase + Netlify.
+Floow é um gestor financeiro completo para investidores experientes — um SaaS multi-tenant que combina controle financeiro diário (contas, transações, fluxo de caixa), gestão de carteira de investimentos (posições, PnL, proventos, evolução patrimonial) e planejamento financeiro de longo prazo (aposentadoria, independência financeira, sucessão). Web app em Next.js com backend serverless via Supabase + Netlify.
 
 ## Core Value
 
@@ -12,118 +12,98 @@ O investidor experiente consegue ver seu patrimônio consolidado — finanças d
 
 ### Validated
 
-<!-- Shipped and confirmed valuable. -->
-
-(None yet — ship to validate)
+- ✓ Auth (email/senha, magic link, OAuth Google/Apple, session persistence) — v1.0
+- ✓ Multi-tenant com RLS (Row Level Security) — v1.0
+- ✓ Freemium + planos pagos via Stripe — v1.0
+- ✓ Contas bancárias e de corretora — v1.0
+- ✓ Registro de transações (receitas, despesas, transferências) — v1.0
+- ✓ Fluxo de caixa com categorização — v1.0
+- ✓ Dashboard financeiro — v1.0
+- ✓ Import OFX/CSV — v1.0
+- ✓ Snapshots de patrimônio (net worth, liquid assets, liabilities) — v1.0
+- ✓ Registro de ativos (ações BR, FIIs, ETFs, cripto, renda fixa, internacional) — v1.0
+- ✓ Eventos de carteira (compra, venda, dividendo, juros, split, amortização) — v1.0
+- ✓ Posição consolidada com preço médio automático — v1.0
+- ✓ PnL por ativo e total — v1.0
+- ✓ Proventos (dividendos, juros) — v1.0
+- ✓ Gráfico de evolução patrimonial — v1.0
+- ✓ Alocação por classe de ativo — v1.0
+- ✓ Integração investimentos ↔ fluxo de caixa — v1.0
+- ✓ Simulação de aposentadoria (3 cenários) — v1.0
+- ✓ Cálculo de independência financeira — v1.0
+- ✓ Renda passiva estimada — v1.0
+- ✓ Planejamento de saque — v1.0
+- ✓ Plano sucessório (liquidez, distribuição, ITCMD) — v1.0
 
 ### Active
 
-<!-- Current scope. Building toward these. -->
-
-**Finance Engine**
-- [ ] Contas bancárias e de corretora (multi-moeda)
-- [ ] Registro de transações (receitas, despesas, transferências)
-- [ ] Fluxo de caixa com categorização
-- [ ] Dashboard financeiro diário
-
-**Investments Engine**
-- [ ] Registro de ativos (ações BR, FIIs, ETFs, cripto, renda fixa, ativos internacionais)
-- [ ] Eventos de carteira (compra, venda, dividendo, juros, split, amortização, depósito, retirada)
-- [ ] Posição consolidada com preço médio automático
-- [ ] Preços históricos e valorização
-- [ ] Proventos (dividendos, juros)
-- [ ] PnL (lucro/prejuízo) por ativo e total
-- [ ] Gráfico de evolução patrimonial
-- [ ] Alocação por classe de ativo (renda variável, renda fixa, cripto, caixa)
-- [ ] Integração com fluxo de caixa (aporte = débito, resgate = crédito, dividendo = crédito)
-
-**Planning Engine**
-- [ ] Simulação de aposentadoria (conservador, base, agressivo)
-- [ ] Cálculo de independência financeira
-- [ ] Renda passiva estimada
-- [ ] Planejamento de saque
-- [ ] Plano sucessório (liquidez, distribuição entre herdeiros)
-
-**Valuation**
-- [ ] Snapshots de patrimônio (net worth, liquid assets, liabilities, breakdown)
-
-**Plataforma SaaS**
-- [ ] Auth (email/senha, magic link, OAuth Google/Apple, MFA)
-- [ ] Multi-tenant com RLS (Row Level Security)
-- [ ] Freemium + planos pagos via Stripe
-- [ ] Web app (Next.js)
-- [ ] Mobile app (Expo/React Native)
+- [ ] Mobile app (Expo/React Native) — scaffolded but no screens
+- [ ] CRUD completo (edit/delete) em contas, transações, ativos, eventos
+- [ ] Filtros e paginação em listagens
+- [ ] Toast notifications para feedback de ações
+- [ ] Atualização automática de preços via API
+- [ ] Import de corretora (Pluggy/Belvo)
+- [ ] Benchmark comparison (CDI, IBOV, S&P500)
+- [ ] Rebalanceamento de carteira
+- [ ] Categorização automática de transações
+- [ ] Transações recorrentes
+- [ ] Multi-currency (BRL + USD)
+- [ ] MFA (multi-factor authentication)
+- [ ] Convites e roles (admin, viewer)
 
 ### Out of Scope
 
-- Importação automática de corretora (Pluggy/Belvo) — v2, complexidade alta
-- Atualização automática de preços — v2, requer API paga
-- Benchmarks e rebalanceamento — v2
 - Módulo PJ (pessoa jurídica) — fork futuro após PF estabilizar
 - Real-time chat/suporte — não é core
-- Open Finance integration — v2+
+- Open Finance integration (Pluggy/Belvo/Klavi) — v2+, complexidade regulatória
+- Offline mode — real-time sync é core value
 
 ## Context
 
-**Mercado:** Brasil + global. Ativos brasileiros (B3, FIIs, Tesouro Direto, CDBs, LCIs) e internacionais (NYSE, cripto).
+**Shipped v1.0 MVP** (2026-03-18) com 16,503 LOC TypeScript em 252 arquivos.
 
-**Público:** Investidores experientes que já investem e querem consolidação + planejamento. Não é para iniciantes aprendendo a investir.
-
-**Modelo:** SaaS freemium — funcionalidades básicas grátis, planos premium via Stripe. Começa PF, depois fork para PJ.
+**Tech stack:** Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Hook Form, Zod, Recharts, Drizzle ORM, Supabase (PostgreSQL, Auth, RLS), Stripe, pnpm + Turborepo monorepo.
 
 **Arquitetura de 3 motores:**
-1. Finance Engine — contas, transações, fluxo de caixa
-2. Investments Engine — ativos, eventos, posições, preços, valuation
-3. Planning Engine — metas, aposentadoria, sucessão
+1. Finance Engine — contas, transações, fluxo de caixa, snapshots
+2. Investments Engine — ativos, eventos, posições, preços, PnL, proventos
+3. Planning Engine — aposentadoria, FI, saque, sucessão
 
-O `core-finance` package no monorepo é reutilizável entre web, mobile e functions.
+O `core-finance` package é reutilizável entre web, mobile e functions. Funções puras com TDD (computePosition, aggregateIncome, simulateRetirement, etc.).
 
-**Performance:** Materialized views, snapshots de cashflow e valuation para evitar cálculos pesados em tempo real.
+**Padrões estabelecidos:**
+- Integer cents para todos os valores monetários
+- Submodule imports em client components (evita bundling ofx-js)
+- Server actions (não API routes) para mutations
+- RSC + Suspense para streaming de dados
+- Pure function + thin DB wrapper pattern
+- Upsert via onConflictDoUpdate com uniqueIndex por orgId
 
 ## Constraints
 
-- **Stack Frontend:** Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Hook Form, Zod, TanStack Query
-- **Stack Mobile:** Expo + React Native (React Native Paper ou Tamagui, TanStack Query, Supabase client)
-- **Stack Backend:** Supabase (PostgreSQL, Auth, Storage, Realtime, Edge Functions, RLS) — sem backend tradicional
-- **ORM:** Drizzle ORM (preferência sobre Prisma)
+- **Stack Frontend:** Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Hook Form, Zod, TanStack Query, Recharts
+- **Stack Mobile:** Expo + React Native (scaffolded, screens pending)
+- **Stack Backend:** Supabase (PostgreSQL, Auth, Storage, Realtime, Edge Functions, RLS)
+- **ORM:** Drizzle ORM
 - **Serverless:** Supabase Edge Functions (Deno) + Netlify Functions (Node.js)
 - **Deploy:** Netlify (web) + Expo EAS (mobile) + Supabase (banco/auth)
 - **Monorepo:** pnpm + Turborepo
 - **Integrações:** Stripe (billing), Resend (email), Sentry (errors)
-- **API de preços:** Alpha Vantage / TwelveData / Finnhub / Yahoo Finance (a definir)
-- **CI/CD:** GitHub + Netlify auto-deploy + Supabase migrations via CLI
-
-**Estrutura do monorepo:**
-```
-apps/
-  web/           # Next.js
-  mobile/        # Expo
-  functions-netlify/
-  functions-supabase/
-
-packages/
-  core-finance/  # Motor financeiro reutilizável
-  core-ui/       # Componentes compartilhados
-  shared/        # Types, utils, schemas Zod
-  domain-personal/
-  domain-business/
-
-db/
-  migrations/
-  seeds/
-```
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Supabase como backend | Infra mínima, custo baixo, RLS nativo, escala automática | — Pending |
-| Drizzle ORM sobre Prisma | Mais leve, mais próximo do SQL, melhor para domínio financeiro | — Pending |
-| Web + Mobile desde o início | Ambos juntos para não acumular dívida técnica | — Pending |
-| Monorepo com Turborepo | Compartilhar core-finance entre web/mobile/functions | — Pending |
-| Freemium com Stripe | Modelo SaaS padrão, baixa fricção de entrada | — Pending |
-| PF primeiro, PJ depois | Validar produto com pessoa física antes de expandir | — Pending |
-| Materialized views para performance | Evitar cálculos pesados em tempo real no financeiro | — Pending |
+| Supabase como backend | Infra mínima, custo baixo, RLS nativo, escala automática | ✓ Good — RLS performant, auth trigger pattern works well |
+| Drizzle ORM sobre Prisma | Mais leve, mais próximo do SQL, melhor para domínio financeiro | ✓ Good — schema + migration separation works, transactions reliable |
+| Monorepo com Turborepo | Compartilhar core-finance entre web/mobile/functions | ✓ Good — pure functions reusable, submodule imports solve bundling |
+| Freemium com Stripe | Modelo SaaS padrão, baixa fricção de entrada | ✓ Good — webhooks + server actions clean pattern |
+| Integer cents for money | Avoid floating-point errors in financial calculations | ✓ Good — zero precision issues across 4 phases |
+| Server actions over API routes | Simpler, co-located with pages, no extra endpoints | ✓ Good — consistent pattern across all features |
+| Inversion-based middleware | Allowlist public routes instead of blocklist | ✓ Good — new routes auto-protected |
+| Pure function + DB wrapper | Testable computation, thin persistence layer | ✓ Good — TDD effective for core-finance |
+| Submodule imports in client | Prevent webpack bundling Node-only deps | ✓ Good — solved ofx-js browser bundling issue |
+| RSC + Suspense streaming | Server-side data loading with loading states | ✓ Good — clean separation, fast initial loads |
 
 ---
-*Last updated: 2026-03-09 after initialization*
+*Last updated: 2026-03-18 after v1.0 milestone*
