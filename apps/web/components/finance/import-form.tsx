@@ -4,7 +4,8 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { parseOFXFile, parseCSVFile, type NormalizedTransaction, type CsvColumnMapping } from '@floow/core-finance'
 import type { Account } from '@floow/db'
-import { importTransactions } from '@/lib/finance/import-actions'
+import { previewImport, importSelectedTransactions, type PreviewItem } from '@/lib/finance/import-actions'
+import { ImportPreview } from './import-preview'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,7 +26,7 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Step = 'select-file' | 'preview' | 'importing' | 'done'
+type Step = 'select-file' | 'preview' | 'reconciliation' | 'importing' | 'done'
 
 interface ImportDoneResult {
   imported: number
@@ -77,6 +78,8 @@ export function ImportForm({ accounts }: ImportFormProps) {
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ImportDoneResult | null>(null)
+  const [previewItems, setPreviewItems] = useState<PreviewItem[]>([])
+  const [reconciling, setReconciling] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ── File selection handler ─────────────────────────────────────────────────
@@ -145,10 +148,9 @@ export function ImportForm({ accounts }: ImportFormProps) {
 
   // ── Import submission ──────────────────────────────────────────────────────
 
-  async function handleImport() {
+  // After file preview, run server-side reconciliation
+  async function handleReconciliation() {
     if (!selectedFile || !selectedAccountId) return
-
-    setStep('importing')
     setError(null)
 
     try {
@@ -164,14 +166,42 @@ export function ImportForm({ accounts }: ImportFormProps) {
         formData.set('dateFormat', csvMapping.dateFormat)
       }
 
-      const importResult = await importTransactions(formData)
+      const items = await previewImport(formData)
+      setPreviewItems(items)
+      setStep('reconciliation')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao analisar transações')
+    }
+  }
+
+  async function handleImportSelected(selectedIndices: number[]) {
+    if (!selectedFile || !selectedAccountId) return
+    setReconciling(true)
+    setStep('importing')
+    setError(null)
+
+    try {
+      const formData = new FormData()
+      formData.set('file', selectedFile)
+      formData.set('accountId', selectedAccountId)
+      formData.set('selectedIndices', JSON.stringify(selectedIndices))
+
+      const isCSV = !selectedFile.name.toLowerCase().endsWith('.ofx')
+      if (isCSV) {
+        formData.set('dateColumn', csvMapping.dateColumn)
+        formData.set('amountColumn', csvMapping.amountColumn)
+        formData.set('descriptionColumn', csvMapping.descriptionColumn)
+        formData.set('dateFormat', csvMapping.dateFormat)
+      }
+
+      const importResult = await importSelectedTransactions(formData)
       setResult(importResult)
       setStep('done')
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Erro ao importar transações',
-      )
-      setStep('preview')
+      setError(err instanceof Error ? err.message : 'Erro ao importar transações')
+      setStep('reconciliation')
+    } finally {
+      setReconciling(false)
     }
   }
 
@@ -185,6 +215,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
     setCsvHeaders([])
     setError(null)
     setResult(null)
+    setPreviewItems([])
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -403,8 +434,8 @@ export function ImportForm({ accounts }: ImportFormProps) {
               </div>
 
               <div className="flex gap-3 mt-4">
-                <Button onClick={handleImport} disabled={preview.length === 0}>
-                  Importar {preview.length} transação{preview.length !== 1 ? 'es' : ''}
+                <Button onClick={handleReconciliation} disabled={preview.length === 0}>
+                  Verificar duplicatas
                 </Button>
                 <Button variant="outline" onClick={handleReset}>
                   Cancelar
@@ -413,6 +444,16 @@ export function ImportForm({ accounts }: ImportFormProps) {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* Step 2.5: Reconciliation */}
+      {step === 'reconciliation' && (
+        <ImportPreview
+          items={previewItems}
+          onConfirm={handleImportSelected}
+          onCancel={handleReset}
+          loading={reconciling}
+        />
       )}
 
       {/* Step 3: Importing */}

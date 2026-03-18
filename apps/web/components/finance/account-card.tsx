@@ -142,10 +142,10 @@ export function AccountCard({ account }: AccountCardProps) {
           </p>
           <p className="mt-1 text-xs text-gray-400">{account.currency}</p>
           <Link
-            href={`/transactions?accountId=${account.id}`}
+            href={`/accounts/${account.id}`}
             className="mt-2 inline-block text-xs text-blue-600 hover:text-blue-800 hover:underline"
           >
-            Ver transações →
+            Ver detalhes →
           </Link>
         </CardContent>
       </Card>

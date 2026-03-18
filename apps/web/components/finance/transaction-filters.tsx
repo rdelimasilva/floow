@@ -13,9 +13,11 @@ interface AccountOption {
 
 interface TransactionFiltersProps {
   accounts: AccountOption[]
+  hideAccountFilter?: boolean
+  baseUrl?: string
 }
 
-export function TransactionFilters({ accounts }: TransactionFiltersProps) {
+export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/transactions' }: TransactionFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -31,7 +33,7 @@ export function TransactionFilters({ accounts }: TransactionFiltersProps) {
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
     params.set('page', '1')
-    router.push(`/transactions?${params.toString()}`)
+    router.push(`${baseUrl}?${params.toString()}`)
   }
 
   function clearFilters() {
@@ -39,7 +41,7 @@ export function TransactionFilters({ accounts }: TransactionFiltersProps) {
     setAccountId('')
     setStartDate('')
     setEndDate('')
-    router.push('/transactions')
+    router.push(baseUrl)
   }
 
   const hasFilters = search || accountId || startDate || endDate
@@ -60,19 +62,21 @@ export function TransactionFilters({ accounts }: TransactionFiltersProps) {
         </div>
       </div>
 
-      <div className="min-w-[160px]">
-        <label className="block text-xs font-medium text-gray-500 mb-1">Conta</label>
-        <select
-          value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
-          className="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
-        >
-          <option value="">Todas</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>{a.name}</option>
-          ))}
-        </select>
-      </div>
+      {!hideAccountFilter && (
+        <div className="min-w-[160px]">
+          <label className="block text-xs font-medium text-gray-500 mb-1">Conta</label>
+          <select
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            className="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
+          >
+            <option value="">Todas</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="min-w-[140px]">
         <label className="block text-xs font-medium text-gray-500 mb-1">Data inicio</label>
