@@ -1,12 +1,14 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { getDb, accounts, transactions, categories, patrimonySnapshots } from '@floow/db'
-import { eq, and, desc, isNull, or, gte } from 'drizzle-orm'
+import { eq, and, desc, isNull, or, gte, count, ilike, lte } from 'drizzle-orm'
 
 /**
  * Extracts the orgId from the authenticated user's JWT app_metadata.
  * Uses getSession() (local cookie read, no network) since middleware already validated JWT.
+ * Wrapped in React cache() to deduplicate within a single request.
  */
-export async function getOrgId(): Promise<string> {
+export const getOrgId = cache(async function getOrgId(): Promise<string> {
   const supabase = await createClient()
   const {
     data: { session },
@@ -22,35 +24,40 @@ export async function getOrgId(): Promise<string> {
   }
 
   return orgId as string
-}
+})
 
 /**
  * Returns all active accounts for the given org, ordered by name.
+ * Wrapped in React cache() to deduplicate within a single request.
  */
-export async function getAccounts(orgId: string) {
+export const getAccounts = cache(async function getAccounts(orgId: string) {
   const db = getDb()
   return db
     .select()
     .from(accounts)
     .where(and(eq(accounts.orgId, orgId), eq(accounts.isActive, true)))
     .orderBy(accounts.name)
-}
+})
 
 /**
  * Returns transactions for the given org with optional filters.
  * Joined with category data (name, color, icon).
+ * Supports search, date range, and account filtering.
  */
 export async function getTransactions(
   orgId: string,
-  opts?: { limit?: number; offset?: number; accountId?: string }
+  opts?: { limit?: number; offset?: number; accountId?: string; search?: string; startDate?: string; endDate?: string }
 ) {
   const db = getDb()
   const limit = opts?.limit ?? 50
   const offset = opts?.offset ?? 0
 
-  const baseWhere = opts?.accountId
-    ? and(eq(transactions.orgId, orgId), eq(transactions.accountId, opts.accountId))
-    : eq(transactions.orgId, orgId)
+  const conditions = [eq(transactions.orgId, orgId)]
+
+  if (opts?.accountId) conditions.push(eq(transactions.accountId, opts.accountId))
+  if (opts?.search) conditions.push(ilike(transactions.description, `%${opts.search}%`))
+  if (opts?.startDate) conditions.push(gte(transactions.date, new Date(opts.startDate)))
+  if (opts?.endDate) conditions.push(lte(transactions.date, new Date(opts.endDate)))
 
   return db
     .select({
@@ -72,23 +79,49 @@ export async function getTransactions(
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
-    .where(baseWhere)
+    .where(and(...conditions))
     .orderBy(desc(transactions.date))
     .limit(limit)
     .offset(offset)
 }
 
 /**
- * Returns categories for the given org plus system-wide categories (orgId IS NULL).
+ * Returns total count of transactions matching the given filters.
+ * Used for pagination alongside getTransactions.
  */
-export async function getCategories(orgId: string) {
+export async function getTransactionCount(
+  orgId: string,
+  opts?: { accountId?: string; search?: string; startDate?: string; endDate?: string }
+) {
+  const db = getDb()
+
+  const conditions = [eq(transactions.orgId, orgId)]
+
+  if (opts?.accountId) conditions.push(eq(transactions.accountId, opts.accountId))
+  if (opts?.search) conditions.push(ilike(transactions.description, `%${opts.search}%`))
+  if (opts?.startDate) conditions.push(gte(transactions.date, new Date(opts.startDate)))
+  if (opts?.endDate) conditions.push(lte(transactions.date, new Date(opts.endDate)))
+
+  const [result] = await db
+    .select({ total: count() })
+    .from(transactions)
+    .where(and(...conditions))
+
+  return result.total
+}
+
+/**
+ * Returns categories for the given org plus system-wide categories (orgId IS NULL).
+ * Wrapped in React cache() to deduplicate within a single request.
+ */
+export const getCategories = cache(async function getCategories(orgId: string) {
   const db = getDb()
   return db
     .select()
     .from(categories)
     .where(or(eq(categories.orgId, orgId), isNull(categories.orgId)))
     .orderBy(categories.type, categories.name)
-}
+})
 
 /**
  * Returns the most recent patrimony snapshot for the given org, or null if none exists.

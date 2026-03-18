@@ -9,10 +9,43 @@ import {
   transactions,
   accounts,
 } from '@floow/db'
-import { createAssetSchema, createPortfolioEventSchema } from '@floow/shared'
-import { eq, sql } from 'drizzle-orm'
+import { createAssetSchema, createPortfolioEventSchema, updateAssetSchema } from '@floow/shared'
+import { eq, and, sql } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
-import { getAssets } from './queries'
+
+type Db = ReturnType<typeof getDb>
+
+/**
+ * Verifies that an asset belongs to the given org.
+ * Throws if the asset does not exist or belongs to a different org.
+ */
+async function assertAssetOwnership(db: Db, assetId: string, orgId: string): Promise<void> {
+  const [row] = await db
+    .select({ id: assets.id })
+    .from(assets)
+    .where(and(eq(assets.id, assetId), eq(assets.orgId, orgId)))
+    .limit(1)
+
+  if (!row) {
+    throw new Error(`Asset ${assetId} not found or does not belong to this organization`)
+  }
+}
+
+/**
+ * Verifies that an account belongs to the given org.
+ * Throws if the account does not exist or belongs to a different org.
+ */
+async function assertAccountOwnership(db: Db, accountId: string, orgId: string): Promise<void> {
+  const [row] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
+    .limit(1)
+
+  if (!row) {
+    throw new Error(`Account ${accountId} not found or does not belong to this organization`)
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Cash flow mapping for INV-07 integration
@@ -81,7 +114,7 @@ export async function createAsset(formData: FormData) {
  *   3. Update account balance atomically (sql`balance_cents + ${signedAmount}`)
  *   4. Update portfolio event's transactionId to link back for audit trail
  *
- * Revalidates /investments, /dashboard, /transactions for cross-page consistency.
+ * Revalidates only the affected pages for cross-page consistency.
  */
 export async function createPortfolioEvent(formData: FormData) {
   const orgId = await getOrgId()
@@ -106,17 +139,19 @@ export async function createPortfolioEvent(formData: FormData) {
 
   const cashFlowMapping = CASH_FLOW_EVENT_TYPES[input.eventType]
 
-  // Fetch asset ticker for transaction description
-  let assetTicker = input.assetId
-  try {
-    const assetList = await getAssets(orgId)
-    const asset = assetList.find((a) => a.id === input.assetId)
-    if (asset) assetTicker = asset.ticker
-  } catch {
-    // Non-critical — use assetId as fallback
-  }
-
   await db.transaction(async (tx) => {
+    // 0. Verify ownership of asset and account before any write
+    await assertAssetOwnership(tx as unknown as Db, input.assetId, orgId)
+    await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
+
+    // Fetch asset ticker for transaction description (inside tx, after ownership check)
+    const [asset] = await tx
+      .select({ ticker: assets.ticker })
+      .from(assets)
+      .where(eq(assets.id, input.assetId))
+      .limit(1)
+    const assetTicker = asset?.ticker ?? input.assetId
+
     // 1. Insert the portfolio event
     const [event] = await tx
       .insert(portfolioEvents)
@@ -166,8 +201,13 @@ export async function createPortfolioEvent(formData: FormData) {
   })
 
   revalidatePath('/investments')
-  revalidatePath('/dashboard')
-  revalidatePath('/transactions')
+  revalidatePath('/investments/dashboard')
+  revalidatePath('/investments/income')
+
+  if (cashFlowMapping && input.totalCents) {
+    revalidatePath('/dashboard')
+    revalidatePath('/transactions')
+  }
 }
 
 /**
@@ -187,6 +227,9 @@ export async function updateAssetPrice(formData: FormData) {
     throw new Error('Invalid price update: assetId and positive priceCents are required')
   }
 
+  // Verify the asset belongs to the user's org before writing
+  await assertAssetOwnership(db, assetId, orgId)
+
   await db.insert(assetPrices).values({
     orgId,
     assetId,
@@ -195,4 +238,153 @@ export async function updateAssetPrice(formData: FormData) {
   })
 
   revalidatePath('/investments')
+  revalidatePath('/investments/dashboard')
+}
+
+/**
+ * Server action: delete an investment asset and all related data.
+ * Reverses balance impacts from linked cash-flow transactions, then cascades
+ * deletion to portfolio_events and asset_prices.
+ */
+export async function deleteAsset(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const assetId = formData.get('id') as string
+  if (!assetId) throw new Error('Asset ID is required')
+
+  await assertAssetOwnership(db, assetId, orgId)
+
+  await db.transaction(async (tx) => {
+    // Find all portfolio events that generated cash-flow transactions
+    const events = await tx
+      .select({ transactionId: portfolioEvents.transactionId })
+      .from(portfolioEvents)
+      .where(and(eq(portfolioEvents.assetId, assetId), eq(portfolioEvents.orgId, orgId)))
+
+    // Reverse balance impacts for linked transactions
+    for (const evt of events) {
+      if (!evt.transactionId) continue
+      const [linkedTx] = await tx
+        .select({ accountId: transactions.accountId, amountCents: transactions.amountCents })
+        .from(transactions)
+        .where(eq(transactions.id, evt.transactionId))
+        .limit(1)
+
+      if (linkedTx) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${-linkedTx.amountCents}` })
+          .where(eq(accounts.id, linkedTx.accountId))
+
+        await tx
+          .delete(transactions)
+          .where(eq(transactions.id, evt.transactionId))
+      }
+    }
+
+    // Delete asset (cascades to portfolio_events and asset_prices)
+    await tx
+      .delete(assets)
+      .where(and(eq(assets.id, assetId), eq(assets.orgId, orgId)))
+  })
+
+  revalidatePath('/investments')
+  revalidatePath('/investments/dashboard')
+  revalidatePath('/investments/income')
+  revalidatePath('/dashboard')
+  revalidatePath('/transactions')
+  revalidatePath('/accounts')
+}
+
+/**
+ * Server action: update an existing investment asset's metadata.
+ * Validates with updateAssetSchema, verifies ownership, then updates.
+ */
+export async function updateAsset(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const input = updateAssetSchema.parse({
+    id: formData.get('id'),
+    ticker: formData.get('ticker'),
+    name: formData.get('name'),
+    assetClass: formData.get('assetClass'),
+    currency: formData.get('currency') || 'BRL',
+    notes: formData.get('notes') || undefined,
+  })
+
+  await assertAssetOwnership(db, input.id, orgId)
+
+  const [updated] = await db
+    .update(assets)
+    .set({
+      ticker: input.ticker.toUpperCase(),
+      name: input.name,
+      assetClass: input.assetClass,
+      currency: input.currency,
+      notes: input.notes ?? null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(assets.id, input.id), eq(assets.orgId, orgId)))
+    .returning()
+
+  revalidatePath('/investments')
+  revalidatePath('/investments/dashboard')
+
+  return updated
+}
+
+/**
+ * Server action: delete a single portfolio event.
+ * Reverses the linked cash-flow transaction (if any) and restores account balance.
+ */
+export async function deletePortfolioEvent(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const eventId = formData.get('id') as string
+  if (!eventId) throw new Error('Event ID is required')
+
+  const [event] = await db
+    .select()
+    .from(portfolioEvents)
+    .where(and(eq(portfolioEvents.id, eventId), eq(portfolioEvents.orgId, orgId)))
+    .limit(1)
+
+  if (!event) throw new Error('Portfolio event not found')
+
+  await db.transaction(async (tx) => {
+    // Reverse cash-flow transaction if it exists
+    if (event.transactionId) {
+      const [linkedTx] = await tx
+        .select({ accountId: transactions.accountId, amountCents: transactions.amountCents })
+        .from(transactions)
+        .where(eq(transactions.id, event.transactionId))
+        .limit(1)
+
+      if (linkedTx) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${-linkedTx.amountCents}` })
+          .where(eq(accounts.id, linkedTx.accountId))
+
+        await tx
+          .delete(transactions)
+          .where(eq(transactions.id, event.transactionId))
+      }
+    }
+
+    // Delete the portfolio event
+    await tx
+      .delete(portfolioEvents)
+      .where(and(eq(portfolioEvents.id, eventId), eq(portfolioEvents.orgId, orgId)))
+  })
+
+  revalidatePath('/investments')
+  revalidatePath('/investments/dashboard')
+  revalidatePath('/investments/income')
+  revalidatePath('/dashboard')
+  revalidatePath('/transactions')
+  revalidatePath('/accounts')
 }
