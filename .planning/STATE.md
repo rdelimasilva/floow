@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-18T02:46:50.554Z"
+stopped_at: Completed 04-planning-engine/04-01-PLAN.md
+last_updated: "2026-03-18T03:25:39.195Z"
 last_activity: 2026-03-10 — Plan 02-04 complete (financial dashboard RSC, patrimony snapshot engine, human verification passed)
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 16
+  completed_plans: 14
   percent: 100
 ---
 
@@ -60,6 +60,7 @@ Progress: [██████████] 100%
 | Phase 03-investments-engine P03-01 | 5 | 3 tasks | 12 files |
 | Phase 03-investments-engine P03-02 | 5 | 2 tasks | 10 files |
 | Phase 03-investments-engine P03-03 | 4 | 3 tasks | 10 files |
+| Phase 04-planning-engine P04-01 | 5 | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,9 @@ Recent decisions affecting current work:
 - [Phase 03-02]: inArray with drizzle enum column requires mutable Array type (not readonly as const) — TypeScript overload resolution requirement
 - [Phase 03-investments-engine]: investmentValueCents optional param with default 0 in computeSnapshot — backward compatible, Phase 2 callers unchanged
 - [Phase 03-investments-engine]: Client chart components import from @floow/core-finance/src/balance submodule not barrel — prevents ofx-js bundling into browser bundle
+- [Phase 04]: retirementPlans/withdrawalStrategies/successionPlans use uniqueIndex on orgId — one per org, enables onConflictDoUpdate upsert pattern
+- [Phase 04]: calcItcmd uses ITCMD_RATES_BY_STATE with 5% fallback for unknown state; all 27 Brazilian states covered at 2024-2025 max marginal rates
+- [Phase 04]: validateHeirPercentages uses Math.round(sum) === 100 — handles floating-point precision (33.33 * 3 rounds correctly)
 
 ### Pending Todos
 
@@ -121,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T02:46:50.552Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-planning-engine/04-CONTEXT.md
+Last session: 2026-03-18T03:25:39.193Z
+Stopped at: Completed 04-planning-engine/04-01-PLAN.md
+Resume file: None
