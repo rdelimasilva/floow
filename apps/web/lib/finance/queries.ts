@@ -43,7 +43,7 @@ export const getAccounts = cache(async function getAccounts(orgId: string) {
  * Returns a single account by ID, verifying org ownership.
  * Returns null if account not found or doesn't belong to the org.
  */
-export async function getAccountById(orgId: string, accountId: string) {
+export const getAccountById = cache(async function getAccountById(orgId: string, accountId: string) {
   const db = getDb()
   const [account] = await db
     .select()
@@ -52,7 +52,7 @@ export async function getAccountById(orgId: string, accountId: string) {
     .limit(1)
 
   return account ?? null
-}
+})
 
 /**
  * Returns transactions for the given org with optional filters.

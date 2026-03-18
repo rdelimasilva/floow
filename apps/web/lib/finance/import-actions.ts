@@ -258,7 +258,7 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
   })
 
   revalidatePath('/transactions')
-  revalidatePath('/accounts')
+  revalidatePath('/accounts', 'layout')
 
   return { imported, skipped }
 }
@@ -346,7 +346,7 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
   })
 
   revalidatePath('/transactions')
-  revalidatePath('/accounts')
+  revalidatePath('/accounts', 'layout')
 
   return { imported, skipped }
 }

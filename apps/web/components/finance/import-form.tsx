@@ -4,7 +4,6 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { parseOFXFile, parseCSVFile, type NormalizedTransaction, type CsvColumnMapping } from '@floow/core-finance'
 import type { Account } from '@floow/db'
-import { importTransactions } from '@/lib/finance/import-actions'
 import { previewImport, importSelectedTransactions, type PreviewItem } from '@/lib/finance/import-actions'
 import { ImportPreview } from './import-preview'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -80,6 +79,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ImportDoneResult | null>(null)
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([])
+  const [reconciling, setReconciling] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ── File selection handler ─────────────────────────────────────────────────
@@ -176,6 +176,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
 
   async function handleImportSelected(selectedIndices: number[]) {
     if (!selectedFile || !selectedAccountId) return
+    setReconciling(true)
     setStep('importing')
     setError(null)
 
@@ -199,6 +200,8 @@ export function ImportForm({ accounts }: ImportFormProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao importar transações')
       setStep('reconciliation')
+    } finally {
+      setReconciling(false)
     }
   }
 
@@ -449,7 +452,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
           items={previewItems}
           onConfirm={handleImportSelected}
           onCancel={handleReset}
-          loading={false}
+          loading={reconciling}
         />
       )}
 
