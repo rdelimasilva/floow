@@ -1,9 +1,8 @@
 import { createBrowserClient } from '@supabase/ssr'
-import { assertEnv } from '@floow/shared'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 
 export function createClient() {
-  return createBrowserClient(
-    assertEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    assertEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
-  )
+  return createBrowserClient(supabaseUrl, supabaseKey)
 }
