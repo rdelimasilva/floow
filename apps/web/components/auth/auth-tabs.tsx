@@ -6,12 +6,14 @@ import { OAuthButtons } from './oauth-buttons'
 import { LoginForm } from './login-form'
 import { SignupForm } from './signup-form'
 import { MagicLinkForm } from './magic-link-form'
+import { ForgotPasswordForm } from './forgot-password-form'
 
 export function AuthTabs() {
   const [showMagicLink, setShowMagicLink] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
 
   return (
-    <Tabs defaultValue="login" className="w-full" onValueChange={() => setShowMagicLink(false)}>
+    <Tabs defaultValue="login" className="w-full" onValueChange={() => { setShowMagicLink(false); setShowForgotPassword(false) }}>
       <TabsList className="grid w-full grid-cols-2 mb-6">
         <TabsTrigger value="login">Login</TabsTrigger>
         <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -30,7 +32,18 @@ export function AuthTabs() {
           </div>
         </div>
 
-        {showMagicLink ? (
+        {showForgotPassword ? (
+          <>
+            <ForgotPasswordForm />
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(false)}
+              className="w-full text-center text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
+            >
+              Voltar ao login
+            </button>
+          </>
+        ) : showMagicLink ? (
           <>
             <MagicLinkForm />
             <button
@@ -44,13 +57,22 @@ export function AuthTabs() {
         ) : (
           <>
             <LoginForm />
-            <button
-              type="button"
-              onClick={() => setShowMagicLink(true)}
-              className="w-full text-center text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
-            >
-              Use magic link instead
-            </button>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
+              >
+                Esqueci minha senha
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMagicLink(true)}
+                className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
+              >
+                Use magic link instead
+              </button>
+            </div>
           </>
         )}
       </TabsContent>
