@@ -33,11 +33,11 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Patrimonio Liquido</CardTitle>
+          <CardTitle>Patrimônio Líquido</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500 mb-4">
-            Nenhum snapshot disponivel. Clique em &quot;Atualizar Snapshot&quot; para calcular seu patrimonio atual.
+            Nenhum snapshot disponível. Clique em &quot;Atualizar Snapshot&quot; para calcular seu patrimônio atual.
           </p>
           <Button
             type="button"
@@ -61,21 +61,21 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
 
   const accountTypeLabels: Record<string, string> = {
     checking: 'Conta Corrente',
-    savings: 'Poupanca',
+    savings: 'Poupança',
     brokerage: 'Investimentos',
-    credit_card: 'Cartao de Credito',
-    cash: 'Dinheiro em Especie',
+    credit_card: 'Cartão de Crédito',
+    cash: 'Dinheiro em Espécie',
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Patrimonio Liquido</CardTitle>
+        <CardTitle>Patrimônio Líquido</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Net Worth — prominent display */}
         <div>
-          <p className="text-sm text-gray-500">Patrimonio Liquido Total</p>
+          <p className="text-sm text-gray-500">Patrimônio Líquido Total</p>
           <p className="text-3xl font-bold text-gray-900">
             {formatBRL(snapshot.netWorthCents)}
           </p>
@@ -84,7 +84,7 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
         {/* Liquid assets and liabilities */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-sm text-gray-500">Ativos Liquidos</p>
+            <p className="text-sm text-gray-500">Ativos Líquidos</p>
             <p className="text-lg font-semibold text-green-700">
               {formatBRL(snapshot.liquidAssetsCents)}
             </p>
@@ -118,7 +118,7 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
 
         {/* Snapshot date */}
         <p className="text-xs text-gray-400">
-          Ultima atualizacao:{' '}
+          Última atualização:{' '}
           {snapshot.snapshotDate instanceof Date
             ? snapshot.snapshotDate.toLocaleDateString('pt-BR')
             : new Date(snapshot.snapshotDate).toLocaleDateString('pt-BR')}

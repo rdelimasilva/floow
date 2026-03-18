@@ -142,7 +142,7 @@ const PositionRow = memo(function PositionRow({
               Preço
             </button>
             <Link
-              href={`/investments/${position.assetId}/edit`}
+              href={`/investments/${position.assetId}`}
               className="text-xs text-gray-500 hover:text-gray-800 underline"
             >
               Editar

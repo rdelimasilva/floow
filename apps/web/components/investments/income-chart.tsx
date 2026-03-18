@@ -14,7 +14,7 @@ const chartConfig = {
     color: '#2563eb',
   },
   amortizationCents: {
-    label: 'Amortizacao',
+    label: 'Amortização',
     color: '#d97706',
   },
 }
@@ -38,7 +38,7 @@ export function IncomeChart({ incomeData }: IncomeChartProps) {
   if (incomeData.length === 0) {
     return (
       <div className="min-h-[300px] w-full flex items-center justify-center text-sm text-gray-500">
-        Nenhum dado de renda disponivel.
+        Nenhum dado de renda disponível.
       </div>
     )
   }

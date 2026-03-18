@@ -1,5 +1,3 @@
-'use client'
-
 import Link from 'next/link'
 import { formatBRL } from '@floow/core-finance'
 import { AccountCard } from './account-card'

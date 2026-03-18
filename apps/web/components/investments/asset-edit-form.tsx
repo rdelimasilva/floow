@@ -1,9 +1,7 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { updateAssetSchema, type UpdateAssetInput } from '@floow/shared'
 import { updateAsset } from '@/lib/investments/actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
@@ -27,80 +25,63 @@ interface AssetEditFormProps {
 export function AssetEditForm({ asset }: AssetEditFormProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const [submitting, setSubmitting] = useState(false)
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<UpdateAssetInput>({
-    resolver: zodResolver(updateAssetSchema),
-    defaultValues: {
-      id: asset.id,
-      ticker: asset.ticker,
-      name: asset.name,
-      assetClass: asset.assetClass,
-      currency: asset.currency,
-      notes: asset.notes ?? '',
-    },
-  })
-
-  async function onSubmit(data: UpdateAssetInput) {
+  async function handleAction(formData: FormData) {
+    setSubmitting(true)
     try {
-      const formData = new FormData()
-      formData.append('id', data.id)
-      formData.append('ticker', data.ticker)
-      formData.append('name', data.name)
-      formData.append('assetClass', data.assetClass)
-      formData.append('currency', data.currency)
-      if (data.notes) formData.append('notes', data.notes)
+      formData.append('id', asset.id)
       await updateAsset(formData)
       toast('Ativo atualizado com sucesso')
       router.push('/investments')
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao atualizar ativo', 'error')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
-      <input type="hidden" {...register('id')} />
-
+    <form action={handleAction} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
       <div>
-        <Label>Ticker</Label>
-        <Input {...register('ticker')} />
-        {errors.ticker && <p className="text-xs text-red-600 mt-1">{errors.ticker.message}</p>}
+        <Label htmlFor="ticker">Ticker</Label>
+        <Input id="ticker" name="ticker" defaultValue={asset.ticker} required />
       </div>
 
       <div>
-        <Label>Nome</Label>
-        <Input {...register('name')} />
-        {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name.message}</p>}
+        <Label htmlFor="name">Nome</Label>
+        <Input id="name" name="name" defaultValue={asset.name} required />
       </div>
 
       <div>
-        <Label>Classe</Label>
+        <Label htmlFor="assetClass">Classe</Label>
         <select
-          {...register('assetClass')}
+          id="assetClass"
+          name="assetClass"
+          defaultValue={asset.assetClass}
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
         >
           {ASSET_CLASSES.map((c) => (
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
-        {errors.assetClass && <p className="text-xs text-red-600 mt-1">{errors.assetClass.message}</p>}
       </div>
 
       <div>
-        <Label>Moeda</Label>
-        <Input {...register('currency')} />
+        <Label htmlFor="currency">Moeda</Label>
+        <Input id="currency" name="currency" defaultValue={asset.currency} />
       </div>
 
       <div>
-        <Label>Observações</Label>
-        <Input {...register('notes')} />
+        <Label htmlFor="notes">Observações</Label>
+        <Input id="notes" name="notes" defaultValue={asset.notes ?? ''} />
       </div>
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Salvando...' : 'Salvar'}
+        <Button type="submit" disabled={submitting}>
+          {submitting ? 'Salvando...' : 'Salvar'}
         </Button>
-        <Button type="button" variant="outline" onClick={() => router.push('/investments')}>
+        <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancelar
         </Button>
       </div>

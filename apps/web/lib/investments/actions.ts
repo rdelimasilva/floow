@@ -9,7 +9,7 @@ import {
   transactions,
   accounts,
 } from '@floow/db'
-import { createAssetSchema, createPortfolioEventSchema, updateAssetSchema } from '@floow/shared'
+import { createAssetSchema, createPortfolioEventSchema, updateAssetSchema, updatePortfolioEventSchema } from '@floow/shared'
 import { eq, and, sql } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
 
@@ -379,6 +379,138 @@ export async function deletePortfolioEvent(formData: FormData) {
     await tx
       .delete(portfolioEvents)
       .where(and(eq(portfolioEvents.id, eventId), eq(portfolioEvents.orgId, orgId)))
+  })
+
+  revalidatePath('/investments')
+  revalidatePath('/investments/dashboard')
+  revalidatePath('/investments/income')
+  revalidatePath('/dashboard')
+  revalidatePath('/transactions')
+  revalidatePath('/accounts')
+}
+
+/**
+ * Server action: update an existing portfolio event.
+ *
+ * Atomically:
+ *   1. Reverses the old cash-flow transaction (if any) and restores account balance
+ *   2. Updates the portfolio event fields
+ *   3. Creates a new cash-flow transaction if the updated event moves cash
+ *   4. Links the new transactionId back to the portfolio event
+ *
+ * Revalidates all affected pages for cross-page consistency.
+ */
+export async function updatePortfolioEvent(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const rawQuantity = formData.get('quantity')
+  const rawPriceCents = formData.get('priceCents')
+  const rawTotalCents = formData.get('totalCents')
+  const rawSplitRatio = formData.get('splitRatio')
+
+  const input = updatePortfolioEventSchema.parse({
+    id: formData.get('id'),
+    assetId: formData.get('assetId'),
+    accountId: formData.get('accountId'),
+    eventType: formData.get('eventType'),
+    eventDate: formData.get('eventDate'),
+    quantity: rawQuantity ? parseInt(rawQuantity as string, 10) : undefined,
+    priceCents: rawPriceCents ? parseInt(rawPriceCents as string, 10) : undefined,
+    totalCents: rawTotalCents ? parseInt(rawTotalCents as string, 10) : undefined,
+    splitRatio: rawSplitRatio ? String(rawSplitRatio) : undefined,
+    notes: formData.get('notes') || undefined,
+  })
+
+  // Verify the existing event belongs to this org
+  const [existing] = await db
+    .select()
+    .from(portfolioEvents)
+    .where(and(eq(portfolioEvents.id, input.id), eq(portfolioEvents.orgId, orgId)))
+    .limit(1)
+
+  if (!existing) throw new Error('Portfolio event not found')
+
+  const cashFlowMapping = CASH_FLOW_EVENT_TYPES[input.eventType]
+
+  await db.transaction(async (tx) => {
+    // 0. Verify ownership of asset and account before any write
+    await assertAssetOwnership(tx as unknown as Db, input.assetId, orgId)
+    await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
+
+    // 1. Reverse old cash-flow transaction if it exists
+    if (existing.transactionId) {
+      const [linkedTx] = await tx
+        .select({ accountId: transactions.accountId, amountCents: transactions.amountCents })
+        .from(transactions)
+        .where(eq(transactions.id, existing.transactionId))
+        .limit(1)
+
+      if (linkedTx) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${-linkedTx.amountCents}` })
+          .where(eq(accounts.id, linkedTx.accountId))
+
+        await tx
+          .delete(transactions)
+          .where(eq(transactions.id, existing.transactionId))
+      }
+    }
+
+    // Fetch asset ticker for transaction description
+    const [asset] = await tx
+      .select({ ticker: assets.ticker })
+      .from(assets)
+      .where(eq(assets.id, input.assetId))
+      .limit(1)
+    const assetTicker = asset?.ticker ?? input.assetId
+
+    // 2. Update the portfolio event fields
+    await tx
+      .update(portfolioEvents)
+      .set({
+        assetId: input.assetId,
+        accountId: input.accountId,
+        eventType: input.eventType,
+        eventDate: input.eventDate,
+        quantity: input.quantity ?? null,
+        priceCents: input.priceCents ?? null,
+        totalCents: input.totalCents ?? null,
+        splitRatio: input.splitRatio ?? null,
+        notes: input.notes ?? null,
+        transactionId: null, // Clear old link; will be re-set below if applicable
+      })
+      .where(and(eq(portfolioEvents.id, input.id), eq(portfolioEvents.orgId, orgId)))
+
+    // 3. Create new cash-flow transaction if the updated event moves cash
+    if (cashFlowMapping && input.totalCents) {
+      const signedAmount = cashFlowMapping.sign * Math.abs(input.totalCents)
+
+      const [txRow] = await tx
+        .insert(transactions)
+        .values({
+          orgId,
+          accountId: input.accountId,
+          type: cashFlowMapping.transactionType,
+          amountCents: signedAmount,
+          description: `${input.eventType}: ${assetTicker}`,
+          date: input.eventDate,
+        })
+        .returning()
+
+      // Atomic balance update on linked account
+      await tx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
+        .where(eq(accounts.id, input.accountId))
+
+      // 4. Link portfolio event back to new transaction
+      await tx
+        .update(portfolioEvents)
+        .set({ transactionId: txRow.id })
+        .where(eq(portfolioEvents.id, input.id))
+    }
   })
 
   revalidatePath('/investments')

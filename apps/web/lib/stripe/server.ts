@@ -1,7 +1,6 @@
 import Stripe from 'stripe'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { assertEnv } from '@floow/shared'
+import { createClient } from '@/lib/supabase/server'
 
 /**
  * Lazy Stripe client factory.
@@ -54,27 +53,7 @@ export async function createCheckoutSession(
   userEmail: string
 ): Promise<string> {
   // Look up existing stripe_customer_id from subscriptions table
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    assertEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    assertEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Server Component — middleware handles refresh
-          }
-        },
-      },
-    }
-  )
+  const supabase = await createClient()
 
   const { data: subscription } = await supabase
     .from('subscriptions')

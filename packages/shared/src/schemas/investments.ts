@@ -32,6 +32,11 @@ export const updateAssetSchema = z.object({
   notes: z.string().optional(),
 })
 
+export const updatePortfolioEventSchema = createPortfolioEventSchema.extend({
+  id: z.string().uuid(),
+})
+
 export type CreateAssetInput = z.infer<typeof createAssetSchema>
 export type CreatePortfolioEventInput = z.infer<typeof createPortfolioEventSchema>
 export type UpdateAssetInput = z.infer<typeof updateAssetSchema>
+export type UpdatePortfolioEventInput = z.infer<typeof updatePortfolioEventSchema>

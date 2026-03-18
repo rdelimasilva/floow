@@ -17,7 +17,7 @@ const ASSET_CLASS_COLORS: Record<string, string> = {
 
 // Portuguese labels per asset class
 const ASSET_CLASS_LABELS: Record<string, string> = {
-  br_equity: 'Acoes BR',
+  br_equity: 'Ações BR',
   fii: 'FIIs',
   etf: 'ETFs',
   crypto: 'Cripto',
@@ -26,7 +26,7 @@ const ASSET_CLASS_LABELS: Record<string, string> = {
 }
 
 const chartConfig = {
-  br_equity: { label: 'Acoes BR', color: '#2563eb' },
+  br_equity: { label: 'Ações BR', color: '#2563eb' },
   fii: { label: 'FIIs', color: '#7c3aed' },
   etf: { label: 'ETFs', color: '#059669' },
   crypto: { label: 'Cripto', color: '#d97706' },
@@ -64,7 +64,7 @@ export function AllocationChart({ positions }: AllocationChartProps) {
   if (data.length === 0) {
     return (
       <div className="min-h-[300px] w-full flex items-center justify-center text-sm text-gray-500">
-        Nenhuma posicao disponivel para exibir alocacao.
+        Nenhuma posição disponível para exibir alocação.
       </div>
     )
   }

@@ -2,6 +2,7 @@ import { getOrgId } from '@/lib/finance/queries'
 import { getIncomeEvents } from '@/lib/investments/queries'
 import { aggregateIncome, estimateMonthlyIncome, formatBRL } from '@floow/core-finance'
 import { IncomeChart } from '@/components/investments/income-chart'
+import { IncomeEventTable } from '@/components/investments/income-event-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 
@@ -37,7 +38,7 @@ export default async function IncomePage() {
           Renda Passiva
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          Dividendos, juros e amortizacoes dos seus investimentos
+          Dividendos, juros e amortizações dos seus investimentos
         </p>
       </div>
 
@@ -56,7 +57,7 @@ export default async function IncomePage() {
                   {formatBRL(monthlyEstimate)}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Media dos ultimos 12 meses
+                  Média dos últimos 12 meses
                 </p>
               </CardContent>
             </Card>
@@ -66,7 +67,7 @@ export default async function IncomePage() {
           <section>
             <Card>
               <CardHeader>
-                <CardTitle>Historico de Renda Passiva por Mes</CardTitle>
+                <CardTitle>Histórico de Renda Passiva por Mês</CardTitle>
               </CardHeader>
               <CardContent>
                 <IncomeChart incomeData={incomeData} />
@@ -78,35 +79,10 @@ export default async function IncomePage() {
           <section>
             <Card>
               <CardHeader>
-                <CardTitle>Ultimos Recebimentos</CardTitle>
+                <CardTitle>Últimos Recebimentos</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-gray-500">
-                        <th className="pb-2 font-medium">Ativo</th>
-                        <th className="pb-2 font-medium">Tipo</th>
-                        <th className="pb-2 font-medium">Data</th>
-                        <th className="pb-2 font-medium text-right">Valor</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentEvents.map((event) => (
-                        <tr key={event.id} className="border-b last:border-0">
-                          <td className="py-2 font-medium">{event.ticker}</td>
-                          <td className="py-2 text-gray-600 capitalize">{event.eventType}</td>
-                          <td className="py-2 text-gray-600">
-                            {new Date(event.eventDate).toLocaleDateString('pt-BR')}
-                          </td>
-                          <td className="py-2 text-right text-green-700 font-medium">
-                            {formatBRL(event.totalCents ?? 0)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <IncomeEventTable events={recentEvents} />
               </CardContent>
             </Card>
           </section>

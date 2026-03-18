@@ -19,14 +19,14 @@ export default async function ImportPage() {
           href="/transactions"
           className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
         >
-          &larr; Voltar para transacoes
+          &larr; Voltar para transações
         </Link>
       </div>
 
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Importar Transacoes</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Importar Transações</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Importe um extrato bancario em formato OFX ou CSV. Duplicatas sao ignoradas
+          Importe um extrato bancário em formato OFX ou CSV. Duplicatas são ignoradas
           automaticamente.
         </p>
       </div>

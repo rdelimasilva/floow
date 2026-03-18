@@ -1,38 +1,39 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getOrgId } from '@/lib/finance/queries'
 import { createCheckoutSession, createPortalSession } from '@/lib/stripe/server'
 import { PlanCard } from '@/components/billing/plan-card'
 import { SubscriptionStatus } from '@/components/billing/subscription-status'
 import type { PlanTier, SubscriptionStatus as SubscriptionStatusType } from '@floow/shared'
 
 /**
+ * Helper: get subscription record for an org using Supabase client.
+ */
+async function getSubscription(orgId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('plan_tier, status, stripe_customer_id, current_period_end, cancel_at_period_end')
+    .eq('org_id', orgId)
+    .single()
+  return data
+}
+
+/**
  * Server action: create Stripe Checkout Session and redirect.
- * FormData contains priceId for the selected plan interval.
  */
 async function createCheckout(priceId: string) {
   'use server'
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/auth')
 
-  if (!user) redirect('/auth')
-
-  // Resolve the org_id from org_members (user's personal org)
-  const { data: membership } = await supabase
-    .from('org_members')
-    .select('org_id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) {
-    throw new Error('No organization found for user')
-  }
+  const orgId = await getOrgId()
 
   const checkoutUrl = await createCheckoutSession(
-    membership.org_id,
+    orgId,
     priceId,
-    user.email ?? ''
+    session.user.email ?? ''
   )
 
   redirect(checkoutUrl)
@@ -43,27 +44,13 @@ async function createCheckout(priceId: string) {
  */
 async function openPortal() {
   'use server'
+  const orgId = await getOrgId()
+
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/auth')
-
-  const { data: membership } = await supabase
-    .from('org_members')
-    .select('org_id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) {
-    throw new Error('No organization found for user')
-  }
-
   const { data: subscription } = await supabase
     .from('subscriptions')
     .select('stripe_customer_id')
-    .eq('org_id', membership.org_id)
+    .eq('org_id', orgId)
     .single()
 
   if (!subscription?.stripe_customer_id) {
@@ -75,30 +62,8 @@ async function openPortal() {
 }
 
 export default async function BillingPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/auth')
-
-  // Get user's org membership
-  const { data: membership } = await supabase
-    .from('org_members')
-    .select('org_id')
-    .eq('user_id', user.id)
-    .single()
-
-  // Get subscription record
-  const { data: subscription } = membership
-    ? await supabase
-        .from('subscriptions')
-        .select(
-          'plan_tier, status, stripe_customer_id, current_period_end, cancel_at_period_end'
-        )
-        .eq('org_id', membership.org_id)
-        .single()
-    : { data: null }
+  const orgId = await getOrgId()
+  const subscription = await getSubscription(orgId)
 
   const planTier: PlanTier = (subscription?.plan_tier as PlanTier) ?? 'free'
   const status = (subscription?.status as SubscriptionStatusType) ?? null

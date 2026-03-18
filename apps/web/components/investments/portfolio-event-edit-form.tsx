@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createPortfolioEvent } from '@/lib/investments/actions'
+import { updatePortfolioEvent } from '@/lib/investments/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,11 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useToast } from '@/components/ui/toast'
 import type { Asset, Account } from '@floow/db'
+import type { PortfolioEventDetail } from '@/lib/investments/queries'
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
-const portfolioEventFormSchema = z.object({
+const portfolioEventEditSchema = z.object({
   assetId: z.string().uuid('Selecione um ativo'),
   accountId: z.string().uuid('Selecione uma conta'),
   eventType: z.enum(['buy', 'sell', 'dividend', 'interest', 'split', 'amortization'], {
@@ -34,13 +36,14 @@ const portfolioEventFormSchema = z.object({
   notes: z.string().optional(),
 })
 
-type PortfolioEventFormData = z.infer<typeof portfolioEventFormSchema>
+type FormData = z.infer<typeof portfolioEventEditSchema>
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type EventType = 'buy' | 'sell' | 'dividend' | 'interest' | 'split' | 'amortization'
 
-interface PortfolioEventFormProps {
+interface PortfolioEventEditFormProps {
+  event: PortfolioEventDetail
   assets: Asset[]
   accounts: Account[]
 }
@@ -56,7 +59,6 @@ const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
   { value: 'amortization', label: 'Amortização' },
 ]
 
-// Determines field visibility per event type
 function showQuantity(type: EventType): boolean {
   return type === 'buy' || type === 'sell' || type === 'split'
 }
@@ -75,21 +77,33 @@ function showSplitRatio(type: EventType): boolean {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps) {
+export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEventEditFormProps) {
   const router = useRouter()
-  const [eventType, setEventType] = useState<EventType>('buy')
+  const { toast } = useToast()
+  const [eventType, setEventType] = useState<EventType>(event.eventType as EventType)
+
+  const eventDate = event.eventDate instanceof Date
+    ? event.eventDate.toISOString().split('T')[0]
+    : new Date(event.eventDate as unknown as string).toISOString().split('T')[0]
 
   const {
     register,
     handleSubmit,
     control,
     watch,
-    setValue,
     formState: { errors, isSubmitting },
-  } = useForm<PortfolioEventFormData>({
-    resolver: zodResolver(portfolioEventFormSchema),
+  } = useForm<FormData>({
+    resolver: zodResolver(portfolioEventEditSchema),
     defaultValues: {
-      eventDate: new Date().toISOString().split('T')[0],
+      assetId: event.assetId,
+      accountId: event.accountId,
+      eventType: event.eventType as EventType,
+      eventDate,
+      quantity: event.quantity != null ? String(event.quantity) : '',
+      priceCents: event.priceCents != null ? (event.priceCents / 100).toFixed(2).replace('.', ',') : '',
+      totalCents: event.totalCents != null ? (event.totalCents / 100).toFixed(2).replace('.', ',') : '',
+      splitRatio: event.splitRatio ?? '',
+      notes: event.notes ?? '',
     },
   })
 
@@ -101,7 +115,6 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
     return Math.round(parseFloat(reais.replace(',', '.')) * 100)
   }
 
-  /** Auto-compute total for buy/sell as qty * price (in R$) */
   function getAutoTotalReais(): string | null {
     if ((eventType === 'buy' || eventType === 'sell') && quantityVal && priceVal) {
       const qty = parseInt(quantityVal, 10)
@@ -113,8 +126,9 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
     return null
   }
 
-  async function onSubmit(data: PortfolioEventFormData) {
-    const formData = new FormData()
+  async function onSubmit(data: FormData) {
+    const formData = new window.FormData()
+    formData.append('id', event.id)
     formData.append('assetId', data.assetId)
     formData.append('accountId', data.accountId)
     formData.append('eventType', data.eventType)
@@ -123,7 +137,6 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
     if (data.quantity) formData.append('quantity', data.quantity)
     if (data.priceCents) formData.append('priceCents', String(toCents(data.priceCents)))
 
-    // For buy/sell, auto-compute total if not provided
     if (data.totalCents) {
       formData.append('totalCents', String(toCents(data.totalCents)))
     } else if (data.priceCents && data.quantity) {
@@ -137,13 +150,18 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
     if (data.splitRatio) formData.append('splitRatio', data.splitRatio)
     if (data.notes) formData.append('notes', data.notes)
 
-    await createPortfolioEvent(formData)
-    router.push('/investments')
+    try {
+      await updatePortfolioEvent(formData)
+      toast('Evento atualizado com sucesso')
+      router.push('/investments/income')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao atualizar evento', 'error')
+    }
   }
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-4">Registrar Evento de Portfolio</h2>
+      <h2 className="text-base font-semibold text-gray-900 mb-4">Editar Evento de Portfolio</h2>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
         {/* Asset select */}
@@ -243,7 +261,7 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
           )}
         </div>
 
-        {/* Quantity (hidden for dividend/interest/amortization) */}
+        {/* Quantity */}
         {showQuantity(eventType) && (
           <div className="space-y-1.5">
             <Label htmlFor="quantity">Quantidade</Label>
@@ -257,7 +275,7 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
           </div>
         )}
 
-        {/* Price per unit (hidden for split, dividend, interest, amortization) */}
+        {/* Price per unit */}
         {showPriceCents(eventType) && (
           <div className="space-y-1.5">
             <Label htmlFor="priceCents">Preço por unidade (R$)</Label>
@@ -271,7 +289,7 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
           </div>
         )}
 
-        {/* Total (shown for buy/sell/dividend/interest/amortization) */}
+        {/* Total */}
         {showTotalCents(eventType) && (
           <div className="space-y-1.5">
             <Label htmlFor="totalCents">
@@ -298,7 +316,7 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
           </div>
         )}
 
-        {/* Split ratio (only for split events) */}
+        {/* Split ratio */}
         {showSplitRatio(eventType) && (
           <div className="space-y-1.5">
             <Label htmlFor="splitRatio">Razão do Desdobramento</Label>
@@ -327,11 +345,11 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={() => router.push('/investments')}>
+          <Button type="button" variant="outline" onClick={() => router.push('/investments/income')}>
             Cancelar
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Registrando...' : 'Registrar Evento'}
+            {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
           </Button>
         </div>
       </form>

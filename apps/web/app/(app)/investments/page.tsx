@@ -15,7 +15,7 @@ export default async function InvestmentsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Investimentos</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Acompanhe sua carteira de investimentos e evolucao patrimonial
+            Acompanhe sua carteira de investimentos e evolução patrimonial
           </p>
         </div>
         <div className="flex items-center gap-3">

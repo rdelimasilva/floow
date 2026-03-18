@@ -35,7 +35,7 @@ interface ImportDoneResult {
 // Common CSV column name heuristics for auto-detection
 const DATE_HEADERS = ['data', 'date', 'dt', 'data lançamento', 'data lancamento']
 const AMOUNT_HEADERS = ['valor', 'amount', 'value', 'vlr', 'valor (em r$)', 'debit', 'credit']
-const DESC_HEADERS = ['descricao', 'descricção', 'description', 'memo', 'historico', 'histórico', 'nome', 'name']
+const DESC_HEADERS = ['descricao', 'descrição', 'description', 'memo', 'historico', 'histórico', 'nome', 'name']
 
 function detectColumn(headers: string[], candidates: string[]): string {
   const normalized = headers.map((h) => h.toLowerCase().trim())
@@ -74,6 +74,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
     descriptionColumn: '',
     dateFormat: 'dd/MM/yyyy',
   })
+  const [fileContent, setFileContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ImportDoneResult | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -89,6 +90,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
 
     try {
       const content = await file.text()
+      setFileContent(content)
       const isOFX = file.name.toLowerCase().endsWith('.ofx')
 
       if (isOFX) {
@@ -126,15 +128,14 @@ export function ImportForm({ accounts }: ImportFormProps) {
 
   // ── CSV mapping change handler ─────────────────────────────────────────────
 
-  async function handleMappingChange(key: keyof Required<CsvColumnMapping>, value: string) {
+  function handleMappingChange(key: keyof Required<CsvColumnMapping>, value: string) {
     const newMapping = { ...csvMapping, [key]: value }
     setCsvMapping(newMapping)
 
-    // Re-parse with new mapping for live preview update
-    if (selectedFile) {
+    // Re-parse with cached content (no re-reading file from disk)
+    if (fileContent) {
       try {
-        const content = await selectedFile.text()
-        const transactions = parseCSVFile(content, newMapping)
+        const transactions = parseCSVFile(fileContent, newMapping)
         setPreview(transactions)
       } catch {
         // Silently ignore — mapping may be incomplete during user interaction
@@ -168,7 +169,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
       setStep('done')
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Erro ao importar transacoes',
+        err instanceof Error ? err.message : 'Erro ao importar transações',
       )
       setStep('preview')
     }
@@ -179,6 +180,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
   function handleReset() {
     setStep('select-file')
     setSelectedFile(null)
+    setFileContent(null)
     setPreview([])
     setCsvHeaders([])
     setError(null)
@@ -298,7 +300,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Coluna de descricao</label>
+                  <label className="text-sm font-medium">Coluna de descrição</label>
                   <Select
                     value={csvMapping.descriptionColumn}
                     onValueChange={(v) => handleMappingChange('descriptionColumn', v)}
@@ -344,7 +346,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>
-                Preview — {preview.length} transacao{preview.length !== 1 ? 'es' : ''}
+                Preview — {preview.length} transação{preview.length !== 1 ? 'es' : ''}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -353,7 +355,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Data</TableHead>
-                      <TableHead>Descricao</TableHead>
+                      <TableHead>Descrição</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
                     </TableRow>
@@ -392,7 +394,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
                     {preview.length > 100 && (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center text-sm text-gray-500">
-                          ... e mais {preview.length - 100} transacoes
+                          ... e mais {preview.length - 100} transações
                         </TableCell>
                       </TableRow>
                     )}
@@ -402,7 +404,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
 
               <div className="flex gap-3 mt-4">
                 <Button onClick={handleImport} disabled={preview.length === 0}>
-                  Importar {preview.length} transacao{preview.length !== 1 ? 'es' : ''}
+                  Importar {preview.length} transação{preview.length !== 1 ? 'es' : ''}
                 </Button>
                 <Button variant="outline" onClick={handleReset}>
                   Cancelar
@@ -418,7 +420,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
         <Card>
           <CardContent className="py-12 flex flex-col items-center gap-4">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900" />
-            <p className="text-sm text-gray-600">Importando transacoes...</p>
+            <p className="text-sm text-gray-600">Importando transações...</p>
           </CardContent>
         </Card>
       )}
@@ -427,7 +429,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
       {step === 'done' && result && (
         <Card>
           <CardHeader>
-            <CardTitle>Importacao concluida</CardTitle>
+            <CardTitle>Importação concluída</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -443,7 +445,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
 
             <div className="flex gap-3">
               <Link href="/transactions">
-                <Button>Ver transacoes</Button>
+                <Button>Ver transações</Button>
               </Link>
               <Button variant="outline" onClick={handleReset}>
                 Importar outro arquivo

@@ -20,8 +20,8 @@ import {
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
 const assetFormSchema = z.object({
-  ticker: z.string().min(1, 'Ticker e obrigatorio').max(20),
-  name: z.string().min(1, 'Nome e obrigatorio').max(200),
+  ticker: z.string().min(1, 'Ticker é obrigatório').max(20),
+  name: z.string().min(1, 'Nome é obrigatório').max(200),
   assetClass: z.enum(['br_equity', 'fii', 'etf', 'crypto', 'fixed_income', 'international'], {
     required_error: 'Selecione a classe do ativo',
   }),
@@ -34,7 +34,7 @@ type AssetFormData = z.infer<typeof assetFormSchema>
 // ── Labels ─────────────────────────────────────────────────────────────────────
 
 const ASSET_CLASS_OPTIONS = [
-  { value: 'br_equity', label: 'Acoes BR' },
+  { value: 'br_equity', label: 'Ações BR' },
   { value: 'fii', label: 'FIIs' },
   { value: 'etf', label: 'ETFs' },
   { value: 'crypto', label: 'Cripto' },
@@ -132,7 +132,7 @@ export function AssetForm() {
           {/* Helper text for fixed income */}
           {selectedClass === 'fixed_income' && (
             <p className="text-xs text-blue-600">
-              Use quantidade 1 e preco como valor total investido
+              Use quantidade 1 e preço como valor total investido
             </p>
           )}
         </div>
@@ -152,7 +152,7 @@ export function AssetForm() {
           <Label htmlFor="notes">Notas (opcional)</Label>
           <textarea
             id="notes"
-            placeholder="Observacoes sobre este ativo..."
+            placeholder="Observações sobre este ativo..."
             {...register('notes')}
             className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />

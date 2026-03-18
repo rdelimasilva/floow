@@ -36,11 +36,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Planning Engine
 
-- [ ] **PLAN-01**: User can simulate retirement (conservative, base, aggressive scenarios)
-- [ ] **PLAN-02**: User can calculate financial independence timeline
-- [ ] **PLAN-03**: User can view estimated passive income
-- [ ] **PLAN-04**: User can plan withdrawal strategy
-- [ ] **PLAN-05**: User can create estate/succession plan (liquidity, heir distribution)
+- [x] **PLAN-01**: User can simulate retirement (conservative, base, aggressive scenarios)
+- [x] **PLAN-02**: User can calculate financial independence timeline
+- [x] **PLAN-03**: User can view estimated passive income
+- [x] **PLAN-04**: User can plan withdrawal strategy
+- [x] **PLAN-05**: User can create estate/succession plan (liquidity, heir distribution)
 
 ### Dashboards
 
@@ -119,11 +119,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INV-05 | Phase 3 | Complete |
 | INV-06 | Phase 3 | Complete |
 | INV-07 | Phase 3 | Complete |
-| PLAN-01 | Phase 4 | Pending |
-| PLAN-02 | Phase 4 | Pending |
-| PLAN-03 | Phase 4 | Pending |
-| PLAN-04 | Phase 4 | Pending |
-| PLAN-05 | Phase 4 | Pending |
+| PLAN-01 | Phase 4 | Complete |
+| PLAN-02 | Phase 4 | Complete |
+| PLAN-03 | Phase 4 | Complete |
+| PLAN-04 | Phase 4 | Complete |
+| PLAN-05 | Phase 4 | Complete |
 | DASH-01 | Phase 2 | Complete |
 | DASH-02 | Phase 3 | Complete |
 | DASH-03 | Phase 3 | Complete |

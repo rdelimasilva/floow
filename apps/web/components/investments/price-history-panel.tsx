@@ -27,13 +27,13 @@ export function PriceHistoryPanel({ orgId, assetId }: PriceHistoryPanelProps) {
 
   if (loading) {
     return (
-      <div className="px-4 py-3 text-sm text-gray-500">Carregando historico...</div>
+      <div className="px-4 py-3 text-sm text-gray-500">Carregando histórico...</div>
     )
   }
 
   if (entries.length === 0) {
     return (
-      <div className="px-4 py-3 text-sm text-gray-500">Nenhum preco registrado</div>
+      <div className="px-4 py-3 text-sm text-gray-500">Nenhum preço registrado</div>
     )
   }
 
@@ -43,7 +43,7 @@ export function PriceHistoryPanel({ orgId, assetId }: PriceHistoryPanelProps) {
         <thead>
           <tr className="border-b border-gray-200 bg-gray-100">
             <th className="px-3 py-2 text-left font-medium text-gray-600">Data</th>
-            <th className="px-3 py-2 text-right font-medium text-gray-600">Preco</th>
+            <th className="px-3 py-2 text-right font-medium text-gray-600">Preço</th>
           </tr>
         </thead>
         <tbody>

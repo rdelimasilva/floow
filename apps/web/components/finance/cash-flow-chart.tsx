@@ -32,7 +32,7 @@ export function CashFlowChart({ data }: CashFlowChartProps) {
   if (data.length === 0) {
     return (
       <div className="min-h-[300px] w-full flex items-center justify-center text-sm text-gray-500">
-        Nenhum dado de fluxo de caixa disponivel.
+        Nenhum dado de fluxo de caixa disponível.
       </div>
     )
   }

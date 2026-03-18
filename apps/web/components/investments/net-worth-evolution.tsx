@@ -7,7 +7,7 @@ import type { PatrimonySnapshot } from '@floow/db'
 
 const chartConfig = {
   netWorthCents: {
-    label: 'Patrimonio Liquido',
+    label: 'Patrimônio Líquido',
     color: '#2563eb',
   },
 }
@@ -29,7 +29,7 @@ export function NetWorthEvolution({ snapshots }: NetWorthEvolutionProps) {
   if (snapshots.length === 0) {
     return (
       <div className="min-h-[300px] w-full flex items-center justify-center text-sm text-gray-500">
-        Nenhum dado patrimonial disponivel.
+        Nenhum dado patrimonial disponível.
       </div>
     )
   }

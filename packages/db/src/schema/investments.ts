@@ -110,6 +110,11 @@ export const assetPrices = pgTable(
       table.assetId,
       table.priceDate
     ),
+    idxAssetPricesOrgAssetDate: index('idx_asset_prices_org_asset_date').on(
+      table.orgId,
+      table.assetId,
+      table.priceDate
+    ),
   })
 )
 
