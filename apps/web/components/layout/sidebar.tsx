@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  Target,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { href: '/transactions', label: 'Transações', icon: ArrowLeftRight },
   { href: '/investments', label: 'Investimentos', icon: TrendingUp },
   { href: '/categories', label: 'Categorias', icon: Tags },
+  { href: '/planning', label: 'Planejamento', icon: Target },
   { href: '/billing', label: 'Plano', icon: CreditCard },
 ]
 
