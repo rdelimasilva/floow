@@ -52,23 +52,23 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CAT-01 | — | Pending |
-| CAT-02 | — | Pending |
-| CAT-03 | — | Pending |
-| CAT-04 | — | Pending |
-| CAT-05 | — | Pending |
-| CAT-06 | — | Pending |
-| REC-01 | — | Pending |
-| REC-02 | — | Pending |
-| REC-03 | — | Pending |
-| REC-04 | — | Pending |
-| REC-05 | — | Pending |
+| CAT-01 | Phase 6 | Pending |
+| CAT-02 | Phase 6 | Pending |
+| CAT-03 | Phase 6 | Pending |
+| CAT-04 | Phase 6 | Pending |
+| CAT-05 | Phase 6 | Pending |
+| CAT-06 | Phase 6 | Pending |
+| REC-01 | Phase 7 | Pending |
+| REC-02 | Phase 7 | Pending |
+| REC-03 | Phase 7 | Pending |
+| REC-04 | Phase 7 | Pending |
+| REC-05 | Phase 7 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11 ⚠️
+- Mapped to phases: 11
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after initial definition*
+*Last updated: 2026-03-18 after roadmap creation (phases 5-7)*
