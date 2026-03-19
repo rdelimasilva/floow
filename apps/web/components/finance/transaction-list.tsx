@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Zap } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
 import { deleteTransaction, updateTransaction } from '@/lib/finance/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +22,7 @@ interface TransactionRow {
   categoryColor: string | null
   categoryIcon: string | null
   transferGroupId?: string | null
+  isAutoCategorized?: boolean
 }
 
 interface AccountOption {
@@ -67,6 +69,7 @@ export function TransactionList({ transactions, accounts, categories }: Transact
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TransactionRow | null>(null)
   const [loading, setLoading] = useState(false)
+  const [ruleShortcut, setRuleShortcut] = useState<{ matchValue: string; categoryId: string } | null>(null)
 
   // Edit form state
   const [editDesc, setEditDesc] = useState('')
@@ -198,15 +201,20 @@ export function TransactionList({ transactions, accounts, categories }: Transact
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{tx.description}</td>
                   <td className="px-4 py-3">
                     {tx.categoryName ? (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-                        style={{
-                          backgroundColor: tx.categoryColor ? `${tx.categoryColor}20` : '#e5e7eb',
-                          color: tx.categoryColor ?? '#6b7280',
-                        }}
-                      >
-                        {tx.categoryIcon && <span>{tx.categoryIcon}</span>}
-                        {tx.categoryName}
+                      <span className="inline-flex items-center gap-1">
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                          style={{
+                            backgroundColor: tx.categoryColor ? `${tx.categoryColor}20` : '#e5e7eb',
+                            color: tx.categoryColor ?? '#6b7280',
+                          }}
+                        >
+                          {tx.categoryIcon && <span>{tx.categoryIcon}</span>}
+                          {tx.categoryName}
+                        </span>
+                        {tx.isAutoCategorized && (
+                          <span className="text-[9px] text-blue-500 font-medium ml-0.5 uppercase tracking-wider">auto</span>
+                        )}
                       </span>
                     ) : (
                       <span className="text-xs text-gray-400">—</span>
@@ -218,6 +226,21 @@ export function TransactionList({ transactions, accounts, categories }: Transact
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
+                      {tx.categoryId && (
+                        <button
+                          type="button"
+                          title="Categorizar todas como esta"
+                          onClick={() =>
+                            setRuleShortcut({
+                              matchValue: tx.description,
+                              categoryId: tx.categoryId!,
+                            })
+                          }
+                          className="rounded p-1 text-gray-400 hover:bg-yellow-50 hover:text-yellow-600"
+                        >
+                          <Zap className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       {!tx.transferGroupId && (
                         <button
                           type="button"
@@ -255,6 +278,13 @@ export function TransactionList({ transactions, accounts, categories }: Transact
         }
         confirmLabel="Remover"
         loading={loading}
+      />
+
+      <CreateRuleDialog
+        open={ruleShortcut !== null}
+        onClose={() => setRuleShortcut(null)}
+        categories={categories}
+        prefill={ruleShortcut ?? undefined}
       />
     </>
   )

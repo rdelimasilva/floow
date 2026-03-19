@@ -87,6 +87,7 @@ export async function getTransactions(
       transferGroupId: transactions.transferGroupId,
       importedAt: transactions.importedAt,
       externalId: transactions.externalId,
+      isAutoCategorized: transactions.isAutoCategorized,
       createdAt: transactions.createdAt,
       categoryName: categories.name,
       categoryColor: categories.color,

@@ -62,7 +62,10 @@ export default async function TransactionsPage({ searchParams }: Props) {
       <TransactionFilters accounts={accounts.map((a) => ({ id: a.id, name: a.name }))} />
 
       <TransactionList
-        transactions={transactions}
+        transactions={transactions.map((t) => ({
+          ...t,
+          isAutoCategorized: t.isAutoCategorized,
+        }))}
         accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))}
       />
