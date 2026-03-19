@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Automação
-status: planning
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-19T00:51:49.839Z"
+status: executing
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-19T01:16:37.925Z"
 last_activity: 2026-03-18 — Roadmap created for v1.1 (phases 5-7)
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 5 of 7 (Automation Foundation)
-Plan: 0 of 1 in current phase
-Status: Ready to plan
-Last activity: 2026-03-18 — Roadmap created for v1.1 (phases 5-7)
+Plan: 1 of 1 in current phase (COMPLETE — ready for Phase 6)
+Status: Phase 5 complete
+Last activity: 2026-03-18 — Phase 5 Plan 01 executed: migration, categorization, recurring functions
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 5. Foundation | 0/1 | - | - |
+| 5. Foundation | 1/1 | 4 min | 4 min |
 | 6. Categorization | 0/2 | - | - |
 | 7. Recurring | 0/2 | - | - |
 
@@ -60,6 +60,8 @@ Key decisions for v1.1 (from research):
 - `(recurring_template_id, due_date)` unique constraint prevents duplicate generation
 - `priority` column on rules with `ORDER BY priority DESC` for deterministic conflict resolution
 - `date-fns@^4.1.0` is the only new dependency (added to core-finance)
+- [Phase 05-automation-foundation]: Use new Date(Y,M,D) local constructor in tests (not ISO strings) to avoid UTC-3 timezone drift with date-fns v4 local-time operations
+- [Phase 05-automation-foundation]: matchCategory does not check isEnabled — callers must pre-filter disabled rules before passing to function
 
 ### Pending Todos
 
@@ -72,6 +74,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T00:51:49.837Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-automation-foundation/05-CONTEXT.md
+Last session: 2026-03-19T01:16:37.924Z
+Stopped at: Completed 05-01-PLAN.md
+Resume file: None
