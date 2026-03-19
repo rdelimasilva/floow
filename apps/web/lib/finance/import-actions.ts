@@ -2,10 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { getDb, accounts, transactions } from '@floow/db'
-import { parseOFXFile, parseCSVFile } from '@floow/core-finance'
+import { parseOFXFile, parseCSVFile, matchCategory } from '@floow/core-finance'
 import type { CsvColumnMapping } from '@floow/core-finance'
 import { eq, sql, and, gte, lte } from 'drizzle-orm'
-import { getOrgId } from './queries'
+import { getOrgId, getCategoryRules } from './queries'
 
 /**
  * Result returned after an import operation.
@@ -205,17 +205,29 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
 
   const importedAt = new Date()
 
-  // Build row objects for all normalized transactions
-  const rows = normalized.map((tx) => ({
-    orgId,
-    accountId,
-    type: tx.type,
-    amountCents: tx.amountCents,
-    description: tx.description,
-    date: tx.date,
-    externalId: tx.externalId,
-    importedAt,
-  }))
+  // Auto-categorize: fetch enabled rules once before the transaction block
+  const allRules = await getCategoryRules(orgId)
+  const enabledRules = allRules.filter((r) => r.isEnabled)
+
+  // Build row objects for all normalized transactions, applying auto-categorization
+  const rows = normalized.map((tx) => {
+    const autoCategoryId =
+      tx.description && enabledRules.length > 0
+        ? matchCategory(tx.description, enabledRules)
+        : null
+    return {
+      orgId,
+      accountId,
+      type: tx.type,
+      amountCents: tx.amountCents,
+      description: tx.description,
+      date: tx.date,
+      externalId: tx.externalId,
+      importedAt,
+      categoryId: autoCategoryId,
+      isAutoCategorized: autoCategoryId !== null,
+    }
+  })
 
   const { imported, skipped } = await db.transaction(async (tx) => {
     // Ownership check: verify the target account belongs to the org before any write
@@ -301,16 +313,29 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
   if (selected.length === 0) return { imported: 0, skipped: 0 }
 
   const importedAt = new Date()
-  const rows = selected.map((tx) => ({
-    orgId,
-    accountId,
-    type: tx.type,
-    amountCents: tx.amountCents,
-    description: tx.description,
-    date: tx.date,
-    externalId: tx.externalId,
-    importedAt,
-  }))
+
+  // Auto-categorize: fetch enabled rules once before the transaction block
+  const allRulesSelected = await getCategoryRules(orgId)
+  const enabledRulesSelected = allRulesSelected.filter((r) => r.isEnabled)
+
+  const rows = selected.map((tx) => {
+    const autoCategoryId =
+      tx.description && enabledRulesSelected.length > 0
+        ? matchCategory(tx.description, enabledRulesSelected)
+        : null
+    return {
+      orgId,
+      accountId,
+      type: tx.type,
+      amountCents: tx.amountCents,
+      description: tx.description,
+      date: tx.date,
+      externalId: tx.externalId,
+      importedAt,
+      categoryId: autoCategoryId,
+      isAutoCategorized: autoCategoryId !== null,
+    }
+  })
 
   const { imported, skipped } = await db.transaction(async (tx) => {
     const [accountRow] = await tx

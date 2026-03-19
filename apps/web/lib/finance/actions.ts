@@ -1,11 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getDb, accounts, transactions, patrimonySnapshots, categories } from '@floow/db'
+import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules } from '@floow/db'
 import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema } from '@floow/shared'
-import { computeSnapshot } from '@floow/core-finance'
-import { eq, sql, and } from 'drizzle-orm'
-import { getOrgId } from './queries'
+import { computeSnapshot, matchCategory } from '@floow/core-finance'
+import { eq, sql, and, desc, isNull, ilike, count, max } from 'drizzle-orm'
+import { getOrgId, getCategoryRules } from './queries'
 import { getPositions } from '@/lib/investments/queries'
 
 type Db = ReturnType<typeof getDb>
@@ -90,6 +90,20 @@ export async function createTransaction(formData: FormData) {
     transferToAccountId: formData.get('transferToAccountId') || undefined,
   })
 
+  // Auto-categorize: apply rules when no explicit category and not a transfer
+  let resolvedCategoryId = input.categoryId ?? null
+  let isAutoCategorized = false
+
+  if (!resolvedCategoryId && input.description && input.type !== 'transfer') {
+    const rules = await getCategoryRules(orgId)
+    const enabledRules = rules.filter((r) => r.isEnabled)
+    const matched = matchCategory(input.description, enabledRules)
+    if (matched) {
+      resolvedCategoryId = matched
+      isAutoCategorized = true
+    }
+  }
+
   if (input.type === 'transfer') {
     if (!input.transferToAccountId) {
       throw new Error('transferToAccountId is required for transfer transactions')
@@ -110,12 +124,13 @@ export async function createTransaction(formData: FormData) {
         .values({
           orgId,
           accountId: input.accountId,
-          categoryId: input.categoryId ?? null,
+          categoryId: resolvedCategoryId,
           type: 'transfer',
           amountCents: -input.amountCents,
           description: input.description,
           date: new Date(input.date),
           transferGroupId,
+          isAutoCategorized,
         })
         .returning()
 
@@ -125,12 +140,13 @@ export async function createTransaction(formData: FormData) {
         .values({
           orgId,
           accountId: transferToAccountId,
-          categoryId: input.categoryId ?? null,
+          categoryId: resolvedCategoryId,
           type: 'transfer',
           amountCents: input.amountCents,
           description: input.description,
           date: new Date(input.date),
           transferGroupId,
+          isAutoCategorized,
         })
         .returning()
 
@@ -167,11 +183,12 @@ export async function createTransaction(formData: FormData) {
       .values({
         orgId,
         accountId: input.accountId,
-        categoryId: input.categoryId ?? null,
+        categoryId: resolvedCategoryId,
         type: input.type,
         amountCents: signedAmount,
         description: input.description,
         date: new Date(input.date),
+        isAutoCategorized,
       })
       .returning()
 
@@ -498,4 +515,268 @@ export async function deleteCategory(formData: FormData) {
 
   revalidatePath('/categories')
   revalidatePath('/transactions')
+}
+
+// ---------------------------------------------------------------------------
+// Categorization Rule Actions — CAT-01, CAT-02, CAT-06
+// ---------------------------------------------------------------------------
+
+/**
+ * Server action: create a new categorization rule for the authenticated org.
+ * Auto-assigns priority as maxPriority + 10 when no explicit priority is provided.
+ * CAT-01
+ */
+export async function createRule(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const matchType = formData.get('matchType') as string
+  const matchValue = formData.get('matchValue') as string
+  const categoryId = formData.get('categoryId') as string
+  const priorityRaw = formData.get('priority') as string | null
+
+  if (!matchType || !matchValue || !categoryId) {
+    throw new Error('matchType, matchValue, and categoryId are required')
+  }
+  if (!['contains', 'exact'].includes(matchType)) {
+    throw new Error('Invalid matchType — must be "contains" or "exact"')
+  }
+  if (!matchValue.trim()) {
+    throw new Error('matchValue must not be empty')
+  }
+
+  let priority: number
+  if (priorityRaw !== null && priorityRaw !== '') {
+    priority = parseInt(priorityRaw, 10)
+  } else {
+    // Auto-assign: maxPriority + 10, defaulting to 10 if no rules exist
+    const [result] = await db
+      .select({ maxPriority: max(categoryRules.priority) })
+      .from(categoryRules)
+      .where(eq(categoryRules.orgId, orgId))
+    priority = (result?.maxPriority ?? 0) + 10
+  }
+
+  const [rule] = await db
+    .insert(categoryRules)
+    .values({
+      orgId,
+      matchType: matchType as 'contains' | 'exact',
+      matchValue: matchValue.trim(),
+      categoryId,
+      priority,
+      isEnabled: true,
+    })
+    .returning()
+
+  revalidatePath('/categories')
+  return rule
+}
+
+/**
+ * Server action: update fields of an existing categorization rule.
+ * Only updates provided fields; always updates updatedAt.
+ * CAT-02
+ */
+export async function updateRule(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const id = formData.get('id') as string
+  if (!id) throw new Error('Rule ID is required')
+
+  const setObj: Record<string, unknown> = { updatedAt: new Date() }
+
+  const matchType = formData.get('matchType') as string | null
+  if (matchType !== null) {
+    if (!['contains', 'exact'].includes(matchType)) {
+      throw new Error('Invalid matchType — must be "contains" or "exact"')
+    }
+    setObj.matchType = matchType
+  }
+
+  const matchValue = formData.get('matchValue') as string | null
+  if (matchValue !== null) {
+    if (!matchValue.trim()) throw new Error('matchValue must not be empty')
+    setObj.matchValue = matchValue.trim()
+  }
+
+  const categoryId = formData.get('categoryId') as string | null
+  if (categoryId !== null) setObj.categoryId = categoryId
+
+  const priorityRaw = formData.get('priority') as string | null
+  if (priorityRaw !== null && priorityRaw !== '') {
+    setObj.priority = parseInt(priorityRaw, 10)
+  }
+
+  await db
+    .update(categoryRules)
+    .set(setObj)
+    .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
+
+  revalidatePath('/categories')
+}
+
+/**
+ * Server action: delete a categorization rule scoped to the authenticated org.
+ * CAT-02
+ */
+export async function deleteRule(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const id = formData.get('id') as string
+  if (!id) throw new Error('Rule ID is required')
+
+  await db
+    .delete(categoryRules)
+    .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
+
+  revalidatePath('/categories')
+}
+
+/**
+ * Server action: move a rule up or down in priority order by swapping priority values.
+ * Swaps the target rule with its adjacent neighbour (direction: 'up' = higher priority, 'down' = lower).
+ * No-op if the rule is already at the boundary.
+ * CAT-02
+ */
+export async function reorderRule(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const id = formData.get('id') as string
+  const direction = formData.get('direction') as string
+  if (!id) throw new Error('Rule ID is required')
+  if (direction !== 'up' && direction !== 'down') throw new Error('direction must be "up" or "down"')
+
+  // Fetch all rules sorted by priority DESC
+  const rules = await getCategoryRules(orgId)
+  const idx = rules.findIndex((r) => r.id === id)
+  if (idx === -1) throw new Error('Rule not found')
+
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+  if (swapIdx < 0 || swapIdx >= rules.length) return // already at boundary
+
+  const a = rules[idx]
+  const b = rules[swapIdx]
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(categoryRules)
+      .set({ priority: b.priority, updatedAt: new Date() })
+      .where(and(eq(categoryRules.id, a.id), eq(categoryRules.orgId, orgId)))
+    await tx
+      .update(categoryRules)
+      .set({ priority: a.priority, updatedAt: new Date() })
+      .where(and(eq(categoryRules.id, b.id), eq(categoryRules.orgId, orgId)))
+  })
+
+  revalidatePath('/categories')
+}
+
+/**
+ * Server action: toggle the isEnabled flag on a categorization rule.
+ * CAT-02
+ */
+export async function toggleEnabled(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const id = formData.get('id') as string
+  if (!id) throw new Error('Rule ID is required')
+
+  const [rule] = await db
+    .select()
+    .from(categoryRules)
+    .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
+    .limit(1)
+
+  if (!rule) throw new Error('Rule not found')
+
+  await db
+    .update(categoryRules)
+    .set({ isEnabled: !rule.isEnabled, updatedAt: new Date() })
+    .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
+
+  revalidatePath('/categories')
+}
+
+/**
+ * Escapes special LIKE wildcard characters in a matchValue string.
+ * Prevents user-supplied % and _ from acting as wildcards in ilike patterns.
+ */
+function escapeLikePattern(value: string): string {
+  return value.replace(/%/g, '\\%').replace(/_/g, '\\_')
+}
+
+/**
+ * Server action: preview how many uncategorized transactions would be affected by a rule.
+ * Returns { count } without modifying any data.
+ * CAT-06
+ */
+export async function previewBulkRecategorize(formData: FormData): Promise<{ count: number }> {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const ruleId = formData.get('ruleId') as string
+  if (!ruleId) throw new Error('ruleId is required')
+
+  const [rule] = await db
+    .select()
+    .from(categoryRules)
+    .where(and(eq(categoryRules.id, ruleId), eq(categoryRules.orgId, orgId)))
+    .limit(1)
+
+  if (!rule) throw new Error('Rule not found')
+
+  const matchCondition =
+    rule.matchType === 'exact'
+      ? ilike(transactions.description, rule.matchValue)
+      : ilike(transactions.description, `%${escapeLikePattern(rule.matchValue)}%`)
+
+  const [result] = await db
+    .select({ total: count() })
+    .from(transactions)
+    .where(and(eq(transactions.orgId, orgId), isNull(transactions.categoryId), matchCondition))
+
+  return { count: result.total }
+}
+
+/**
+ * Server action: retroactively apply a rule to all uncategorized matching transactions.
+ * Only affects transactions where categoryId IS NULL (never overwrites manual categories).
+ * Sets isAutoCategorized=true on updated rows.
+ * CAT-06
+ */
+export async function bulkRecategorize(formData: FormData): Promise<{ updated: number }> {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const ruleId = formData.get('ruleId') as string
+  if (!ruleId) throw new Error('ruleId is required')
+
+  const [rule] = await db
+    .select()
+    .from(categoryRules)
+    .where(and(eq(categoryRules.id, ruleId), eq(categoryRules.orgId, orgId)))
+    .limit(1)
+
+  if (!rule) throw new Error('Rule not found')
+
+  const matchCondition =
+    rule.matchType === 'exact'
+      ? ilike(transactions.description, rule.matchValue)
+      : ilike(transactions.description, `%${escapeLikePattern(rule.matchValue)}%`)
+
+  const updated = await db
+    .update(transactions)
+    .set({ categoryId: rule.categoryId, isAutoCategorized: true })
+    .where(and(eq(transactions.orgId, orgId), isNull(transactions.categoryId), matchCondition))
+    .returning({ id: transactions.id })
+
+  revalidatePath('/transactions')
+  revalidatePath('/categories')
+
+  return { updated: updated.length }
 }
