@@ -12,3 +12,6 @@ export * from './income'
 export * from './simulation'
 export * from './withdrawal'
 export * from './succession'
+// Phase 5 — Automation foundation
+export * from './categorization'
+export * from './recurring'
