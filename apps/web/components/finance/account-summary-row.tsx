@@ -24,7 +24,7 @@ export function AccountSummaryRow({ accounts }: AccountSummaryRowProps) {
           <p className="text-gray-500 mb-4">
             Voce ainda nao tem contas cadastradas.
           </p>
-          <Button asChild>
+          <Button asChild variant="primary">
             <Link href="/accounts/new">Criar primeira conta</Link>
           </Button>
         </CardContent>

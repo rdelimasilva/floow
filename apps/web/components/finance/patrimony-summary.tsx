@@ -41,7 +41,7 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
           </p>
           <Button
             type="button"
-            variant="default"
+            variant="primary"
             onClick={handleRefresh}
             disabled={isPending}
           >

@@ -53,7 +53,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
           <Button asChild variant="outline">
             <Link href="/transactions/import">Importar</Link>
           </Button>
-          <Button asChild>
+          <Button asChild variant="primary">
             <Link href="/transactions/new">Nova Transação</Link>
           </Button>
         </div>

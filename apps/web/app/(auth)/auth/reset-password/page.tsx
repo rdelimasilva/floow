@@ -114,7 +114,7 @@ export default function ResetPasswordPage() {
           <p className="text-xs text-red-500">{serverError}</p>
         )}
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
+        <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? 'Salvando...' : 'Salvar nova senha'}
         </Button>
       </form>

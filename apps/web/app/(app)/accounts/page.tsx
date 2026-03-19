@@ -30,7 +30,7 @@ export default async function AccountsPage() {
             </p>
           )}
         </div>
-        <Button asChild>
+        <Button asChild variant="primary">
           <Link href="/accounts/new">Nova Conta</Link>
         </Button>
       </div>
@@ -42,7 +42,7 @@ export default async function AccountsPage() {
           <p className="mt-1 text-sm text-gray-400">
             Crie sua primeira conta para começar.
           </p>
-          <Button asChild className="mt-4">
+          <Button asChild variant="primary" className="mt-4">
             <Link href="/accounts/new">Criar Conta</Link>
           </Button>
         </div>

@@ -420,7 +420,7 @@ export function SimulationForm({
 
             {/* Save button */}
             <div className="flex items-center gap-3 pt-2">
-              <Button type="submit" disabled={isSaving}>
+              <Button type="submit" variant="primary" disabled={isSaving}>
                 {isSaving ? 'Salvando...' : 'Salvar Plano'}
               </Button>
               {saveSuccess && (

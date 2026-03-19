@@ -104,7 +104,7 @@ export default function NewAccountPage() {
               <Button type="button" variant="outline" onClick={() => router.push('/accounts')}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" variant="primary" disabled={isSubmitting}>
                 {isSubmitting ? 'Criando...' : 'Criar Conta'}
               </Button>
             </div>

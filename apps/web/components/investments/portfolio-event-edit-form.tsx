@@ -348,7 +348,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
           <Button type="button" variant="outline" onClick={() => router.push('/investments/income')}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" variant="primary" disabled={isSubmitting}>
             {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
           </Button>
         </div>

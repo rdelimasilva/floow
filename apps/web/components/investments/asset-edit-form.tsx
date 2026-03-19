@@ -78,7 +78,7 @@ export function AssetEditForm({ asset }: AssetEditFormProps) {
       </div>
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={submitting}>
+        <Button type="submit" variant="primary" disabled={submitting}>
           {submitting ? 'Salvando...' : 'Salvar'}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.back()}>

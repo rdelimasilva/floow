@@ -163,7 +163,7 @@ export function AssetForm() {
           <Button type="button" variant="outline" onClick={() => router.push('/investments')}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" variant="primary" disabled={isSubmitting}>
             {isSubmitting ? 'Cadastrando...' : 'Cadastrar Ativo'}
           </Button>
         </div>

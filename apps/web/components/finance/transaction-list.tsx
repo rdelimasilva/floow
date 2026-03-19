@@ -186,7 +186,7 @@ export function TransactionList({ transactions, accounts, categories }: Transact
                   </td>
                   <td className="px-4 py-2">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" onClick={() => handleUpdate(tx.id)} disabled={loading} className="h-7 text-xs">
+                      <Button size="sm" variant="primary" onClick={() => handleUpdate(tx.id)} disabled={loading} className="h-7 text-xs">
                         {loading ? '...' : 'Salvar'}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setEditingId(null)} className="h-7 text-xs">

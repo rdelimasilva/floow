@@ -265,7 +265,7 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
         <Button type="button" variant="outline" onClick={() => router.push('/transactions')}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" variant="primary" disabled={isSubmitting}>
           {isSubmitting ? 'Registrando...' : 'Registrar Transação'}
         </Button>
       </div>

@@ -434,7 +434,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
               </div>
 
               <div className="flex gap-3 mt-4">
-                <Button onClick={handleReconciliation} disabled={preview.length === 0}>
+                <Button variant="primary" onClick={handleReconciliation} disabled={preview.length === 0}>
                   Verificar duplicatas
                 </Button>
                 <Button variant="outline" onClick={handleReset}>
@@ -486,7 +486,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
 
             <div className="flex gap-3">
               <Link href="/transactions">
-                <Button>Ver transações</Button>
+                <Button variant="primary">Ver transações</Button>
               </Link>
               <Button variant="outline" onClick={handleReset}>
                 Importar outro arquivo

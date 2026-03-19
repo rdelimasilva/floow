@@ -378,6 +378,7 @@ export function SuccessionForm({
       <div className="flex items-center gap-4">
         <Button
           type="button"
+          variant="primary"
           onClick={handleSave}
           disabled={isPending || (heirRows.length > 0 && !percentagesValid)}
         >

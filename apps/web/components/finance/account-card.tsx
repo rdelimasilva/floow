@@ -98,7 +98,7 @@ export function AccountCard({ account }: AccountCardProps) {
             </select>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleUpdate} disabled={loading}>
+            <Button size="sm" variant="primary" onClick={handleUpdate} disabled={loading}>
               {loading ? 'Salvando...' : 'Salvar'}
             </Button>
             <Button size="sm" variant="outline" onClick={() => { setEditing(false); setName(account.name); setType(account.type) }}>

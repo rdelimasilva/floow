@@ -173,6 +173,7 @@ const PositionRow = memo(function PositionRow({
               />
               <Button
                 size="sm"
+                variant="primary"
                 onClick={handlePriceUpdate}
                 disabled={updating || !priceInput}
                 className="h-7 text-xs"

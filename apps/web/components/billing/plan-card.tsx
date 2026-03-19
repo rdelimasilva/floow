@@ -121,6 +121,7 @@ export function PlanCard({ plan, currentPlan, onUpgrade, recommended }: PlanCard
           </Button>
         ) : (
           <Button
+            variant="primary"
             className="w-full"
             onClick={handleUpgrade}
             disabled={isPending || !priceId}

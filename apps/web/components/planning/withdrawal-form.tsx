@@ -344,7 +344,7 @@ export function WithdrawalForm({
 
       {/* Save button */}
       <div className="flex items-center gap-4">
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" variant="primary" disabled={isPending}>
           {isPending ? 'Salvando...' : 'Salvar Estratégia'}
         </Button>
         {saveSuccess && (

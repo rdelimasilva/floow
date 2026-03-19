@@ -118,7 +118,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                 <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-8 w-8 rounded border" />
                 <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm flex-1" />
                 <Input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="Emoji" className="h-8 w-16 text-sm" />
-                <Button size="sm" onClick={() => handleUpdate(cat.id)} disabled={loading} className="h-8">Salvar</Button>
+                <Button size="sm" variant="primary" onClick={() => handleUpdate(cat.id)} disabled={loading} className="h-8">Salvar</Button>
                 <Button size="sm" variant="outline" onClick={() => { setEditingId(null); resetForm() }} className="h-8">Cancelar</Button>
               </div>
             ) : (
@@ -180,12 +180,12 @@ export function CategoryList({ categories }: CategoryListProps) {
                 <label className="block text-xs text-gray-500 mb-1">Icone</label>
                 <Input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="" className="h-9" />
               </div>
-              <Button size="sm" onClick={handleCreate} disabled={loading || !name} className="h-9">Criar</Button>
+              <Button size="sm" variant="primary" onClick={handleCreate} disabled={loading || !name} className="h-9">Criar</Button>
               <Button size="sm" variant="outline" onClick={() => { setShowCreate(false); resetForm() }} className="h-9">Cancelar</Button>
             </div>
           </div>
         ) : (
-          <Button size="sm" onClick={() => setShowCreate(true)}>
+          <Button size="sm" variant="primary" onClick={() => setShowCreate(true)}>
             <Plus className="h-4 w-4 mr-1" /> Nova Categoria
           </Button>
         )}

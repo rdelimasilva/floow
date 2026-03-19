@@ -46,7 +46,7 @@ export default async function BillingSuccessPage({
         )}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button asChild>
+          <Button asChild variant="primary">
             <Link href="/dashboard">Ir para o Dashboard</Link>
           </Button>
           <Button variant="outline" asChild>

@@ -22,7 +22,7 @@ export default async function InvestmentsPage() {
           <Button asChild variant="outline">
             <Link href="/investments/new">Novo Ativo</Link>
           </Button>
-          <Button asChild>
+          <Button asChild variant="primary">
             <Link href="/investments/new">Registrar Evento</Link>
           </Button>
         </div>
@@ -36,7 +36,7 @@ export default async function InvestmentsPage() {
             Comece registrando seus ativos e eventos de portfolio.
           </p>
           <div className="mt-6">
-            <Button asChild>
+            <Button asChild variant="primary">
               <Link href="/investments/new">Cadastrar Ativo</Link>
             </Button>
           </div>
