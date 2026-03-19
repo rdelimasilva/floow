@@ -36,10 +36,10 @@
   2. `matchCategory()` pure function returns the correct category ID for matching rules and null when no rule matches, with priority tie-breaking verified by unit tests
   3. `getOverdueDates()` and `advanceByFrequency()` pure functions produce correct dates for all 6 frequencies (daily, weekly, biweekly, monthly, quarterly, yearly) including month-end edge cases, verified by unit tests
   4. `@floow/core-finance` builds and exports all new functions without breaking existing exports
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 05-01: DB migration + pure functions (schema DDL for category_rules and recurring_templates, matchCategory, getOverdueDates, advanceByFrequency)
+- [ ] 05-01-PLAN.md — DB migration (category_rules + recurring_templates) and pure functions (matchCategory, advanceByFrequency, getOverdueDates) with TDD tests
 
 ### Phase 6: Categorization Rules
 **Goal**: Users can define rules that automatically assign categories to transactions, reducing manual categorization work
