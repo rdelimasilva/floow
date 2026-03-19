@@ -20,6 +20,10 @@ O investidor experiente consegue ver seu patrimônio consolidado — finanças d
 - ✓ Fluxo de caixa com categorização — v1.0
 - ✓ Dashboard financeiro — v1.0
 - ✓ Import OFX/CSV — v1.0
+- ✓ CRUD completo (edit/delete) em contas, transações, ativos, eventos — v1.0
+- ✓ Filtros e paginação em listagens de transações — v1.0
+- ✓ Toast notifications para feedback de ações — v1.0
+- ✓ Conciliação no import com matching e preview por transação — v1.0
 - ✓ Snapshots de patrimônio (net worth, liquid assets, liabilities) — v1.0
 - ✓ Registro de ativos (ações BR, FIIs, ETFs, cripto, renda fixa, internacional) — v1.0
 - ✓ Eventos de carteira (compra, venda, dividendo, juros, split, amortização) — v1.0
@@ -37,18 +41,18 @@ O investidor experiente consegue ver seu patrimônio consolidado — finanças d
 
 ### Active
 
+<!-- Current milestone v1.1 scope -->
+- [ ] Categorização automática de transações
+- [ ] Transações recorrentes
+
+### Backlog
+
 - [ ] Mobile app (Expo/React Native) — scaffolded but no screens
-- [ ] CRUD completo (edit/delete) em contas, transações, ativos, eventos
-- [ ] Filtros e paginação em listagens
-- [ ] Toast notifications para feedback de ações
-- [ ] Conciliação no import: matching de transações importadas com existentes (valor+data+conta) com preview
 - [ ] Vinculação de portfolio event a transaction existente (skip cash flow quando extrato já importado)
 - [ ] Atualização automática de preços via API
 - [ ] Import de corretora (Pluggy/Belvo)
 - [ ] Benchmark comparison (CDI, IBOV, S&P500)
 - [ ] Rebalanceamento de carteira
-- [ ] Categorização automática de transações
-- [ ] Transações recorrentes
 - [ ] Multi-currency (BRL + USD)
 - [ ] MFA (multi-factor authentication)
 - [ ] Convites e roles (admin, viewer)
@@ -107,5 +111,13 @@ O `core-finance` package é reutilizável entre web, mobile e functions. Funçõ
 | Submodule imports in client | Prevent webpack bundling Node-only deps | ✓ Good — solved ofx-js browser bundling issue |
 | RSC + Suspense streaming | Server-side data loading with loading states | ✓ Good — clean separation, fast initial loads |
 
+## Current Milestone: v1.1 Automação
+
+**Goal:** Automatizar tarefas repetitivas — categorização inteligente de transações e transações recorrentes programadas.
+
+**Target features:**
+- Categorização automática de transações (regras baseadas em padrões de descrição)
+- Transações recorrentes (templates com frequência, geração automática)
+
 ---
-*Last updated: 2026-03-18 after v1.0 milestone*
+*Last updated: 2026-03-18 after v1.1 milestone start*
