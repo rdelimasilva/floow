@@ -93,8 +93,8 @@ function NavLink({
         // Mobile: always full row. Desktop collapsed: centered icon only
         collapsed ? 'gap-3 px-3 py-2.5 lg:justify-center lg:px-2' : 'gap-3 px-3 py-2.5',
         isActive
-          ? 'bg-primary/10 text-primary'
-          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          ? 'bg-gray-100 text-foreground'
+          : 'text-muted-foreground hover:bg-gray-50 hover:text-foreground',
       )}
     >
       <item.icon className={cn('shrink-0', collapsed ? 'h-4 w-4 lg:h-5 lg:w-5' : 'h-4 w-4')} />
@@ -234,7 +234,7 @@ function UserMenu({
             className={cn(
               'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
               isBillingActive
-                ? 'bg-primary/10 text-primary'
+                ? 'bg-gray-100 text-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             )}
           >
@@ -248,7 +248,7 @@ function UserMenu({
             className={cn(
               'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
               isSettingsActive
-                ? 'bg-primary/10 text-primary'
+                ? 'bg-gray-100 text-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             )}
           >
@@ -287,7 +287,6 @@ function UserMenu({
 
         <div className={cn('flex-1 min-w-0 text-left', collapsed && 'lg:hidden')}>
           <p className="text-sm font-medium truncate">{displayName}</p>
-          <p className="text-[11px] text-muted-foreground truncate">{userEmail}</p>
         </div>
         <ChevronUp
           className={cn(
@@ -370,14 +369,14 @@ export function Sidebar({ userEmail, userName, avatarUrl }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r bg-background transition-all duration-200 ease-in-out',
+          'fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-gray-100 bg-white transition-all duration-200 ease-in-out',
           'lg:translate-x-0',
           collapsed && 'lg:w-[68px]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         {/* Header: logo + toggle */}
-        <div className="flex h-14 items-center justify-between border-b px-4">
+        <div className="flex h-14 items-center justify-between px-4">
           <Link
             href="/dashboard"
             onClick={closeMobile}
@@ -419,16 +418,6 @@ export function Sidebar({ userEmail, userName, avatarUrl }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto overscroll-contain px-2 py-3">
           {NAV_SECTIONS.map((section, idx) => (
             <div key={section.title} className={cn(idx > 0 && 'mt-4')}>
-              <p className={cn(
-                'mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60',
-                collapsed && 'lg:hidden',
-              )}>
-                {section.title}
-              </p>
-              {collapsed && idx > 0 && (
-                <div className="mx-auto mb-2 mt-1 hidden h-px w-6 bg-border lg:block" />
-              )}
-
               <div className="space-y-0.5">
                 {section.items.map((item) => (
                   <NavLink
@@ -445,7 +434,7 @@ export function Sidebar({ userEmail, userName, avatarUrl }: SidebarProps) {
         </nav>
 
         {/* User footer */}
-        <div className="border-t px-2 py-3">
+        <div className="px-2 py-3">
           <UserMenu
             userName={userName}
             userEmail={userEmail}
