@@ -143,7 +143,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
           <p className="mt-1 text-sm text-gray-400">
             Crie uma regra para categorizar transacoes automaticamente.
           </p>
-          <Button className="mt-4" onClick={() => setShowCreateDialog(true)}>
+          <Button variant="primary" className="mt-4" onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-1" />
             Criar Regra
           </Button>
@@ -162,7 +162,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
     <>
       <div className="space-y-4">
         <div className="flex justify-end">
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button variant="primary" onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-1" />
             Nova Regra
           </Button>

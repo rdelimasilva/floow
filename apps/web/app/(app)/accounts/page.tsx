@@ -17,12 +17,17 @@ export default async function AccountsPage() {
       {/* Header */}
       <PageHeader
         title="Contas"
-        description={accounts.length > 0 ? `Patrimônio total: ${formatBRL(totalBalanceCents)}` : undefined}
+        description={accounts.length > 0 ? 'Patrimônio total' : undefined}
       >
         <Button asChild variant="primary">
           <Link href="/accounts/new">Nova Conta</Link>
         </Button>
       </PageHeader>
+      {accounts.length > 0 && (
+        <p className={`-mt-4 text-lg font-semibold ${totalBalanceCents < 0 ? 'text-red-600' : 'text-green-700'}`}>
+          {formatBRL(totalBalanceCents)}
+        </p>
+      )}
 
       {/* Account grid */}
       {accounts.length === 0 ? (

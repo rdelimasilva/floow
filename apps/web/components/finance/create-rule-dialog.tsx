@@ -217,7 +217,7 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
                 <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={loading || !matchValue || !categoryId}>
+                <Button type="submit" variant="primary" disabled={loading || !matchValue || !categoryId}>
                   {loading ? 'Salvando...' : 'Salvar'}
                 </Button>
               </div>

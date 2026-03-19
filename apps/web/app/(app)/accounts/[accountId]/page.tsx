@@ -69,13 +69,16 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
         <div className="flex-1">
           <PageHeader
             title={account.name}
-            description={formatBRL(account.balanceCents)}
+            description={label}
           >
             <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">
               <Icon className="h-3.5 w-3.5" />
               <span>{label}</span>
             </div>
           </PageHeader>
+          <p className={`text-lg font-semibold ${isNegative ? 'text-red-600' : 'text-green-700'}`}>
+            {formatBRL(account.balanceCents)}
+          </p>
         </div>
       </div>
 

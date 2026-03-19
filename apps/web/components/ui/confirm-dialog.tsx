@@ -45,9 +45,9 @@ export function ConfirmDialog({
             Cancelar
           </Button>
           <Button
+            variant="destructive"
             onClick={onConfirm}
             disabled={loading}
-            className="bg-red-600 text-white hover:bg-red-700"
           >
             {loading ? 'Aguarde...' : confirmLabel}
           </Button>
