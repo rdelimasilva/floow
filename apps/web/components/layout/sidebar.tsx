@@ -47,11 +47,9 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Finanças',
+    title: 'Dia a dia',
     items: [
-      { href: '/accounts', label: 'Contas', icon: Wallet },
       { href: '/transactions', label: 'Transações', icon: ArrowLeftRight },
-      { href: '/categories', label: 'Categorias', icon: Tags },
     ],
   },
   {
@@ -64,6 +62,13 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Planejamento',
     items: [
       { href: '/planning', label: 'Planejamento', icon: Target },
+    ],
+  },
+  {
+    title: 'Cadastros',
+    items: [
+      { href: '/accounts', label: 'Contas', icon: Wallet },
+      { href: '/categories', label: 'Categorias', icon: Tags },
     ],
   },
 ]
