@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Automação
 status: completed
-stopped_at: Completed 06-categorization-rules 06-01-PLAN.md
-last_updated: "2026-03-19T12:56:32.293Z"
+stopped_at: Completed 06-categorization-rules 06-02-PLAN.md
+last_updated: "2026-03-19T13:02:29.667Z"
 last_activity: "2026-03-18 — Phase 5 Plan 01 executed: migration, categorization, recurring functions"
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 100
 ---
 
@@ -49,6 +49,7 @@ Progress: [██████████] 100%
 
 *Updated after each plan completion*
 | Phase 06-categorization-rules P01 | 3 | 2 tasks | 7 files |
+| Phase 06-categorization-rules P02 | 3 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Key decisions for v1.1 (from research):
 - [Phase 06-categorization-rules]: ilike (no wildcards) for exact match type in bulk operations mirrors matchCategory() case-insensitive behavior
 - [Phase 06-categorization-rules]: getCategoryRules() always called outside db.transaction() blocks to prevent connection pool exhaustion
 - [Phase 06-categorization-rules]: createRule assigns maxPriority + 10 when no explicit priority given (gap-of-10 strategy)
+- [Phase 06-categorization-rules]: Aplicar button appears in both rule-row (RuleList) and edit modal (CreateRuleDialog) per locked decision
+- [Phase 06-categorization-rules]: isAutoCategorized added to getTransactions explicit select — was missing despite being in schema
 
 ### Pending Todos
 
@@ -78,6 +81,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T12:56:32.291Z
-Stopped at: Completed 06-categorization-rules 06-01-PLAN.md
+Last session: 2026-03-19T13:02:18.299Z
+Stopped at: Completed 06-categorization-rules 06-02-PLAN.md
 Resume file: None

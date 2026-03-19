@@ -22,7 +22,7 @@
 **Milestone Goal:** Automatizar tarefas repetitivas — categorização inteligente de transações por regras e transações recorrentes programadas com geração sob demanda.
 
 - [x] **Phase 5: Automation Foundation** - DB schema migrations, pure functions, and unit tests for both automation features (completed 2026-03-19)
-- [ ] **Phase 6: Categorization Rules** - Complete CRUD, auto-apply on import and manual creation, rule-from-transaction shortcut, and retroactive application with preview
+- [x] **Phase 6: Categorization Rules** - Complete CRUD, auto-apply on import and manual creation, rule-from-transaction shortcut, and retroactive application with preview (completed 2026-03-19)
 - [ ] **Phase 7: Recurring Transactions** - Complete CRUD, upcoming-due list, manual generation, and pause/reactivation
 
 ## Phase Details
@@ -52,7 +52,7 @@ Plans:
   4. Transactions created manually are automatically assigned a category when no category is explicitly chosen
   5. User can click "Categorizar todas como esta" on an existing transaction to open a pre-populated rule form
   6. User can apply a rule retroactively, sees "X transactions will be affected" before confirming, and only uncategorized transactions are changed
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 06-01-PLAN.md — Drizzle schema for category_rules, isAutoCategorized migration, CRUD server actions, auto-categorize hooks in createTransaction and import, retroactive bulk-categorize
@@ -83,5 +83,5 @@ Plans:
 | 3. Investments Engine | v1.0 | 4/4 | Complete | 2026-03-17 |
 | 4. Planning Engine | v1.0 | 3/3 | Complete | 2026-03-18 |
 | 5. Automation Foundation | v1.1 | 1/1 | Complete | 2026-03-19 |
-| 6. Categorization Rules | 1/2 | In Progress|  | - |
+| 6. Categorization Rules | 2/2 | Complete   | 2026-03-19 | - |
 | 7. Recurring Transactions | v1.1 | 0/2 | Not started | - |
