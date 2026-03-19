@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import { getDb, accounts, transactions, categories, patrimonySnapshots } from '@floow/db'
+import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules } from '@floow/db'
 import { eq, and, desc, isNull, or, gte, count, ilike, lte } from 'drizzle-orm'
 
 /**
@@ -151,6 +151,20 @@ export async function getLatestSnapshot(orgId: string) {
     .limit(1)
 
   return results[0] ?? null
+}
+
+/**
+ * Returns all categorization rules for the given org, ordered by priority DESC.
+ * Pre-sorted so callers can pass the result directly to matchCategory() without re-sorting.
+ * Does NOT filter by isEnabled — callers must filter enabled rules before calling matchCategory().
+ */
+export async function getCategoryRules(orgId: string) {
+  const db = getDb()
+  return db
+    .select()
+    .from(categoryRules)
+    .where(eq(categoryRules.orgId, orgId))
+    .orderBy(desc(categoryRules.priority))
 }
 
 /**
