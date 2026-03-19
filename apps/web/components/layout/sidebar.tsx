@@ -418,6 +418,15 @@ export function Sidebar({ userEmail, userName, avatarUrl }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto overscroll-contain px-2 py-3">
           {NAV_SECTIONS.map((section, idx) => (
             <div key={section.title} className={cn(idx > 0 && 'mt-4')}>
+              <p className={cn(
+                'mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60',
+                collapsed && 'lg:hidden',
+              )}>
+                {section.title}
+              </p>
+              {collapsed && idx > 0 && (
+                <div className="mx-auto mb-2 mt-1 hidden h-px w-6 bg-border lg:block" />
+              )}
               <div className="space-y-0.5">
                 {section.items.map((item) => (
                   <NavLink
