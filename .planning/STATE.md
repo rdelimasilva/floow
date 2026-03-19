@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Automação
 status: completed
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-19T02:09:20.127Z"
+stopped_at: Completed 06-categorization-rules 06-01-PLAN.md
+last_updated: "2026-03-19T12:56:32.293Z"
 last_activity: "2026-03-18 — Phase 5 Plan 01 executed: migration, categorization, recurring functions"
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  total_plans: 3
+  completed_plans: 2
   percent: 100
 ---
 
@@ -48,6 +48,7 @@ Progress: [██████████] 100%
 | 7. Recurring | 0/2 | - | - |
 
 *Updated after each plan completion*
+| Phase 06-categorization-rules P01 | 3 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,9 @@ Key decisions for v1.1 (from research):
 - `date-fns@^4.1.0` is the only new dependency (added to core-finance)
 - [Phase 05-automation-foundation]: Use new Date(Y,M,D) local constructor in tests (not ISO strings) to avoid UTC-3 timezone drift with date-fns v4 local-time operations
 - [Phase 05-automation-foundation]: matchCategory does not check isEnabled — callers must pre-filter disabled rules before passing to function
+- [Phase 06-categorization-rules]: ilike (no wildcards) for exact match type in bulk operations mirrors matchCategory() case-insensitive behavior
+- [Phase 06-categorization-rules]: getCategoryRules() always called outside db.transaction() blocks to prevent connection pool exhaustion
+- [Phase 06-categorization-rules]: createRule assigns maxPriority + 10 when no explicit priority given (gap-of-10 strategy)
 
 ### Pending Todos
 
@@ -74,6 +78,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T02:09:20.126Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-categorization-rules/06-CONTEXT.md
+Last session: 2026-03-19T12:56:32.291Z
+Stopped at: Completed 06-categorization-rules 06-01-PLAN.md
+Resume file: None

@@ -52,7 +52,7 @@ Plans:
   4. Transactions created manually are automatically assigned a category when no category is explicitly chosen
   5. User can click "Categorizar todas como esta" on an existing transaction to open a pre-populated rule form
   6. User can apply a rule retroactively, sees "X transactions will be affected" before confirming, and only uncategorized transactions are changed
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 06-01-PLAN.md — Drizzle schema for category_rules, isAutoCategorized migration, CRUD server actions, auto-categorize hooks in createTransaction and import, retroactive bulk-categorize
@@ -83,5 +83,5 @@ Plans:
 | 3. Investments Engine | v1.0 | 4/4 | Complete | 2026-03-17 |
 | 4. Planning Engine | v1.0 | 3/3 | Complete | 2026-03-18 |
 | 5. Automation Foundation | v1.1 | 1/1 | Complete | 2026-03-19 |
-| 6. Categorization Rules | v1.1 | 0/2 | Not started | - |
+| 6. Categorization Rules | 1/2 | In Progress|  | - |
 | 7. Recurring Transactions | v1.1 | 0/2 | Not started | - |

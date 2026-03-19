@@ -9,12 +9,12 @@ Requirements for milestone v1.1 Automação. Each maps to roadmap phases.
 
 ### Categorização Automática
 
-- [ ] **CAT-01**: User can create a categorization rule with match type (contains/exact), match value, target category, and priority
-- [ ] **CAT-02**: User can edit, reorder, enable/disable, and delete categorization rules
-- [ ] **CAT-03**: Rules are automatically applied to transactions during OFX/CSV import (only when no category is set)
-- [ ] **CAT-04**: Rules are automatically applied when creating a transaction manually (only when no category is explicitly chosen)
+- [x] **CAT-01**: User can create a categorization rule with match type (contains/exact), match value, target category, and priority
+- [x] **CAT-02**: User can edit, reorder, enable/disable, and delete categorization rules
+- [x] **CAT-03**: Rules are automatically applied to transactions during OFX/CSV import (only when no category is set)
+- [x] **CAT-04**: Rules are automatically applied when creating a transaction manually (only when no category is explicitly chosen)
 - [ ] **CAT-05**: User can create a rule directly from an existing transaction ("categorizar todas como esta") with pre-populated fields
-- [ ] **CAT-06**: User can apply a rule retroactively to past transactions with an impact preview showing how many will be affected before confirming
+- [x] **CAT-06**: User can apply a rule retroactively to past transactions with an impact preview showing how many will be affected before confirming
 
 ### Transações Recorrentes
 
@@ -52,12 +52,12 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CAT-01 | Phase 6 | Pending |
-| CAT-02 | Phase 6 | Pending |
-| CAT-03 | Phase 6 | Pending |
-| CAT-04 | Phase 6 | Pending |
+| CAT-01 | Phase 6 | Complete |
+| CAT-02 | Phase 6 | Complete |
+| CAT-03 | Phase 6 | Complete |
+| CAT-04 | Phase 6 | Complete |
 | CAT-05 | Phase 6 | Pending |
-| CAT-06 | Phase 6 | Pending |
+| CAT-06 | Phase 6 | Complete |
 | REC-01 | Phase 7 | Pending |
 | REC-02 | Phase 7 | Pending |
 | REC-03 | Phase 7 | Pending |
