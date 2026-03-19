@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { getOrgId } from '@/lib/finance/queries'
+import { PageHeader } from '@/components/ui/page-header'
 import { getPlanningDashboardData } from '@/lib/planning/queries'
 import { getPositions, getIncomeEvents } from '@/lib/investments/queries'
 import { estimateMonthlyIncome, calculateFI, SCENARIO_PRESETS } from '@floow/core-finance'
@@ -156,14 +157,10 @@ export default async function PlanningPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-          Planejamento Financeiro
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Simulacoes, independencia financeira e planejamento patrimonial
-        </p>
-      </div>
+      <PageHeader
+        title="Planejamento Financeiro"
+        description="Simulacoes, independencia financeira e planejamento patrimonial"
+      />
 
       <Suspense
         fallback={

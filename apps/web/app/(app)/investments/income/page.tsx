@@ -1,4 +1,5 @@
 import { getOrgId } from '@/lib/finance/queries'
+import { PageHeader } from '@/components/ui/page-header'
 import { getIncomeEvents } from '@/lib/investments/queries'
 import { aggregateIncome, estimateMonthlyIncome, formatBRL } from '@floow/core-finance'
 import { IncomeChart } from '@/components/investments/income-chart'
@@ -33,14 +34,10 @@ export default async function IncomePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-          Renda Passiva
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Dividendos, juros e amortizações dos seus investimentos
-        </p>
-      </div>
+      <PageHeader
+        title="Renda Passiva"
+        description="Dividendos, juros e amortizações dos seus investimentos"
+      />
 
       {hasIncome ? (
         <>

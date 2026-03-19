@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getOrgId } from '@/lib/finance/queries'
 import { getAssets } from '@/lib/investments/queries'
 import { AssetEditForm } from '@/components/investments/asset-edit-form'
+import { PageHeader } from '@/components/ui/page-header'
 
 interface Props {
   params: Promise<{ assetId: string }>
@@ -17,7 +18,7 @@ export default async function EditAssetPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Editar Ativo</h1>
+      <PageHeader title="Editar Ativo" />
       <AssetEditForm asset={asset} />
     </div>
   )

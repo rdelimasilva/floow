@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { getOrgId, getAccounts } from '@/lib/finance/queries'
 import { getAssets, getPortfolioEventById } from '@/lib/investments/queries'
 import { PortfolioEventEditForm } from '@/components/investments/portfolio-event-edit-form'
+import { PageHeader } from '@/components/ui/page-header'
 
 interface Props {
   params: Promise<{ eventId: string }>
@@ -21,14 +22,10 @@ export default async function EditPortfolioEventPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-          Editar Evento de Portfolio
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Altere os dados do evento. O saldo da conta será recalculado automaticamente.
-        </p>
-      </div>
+      <PageHeader
+        title="Editar Evento de Portfolio"
+        description="Altere os dados do evento. O saldo da conta será recalculado automaticamente."
+      />
 
       <div className="max-w-xl">
         <PortfolioEventEditForm event={event} assets={assets} accounts={accounts} />

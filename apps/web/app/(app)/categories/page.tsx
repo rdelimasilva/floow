@@ -2,6 +2,7 @@ import { getOrgId, getCategories, getCategoryRules } from '@/lib/finance/queries
 import { CategoryList } from '@/components/finance/category-list'
 import { RuleList } from '@/components/finance/rule-list'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default async function CategoriesPage() {
   const orgId = await getOrgId()
@@ -19,12 +20,10 @@ export default async function CategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Categorias</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Gerencie categorias e regras de categorizacao automatica
-        </p>
-      </div>
+      <PageHeader
+        title="Categorias"
+        description="Gerencie categorias e regras de categorizacao automatica"
+      />
 
       <Tabs defaultValue="categories">
         <TabsList>

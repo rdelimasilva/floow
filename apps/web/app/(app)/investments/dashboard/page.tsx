@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { PageHeader } from '@/components/ui/page-header'
 import { getOrgId } from '@/lib/finance/queries'
 import { getPositions, getPatrimonySnapshots } from '@/lib/investments/queries'
 import { PortfolioSummaryRow } from '@/components/investments/portfolio-summary-row'
@@ -83,14 +84,10 @@ export default async function InvestmentDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-          Dashboard de Investimentos
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Resumo do seu portfólio e evolução patrimonial
-        </p>
-      </div>
+      <PageHeader
+        title="Dashboard de Investimentos"
+        description="Resumo do seu portfólio e evolução patrimonial"
+      />
 
       <Suspense fallback={
         <div className="space-y-6">

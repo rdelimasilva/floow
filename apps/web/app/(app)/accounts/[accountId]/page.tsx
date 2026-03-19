@@ -6,6 +6,7 @@ import { TransactionList } from '@/components/finance/transaction-list'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { Pagination } from '@/components/ui/pagination'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { formatBRL } from '@floow/core-finance'
 
 const PAGE_SIZE = 30
@@ -66,16 +67,15 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
           </Link>
         </Button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{account.name}</h1>
+          <PageHeader
+            title={account.name}
+            description={formatBRL(account.balanceCents)}
+          >
             <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">
               <Icon className="h-3.5 w-3.5" />
               <span>{label}</span>
             </div>
-          </div>
-          <p className={`mt-1 text-lg font-semibold ${isNegative ? 'text-red-600' : 'text-green-700'}`}>
-            {formatBRL(account.balanceCents)}
-          </p>
+          </PageHeader>
         </div>
       </div>
 

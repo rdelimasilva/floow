@@ -2,6 +2,7 @@ import { getOrgId, getAccounts } from '@/lib/finance/queries'
 import { getAssets } from '@/lib/investments/queries'
 import { AssetForm } from '@/components/investments/asset-form'
 import { PortfolioEventForm } from '@/components/investments/portfolio-event-form'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default async function InvestmentsNewPage() {
   const orgId = await getOrgId()
@@ -13,12 +14,10 @@ export default async function InvestmentsNewPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Novo Ativo / Evento</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Cadastre um novo ativo na sua carteira ou registre um evento de portfolio.
-        </p>
-      </div>
+      <PageHeader
+        title="Novo Ativo / Evento"
+        description="Cadastre um novo ativo na sua carteira ou registre um evento de portfolio."
+      />
 
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Asset registration form */}

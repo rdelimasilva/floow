@@ -3,6 +3,7 @@ import { getOrgId } from '@/lib/finance/queries'
 import { getPositions } from '@/lib/investments/queries'
 import { PositionTable } from '@/components/investments/position-table'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default async function InvestmentsPage() {
   const orgId = await getOrgId()
@@ -11,22 +12,17 @@ export default async function InvestmentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Investimentos</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Acompanhe sua carteira de investimentos e evolução patrimonial
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button asChild variant="outline">
-            <Link href="/investments/new">Novo Ativo</Link>
-          </Button>
-          <Button asChild variant="primary">
-            <Link href="/investments/new">Registrar Evento</Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Investimentos"
+        description="Acompanhe sua carteira de investimentos e evolução patrimonial"
+      >
+        <Button asChild variant="outline">
+          <Link href="/investments/new">Novo Ativo</Link>
+        </Button>
+        <Button asChild variant="primary">
+          <Link href="/investments/new">Registrar Evento</Link>
+        </Button>
+      </PageHeader>
 
       {/* Position table or empty state */}
       {positions.length === 0 ? (

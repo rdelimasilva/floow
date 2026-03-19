@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getOrgId } from '@/lib/finance/queries'
 import { getAssets, getPortfolioEvents } from '@/lib/investments/queries'
 import { AssetEventList } from '@/components/investments/asset-event-list'
+import { PageHeader } from '@/components/ui/page-header'
 
 interface Props {
   params: Promise<{ assetId: string }>
@@ -53,31 +54,23 @@ export default async function AssetDetailPage({ params }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-            {asset.ticker} — {asset.name}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {ASSET_CLASS_LABELS[asset.assetClass] ?? asset.assetClass} · {asset.currency}
-            {asset.notes ? ` · ${asset.notes}` : ''}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href={`/investments/${assetId}/edit`}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Editar Ativo
-          </Link>
-          <Link
-            href="/investments"
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Voltar
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title={`${asset.ticker} — ${asset.name}`}
+        description={`${ASSET_CLASS_LABELS[asset.assetClass] ?? asset.assetClass} · ${asset.currency}${asset.notes ? ` · ${asset.notes}` : ''}`}
+      >
+        <Link
+          href={`/investments/${assetId}/edit`}
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+        >
+          Editar Ativo
+        </Link>
+        <Link
+          href="/investments"
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+        >
+          Voltar
+        </Link>
+      </PageHeader>
 
       {/* Events */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">

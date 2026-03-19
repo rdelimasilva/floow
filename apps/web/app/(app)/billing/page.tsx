@@ -4,6 +4,7 @@ import { getOrgId } from '@/lib/finance/queries'
 import { createCheckoutSession, createPortalSession } from '@/lib/stripe/server'
 import { PlanCard } from '@/components/billing/plan-card'
 import { SubscriptionStatus } from '@/components/billing/subscription-status'
+import { PageHeader } from '@/components/ui/page-header'
 import type { PlanTier, SubscriptionStatus as SubscriptionStatusType } from '@floow/shared'
 
 /**
@@ -73,14 +74,10 @@ export default async function BillingPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-          Plano e Cobrança
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Gerencie seu plano e informações de pagamento.
-        </p>
-      </div>
+      <PageHeader
+        title="Plano e Cobrança"
+        description="Gerencie seu plano e informações de pagamento."
+      />
 
       {/* Current subscription status */}
       <SubscriptionStatus

@@ -4,6 +4,7 @@ import { TransactionList } from '@/components/finance/transaction-list'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { Pagination } from '@/components/ui/pagination'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 
 const PAGE_SIZE = 30
 
@@ -40,24 +41,19 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Transações</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {totalCount > 0
-              ? `${totalCount} transação(ões) encontrada(s)`
-              : 'Nenhuma transação registrada'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button asChild variant="outline">
-            <Link href="/transactions/import">Importar</Link>
-          </Button>
-          <Button asChild variant="primary">
-            <Link href="/transactions/new">Nova Transação</Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Transações"
+        description={totalCount > 0
+          ? `${totalCount} transação(ões) encontrada(s)`
+          : 'Nenhuma transação registrada'}
+      >
+        <Button asChild variant="outline">
+          <Link href="/transactions/import">Importar</Link>
+        </Button>
+        <Button asChild variant="primary">
+          <Link href="/transactions/new">Nova Transação</Link>
+        </Button>
+      </PageHeader>
 
       <TransactionFilters accounts={accounts.map((a) => ({ id: a.id, name: a.name }))} />
 

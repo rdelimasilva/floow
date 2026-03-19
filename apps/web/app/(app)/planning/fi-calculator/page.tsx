@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { getOrgId } from '@/lib/finance/queries'
+import { PageHeader } from '@/components/ui/page-header'
 import { getRetirementPlan } from '@/lib/planning/queries'
 import { getPositions, getIncomeEvents } from '@/lib/investments/queries'
 import { estimateMonthlyIncome } from '@floow/core-finance'
@@ -47,14 +48,10 @@ export default async function FICalculatorPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-          Calculadora de Independencia Financeira
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Descubra quanto voce precisa acumular para viver de renda e quando vai atingir esse numero.
-        </p>
-      </div>
+      <PageHeader
+        title="Calculadora de Independencia Financeira"
+        description="Descubra quanto voce precisa acumular para viver de renda e quando vai atingir esse numero."
+      />
 
       <Suspense
         fallback={

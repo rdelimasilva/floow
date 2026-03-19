@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { getOrgId, getAccounts } from '@/lib/finance/queries'
+import { PageHeader } from '@/components/ui/page-header'
 import { getSuccessionPlan, getHeirs } from '@/lib/planning/queries'
 import { getPositions, getPatrimonySnapshots } from '@/lib/investments/queries'
 import { SuccessionForm } from '@/components/planning/succession-form'
@@ -52,14 +53,10 @@ export default async function SuccessionPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-          Planejamento Sucessório
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Defina a distribuição do seu patrimônio e estime custos de inventário
-        </p>
-      </div>
+      <PageHeader
+        title="Planejamento Sucessório"
+        description="Defina a distribuição do seu patrimônio e estime custos de inventário"
+      />
 
       <Suspense
         fallback={

@@ -4,6 +4,7 @@ import { getAccounts } from '@/lib/finance/queries'
 import { AccountCard } from '@/components/finance/account-card'
 import { formatBRL } from '@floow/core-finance'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default async function AccountsPage() {
   const orgId = await getOrgId()
@@ -14,26 +15,14 @@ export default async function AccountsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Contas</h1>
-          {accounts.length > 0 && (
-            <p className="mt-1 text-sm text-gray-500">
-              Patrimônio total:{' '}
-              <span
-                className={`font-semibold ${
-                  totalBalanceCents >= 0 ? 'text-green-700' : 'text-red-600'
-                }`}
-              >
-                {formatBRL(totalBalanceCents)}
-              </span>
-            </p>
-          )}
-        </div>
+      <PageHeader
+        title="Contas"
+        description={accounts.length > 0 ? `Patrimônio total: ${formatBRL(totalBalanceCents)}` : undefined}
+      >
         <Button asChild variant="primary">
           <Link href="/accounts/new">Nova Conta</Link>
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Account grid */}
       {accounts.length === 0 ? (

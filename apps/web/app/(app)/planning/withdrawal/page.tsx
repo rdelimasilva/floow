@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { getOrgId } from '@/lib/finance/queries'
+import { PageHeader } from '@/components/ui/page-header'
 import { getWithdrawalStrategy, getRetirementPlan } from '@/lib/planning/queries'
 import { getPositions } from '@/lib/investments/queries'
 import { WithdrawalForm } from '@/components/planning/withdrawal-form'
@@ -38,14 +39,10 @@ export default async function WithdrawalPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-          Estratégia de Retirada
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Defina como você vai consumir seu patrimônio na aposentadoria
-        </p>
-      </div>
+      <PageHeader
+        title="Estratégia de Retirada"
+        description="Defina como você vai consumir seu patrimônio na aposentadoria"
+      />
 
       <Suspense
         fallback={
