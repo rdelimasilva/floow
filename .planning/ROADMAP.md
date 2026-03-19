@@ -39,7 +39,7 @@
 **Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 05-01-PLAN.md — DB migration (category_rules + recurring_templates) and pure functions (matchCategory, advanceByFrequency, getOverdueDates) with TDD tests
+- [x] 05-01-PLAN.md — DB migration (category_rules + recurring_templates) and pure functions (matchCategory, advanceByFrequency, getOverdueDates) with TDD tests
 
 ### Phase 6: Categorization Rules
 **Goal**: Users can define rules that automatically assign categories to transactions, reducing manual categorization work
@@ -52,11 +52,11 @@ Plans:
   4. Transactions created manually are automatically assigned a category when no category is explicitly chosen
   5. User can click "Categorizar todas como esta" on an existing transaction to open a pre-populated rule form
   6. User can apply a rule retroactively, sees "X transactions will be affected" before confirming, and only uncategorized transactions are changed
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 06-01: Server actions + DB queries (createRule, updateRule, deleteRule, reorderRules, bulkRecategorize, import hook, createTransaction hook)
-- [ ] 06-02: UI — rules management tab on /categories and transaction row "create rule" shortcut
+- [ ] 06-01-PLAN.md — Drizzle schema for category_rules, isAutoCategorized migration, CRUD server actions, auto-categorize hooks in createTransaction and import, retroactive bulk-categorize
+- [ ] 06-02-PLAN.md — UI: Regras tab on /categories with rules table, create/edit dialog, transaction row shortcut, auto badge
 
 ### Phase 7: Recurring Transactions
 **Goal**: Users can define recurring transaction templates and generate transactions on demand, eliminating repetitive manual entry for predictable expenses and income
@@ -82,6 +82,6 @@ Plans:
 | 2. Finance Engine | v1.0 | 4/4 | Complete | 2026-03-11 |
 | 3. Investments Engine | v1.0 | 4/4 | Complete | 2026-03-17 |
 | 4. Planning Engine | v1.0 | 3/3 | Complete | 2026-03-18 |
-| 5. Automation Foundation | 1/1 | Complete   | 2026-03-19 | - |
+| 5. Automation Foundation | v1.1 | 1/1 | Complete | 2026-03-19 |
 | 6. Categorization Rules | v1.1 | 0/2 | Not started | - |
 | 7. Recurring Transactions | v1.1 | 0/2 | Not started | - |
