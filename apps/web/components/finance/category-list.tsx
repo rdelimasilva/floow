@@ -123,17 +123,8 @@ export function CategoryList({ categories }: CategoryListProps) {
             ) : (
               <div key={cat.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50">
                 <div className="flex items-center gap-2">
-                  <span
-                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-                    style={{
-                      backgroundColor: cat.color ? `${cat.color}20` : '#e5e7eb',
-                      color: cat.color ?? '#6b7280',
-                    }}
-                  >
-                    {cat.icon && <span>{cat.icon}</span>}
-                    {cat.name}
-                  </span>
-                  {cat.isSystem && <span className="text-[10px] text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">padrão</span>}
+                  <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: cat.color ?? '#6b7280' }} />
+                  <span className="text-sm text-foreground">{cat.name}</span>
                 </div>
                 <div className="flex gap-1">
                   <button type="button" onClick={() => startEdit(cat)} className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
