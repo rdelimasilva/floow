@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Pencil, Trash2, Zap, EyeOff, Eye } from 'lucide-react'
+import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
-import { deleteTransaction, updateTransaction, toggleIgnoreTransaction, createCategory } from '@/lib/finance/actions'
+import { deleteTransaction, updateTransaction, toggleIgnoreTransaction, createCategory, cancelRecurring } from '@/lib/finance/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -25,6 +25,10 @@ interface TransactionRow {
   externalId?: string | null
   isAutoCategorized?: boolean
   isIgnored?: boolean
+  recurringTemplateId?: string | null
+  balanceApplied?: boolean
+  installmentNumber?: number | null
+  installmentTotal?: number | null
 }
 
 interface AccountOption {
@@ -78,6 +82,24 @@ export function TransactionList({ transactions, accounts, categories }: Transact
   const [newCatName, setNewCatName] = useState('')
   const [showNewCat, setShowNewCat] = useState(false)
   const [creatingCat, setCreatingCat] = useState(false)
+
+  const [cancelTarget, setCancelTarget] = useState<{ templateId: string; description: string } | null>(null)
+
+  async function handleCancelRecurring() {
+    if (!cancelTarget) return
+    setLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('templateId', cancelTarget.templateId)
+      await cancelRecurring(formData)
+      setCancelTarget(null)
+      toast('Recorrência cancelada — parcelas futuras removidas')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao cancelar recorrência', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function handleCreateCategoryInline() {
     if (!newCatName.trim()) return
@@ -297,9 +319,16 @@ export function TransactionList({ transactions, accounts, categories }: Transact
                   </td>
                 </tr>
               ) : (
-                <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${tx.isIgnored ? 'opacity-40 line-through' : ''}`}>
+                <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${tx.isIgnored ? 'opacity-40 line-through' : ''} ${tx.balanceApplied === false ? 'opacity-60' : ''}`}>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{formatDate(tx.date)}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{tx.description}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    <span className="flex items-center gap-1.5">
+                      {tx.recurringTemplateId && (
+                        <Repeat className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                      )}
+                      {tx.description}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     {tx.categoryName ? (
                       <span className="inline-flex items-center gap-1">
@@ -327,6 +356,16 @@ export function TransactionList({ transactions, accounts, categories }: Transact
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
+                      {tx.recurringTemplateId && (
+                        <button
+                          type="button"
+                          title="Cancelar recorrência"
+                          onClick={() => setCancelTarget({ templateId: tx.recurringTemplateId!, description: tx.description })}
+                          className="rounded p-1 text-gray-400 hover:bg-orange-50 hover:text-orange-600"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       {tx.categoryId && (
                         <button
                           type="button"
@@ -398,6 +437,16 @@ export function TransactionList({ transactions, accounts, categories }: Transact
         onClose={() => setRuleShortcut(null)}
         categories={categories}
         prefill={ruleShortcut ?? undefined}
+      />
+
+      <ConfirmDialog
+        open={!!cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={handleCancelRecurring}
+        title="Cancelar recorrência"
+        description={`Tem certeza que deseja cancelar a recorrência "${cancelTarget?.description ?? ''}"? Todas as parcelas futuras serão removidas. Parcelas já vencidas permanecem.`}
+        confirmLabel="Cancelar recorrência"
+        loading={loading}
       />
     </>
   )
