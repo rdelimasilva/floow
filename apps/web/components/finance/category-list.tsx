@@ -134,18 +134,18 @@ export function CategoryList({ categories }: CategoryListProps) {
                     {cat.icon && <span>{cat.icon}</span>}
                     {cat.name}
                   </span>
-                  {cat.isSystem && <span className="text-[10px] text-gray-400">sistema</span>}
+                  {cat.isSystem && <span className="text-[10px] text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">padrão</span>}
                 </div>
-                {!cat.isSystem && cat.orgId && (
-                  <div className="flex gap-1">
-                    <button type="button" onClick={() => startEdit(cat)} className="rounded p-1 text-gray-400 hover:text-gray-700">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button type="button" onClick={() => setDeleteTarget(cat)} className="rounded p-1 text-gray-400 hover:text-red-600">
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => startEdit(cat)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  {!cat.isSystem && cat.orgId && (
+                    <button type="button" onClick={() => setDeleteTarget(cat)} className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )
           ))}

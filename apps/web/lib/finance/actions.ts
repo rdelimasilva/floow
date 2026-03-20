@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules } from '@floow/db'
 import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema } from '@floow/shared'
 import { computeSnapshot, matchCategory } from '@floow/core-finance'
-import { eq, sql, and, desc, isNull, ilike, count, max } from 'drizzle-orm'
+import { eq, sql, and, or, desc, isNull, ilike, count, max } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { getPositions } from '@/lib/investments/queries'
 
@@ -450,7 +450,7 @@ export async function createCategory(formData: FormData) {
 
 /**
  * Server action: update an existing category.
- * Only org-owned (non-system) categories can be updated.
+ * Supports both org-owned and system categories.
  */
 export async function updateCategory(formData: FormData) {
   const orgId = await getOrgId()
@@ -464,13 +464,17 @@ export async function updateCategory(formData: FormData) {
 
   if (!id || !name || !type) throw new Error('ID, name, and type are required')
 
+  // Allow editing both org-owned categories and system categories
   const [existing] = await db
     .select()
     .from(categories)
-    .where(and(eq(categories.id, id), eq(categories.orgId, orgId)))
+    .where(and(
+      eq(categories.id, id),
+      or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+    ))
     .limit(1)
 
-  if (!existing) throw new Error('Category not found or is a system category')
+  if (!existing) throw new Error('Categoria não encontrada')
 
   const [updated] = await db
     .update(categories)
@@ -480,7 +484,7 @@ export async function updateCategory(formData: FormData) {
       color: color || null,
       icon: icon || null,
     })
-    .where(and(eq(categories.id, id), eq(categories.orgId, orgId)))
+    .where(eq(categories.id, id))
     .returning()
 
   revalidatePath('/categories')
