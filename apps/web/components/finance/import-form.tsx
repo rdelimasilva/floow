@@ -65,7 +65,7 @@ interface ImportFormProps {
 
 export function ImportForm({ accounts }: ImportFormProps) {
   const [step, setStep] = useState<Step>('select-file')
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(accounts[0]?.id ?? '')
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<NormalizedTransaction[]>([])
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
