@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Pencil, Trash2, Zap, EyeOff, Eye } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
-import { deleteTransaction, updateTransaction, toggleIgnoreTransaction } from '@/lib/finance/actions'
+import { deleteTransaction, updateTransaction, toggleIgnoreTransaction, createCategory } from '@/lib/finance/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -72,6 +72,32 @@ export function TransactionList({ transactions, accounts, categories }: Transact
   const [deleteTarget, setDeleteTarget] = useState<TransactionRow | null>(null)
   const [loading, setLoading] = useState(false)
   const [ruleShortcut, setRuleShortcut] = useState<{ matchValue: string; categoryId: string } | null>(null)
+
+  // Inline category creation
+  const [localCategories, setLocalCategories] = useState(categories)
+  const [newCatName, setNewCatName] = useState('')
+  const [showNewCat, setShowNewCat] = useState(false)
+  const [creatingCat, setCreatingCat] = useState(false)
+
+  async function handleCreateCategoryInline() {
+    if (!newCatName.trim()) return
+    setCreatingCat(true)
+    try {
+      const formData = new FormData()
+      formData.append('name', newCatName.charAt(0).toUpperCase() + newCatName.slice(1))
+      formData.append('type', editType)
+      const created = await createCategory(formData)
+      setLocalCategories((prev) => [...prev, { id: created.id, name: created.name, type: created.type }])
+      setEditCategoryId(created.id)
+      setNewCatName('')
+      setShowNewCat(false)
+      toast('Categoria criada')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao criar categoria', 'error')
+    } finally {
+      setCreatingCat(false)
+    }
+  }
 
   // Edit form state
   const [editDesc, setEditDesc] = useState('')
@@ -178,14 +204,45 @@ export function TransactionList({ transactions, accounts, categories }: Transact
                   <td className="px-4 py-2">
                     <select
                       value={editCategoryId}
-                      onChange={(e) => setEditCategoryId(e.target.value)}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') {
+                          setShowNewCat(true)
+                          setNewCatName('')
+                        } else {
+                          setShowNewCat(false)
+                          setEditCategoryId(e.target.value)
+                        }
+                      }}
                       className="h-8 w-full rounded border border-gray-300 text-xs"
                     >
                       <option value="">Sem categoria</option>
-                      {categories.filter((c) => c.type === editType).map((c) => (
+                      {localCategories.filter((c) => c.type === editType).map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
+                      <option value="__new__">+ Criar nova...</option>
                     </select>
+                    {showNewCat && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Input
+                          value={newCatName}
+                          onChange={(e) => setNewCatName(e.target.value)}
+                          placeholder="Nome da categoria"
+                          className="h-7 text-xs flex-1"
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategoryInline() } }}
+                          autoFocus={newCatName === ''}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          onClick={handleCreateCategoryInline}
+                          disabled={creatingCat || !newCatName.trim()}
+                          className="h-7 text-[10px] px-2"
+                        >
+                          Criar
+                        </Button>
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <select
