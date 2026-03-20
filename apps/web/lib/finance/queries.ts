@@ -89,6 +89,10 @@ export async function getTransactions(
       externalId: transactions.externalId,
       isAutoCategorized: transactions.isAutoCategorized,
       isIgnored: transactions.isIgnored,
+      recurringTemplateId: transactions.recurringTemplateId,
+      balanceApplied: transactions.balanceApplied,
+      installmentNumber: transactions.installmentNumber,
+      installmentTotal: transactions.installmentTotal,
       createdAt: transactions.createdAt,
       categoryName: categories.name,
       categoryColor: categories.color,
@@ -189,6 +193,6 @@ export async function getRecentTransactions(orgId: string, months: number = 6) {
       date: transactions.date,
     })
     .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff), eq(transactions.isIgnored, false)))
+    .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff), eq(transactions.isIgnored, false), eq(transactions.balanceApplied, true)))
     .orderBy(desc(transactions.date))
 }
