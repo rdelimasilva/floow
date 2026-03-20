@@ -1110,3 +1110,120 @@ export async function bulkRecategorize(formData: FormData): Promise<{ updated: n
 
   return { updated: updated.length }
 }
+
+/**
+ * Server action: cancel a recurring transaction series.
+ * Deletes all future transactions (date > today) and marks template inactive.
+ * Uses date > today (strictly greater) — today's transactions may already be reconciled.
+ */
+export async function cancelRecurring(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const templateId = formData.get('templateId') as string
+  if (!templateId) throw new Error('Template ID is required')
+
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+
+  await db.transaction(async (tx) => {
+    // Verify template belongs to org
+    const [template] = await tx
+      .select({ id: recurringTemplates.id })
+      .from(recurringTemplates)
+      .where(and(eq(recurringTemplates.id, templateId), eq(recurringTemplates.orgId, orgId)))
+      .limit(1)
+
+    if (!template) throw new Error('Template não encontrado')
+
+    // Delete future transactions (balance_applied is false for these, no balance reversal needed)
+    await tx
+      .delete(transactions)
+      .where(
+        and(
+          eq(transactions.recurringTemplateId, templateId),
+          eq(transactions.orgId, orgId),
+          sql`${transactions.date} > ${todayStr}::date`
+        )
+      )
+
+    // Mark template inactive
+    await tx
+      .update(recurringTemplates)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(recurringTemplates.id, templateId), eq(recurringTemplates.orgId, orgId)))
+  })
+
+  revalidatePath('/transactions')
+  revalidatePath('/accounts')
+}
+
+/**
+ * Reconciles balance for recurring transactions whose date has arrived.
+ * Called from the app layout — short-circuits if no pending transactions exist.
+ * Finds all transactions with balance_applied = false AND date <= today,
+ * groups by account, and applies the cumulative balance delta.
+ * Uses getOrgId() internally for authentication — safe to expose as server action.
+ */
+export async function reconcileRecurringBalances() {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+
+  // Short-circuit: check if any pending transactions exist
+  const pending = await db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.orgId, orgId),
+        eq(transactions.balanceApplied, false),
+        sql`${transactions.date} <= ${todayStr}::date`
+      )
+    )
+    .limit(1)
+
+  if (pending.length === 0) return
+
+  // Fetch all pending transactions to reconcile
+  const pendingTxs = await db
+    .select({
+      id: transactions.id,
+      accountId: transactions.accountId,
+      amountCents: transactions.amountCents,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.orgId, orgId),
+        eq(transactions.balanceApplied, false),
+        sql`${transactions.date} <= ${todayStr}::date`
+      )
+    )
+
+  // Group by account
+  const deltaByAccount = new Map<string, number>()
+  const txIds: string[] = []
+  for (const tx of pendingTxs) {
+    deltaByAccount.set(tx.accountId, (deltaByAccount.get(tx.accountId) ?? 0) + tx.amountCents)
+    txIds.push(tx.id)
+  }
+
+  await db.transaction(async (dbTx) => {
+    // Apply balance deltas
+    for (const [accountId, delta] of deltaByAccount) {
+      await dbTx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${delta}` })
+        .where(eq(accounts.id, accountId))
+    }
+
+    // Mark all as applied
+    for (const txId of txIds) {
+      await dbTx
+        .update(transactions)
+        .set({ balanceApplied: true })
+        .where(eq(transactions.id, txId))
+    }
+  })
+}
