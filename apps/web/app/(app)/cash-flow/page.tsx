@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { getOrgId, getRecentTransactions } from '@/lib/finance/queries'
+import { getOrgId, getRecentTransactions, getAccounts } from '@/lib/finance/queries'
 import { aggregateCashFlow, formatBRL } from '@floow/core-finance'
 import { CashFlowChart } from '@/components/finance/cash-flow-chart'
 import { CashFlowBreakdown } from '@/components/finance/cash-flow-breakdown'
@@ -7,7 +7,10 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 async function CashFlowContent({ orgId }: { orgId: string }) {
-  const recentTransactions = await getRecentTransactions(orgId, 12)
+  const [recentTransactions, accounts] = await Promise.all([
+    getRecentTransactions(orgId, 12),
+    getAccounts(orgId),
+  ])
   const cashFlowData = aggregateCashFlow(recentTransactions)
 
   // Current month stats
@@ -22,6 +25,16 @@ async function CashFlowContent({ orgId }: { orgId: string }) {
 
   // Sort ascending for chart display
   const chartData = [...cashFlowData].reverse()
+
+  // Serialize transactions for client component
+  const serializedTransactions = recentTransactions.map((t) => ({
+    date: t.date instanceof Date ? t.date.toISOString() : String(t.date),
+    amountCents: t.amountCents,
+    type: t.type,
+    accountId: t.accountId,
+  }))
+
+  const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }))
 
   return (
     <>
@@ -65,20 +78,11 @@ async function CashFlowContent({ orgId }: { orgId: string }) {
         </CardContent>
       </Card>
 
-      {/* Breakdown table (monthly / daily toggle) */}
-      {cashFlowData.length > 0 && (
-        <CashFlowBreakdown
-          monthlyData={cashFlowData}
-          dailyTransactions={recentTransactions.map((t) => ({
-            date: t.date instanceof Date ? t.date.toISOString() : String(t.date),
-            amountCents: t.amountCents,
-            type: t.type,
-            description: '',
-          }))}
-          totalIncome={totalIncome}
-          totalExpense={totalExpense}
-        />
-      )}
+      {/* Breakdown with filters */}
+      <CashFlowBreakdown
+        transactions={serializedTransactions}
+        accounts={accountOptions}
+      />
     </>
   )
 }
@@ -94,7 +98,7 @@ export default async function CashFlowPage() {
     <div className="space-y-6">
       <PageHeader
         title="Fluxo de Caixa"
-        description="Receitas, despesas e saldo mensal dos últimos 12 meses"
+        description="Receitas, despesas e saldo dos últimos 12 meses"
       />
 
       <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /><SectionSkeleton /></>}>
