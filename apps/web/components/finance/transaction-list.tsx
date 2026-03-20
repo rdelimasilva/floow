@@ -48,16 +48,16 @@ interface TransactionListProps {
   transactions: TransactionRow[]
   accounts: AccountOption[]
   categories: CategoryOption[]
-  sortBy: string
-  sortDir: 'asc' | 'desc'
-  activeTypes: string[]
-  activeCategoryIds: string[]
-  activeMinAmount: string
-  activeMaxAmount: string
-  onSort: (sortKey: string) => void
-  onFilterTypes: (types: string[]) => void
-  onFilterCategories: (ids: string[]) => void
-  onFilterAmount: (min: string, max: string) => void
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  activeTypes?: string[]
+  activeCategoryIds?: string[]
+  activeMinAmount?: string
+  activeMaxAmount?: string
+  onSort?: (sortKey: string) => void
+  onFilterTypes?: (types: string[]) => void
+  onFilterCategories?: (ids: string[]) => void
+  onFilterAmount?: (min: string, max: string) => void
 }
 
 function formatDate(date: Date | string): string {
@@ -84,8 +84,10 @@ const TYPE_LABELS = {
 
 export function TransactionList({
   transactions, accounts, categories,
-  sortBy, sortDir, activeTypes, activeCategoryIds, activeMinAmount, activeMaxAmount,
-  onSort, onFilterTypes, onFilterCategories, onFilterAmount,
+  sortBy = 'date', sortDir = 'desc',
+  activeTypes = [], activeCategoryIds = [],
+  activeMinAmount = '', activeMaxAmount = '',
+  onSort = () => {}, onFilterTypes = () => {}, onFilterCategories = () => {}, onFilterAmount = () => {},
 }: TransactionListProps) {
   const { toast } = useToast()
   const [editingId, setEditingId] = useState<string | null>(null)
