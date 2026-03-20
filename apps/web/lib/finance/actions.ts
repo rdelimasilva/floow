@@ -1,9 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules } from '@floow/db'
-import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema } from '@floow/shared'
-import { computeSnapshot, matchCategory } from '@floow/core-finance'
+import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules, recurringTemplates } from '@floow/db'
+import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema, createRecurringTransactionSchema } from '@floow/shared'
+import { computeSnapshot, matchCategory, generateInstallmentDates, advanceByFrequency } from '@floow/core-finance'
 import { eq, sql, and, or, desc, isNull, ilike, count, max } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { getPositions } from '@/lib/investments/queries'
@@ -203,6 +203,225 @@ export async function createTransaction(formData: FormData) {
       .where(eq(accounts.id, input.accountId))
 
     return transaction
+  })
+
+  revalidatePath('/transactions')
+  revalidatePath('/accounts')
+
+  return result
+}
+
+/**
+ * Server action: create a recurring transaction series.
+ * Generates all installments in batch within a single db.transaction().
+ * Future transactions (date > today) have balance_applied = false.
+ * A recurring_templates record is created as metadata for cancellation/tracking.
+ */
+export async function createRecurringTransactions(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const rawAmountCents = parseInt(formData.get('amountCents') as string, 10)
+  const rawInstallmentCount = formData.get('installmentCount')
+    ? parseInt(formData.get('installmentCount') as string, 10)
+    : undefined
+
+  const input = createRecurringTransactionSchema.parse({
+    accountId: formData.get('accountId'),
+    categoryId: formData.get('categoryId') || undefined,
+    type: formData.get('type'),
+    amountCents: rawAmountCents,
+    description: formData.get('description'),
+    startDate: formData.get('startDate'),
+    frequency: formData.get('frequency'),
+    endMode: formData.get('endMode'),
+    installmentCount: rawInstallmentCount,
+    endDate: formData.get('endDate') || undefined,
+    destinationAccountId: formData.get('destinationAccountId') || undefined,
+  })
+
+  // Generate all installment dates
+  const dates = generateInstallmentDates({
+    startDate: input.startDate,
+    frequency: input.frequency,
+    endMode: input.endMode,
+    installmentCount: input.installmentCount,
+    endDate: input.endDate,
+  })
+
+  if (dates.length === 0) throw new Error('Nenhuma parcela gerada')
+
+  const total = dates.length
+
+  // Auto-categorize before entering transaction (avoid query inside tx)
+  let resolvedCategoryId = input.categoryId ?? null
+  let isAutoCategorized = false
+  if (!resolvedCategoryId && input.description && input.type !== 'transfer') {
+    const rules = await getCategoryRules(orgId)
+    const enabledRules = rules.filter((r) => r.isEnabled)
+    const matched = matchCategory(input.description, enabledRules)
+    if (matched) {
+      resolvedCategoryId = matched
+      isAutoCategorized = true
+    }
+  }
+
+  // Calculate "today" in Brazil timezone for balance_applied determination
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const today = new Date(todayStr)
+
+  const result = await db.transaction(async (tx) => {
+    // Verify account ownership and active status
+    await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
+    if (input.type === 'transfer' && input.destinationAccountId) {
+      await assertAccountOwnership(tx as unknown as Db, input.destinationAccountId, orgId)
+    }
+
+    // Verify accounts are active
+    const [srcAccount] = await tx
+      .select({ isActive: accounts.isActive })
+      .from(accounts)
+      .where(eq(accounts.id, input.accountId))
+      .limit(1)
+    if (!srcAccount?.isActive) throw new Error('Conta de origem está inativa')
+
+    if (input.type === 'transfer' && input.destinationAccountId) {
+      const [dstAccount] = await tx
+        .select({ isActive: accounts.isActive })
+        .from(accounts)
+        .where(eq(accounts.id, input.destinationAccountId))
+        .limit(1)
+      if (!dstAccount?.isActive) throw new Error('Conta de destino está inativa')
+    }
+
+    // Calculate next_due_date (date after last installment)
+    const lastDate = dates[dates.length - 1]
+    const nextDueDate = advanceByFrequency(lastDate, input.frequency)
+
+    // Insert template
+    const [template] = await tx
+      .insert(recurringTemplates)
+      .values({
+        orgId,
+        accountId: input.accountId,
+        categoryId: resolvedCategoryId,
+        type: input.type,
+        amountCents: input.amountCents,
+        description: input.description,
+        frequency: input.frequency,
+        nextDueDate,
+        isActive: true,
+        endMode: input.endMode,
+        installmentCount: input.endMode === 'count' ? input.installmentCount : null,
+        endDate: input.endMode === 'end_date' ? input.endDate : null,
+        transferDestinationAccountId: input.type === 'transfer' ? input.destinationAccountId : null,
+      })
+      .returning()
+
+    // Build transaction rows
+    let sourceBalanceDelta = 0
+    let destBalanceDelta = 0
+
+    if (input.type === 'transfer' && input.destinationAccountId) {
+      // Transfer: insert pairs
+      for (let i = 0; i < dates.length; i++) {
+        const installDate = dates[i]
+        const isApplied = installDate <= today
+        const transferGroupId = crypto.randomUUID()
+        const desc = `${input.description} (${i + 1}/${total})`
+
+        // Source leg (debit)
+        await tx.insert(transactions).values({
+          orgId,
+          accountId: input.accountId,
+          categoryId: null,
+          type: 'transfer',
+          amountCents: -input.amountCents,
+          description: desc,
+          date: installDate,
+          transferGroupId,
+          recurringTemplateId: template.id,
+          balanceApplied: isApplied,
+          installmentNumber: i + 1,
+          installmentTotal: total,
+          isAutoCategorized: false,
+        })
+
+        // Destination leg (credit)
+        await tx.insert(transactions).values({
+          orgId,
+          accountId: input.destinationAccountId,
+          categoryId: null,
+          type: 'transfer',
+          amountCents: input.amountCents,
+          description: desc,
+          date: installDate,
+          transferGroupId,
+          recurringTemplateId: template.id,
+          balanceApplied: isApplied,
+          installmentNumber: i + 1,
+          installmentTotal: total,
+          isAutoCategorized: false,
+        })
+
+        if (isApplied) {
+          sourceBalanceDelta += -input.amountCents
+          destBalanceDelta += input.amountCents
+        }
+      }
+
+      // Update balances
+      if (sourceBalanceDelta !== 0) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${sourceBalanceDelta}` })
+          .where(eq(accounts.id, input.accountId))
+      }
+      if (destBalanceDelta !== 0) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${destBalanceDelta}` })
+          .where(eq(accounts.id, input.destinationAccountId))
+      }
+    } else {
+      // Income or expense
+      const signedAmount = input.type === 'income' ? input.amountCents : -input.amountCents
+
+      for (let i = 0; i < dates.length; i++) {
+        const installDate = dates[i]
+        const isApplied = installDate <= today
+        const desc = `${input.description} (${i + 1}/${total})`
+
+        await tx.insert(transactions).values({
+          orgId,
+          accountId: input.accountId,
+          categoryId: resolvedCategoryId,
+          type: input.type,
+          amountCents: signedAmount,
+          description: desc,
+          date: installDate,
+          recurringTemplateId: template.id,
+          balanceApplied: isApplied,
+          installmentNumber: i + 1,
+          installmentTotal: total,
+          isAutoCategorized,
+        })
+
+        if (isApplied) {
+          sourceBalanceDelta += signedAmount
+        }
+      }
+
+      // Update balance
+      if (sourceBalanceDelta !== 0) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${sourceBalanceDelta}` })
+          .where(eq(accounts.id, input.accountId))
+      }
+    }
+
+    return template
   })
 
   revalidatePath('/transactions')
