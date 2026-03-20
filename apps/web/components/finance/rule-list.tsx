@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowUp, ArrowDown, Power, Pencil, Trash2, Plus } from 'lucide-react'
+import { Power, Pencil, Trash2, Plus } from 'lucide-react'
 import {
   deleteRule,
-  reorderRule,
   toggleEnabled,
   previewBulkRecategorize,
   bulkRecategorize,
@@ -56,20 +55,6 @@ export function RuleList({ rules, categories }: RuleListProps) {
 
   // Category name lookup map
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]))
-
-  async function handleReorder(rule: CategoryRuleRow, direction: 'up' | 'down') {
-    setLoading(true)
-    try {
-      const formData = new FormData()
-      formData.append('id', rule.id)
-      formData.append('direction', direction)
-      await reorderRule(formData)
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao reordenar regra', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function handleToggle(rule: CategoryRuleRow) {
     setLoading(true)
@@ -175,7 +160,6 @@ export function RuleList({ rules, categories }: RuleListProps) {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Valor</TableHead>
                 <TableHead>Categoria</TableHead>
-                <TableHead>Prioridade</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Acoes</TableHead>
               </TableRow>
@@ -194,7 +178,6 @@ export function RuleList({ rules, categories }: RuleListProps) {
                   <TableCell className="text-sm text-gray-700">
                     {categoryMap.get(rule.categoryId) ?? '—'}
                   </TableCell>
-                  <TableCell className="text-sm text-gray-500">{rule.priority}</TableCell>
                   <TableCell>
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -208,26 +191,6 @@ export function RuleList({ rules, categories }: RuleListProps) {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
-                      {/* Reorder buttons */}
-                      <button
-                        type="button"
-                        title="Mover para cima"
-                        disabled={idx === 0 || loading}
-                        onClick={() => handleReorder(rule, 'up')}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Mover para baixo"
-                        disabled={idx === rules.length - 1 || loading}
-                        onClick={() => handleReorder(rule, 'down')}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </button>
-
                       {/* Toggle enable/disable */}
                       <button
                         type="button"
@@ -301,7 +264,6 @@ export function RuleList({ rules, categories }: RuleListProps) {
                 matchType: editingRule.matchType,
                 matchValue: editingRule.matchValue,
                 categoryId: editingRule.categoryId,
-                priority: editingRule.priority,
               }
             : undefined
         }

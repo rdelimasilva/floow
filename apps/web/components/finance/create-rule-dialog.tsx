@@ -28,7 +28,6 @@ interface CreateRuleDialogProps {
     matchType: 'contains' | 'exact'
     matchValue: string
     categoryId: string
-    priority: number
   }
 }
 
@@ -40,7 +39,6 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
   const [matchType, setMatchType] = useState<'contains' | 'exact'>(editRule?.matchType ?? 'contains')
   const [matchValue, setMatchValue] = useState(editRule?.matchValue ?? prefill?.matchValue ?? '')
   const [categoryId, setCategoryId] = useState(editRule?.categoryId ?? prefill?.categoryId ?? '')
-  const [priority, setPriority] = useState(editRule?.priority !== undefined ? String(editRule.priority) : '')
 
   // Apply-in-modal state (edit mode only)
   const [applyPreview, setApplyPreview] = useState<{ count: number } | null>(null)
@@ -51,7 +49,6 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
     setMatchType(editRule?.matchType ?? 'contains')
     setMatchValue(editRule?.matchValue ?? prefill?.matchValue ?? '')
     setCategoryId(editRule?.categoryId ?? prefill?.categoryId ?? '')
-    setPriority(editRule?.priority !== undefined ? String(editRule.priority) : '')
     setApplyPreview(null)
   }, [editRule, prefill])
 
@@ -77,7 +74,6 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
       formData.append('matchType', matchType)
       formData.append('matchValue', matchValue)
       formData.append('categoryId', categoryId)
-      if (priority !== '') formData.append('priority', priority)
 
       if (editRule) {
         formData.append('id', editRule.id)
@@ -187,17 +183,6 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prioridade <span className="text-gray-400 font-normal">(opcional)</span>
-                </label>
-                <Input
-                  type="number"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                  placeholder="Auto-atribuida se vazio"
-                />
-              </div>
             </div>
 
             <div className="mt-6 flex items-center justify-between">

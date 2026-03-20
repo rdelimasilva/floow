@@ -551,8 +551,18 @@ export async function deleteCategory(formData: FormData) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Calculates priority automatically based on rule specificity.
+ * - 'exact' rules get higher base priority than 'contains'
+ * - Longer matchValue = more specific = higher priority
+ */
+function calcRulePriority(matchType: string, matchValue: string): number {
+  const base = matchType === 'exact' ? 1000 : 0
+  return base + matchValue.trim().length
+}
+
+/**
  * Server action: create a new categorization rule for the authenticated org.
- * Auto-assigns priority as maxPriority + 10 when no explicit priority is provided.
+ * Priority is auto-calculated from specificity (exact > contains, longer > shorter).
  * CAT-01
  */
 export async function createRule(formData: FormData) {
@@ -562,7 +572,6 @@ export async function createRule(formData: FormData) {
   const matchType = formData.get('matchType') as string
   const matchValue = formData.get('matchValue') as string
   const categoryId = formData.get('categoryId') as string
-  const priorityRaw = formData.get('priority') as string | null
 
   if (!matchType || !matchValue || !categoryId) {
     throw new Error('matchType, matchValue, and categoryId are required')
@@ -574,17 +583,7 @@ export async function createRule(formData: FormData) {
     throw new Error('matchValue must not be empty')
   }
 
-  let priority: number
-  if (priorityRaw !== null && priorityRaw !== '') {
-    priority = parseInt(priorityRaw, 10)
-  } else {
-    // Auto-assign: maxPriority + 10, defaulting to 10 if no rules exist
-    const [result] = await db
-      .select({ maxPriority: max(categoryRules.priority) })
-      .from(categoryRules)
-      .where(eq(categoryRules.orgId, orgId))
-    priority = (result?.maxPriority ?? 0) + 10
-  }
+  const priority = calcRulePriority(matchType, matchValue)
 
   const [rule] = await db
     .insert(categoryRules)
@@ -633,9 +632,22 @@ export async function updateRule(formData: FormData) {
   const categoryId = formData.get('categoryId') as string | null
   if (categoryId !== null) setObj.categoryId = categoryId
 
-  const priorityRaw = formData.get('priority') as string | null
-  if (priorityRaw !== null && priorityRaw !== '') {
-    setObj.priority = parseInt(priorityRaw, 10)
+  // Recalculate priority if matchType or matchValue changed
+  const finalMatchType = (setObj.matchType as string) ?? null
+  const finalMatchValue = (setObj.matchValue as string) ?? null
+  if (finalMatchType || finalMatchValue) {
+    // Need current values for fields not being updated
+    const [current] = await db
+      .select({ matchType: categoryRules.matchType, matchValue: categoryRules.matchValue })
+      .from(categoryRules)
+      .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
+      .limit(1)
+    if (current) {
+      setObj.priority = calcRulePriority(
+        finalMatchType ?? current.matchType,
+        finalMatchValue ?? current.matchValue,
+      )
+    }
   }
 
   await db
