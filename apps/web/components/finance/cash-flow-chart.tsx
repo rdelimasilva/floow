@@ -133,7 +133,15 @@ export function CashFlowChart({ data, chartType = 'bar' }: CashFlowChartProps) {
             ))}
           </Bar>
         </BarChart>
-      ) : null}
+      ) : (
+        <BarChart data={chartData}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      )}
     </ChartContainer>
   )
 }
