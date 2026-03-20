@@ -137,12 +137,12 @@ export function CategoryList({ categories }: CategoryListProps) {
                   {cat.isSystem && <span className="text-[10px] text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">padrão</span>}
                 </div>
                 <div className="flex gap-1">
-                  <button type="button" onClick={() => startEdit(cat)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                    <Pencil className="h-3.5 w-3.5" />
+                  <button type="button" onClick={() => startEdit(cat)} className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                    Editar
                   </button>
                   {!cat.isSystem && cat.orgId && (
-                    <button type="button" onClick={() => setDeleteTarget(cat)} className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
-                      <Trash2 className="h-3.5 w-3.5" />
+                    <button type="button" onClick={() => setDeleteTarget(cat)} className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">
+                      Excluir
                     </button>
                   )}
                 </div>
