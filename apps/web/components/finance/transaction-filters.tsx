@@ -114,6 +114,15 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
             {PERIOD_LABELS[key]}
           </button>
         ))}
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+          >
+            Limpar
+          </button>
+        )}
       </div>
 
       {/* Existing filters row */}
