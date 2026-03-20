@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Pencil, Trash2, Zap, EyeOff, Eye } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
 import { deleteTransaction, updateTransaction, toggleIgnoreTransaction, createCategory } from '@/lib/finance/actions'
@@ -107,7 +107,14 @@ export function TransactionList({ transactions, accounts, categories }: Transact
   const [editAccountId, setEditAccountId] = useState('')
   const [editCategoryId, setEditCategoryId] = useState('')
 
+  const editRowRef = useRef<HTMLTableRowElement>(null)
+  const editStateRef = useRef({ id: '', desc: '', amount: '', date: '', type: '' as string, accountId: '', categoryId: '' })
+
   function startEdit(tx: TransactionRow) {
+    // Auto-save previous edit if switching rows
+    if (editingId && editingId !== tx.id) {
+      saveEdit()
+    }
     setEditingId(tx.id)
     setEditDesc(tx.description)
     setEditAmount(String(Math.abs(tx.amountCents)))
@@ -115,28 +122,56 @@ export function TransactionList({ transactions, accounts, categories }: Transact
     setEditType(tx.type === 'income' ? 'income' : 'expense')
     setEditAccountId(tx.accountId)
     setEditCategoryId(tx.categoryId ?? '')
+    setShowNewCat(false)
   }
 
-  async function handleUpdate(txId: string) {
-    setLoading(true)
+  // Keep ref in sync for the click-outside handler
+  useEffect(() => {
+    editStateRef.current = { id: editingId ?? '', desc: editDesc, amount: editAmount, date: editDate, type: editType, accountId: editAccountId, categoryId: editCategoryId }
+  }, [editingId, editDesc, editAmount, editDate, editType, editAccountId, editCategoryId])
+
+  const saveEdit = useCallback(async () => {
+    const s = editStateRef.current
+    if (!s.id) return
     try {
       const formData = new FormData()
-      formData.append('id', txId)
-      formData.append('accountId', editAccountId)
-      if (editCategoryId) formData.append('categoryId', editCategoryId)
-      formData.append('type', editType)
-      formData.append('amountCents', editAmount)
-      formData.append('description', editDesc)
-      formData.append('date', editDate)
+      formData.append('id', s.id)
+      formData.append('accountId', s.accountId)
+      if (s.categoryId) formData.append('categoryId', s.categoryId)
+      formData.append('type', s.type)
+      formData.append('amountCents', s.amount)
+      formData.append('description', s.desc)
+      formData.append('date', s.date)
       await updateTransaction(formData)
-      setEditingId(null)
-      toast('Transação atualizada com sucesso')
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao atualizar transação', 'error')
-    } finally {
-      setLoading(false)
+    } catch {
+      // silent — data persists on next page load
     }
-  }
+  }, [])
+
+  // Click outside auto-saves and closes edit. Escape discards.
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (editRowRef.current && !editRowRef.current.contains(e.target as Node)) {
+        saveEdit()
+        setEditingId(null)
+        setShowNewCat(false)
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setEditingId(null)
+        setShowNewCat(false)
+      }
+    }
+    if (editingId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleKeyDown)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+        document.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+  }, [editingId, saveEdit])
 
   async function handleIgnore(tx: TransactionRow) {
     setLoading(true)
@@ -194,7 +229,7 @@ export function TransactionList({ transactions, accounts, categories }: Transact
           <tbody className="divide-y divide-gray-100">
             {transactions.map((tx) => (
               editingId === tx.id && !tx.transferGroupId ? (
-                <tr key={tx.id} className="bg-blue-50">
+                <tr key={tx.id} ref={editRowRef} className="bg-blue-50">
                   <td className="px-4 py-2">
                     <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="h-8 text-xs" />
                   </td>
@@ -258,14 +293,7 @@ export function TransactionList({ transactions, accounts, categories }: Transact
                     <Input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="h-8 text-xs text-right" />
                   </td>
                   <td className="px-4 py-2">
-                    <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="primary" onClick={() => handleUpdate(tx.id)} disabled={loading} className="h-7 text-xs">
-                        {loading ? '...' : 'Salvar'}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingId(null)} className="h-7 text-xs">
-                        Cancelar
-                      </Button>
-                    </div>
+                    <span className="text-[10px] text-gray-400">auto-salva ao sair</span>
                   </td>
                 </tr>
               ) : (
