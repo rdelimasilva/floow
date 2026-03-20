@@ -15,3 +15,5 @@ export * from './succession'
 // Phase 5 — Automation foundation
 export * from './categorization'
 export * from './recurring'
+// Phase 7 — Fixed assets
+export * from './asset-valuation'
