@@ -231,11 +231,26 @@ export async function refreshSnapshot() {
     investmentValueCents = 0
   }
 
+  // Include fixed assets estimated value in net worth
+  let fixedAssetValueCents = 0
+  try {
+    const { getFixedAssets } = await import('@/lib/fixed-assets/queries')
+    const assets = await getFixedAssets(orgId)
+    const { estimateAssetValue } = await import('@floow/core-finance')
+    const now = new Date()
+    fixedAssetValueCents = assets.reduce((sum, a) => {
+      const baseDate = a.currentValueDate instanceof Date ? a.currentValueDate : new Date(a.currentValueDate)
+      return sum + estimateAssetValue(a.currentValueCents, baseDate, Number(a.annualRate), now)
+    }, 0)
+  } catch {
+    fixedAssetValueCents = 0
+  }
+
   // Reuse the cached getAccounts() instead of a separate raw query
   const { getAccounts } = await import('./queries')
   const activeAccounts = await getAccounts(orgId)
 
-  const snapshot = computeSnapshot(activeAccounts, orgId, investmentValueCents)
+  const snapshot = computeSnapshot(activeAccounts, orgId, investmentValueCents, fixedAssetValueCents)
 
   const [saved] = await db
     .insert(patrimonySnapshots)

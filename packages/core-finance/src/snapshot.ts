@@ -29,6 +29,7 @@ export function computeSnapshot(
   accountList: Account[],
   orgId: string,
   investmentValueCents: number = 0,
+  fixedAssetValueCents: number = 0,
 ): NewPatrimonySnapshot {
   const breakdown: Record<string, number> = {}
 
@@ -55,6 +56,12 @@ export function computeSnapshot(
   if (investmentValueCents > 0) {
     liquidAssetsCents += investmentValueCents
     breakdown['investments'] = investmentValueCents
+  }
+
+  // Include fixed asset values in liquid assets and breakdown
+  if (fixedAssetValueCents > 0) {
+    liquidAssetsCents += fixedAssetValueCents
+    breakdown['fixed_assets'] = fixedAssetValueCents
   }
 
   const netWorthCents = liquidAssetsCents - liabilitiesCents

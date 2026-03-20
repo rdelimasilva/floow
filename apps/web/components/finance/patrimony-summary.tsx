@@ -65,6 +65,7 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
     brokerage: 'Investimentos',
     credit_card: 'Cartão de Crédito',
     cash: 'Dinheiro em Espécie',
+    fixed_assets: 'Imobilizado',
   }
 
   return (
