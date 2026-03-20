@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/providers/toast-provider'
+import { reconcileRecurringBalances } from '@/lib/finance/actions'
 
 export default async function AppLayout({
   children,
@@ -21,6 +22,9 @@ export default async function AppLayout({
 
   const user = session.user
   const meta = user.user_metadata ?? {}
+
+  // Reconcile recurring transaction balances (short-circuits if nothing pending)
+  await reconcileRecurringBalances()
 
   return (
     <ToastProvider>
