@@ -509,20 +509,26 @@ export async function deleteTransaction(formData: FormData) {
         .where(and(eq(transactions.transferGroupId, tx.transferGroupId), eq(transactions.orgId, orgId)))
 
       for (const leg of legs) {
-        await dbTx
-          .update(accounts)
-          .set({ balanceCents: sql`balance_cents + ${-leg.amountCents}` })
-          .where(eq(accounts.id, leg.accountId))
+        // Only reverse balance if it was already applied
+        if (leg.balanceApplied) {
+          await dbTx
+            .update(accounts)
+            .set({ balanceCents: sql`balance_cents + ${-leg.amountCents}` })
+            .where(eq(accounts.id, leg.accountId))
+        }
       }
 
       await dbTx
         .delete(transactions)
         .where(and(eq(transactions.transferGroupId, tx.transferGroupId), eq(transactions.orgId, orgId)))
     } else {
-      await dbTx
-        .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${-tx.amountCents}` })
-        .where(eq(accounts.id, tx.accountId))
+      // Only reverse balance if it was already applied
+      if (tx.balanceApplied) {
+        await dbTx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${-tx.amountCents}` })
+          .where(eq(accounts.id, tx.accountId))
+      }
 
       await dbTx
         .delete(transactions)
@@ -611,17 +617,30 @@ export async function updateTransaction(formData: FormData) {
   await db.transaction(async (tx) => {
     await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
 
-    // Reverse old balance impact
-    await tx
-      .update(accounts)
-      .set({ balanceCents: sql`balance_cents + ${-oldTx.amountCents}` })
-      .where(eq(accounts.id, oldTx.accountId))
+    // Reverse old balance impact only if it was applied
+    if (oldTx.balanceApplied) {
+      await tx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${-oldTx.amountCents}` })
+        .where(eq(accounts.id, oldTx.accountId))
+    }
 
-    // Apply new balance impact (handles account change too)
-    await tx
-      .update(accounts)
-      .set({ balanceCents: sql`balance_cents + ${newSignedAmount}` })
-      .where(eq(accounts.id, input.accountId))
+    // Determine if the updated transaction should have balance applied
+    const nowStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    const nowDate = new Date(nowStr)
+    const editedDate = new Date(input.date)
+    const shouldApplyBalance = editedDate <= nowDate || !oldTx.recurringTemplateId
+
+    // Apply new balance impact only if the date qualifies
+    if (shouldApplyBalance) {
+      await tx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${newSignedAmount}` })
+        .where(eq(accounts.id, input.accountId))
+    }
+
+    // Update balance_applied flag if this is a recurring transaction
+    const balanceAppliedValue = oldTx.recurringTemplateId ? shouldApplyBalance : true
 
     // Update the transaction row
     await tx
@@ -633,6 +652,7 @@ export async function updateTransaction(formData: FormData) {
         amountCents: newSignedAmount,
         description: input.description,
         date: new Date(input.date),
+        balanceApplied: balanceAppliedValue,
       })
       .where(and(eq(transactions.id, input.id), eq(transactions.orgId, orgId)))
   })
