@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { getOrgId, getTransactions, getTransactionCount, getAccounts, getCategories } from '@/lib/finance/queries'
-import { TransactionList } from '@/components/finance/transaction-list'
+import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
+import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
 import { Pagination } from '@/components/ui/pagination'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -22,6 +23,12 @@ export default async function TransactionsPage({ searchParams }: Props) {
     search: params.search,
     startDate: params.startDate,
     endDate: params.endDate,
+    sortBy: params.sortBy ?? 'date',
+    sortDir: params.sortDir ?? 'desc',
+    types: params.types,
+    categoryIds: params.categoryIds,
+    minAmount: params.minAmount ? parseInt(params.minAmount, 10) : undefined,
+    maxAmount: params.maxAmount ? parseInt(params.maxAmount, 10) : undefined,
   }
 
   const [transactions, totalCount, accounts, categories] = await Promise.all([
@@ -38,8 +45,15 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (filters.search) paginationParams.search = filters.search
   if (filters.startDate) paginationParams.startDate = filters.startDate
   if (filters.endDate) paginationParams.endDate = filters.endDate
+  if (filters.sortBy && filters.sortBy !== 'date') paginationParams.sortBy = filters.sortBy
+  if (filters.sortDir && filters.sortDir !== 'desc') paginationParams.sortDir = filters.sortDir
+  if (params.types) paginationParams.types = params.types
+  if (params.categoryIds) paginationParams.categoryIds = params.categoryIds
+  if (params.minAmount) paginationParams.minAmount = params.minAmount
+  if (params.maxAmount) paginationParams.maxAmount = params.maxAmount
 
   return (
+    <InlineTransactionFormProvider>
     <div className="space-y-4">
       <PageHeader
         title="Transações"
@@ -50,20 +64,25 @@ export default async function TransactionsPage({ searchParams }: Props) {
         <Button asChild variant="outline">
           <Link href="/transactions/import">Importar</Link>
         </Button>
-        <Button asChild variant="primary">
-          <Link href="/transactions/new">Nova Transação</Link>
-        </Button>
+        <InlineTransactionFormButton />
       </PageHeader>
+
+      <InlineTransactionFormPanel
+        accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))}
+      />
 
       <TransactionFilters accounts={accounts.map((a) => ({ id: a.id, name: a.name }))} />
 
-      <TransactionList
+      <TransactionListWrapper
         transactions={transactions.map((t) => ({
           ...t,
           isAutoCategorized: t.isAutoCategorized,
         }))}
         accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))}
+        sortBy={filters.sortBy}
+        sortDir={filters.sortDir as 'asc' | 'desc'}
       />
 
       <Pagination
@@ -73,5 +92,6 @@ export default async function TransactionsPage({ searchParams }: Props) {
         searchParams={paginationParams}
       />
     </div>
+    </InlineTransactionFormProvider>
   )
 }
