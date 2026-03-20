@@ -323,19 +323,20 @@ export async function createRecurringTransactions(formData: FormData) {
     let destBalanceDelta = 0
 
     if (input.type === 'transfer' && input.destinationAccountId) {
-      // Transfer: insert pairs
+      // Transfer: batch insert pairs
+      const sourceRows = []
+      const destRows = []
       for (let i = 0; i < dates.length; i++) {
         const installDate = dates[i]
         const isApplied = installDate <= today
         const transferGroupId = crypto.randomUUID()
         const desc = `${input.description} (${i + 1}/${total})`
 
-        // Source leg (debit)
-        await tx.insert(transactions).values({
+        sourceRows.push({
           orgId,
           accountId: input.accountId,
           categoryId: null,
-          type: 'transfer',
+          type: 'transfer' as const,
           amountCents: -input.amountCents,
           description: desc,
           date: installDate,
@@ -347,12 +348,11 @@ export async function createRecurringTransactions(formData: FormData) {
           isAutoCategorized: false,
         })
 
-        // Destination leg (credit)
-        await tx.insert(transactions).values({
+        destRows.push({
           orgId,
           accountId: input.destinationAccountId,
           categoryId: null,
-          type: 'transfer',
+          type: 'transfer' as const,
           amountCents: input.amountCents,
           description: desc,
           date: installDate,
@@ -370,6 +370,9 @@ export async function createRecurringTransactions(formData: FormData) {
         }
       }
 
+      await tx.insert(transactions).values(sourceRows)
+      await tx.insert(transactions).values(destRows)
+
       // Update balances
       if (sourceBalanceDelta !== 0) {
         await tx
@@ -384,33 +387,29 @@ export async function createRecurringTransactions(formData: FormData) {
           .where(eq(accounts.id, input.destinationAccountId))
       }
     } else {
-      // Income or expense
+      // Income or expense — batch insert
       const signedAmount = input.type === 'income' ? input.amountCents : -input.amountCents
 
-      for (let i = 0; i < dates.length; i++) {
-        const installDate = dates[i]
+      const rows = dates.map((installDate, i) => {
         const isApplied = installDate <= today
-        const desc = `${input.description} (${i + 1}/${total})`
-
-        await tx.insert(transactions).values({
+        if (isApplied) sourceBalanceDelta += signedAmount
+        return {
           orgId,
           accountId: input.accountId,
           categoryId: resolvedCategoryId,
           type: input.type,
           amountCents: signedAmount,
-          description: desc,
+          description: `${input.description} (${i + 1}/${total})`,
           date: installDate,
           recurringTemplateId: template.id,
           balanceApplied: isApplied,
           installmentNumber: i + 1,
           installmentTotal: total,
           isAutoCategorized,
-        })
-
-        if (isApplied) {
-          sourceBalanceDelta += signedAmount
         }
-      }
+      })
+
+      await tx.insert(transactions).values(rows)
 
       // Update balance
       if (sourceBalanceDelta !== 0) {

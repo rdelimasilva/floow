@@ -101,7 +101,7 @@ export async function getTransactions(
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(and(...conditions))
-    .orderBy(desc(transactions.date))
+    .orderBy(desc(transactions.balanceApplied), desc(transactions.date))
     .limit(limit)
     .offset(offset)
 }
