@@ -93,6 +93,7 @@ export const transactions = pgTable(
     importedAt: timestamp('imported_at', { withTimezone: true }),
     externalId: text('external_id'),
     isAutoCategorized: boolean('is_auto_categorized').notNull().default(false),
+    isIgnored: boolean('is_ignored').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

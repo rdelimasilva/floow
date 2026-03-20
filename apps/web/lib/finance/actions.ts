@@ -302,6 +302,49 @@ export async function deleteTransaction(formData: FormData) {
 }
 
 /**
+ * Server action: toggle the is_ignored flag on an imported transaction.
+ * When ignoring: reverses the balance impact (as if the transaction didn't exist).
+ * When un-ignoring: re-applies the balance impact.
+ * Only works on imported transactions (externalId IS NOT NULL).
+ */
+export async function toggleIgnoreTransaction(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const transactionId = formData.get('id') as string
+  if (!transactionId) throw new Error('Transaction ID is required')
+
+  const [tx] = await db
+    .select()
+    .from(transactions)
+    .where(and(eq(transactions.id, transactionId), eq(transactions.orgId, orgId)))
+    .limit(1)
+
+  if (!tx) throw new Error('Transação não encontrada')
+  if (!tx.externalId) throw new Error('Apenas transações importadas podem ser ignoradas')
+
+  const newIgnored = !tx.isIgnored
+  // If ignoring: reverse balance. If un-ignoring: re-apply balance.
+  const balanceDelta = newIgnored ? -tx.amountCents : tx.amountCents
+
+  await db.transaction(async (dbTx) => {
+    await dbTx
+      .update(transactions)
+      .set({ isIgnored: newIgnored })
+      .where(and(eq(transactions.id, transactionId), eq(transactions.orgId, orgId)))
+
+    await dbTx
+      .update(accounts)
+      .set({ balanceCents: sql`balance_cents + ${balanceDelta}` })
+      .where(eq(accounts.id, tx.accountId))
+  })
+
+  revalidatePath('/transactions')
+  revalidatePath('/accounts')
+  revalidatePath('/dashboard')
+}
+
+/**
  * Server action: update an existing transaction's fields and adjust account balances.
  * Reverses the old balance impact, applies the new one, and updates the row.
  * Transfer transactions cannot be edited — they must be deleted and recreated.

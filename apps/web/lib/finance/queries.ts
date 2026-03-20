@@ -88,6 +88,7 @@ export async function getTransactions(
       importedAt: transactions.importedAt,
       externalId: transactions.externalId,
       isAutoCategorized: transactions.isAutoCategorized,
+      isIgnored: transactions.isIgnored,
       createdAt: transactions.createdAt,
       categoryName: categories.name,
       categoryColor: categories.color,
@@ -188,6 +189,6 @@ export async function getRecentTransactions(orgId: string, months: number = 6) {
       date: transactions.date,
     })
     .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff)))
+    .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff), eq(transactions.isIgnored, false)))
     .orderBy(desc(transactions.date))
 }

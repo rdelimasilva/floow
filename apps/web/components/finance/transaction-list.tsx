@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2, Zap } from 'lucide-react'
+import { Pencil, Trash2, Zap, EyeOff, Eye } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
-import { deleteTransaction, updateTransaction } from '@/lib/finance/actions'
+import { deleteTransaction, updateTransaction, toggleIgnoreTransaction } from '@/lib/finance/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -22,7 +22,9 @@ interface TransactionRow {
   categoryColor: string | null
   categoryIcon: string | null
   transferGroupId?: string | null
+  externalId?: string | null
   isAutoCategorized?: boolean
+  isIgnored?: boolean
 }
 
 interface AccountOption {
@@ -105,6 +107,20 @@ export function TransactionList({ transactions, accounts, categories }: Transact
       toast('Transação atualizada com sucesso')
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao atualizar transação', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleIgnore(tx: TransactionRow) {
+    setLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('id', tx.id)
+      await toggleIgnoreTransaction(formData)
+      toast(tx.isIgnored ? 'Transação restaurada' : 'Transação ignorada')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao alterar transação', 'error')
     } finally {
       setLoading(false)
     }
@@ -196,7 +212,7 @@ export function TransactionList({ transactions, accounts, categories }: Transact
                   </td>
                 </tr>
               ) : (
-                <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${tx.isIgnored ? 'opacity-40 line-through' : ''}`}>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{formatDate(tx.date)}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{tx.description}</td>
                   <td className="px-4 py-3">
@@ -250,13 +266,25 @@ export function TransactionList({ transactions, accounts, categories }: Transact
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(tx)}
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {tx.externalId ? (
+                        <button
+                          type="button"
+                          title={tx.isIgnored ? 'Restaurar transação' : 'Ignorar transação'}
+                          onClick={() => handleIgnore(tx)}
+                          disabled={loading}
+                          className={`rounded p-1 ${tx.isIgnored ? 'text-blue-500 hover:bg-blue-50 hover:text-blue-700' : 'text-gray-400 hover:bg-yellow-50 hover:text-yellow-600'}`}
+                        >
+                          {tx.isIgnored ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(tx)}
+                          className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
