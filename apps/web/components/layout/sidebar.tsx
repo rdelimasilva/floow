@@ -19,6 +19,7 @@ import {
   PanelLeftOpen,
   ChevronUp,
   Settings,
+  Building2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -56,6 +57,12 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Investimentos',
     items: [
       { href: '/investments', label: 'Investimentos', icon: TrendingUp },
+    ],
+  },
+  {
+    title: 'Ativos Imobilizados',
+    items: [
+      { href: '/fixed-assets', label: 'Ativos Imobilizados', icon: Building2 },
     ],
   },
   {
