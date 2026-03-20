@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createTransaction, createCategory } from '@/lib/finance/actions'
-import { currencyToCents } from '@floow/core-finance'
+import { createTransaction, createCategory, createRecurringTransactions } from '@/lib/finance/actions'
+import { formatBRL, currencyToCents, generateInstallmentDates } from '@floow/core-finance'
+import type { RecurringFrequency } from '@floow/core-finance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,11 +46,23 @@ const transactionFormSchema = z
 
 type TransactionFormData = z.infer<typeof transactionFormSchema>
 
+const FREQUENCY_LABELS: Record<string, string> = {
+  daily: 'Diário',
+  weekly: 'Semanal',
+  biweekly: 'Quinzenal',
+  monthly: 'Mensal',
+  quarterly: 'Trimestral',
+  yearly: 'Anual',
+}
+
+type EndMode = 'count' | 'end_date' | 'indefinite'
+
 // ── Props ──────────────────────────────────────────────────────────────────────
 
 interface TransactionFormProps {
   accounts: Account[]
   categories: Category[]
+  onSuccess?: () => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -60,19 +73,25 @@ const TYPE_LABELS: Record<TransactionType, string> = {
   transfer: 'Transferência',
 }
 
-export function TransactionForm({ accounts, categories: initialCategories }: TransactionFormProps) {
+export function TransactionForm({ accounts, categories: initialCategories, onSuccess }: TransactionFormProps) {
   const router = useRouter()
   const [txType, setTxType] = useState<TransactionType>('expense')
   const [categories, setCategories] = useState(initialCategories)
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [creatingCategory, setCreatingCategory] = useState(false)
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [frequency, setFrequency] = useState<RecurringFrequency>('monthly')
+  const [endMode, setEndMode] = useState<EndMode>('count')
+  const [installmentCount, setInstallmentCount] = useState('12')
+  const [recurringEndDate, setRecurringEndDate] = useState('')
 
   const {
     register,
     handleSubmit,
     control,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionFormSchema),
@@ -89,26 +108,85 @@ export function TransactionForm({ accounts, categories: initialCategories }: Tra
     return false // no category for transfer
   })
 
+  // Preview text for recurring transactions
+  const watchDate = watch('date')
+  const watchAmount = watch('amountRaw')
+  const recurringPreview = (() => {
+    if (!isRecurring) return null
+    try {
+      if (!watchDate) return null
+      const startDate = new Date(watchDate)
+      startDate.setHours(0, 0, 0, 0)
+      const amountCents = watchAmount ? currencyToCents(watchAmount) : 0
+
+      const dates = generateInstallmentDates({
+        startDate,
+        frequency,
+        endMode,
+        installmentCount: endMode === 'count' ? parseInt(installmentCount) || 1 : undefined,
+        endDate: endMode === 'end_date' && recurringEndDate ? new Date(recurringEndDate) : undefined,
+      })
+
+      if (dates.length === 0) return null
+
+      const firstDate = dates[0].toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+      const lastDate = dates[dates.length - 1].toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+      const amountStr = amountCents > 0 ? formatBRL(amountCents) : 'R$ 0,00'
+
+      return `Serão geradas ${dates.length} transações de ${amountStr}, de ${firstDate} a ${lastDate}`
+    } catch {
+      return null
+    }
+  })()
+
   async function onSubmit(data: TransactionFormData) {
     const amountCents = currencyToCents(data.amountRaw)
     if (amountCents <= 0) return
 
-    const formData = new FormData()
-    formData.append('type', data.type)
-    formData.append('accountId', data.accountId)
-    formData.append('amountCents', String(amountCents))
-    formData.append('description', data.description)
-    formData.append('date', data.date)
+    if (isRecurring) {
+      const formData = new FormData()
+      formData.append('type', data.type)
+      formData.append('accountId', data.accountId)
+      formData.append('amountCents', String(amountCents))
+      formData.append('description', data.description)
+      formData.append('startDate', data.date)
+      formData.append('frequency', frequency)
+      formData.append('endMode', endMode)
 
-    if (data.categoryId) {
-      formData.append('categoryId', data.categoryId)
-    }
-    if (data.type === 'transfer' && data.transferToAccountId) {
-      formData.append('transferToAccountId', data.transferToAccountId)
+      if (data.categoryId) formData.append('categoryId', data.categoryId)
+      if (data.type === 'transfer' && data.transferToAccountId) {
+        formData.append('destinationAccountId', data.transferToAccountId)
+      }
+
+      if (endMode === 'count') {
+        formData.append('installmentCount', installmentCount)
+      }
+      if (endMode === 'end_date' && recurringEndDate) {
+        formData.append('endDate', recurringEndDate)
+      }
+
+      await createRecurringTransactions(formData)
+    } else {
+      const formData = new FormData()
+      formData.append('type', data.type)
+      formData.append('accountId', data.accountId)
+      formData.append('amountCents', String(amountCents))
+      formData.append('description', data.description)
+      formData.append('date', data.date)
+
+      if (data.categoryId) formData.append('categoryId', data.categoryId)
+      if (data.type === 'transfer' && data.transferToAccountId) {
+        formData.append('transferToAccountId', data.transferToAccountId)
+      }
+
+      await createTransaction(formData)
     }
 
-    await createTransaction(formData)
-    router.push('/transactions')
+    if (onSuccess) {
+      onSuccess()
+    } else {
+      router.push('/transactions')
+    }
   }
 
   function handleTypeChange(type: TransactionType) {
@@ -321,13 +399,114 @@ export function TransactionForm({ accounts, categories: initialCategories }: Tra
         )}
       </div>
 
+      {/* Recurring toggle */}
+      <div className="space-y-1.5">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isRecurring}
+            onChange={(e) => setIsRecurring(e.target.checked)}
+            className="rounded border-gray-300"
+          />
+          <span className="text-sm font-medium text-gray-700">Recorrente</span>
+        </label>
+      </div>
+
+      {isRecurring && (
+        <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          {/* Frequency */}
+          <div className="space-y-1.5">
+            <Label>Frequência</Label>
+            <select
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value as RecurringFrequency)}
+              className="h-10 w-full rounded-md border border-gray-200 bg-white px-3 text-sm"
+            >
+              {Object.entries(FREQUENCY_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* End mode */}
+          <div className="space-y-1.5">
+            <Label>Término</Label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="endMode"
+                  value="count"
+                  checked={endMode === 'count'}
+                  onChange={() => setEndMode('count')}
+                  className="border-gray-300"
+                />
+                <span className="text-sm">Número de parcelas</span>
+              </label>
+              {endMode === 'count' && (
+                <Input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={installmentCount}
+                  onChange={(e) => setInstallmentCount(e.target.value)}
+                  placeholder="Ex: 24"
+                  className="ml-6 w-32"
+                />
+              )}
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="endMode"
+                  value="end_date"
+                  checked={endMode === 'end_date'}
+                  onChange={() => setEndMode('end_date')}
+                  className="border-gray-300"
+                />
+                <span className="text-sm">Até uma data</span>
+              </label>
+              {endMode === 'end_date' && (
+                <Input
+                  type="date"
+                  value={recurringEndDate}
+                  onChange={(e) => setRecurringEndDate(e.target.value)}
+                  className="ml-6 w-48"
+                />
+              )}
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="endMode"
+                  value="indefinite"
+                  checked={endMode === 'indefinite'}
+                  onChange={() => setEndMode('indefinite')}
+                  className="border-gray-300"
+                />
+                <span className="text-sm">Sem fim (máx. 60 meses)</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Preview */}
+          {recurringPreview && (
+            <p className="text-xs text-gray-500 bg-white rounded px-3 py-2 border border-gray-100">
+              {recurringPreview}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-2">
-        <Button type="button" variant="outline" onClick={() => router.push('/transactions')}>
-          Cancelar
-        </Button>
+        {!onSuccess && (
+          <Button type="button" variant="outline" onClick={() => router.push('/transactions')}>
+            Cancelar
+          </Button>
+        )}
         <Button type="submit" variant="primary" disabled={isSubmitting}>
-          {isSubmitting ? 'Registrando...' : 'Registrar Transação'}
+          {isSubmitting ? 'Registrando...' : isRecurring ? 'Criar Recorrência' : 'Registrar Transação'}
         </Button>
       </div>
     </form>
