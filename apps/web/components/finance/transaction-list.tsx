@@ -9,6 +9,8 @@ import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SortableHeader } from '@/components/finance/sortable-header'
+import { TypeFilter, CategoryFilter, AmountFilter } from '@/components/finance/column-filter-dropdown'
 
 interface TransactionRow {
   id: string
@@ -46,6 +48,16 @@ interface TransactionListProps {
   transactions: TransactionRow[]
   accounts: AccountOption[]
   categories: CategoryOption[]
+  sortBy: string
+  sortDir: 'asc' | 'desc'
+  activeTypes: string[]
+  activeCategoryIds: string[]
+  activeMinAmount: string
+  activeMaxAmount: string
+  onSort: (sortKey: string) => void
+  onFilterTypes: (types: string[]) => void
+  onFilterCategories: (ids: string[]) => void
+  onFilterAmount: (min: string, max: string) => void
 }
 
 function formatDate(date: Date | string): string {
@@ -70,7 +82,11 @@ const TYPE_LABELS = {
   transfer: 'Transferência',
 } as const
 
-export function TransactionList({ transactions, accounts, categories }: TransactionListProps) {
+export function TransactionList({
+  transactions, accounts, categories,
+  sortBy, sortDir, activeTypes, activeCategoryIds, activeMinAmount, activeMaxAmount,
+  onSort, onFilterTypes, onFilterCategories, onFilterAmount,
+}: TransactionListProps) {
   const { toast } = useToast()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TransactionRow | null>(null)
@@ -240,11 +256,65 @@ export function TransactionList({ transactions, accounts, categories }: Transact
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Data</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Descrição</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Categoria</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Tipo</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Valor</th>
+              <SortableHeader
+                label="Data"
+                sortKey="date"
+                currentSortBy={sortBy}
+                currentSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeader
+                label="Descrição"
+                sortKey="description"
+                currentSortBy={sortBy}
+                currentSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeader
+                label="Categoria"
+                sortKey="categoryName"
+                currentSortBy={sortBy}
+                currentSortDir={sortDir}
+                onSort={onSort}
+                hasActiveFilter={activeCategoryIds.length > 0}
+                filterContent={
+                  <CategoryFilter
+                    categories={categories}
+                    selected={activeCategoryIds}
+                    onChange={onFilterCategories}
+                  />
+                }
+              />
+              <SortableHeader
+                label="Tipo"
+                sortKey="type"
+                currentSortBy={sortBy}
+                currentSortDir={sortDir}
+                onSort={onSort}
+                hasActiveFilter={activeTypes.length > 0}
+                filterContent={
+                  <TypeFilter
+                    selected={activeTypes}
+                    onChange={onFilterTypes}
+                  />
+                }
+              />
+              <SortableHeader
+                label="Valor"
+                sortKey="amountCents"
+                currentSortBy={sortBy}
+                currentSortDir={sortDir}
+                onSort={onSort}
+                hasActiveFilter={!!activeMinAmount || !!activeMaxAmount}
+                filterContent={
+                  <AmountFilter
+                    minAmount={activeMinAmount}
+                    maxAmount={activeMaxAmount}
+                    onApply={onFilterAmount}
+                  />
+                }
+                className="text-right"
+              />
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Ações</th>
             </tr>
           </thead>
