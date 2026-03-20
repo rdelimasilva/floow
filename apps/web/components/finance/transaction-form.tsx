@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createTransaction } from '@/lib/finance/actions'
+import { createTransaction, createCategory } from '@/lib/finance/actions'
 import { currencyToCents } from '@floow/core-finance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -60,9 +60,13 @@ const TYPE_LABELS: Record<TransactionType, string> = {
   transfer: 'Transferência',
 }
 
-export function TransactionForm({ accounts, categories }: TransactionFormProps) {
+export function TransactionForm({ accounts, categories: initialCategories }: TransactionFormProps) {
   const router = useRouter()
   const [txType, setTxType] = useState<TransactionType>('expense')
+  const [categories, setCategories] = useState(initialCategories)
+  const [showNewCategory, setShowNewCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [creatingCategory, setCreatingCategory] = useState(false)
 
   const {
     register,
@@ -113,6 +117,25 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
     // Clear category when switching to transfer
     if (type === 'transfer') {
       setValue('categoryId', undefined)
+    }
+  }
+
+  async function handleCreateCategory() {
+    if (!newCategoryName.trim()) return
+    setCreatingCategory(true)
+    try {
+      const formData = new FormData()
+      formData.append('name', newCategoryName.charAt(0).toUpperCase() + newCategoryName.slice(1))
+      formData.append('type', txType === 'income' ? 'income' : 'expense')
+      const created = await createCategory(formData)
+      setCategories((prev) => [...prev, created])
+      setValue('categoryId', created.id)
+      setNewCategoryName('')
+      setShowNewCategory(false)
+    } catch {
+      // toast would be nice but keeping it simple
+    } finally {
+      setCreatingCategory(false)
     }
   }
 
@@ -211,13 +234,51 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
                 <SelectContent>
                   {filteredCategories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
-                      {cat.icon ? `${cat.icon} ` : ''}{cat.name}
+                      {cat.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           />
+          {!showNewCategory ? (
+            <button
+              type="button"
+              onClick={() => setShowNewCategory(true)}
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
+              + Criar nova categoria
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Input
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder={`Nova categoria de ${txType === 'income' ? 'receita' : 'despesa'}`}
+                className="h-8 text-sm flex-1"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory() } }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                onClick={handleCreateCategory}
+                disabled={creatingCategory || !newCategoryName.trim()}
+                className="h-8"
+              >
+                {creatingCategory ? '...' : 'Criar'}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => { setShowNewCategory(false); setNewCategoryName('') }}
+                className="h-8"
+              >
+                Cancelar
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
