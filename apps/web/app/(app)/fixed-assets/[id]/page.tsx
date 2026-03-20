@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { UpdateValueForm } from './update-value-form'
 import { DeleteAssetButton } from './delete-asset-button'
+import { AssetValueHistory } from '@/components/fixed-assets/asset-value-history'
 
 export default async function FixedAssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -22,7 +23,22 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
   const typeName = types.find((t) => t.id === asset.typeId)?.name ?? '—'
   const baseDate = asset.currentValueDate instanceof Date ? asset.currentValueDate : new Date(asset.currentValueDate)
   const purchaseDate = asset.purchaseDate instanceof Date ? asset.purchaseDate : new Date(asset.purchaseDate)
-  const estimatedValue = estimateAssetValue(asset.currentValueCents, baseDate, Number(asset.annualRate))
+  const annualRate = Number(asset.annualRate)
+  const estimatedValue = estimateAssetValue(asset.currentValueCents, baseDate, annualRate)
+
+  // Generate monthly value history from purchase date to today
+  const monthlyHistory: { month: string; label: string; valueCents: number }[] = []
+  const now = new Date()
+  const cursor = new Date(purchaseDate.getFullYear(), purchaseDate.getMonth(), 1)
+  while (cursor <= now) {
+    const refDate = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0) // last day of month
+    const effectiveRef = refDate > now ? now : refDate
+    const value = estimateAssetValue(asset.currentValueCents, baseDate, annualRate, effectiveRef)
+    const monthKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`
+    const label = cursor.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+    monthlyHistory.push({ month: monthKey, label, valueCents: value })
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
 
   return (
     <div className="space-y-6">
@@ -86,6 +102,9 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
           </CardContent>
         </Card>
       )}
+
+      {/* Value evolution chart + table */}
+      <AssetValueHistory data={monthlyHistory} />
 
       {/* Update value form */}
       <Card>
