@@ -1,10 +1,9 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 
 interface AccountOption {
   id: string
@@ -26,15 +25,16 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   const [startDate, setStartDate] = useState(searchParams.get('startDate') ?? '')
   const [endDate, setEndDate] = useState(searchParams.get('endDate') ?? '')
 
-  function applyFilters() {
+  const navigate = useCallback((overrides: Record<string, string>) => {
     const params = new URLSearchParams()
-    if (search) params.set('search', search)
-    if (accountId) params.set('accountId', accountId)
-    if (startDate) params.set('startDate', startDate)
-    if (endDate) params.set('endDate', endDate)
+    const values = { search, accountId, startDate, endDate, ...overrides }
+    if (values.search) params.set('search', values.search)
+    if (values.accountId) params.set('accountId', values.accountId)
+    if (values.startDate) params.set('startDate', values.startDate)
+    if (values.endDate) params.set('endDate', values.endDate)
     params.set('page', '1')
     router.push(`${baseUrl}?${params.toString()}`)
-  }
+  }, [router, baseUrl, search, accountId, startDate, endDate])
 
   function clearFilters() {
     setSearch('')
@@ -47,57 +47,59 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   const hasFilters = search || accountId || startDate || endDate
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4">
-      <div className="flex-1 min-w-[200px]">
-        <label className="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Descricao..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-            className="pl-9 h-9"
-          />
-        </div>
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Search */}
+      <div className="relative flex-1 min-w-[200px]">
+        <Search className="absolute left-2.5 top-2 h-4 w-4 text-gray-400" />
+        <input
+          placeholder="Buscar descrição..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate({ search: e.currentTarget.value }) }}
+          onBlur={(e) => { if (e.target.value !== (searchParams.get('search') ?? '')) navigate({ search: e.target.value }) }}
+          className="h-8 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-xs text-gray-600 placeholder:text-gray-400"
+        />
       </div>
 
+      {/* Account */}
       {!hideAccountFilter && (
-        <div className="min-w-[160px]">
-          <label className="block text-xs font-medium text-gray-500 mb-1">Conta</label>
-          <select
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            className="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
-          >
-            <option value="">Todas</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={accountId}
+          onChange={(e) => { setAccountId(e.target.value); navigate({ accountId: e.target.value }) }}
+          className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
+        >
+          <option value="">Todas as contas</option>
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
       )}
 
-      <div className="min-w-[140px]">
-        <label className="block text-xs font-medium text-gray-500 mb-1">Data inicio</label>
-        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-9" />
-      </div>
+      {/* Date range */}
+      <input
+        type="date"
+        value={startDate}
+        onChange={(e) => { setStartDate(e.target.value); navigate({ startDate: e.target.value }) }}
+        className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
+      />
+      <span className="text-xs text-gray-400">até</span>
+      <input
+        type="date"
+        value={endDate}
+        onChange={(e) => { setEndDate(e.target.value); navigate({ endDate: e.target.value }) }}
+        className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
+      />
 
-      <div className="min-w-[140px]">
-        <label className="block text-xs font-medium text-gray-500 mb-1">Data fim</label>
-        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-9" />
-      </div>
-
-      <div className="flex gap-2">
-        <Button size="sm" onClick={applyFilters} className="h-9">
-          Filtrar
-        </Button>
-        {hasFilters && (
-          <Button size="sm" variant="outline" onClick={clearFilters} className="h-9">
-            Limpar
-          </Button>
-        )}
-      </div>
+      {/* Clear */}
+      {hasFilters && (
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="text-xs text-blue-600 hover:text-blue-800"
+        >
+          Limpar filtros
+        </button>
+      )}
     </div>
   )
 }
