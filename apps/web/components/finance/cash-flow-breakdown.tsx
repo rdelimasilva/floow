@@ -110,7 +110,7 @@ function aggregate(transactions: RawTransaction[], grouping: Grouping): Aggregat
     .sort((a, b) => b.key.localeCompare(a.key))
 }
 
-export function CashFlowBreakdown({ transactions, accounts }: CashFlowBreakdownProps) {
+export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlowBreakdownProps) {
   const [grouping, setGrouping] = useState<Grouping>('monthly')
   const [accountId, setAccountId] = useState<string>('')
   const [startDate, setStartDate] = useState<string>('')
