@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { getOrgId, getRecentTransactions } from '@/lib/finance/queries'
 import { aggregateCashFlow, formatBRL } from '@floow/core-finance'
 import { CashFlowChart } from '@/components/finance/cash-flow-chart'
+import { CashFlowBreakdown } from '@/components/finance/cash-flow-breakdown'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -64,53 +65,19 @@ async function CashFlowContent({ orgId }: { orgId: string }) {
         </CardContent>
       </Card>
 
-      {/* Monthly breakdown table */}
+      {/* Breakdown table (monthly / daily toggle) */}
       {cashFlowData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Detalhamento Mensal</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-hidden rounded-lg border border-gray-100">
-              <table className="min-w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Mês</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Despesas</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {cashFlowData.map((d) => {
-                    const [year, month] = d.month.split('-')
-                    const label = new Date(Number(year), Number(month) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-                    return (
-                      <tr key={d.month} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-sm text-gray-600 capitalize">{label}</td>
-                        <td className="px-4 py-2 text-right text-sm font-medium text-green-700">{formatBRL(d.income)}</td>
-                        <td className="px-4 py-2 text-right text-sm font-medium text-red-600">{formatBRL(Math.abs(d.expense))}</td>
-                        <td className={`px-4 py-2 text-right text-sm font-bold ${d.net >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                          {formatBRL(d.net)}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot className="bg-gray-50">
-                  <tr>
-                    <td className="px-4 py-2 text-sm font-medium text-gray-700">Total</td>
-                    <td className="px-4 py-2 text-right text-sm font-bold text-green-700">{formatBRL(totalIncome)}</td>
-                    <td className="px-4 py-2 text-right text-sm font-bold text-red-600">{formatBRL(totalExpense)}</td>
-                    <td className={`px-4 py-2 text-right text-sm font-bold ${totalIncome - totalExpense >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                      {formatBRL(totalIncome - totalExpense)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <CashFlowBreakdown
+          monthlyData={cashFlowData}
+          dailyTransactions={recentTransactions.map((t) => ({
+            date: t.date instanceof Date ? t.date.toISOString() : String(t.date),
+            amountCents: t.amountCents,
+            type: t.type,
+            description: '',
+          }))}
+          totalIncome={totalIncome}
+          totalExpense={totalExpense}
+        />
       )}
     </>
   )
