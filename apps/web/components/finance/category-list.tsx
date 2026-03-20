@@ -114,12 +114,25 @@ export function CategoryList({ categories }: CategoryListProps) {
         <div className="space-y-1">
           {cats.map((cat) => (
             editingId === cat.id ? (
-              <div key={cat.id} className="flex items-center gap-2 rounded-lg bg-blue-50 p-2">
-                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-8 w-8 rounded border" />
-                <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm flex-1" />
-                <Input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="Emoji" className="h-8 w-16 text-sm" />
-                <Button size="sm" variant="primary" onClick={() => handleUpdate(cat.id)} disabled={loading} className="h-8">Salvar</Button>
-                <Button size="sm" variant="outline" onClick={() => { setEditingId(null); resetForm() }} className="h-8">Cancelar</Button>
+              <div key={cat.id} className="rounded-lg bg-blue-50 p-3 space-y-2">
+                <div className="flex items-end gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Cor</label>
+                    <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 rounded border" />
+                  </div>
+                  <div className="flex-1 min-w-[140px]">
+                    <label className="block text-xs text-gray-500 mb-1">Nome</label>
+                    <Input value={name} onChange={(e) => setName(e.target.value)} className="h-9 text-sm" />
+                  </div>
+                  <div className="w-16">
+                    <label className="block text-xs text-gray-500 mb-1">Ícone</label>
+                    <Input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="🏷️" className="h-9 text-sm" />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button size="sm" variant="outline" onClick={() => { setEditingId(null); resetForm() }} className="h-8">Cancelar</Button>
+                  <Button size="sm" variant="primary" onClick={() => handleUpdate(cat.id)} disabled={loading} className="h-8">Salvar</Button>
+                </div>
               </div>
             ) : (
               <div key={cat.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50">
