@@ -1,6 +1,6 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, integer, boolean, timestamp, index, date } from 'drizzle-orm/pg-core'
 import { orgs } from './auth'
-import { categories } from './finance'
+import { categories, transactionTypeEnum, accounts } from './finance'
 
 // ---------------------------------------------------------------------------
 // Categorization Rules
@@ -35,3 +35,40 @@ export const categoryRules = pgTable(
 
 export type CategoryRuleRow = typeof categoryRules.$inferSelect
 export type NewCategoryRuleRow = typeof categoryRules.$inferInsert
+
+// ---------------------------------------------------------------------------
+// Recurring Templates
+// ---------------------------------------------------------------------------
+
+export const recurringTemplates = pgTable(
+  'recurring_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
+    type: transactionTypeEnum('type').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    description: text('description').notNull(),
+    frequency: text('frequency').notNull().$type<'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly'>(),
+    nextDueDate: date('next_due_date', { mode: 'date' }).notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    notes: text('notes'),
+    endMode: text('end_mode').notNull().$type<'count' | 'end_date' | 'indefinite'>(),
+    installmentCount: integer('installment_count'),
+    endDate: date('end_date', { mode: 'date' }),
+    transferDestinationAccountId: uuid('transfer_destination_account_id').references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    idxRecurringTemplatesOrgId: index('idx_recurring_templates_org_id').on(table.orgId),
+  })
+)
+
+export type RecurringTemplate = typeof recurringTemplates.$inferSelect
+export type NewRecurringTemplate = typeof recurringTemplates.$inferInsert

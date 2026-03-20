@@ -94,6 +94,11 @@ export const transactions = pgTable(
     externalId: text('external_id'),
     isAutoCategorized: boolean('is_auto_categorized').notNull().default(false),
     isIgnored: boolean('is_ignored').notNull().default(false),
+    // Recurring transaction tracking
+    recurringTemplateId: uuid('recurring_template_id'),
+    balanceApplied: boolean('balance_applied').notNull().default(true),
+    installmentNumber: integer('installment_number'),
+    installmentTotal: integer('installment_total'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
