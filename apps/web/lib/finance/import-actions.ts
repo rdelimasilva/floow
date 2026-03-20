@@ -247,7 +247,7 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
     const insertedRows = await tx
       .insert(transactions)
       .values(rows)
-      .onConflictDoNothing({ target: [transactions.externalId, transactions.accountId] })
+      .onConflictDoNothing()
       .returning({ id: transactions.id, amountCents: transactions.amountCents })
 
     const importedCount = insertedRows.length
@@ -351,7 +351,7 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
     const insertedRows = await tx
       .insert(transactions)
       .values(rows)
-      .onConflictDoNothing({ target: [transactions.externalId, transactions.accountId] })
+      .onConflictDoNothing()
       .returning({ id: transactions.id, amountCents: transactions.amountCents })
 
     const importedCount = insertedRows.length
