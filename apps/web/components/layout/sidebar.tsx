@@ -20,6 +20,7 @@ import {
   ChevronUp,
   Settings,
   Building2,
+  BarChart3,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -50,6 +51,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Dia a dia',
     items: [
+      { href: '/cash-flow', label: 'Fluxo de Caixa', icon: BarChart3 },
       { href: '/transactions', label: 'Transações', icon: ArrowLeftRight },
     ],
   },
