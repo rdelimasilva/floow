@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules } from '@floow/db'
-import { eq, and, desc, isNull, or, gte, count, ilike, lte } from 'drizzle-orm'
+import { eq, and, desc, asc, isNull, or, gte, count, ilike, lte, inArray, sql } from 'drizzle-orm'
 
 /**
  * Extracts the orgId from the authenticated user's JWT app_metadata.
@@ -61,7 +61,13 @@ export const getAccountById = cache(async function getAccountById(orgId: string,
  */
 export async function getTransactions(
   orgId: string,
-  opts?: { limit?: number; offset?: number; accountId?: string; search?: string; startDate?: string; endDate?: string }
+  opts?: {
+    limit?: number; offset?: number; accountId?: string; search?: string;
+    startDate?: string; endDate?: string;
+    sortBy?: string; sortDir?: string;
+    types?: string; categoryIds?: string;
+    minAmount?: number; maxAmount?: number;
+  }
 ) {
   const db = getDb()
   const limit = opts?.limit ?? 50
@@ -73,6 +79,31 @@ export async function getTransactions(
   if (opts?.search) conditions.push(ilike(transactions.description, `%${opts.search}%`))
   if (opts?.startDate) conditions.push(gte(transactions.date, new Date(opts.startDate)))
   if (opts?.endDate) conditions.push(lte(transactions.date, new Date(opts.endDate)))
+
+  if (opts?.types) {
+    const typeList = opts.types.split(',').filter(Boolean) as ('income' | 'expense' | 'transfer')[]
+    if (typeList.length > 0) conditions.push(inArray(transactions.type, typeList))
+  }
+  if (opts?.categoryIds) {
+    const catList = opts.categoryIds.split(',').filter(Boolean)
+    if (catList.length > 0) conditions.push(inArray(transactions.categoryId, catList))
+  }
+  if (opts?.minAmount !== undefined) {
+    conditions.push(sql`ABS(${transactions.amountCents}) >= ${opts.minAmount}`)
+  }
+  if (opts?.maxAmount !== undefined) {
+    conditions.push(sql`ABS(${transactions.amountCents}) <= ${opts.maxAmount}`)
+  }
+
+  const sortColumns: Record<string, any> = {
+    date: transactions.date,
+    description: transactions.description,
+    categoryName: categories.name,
+    type: transactions.type,
+    amountCents: transactions.amountCents,
+  }
+  const sortCol = sortColumns[opts?.sortBy ?? 'date'] ?? transactions.date
+  const sortFn = opts?.sortDir === 'asc' ? asc : desc
 
   return db
     .select({
@@ -101,7 +132,7 @@ export async function getTransactions(
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(and(...conditions))
-    .orderBy(desc(transactions.balanceApplied), desc(transactions.date))
+    .orderBy(desc(transactions.balanceApplied), sortFn(sortCol))
     .limit(limit)
     .offset(offset)
 }
@@ -112,7 +143,10 @@ export async function getTransactions(
  */
 export async function getTransactionCount(
   orgId: string,
-  opts?: { accountId?: string; search?: string; startDate?: string; endDate?: string }
+  opts?: {
+    accountId?: string; search?: string; startDate?: string; endDate?: string;
+    types?: string; categoryIds?: string; minAmount?: number; maxAmount?: number;
+  }
 ) {
   const db = getDb()
 
@@ -122,6 +156,21 @@ export async function getTransactionCount(
   if (opts?.search) conditions.push(ilike(transactions.description, `%${opts.search}%`))
   if (opts?.startDate) conditions.push(gte(transactions.date, new Date(opts.startDate)))
   if (opts?.endDate) conditions.push(lte(transactions.date, new Date(opts.endDate)))
+
+  if (opts?.types) {
+    const typeList = opts.types.split(',').filter(Boolean) as ('income' | 'expense' | 'transfer')[]
+    if (typeList.length > 0) conditions.push(inArray(transactions.type, typeList))
+  }
+  if (opts?.categoryIds) {
+    const catList = opts.categoryIds.split(',').filter(Boolean)
+    if (catList.length > 0) conditions.push(inArray(transactions.categoryId, catList))
+  }
+  if (opts?.minAmount !== undefined) {
+    conditions.push(sql`ABS(${transactions.amountCents}) >= ${opts.minAmount}`)
+  }
+  if (opts?.maxAmount !== undefined) {
+    conditions.push(sql`ABS(${transactions.amountCents}) <= ${opts.maxAmount}`)
+  }
 
   const [result] = await db
     .select({ total: count() })
