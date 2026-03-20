@@ -53,7 +53,7 @@ export function CategoryList({ categories }: CategoryListProps) {
     setLoading(true)
     try {
       const formData = new FormData()
-      formData.append('name', name)
+      formData.append('name', name.charAt(0).toUpperCase() + name.slice(1))
       formData.append('type', type)
       if (color) formData.append('color', color)
       if (icon) formData.append('icon', icon)
@@ -73,7 +73,7 @@ export function CategoryList({ categories }: CategoryListProps) {
     try {
       const formData = new FormData()
       formData.append('id', catId)
-      formData.append('name', name)
+      formData.append('name', name.charAt(0).toUpperCase() + name.slice(1))
       formData.append('type', type)
       if (color) formData.append('color', color)
       if (icon) formData.append('icon', icon)
