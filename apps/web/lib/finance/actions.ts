@@ -38,6 +38,8 @@ export async function createAccount(formData: FormData) {
   const input = createAccountSchema.parse({
     name: formData.get('name'),
     type: formData.get('type'),
+    branch: formData.get('branch') || undefined,
+    accountNumber: formData.get('accountNumber') || undefined,
   })
 
   const [account] = await db
@@ -46,6 +48,8 @@ export async function createAccount(formData: FormData) {
       orgId,
       name: input.name,
       type: input.type,
+      branch: input.branch ?? null,
+      accountNumber: input.accountNumber ?? null,
     })
     .returning()
 
@@ -373,13 +377,21 @@ export async function updateAccount(formData: FormData) {
     id: formData.get('id'),
     name: formData.get('name'),
     type: formData.get('type'),
+    branch: formData.get('branch') || undefined,
+    accountNumber: formData.get('accountNumber') || undefined,
   })
 
   await assertAccountOwnership(db, input.id, orgId)
 
   const [updated] = await db
     .update(accounts)
-    .set({ name: input.name, type: input.type, updatedAt: new Date() })
+    .set({
+      name: input.name,
+      type: input.type,
+      branch: input.branch ?? null,
+      accountNumber: input.accountNumber ?? null,
+      updatedAt: new Date(),
+    })
     .where(and(eq(accounts.id, input.id), eq(accounts.orgId, orgId)))
     .returning()
 

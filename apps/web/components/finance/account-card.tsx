@@ -40,6 +40,8 @@ export function AccountCard({ account }: AccountCardProps) {
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState(account.name)
   const [type, setType] = useState(account.type)
+  const [branch, setBranch] = useState(account.branch ?? '')
+  const [accountNumber, setAccountNumber] = useState(account.accountNumber ?? '')
 
   const config = ACCOUNT_TYPE_CONFIG[account.type]
   const { Icon, label } = config
@@ -52,6 +54,8 @@ export function AccountCard({ account }: AccountCardProps) {
       formData.append('id', account.id)
       formData.append('name', name)
       formData.append('type', type)
+      if (branch) formData.append('branch', branch)
+      if (accountNumber) formData.append('accountNumber', accountNumber)
       await updateAccount(formData)
       setEditing(false)
       toast('Conta atualizada com sucesso')
@@ -85,6 +89,16 @@ export function AccountCard({ account }: AccountCardProps) {
             <Label>Nome</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Agência</Label>
+              <Input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="0001" />
+            </div>
+            <div>
+              <Label>Número</Label>
+              <Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="12345-6" />
+            </div>
+          </div>
           <div>
             <Label>Tipo</Label>
             <select
@@ -101,7 +115,7 @@ export function AccountCard({ account }: AccountCardProps) {
             <Button size="sm" variant="primary" onClick={handleUpdate} disabled={loading}>
               {loading ? 'Salvando...' : 'Salvar'}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setEditing(false); setName(account.name); setType(account.type) }}>
+            <Button size="sm" variant="outline" onClick={() => { setEditing(false); setName(account.name); setType(account.type); setBranch(account.branch ?? ''); setAccountNumber(account.accountNumber ?? '') }}>
               Cancelar
             </Button>
           </div>
@@ -140,6 +154,11 @@ export function AccountCard({ account }: AccountCardProps) {
           <p className={`text-2xl font-bold tracking-tight ${isNegative ? 'text-red-600' : 'text-green-700'}`}>
             {formatBRL(account.balanceCents)}
           </p>
+          {(account.branch || account.accountNumber) && (
+            <p className="mt-1 text-xs text-gray-400">
+              {[account.branch && `Ag ${account.branch}`, account.accountNumber && `Nº ${account.accountNumber}`].filter(Boolean).join(' · ')}
+            </p>
+          )}
           <p className="mt-1 text-xs text-gray-400">{account.currency}</p>
           <Link
             href={`/accounts/${account.id}`}

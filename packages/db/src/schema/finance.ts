@@ -45,6 +45,8 @@ export const accounts = pgTable(
     type: accountTypeEnum('type').notNull(),
     balanceCents: integer('balance_cents').notNull().default(0),
     currency: text('currency').notNull().default('BRL'),
+    branch: text('branch'),
+    accountNumber: text('account_number'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

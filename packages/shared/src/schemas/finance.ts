@@ -3,6 +3,8 @@ import { z } from 'zod'
 export const createAccountSchema = z.object({
   name: z.string().min(1).max(100),
   type: z.enum(['checking', 'savings', 'brokerage', 'credit_card', 'cash']),
+  branch: z.string().max(20).optional(),
+  accountNumber: z.string().max(30).optional(),
 })
 
 export const createTransactionSchema = z.object({
@@ -19,6 +21,8 @@ export const updateAccountSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(100),
   type: z.enum(['checking', 'savings', 'brokerage', 'credit_card', 'cash']),
+  branch: z.string().max(20).optional(),
+  accountNumber: z.string().max(30).optional(),
 })
 
 export const updateTransactionSchema = z.object({

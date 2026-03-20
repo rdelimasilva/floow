@@ -21,6 +21,8 @@ import {
 const newAccountSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100),
   type: z.enum(['checking', 'savings', 'brokerage', 'credit_card', 'cash']),
+  branch: z.string().max(20).optional(),
+  accountNumber: z.string().max(30).optional(),
 })
 
 type NewAccountForm = z.infer<typeof newAccountSchema>
@@ -48,6 +50,8 @@ export default function NewAccountPage() {
     const formData = new FormData()
     formData.append('name', data.name)
     formData.append('type', data.type)
+    if (data.branch) formData.append('branch', data.branch)
+    if (data.accountNumber) formData.append('accountNumber', data.accountNumber)
 
     await createAccount(formData)
     router.push('/accounts')
@@ -78,6 +82,26 @@ export default function NewAccountPage() {
               {errors.name && (
                 <p className="text-xs text-red-600">{errors.name.message}</p>
               )}
+            </div>
+
+            {/* Branch & Account Number */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="branch">Agência <span className="text-gray-400 font-normal">(opcional)</span></Label>
+                <Input
+                  id="branch"
+                  placeholder="Ex: 0001"
+                  {...register('branch')}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="accountNumber">Número <span className="text-gray-400 font-normal">(opcional)</span></Label>
+                <Input
+                  id="accountNumber"
+                  placeholder="Ex: 12345-6"
+                  {...register('accountNumber')}
+                />
+              </div>
             </div>
 
             {/* Type */}
