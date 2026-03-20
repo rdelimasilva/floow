@@ -431,6 +431,18 @@ export async function createCategory(formData: FormData) {
   if (!name || !type) throw new Error('Name and type are required')
   if (!['income', 'expense', 'transfer'].includes(type)) throw new Error('Invalid category type')
 
+  // Check for duplicate name (across org-owned and system categories)
+  const [duplicate] = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(and(
+      ilike(categories.name, name),
+      or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+    ))
+    .limit(1)
+
+  if (duplicate) throw new Error('Já existe uma categoria com esse nome')
+
   const [category] = await db
     .insert(categories)
     .values({
@@ -475,6 +487,19 @@ export async function updateCategory(formData: FormData) {
     .limit(1)
 
   if (!existing) throw new Error('Categoria não encontrada')
+
+  // Check for duplicate name (exclude current category)
+  const [duplicate] = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(and(
+      ilike(categories.name, name),
+      or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+      sql`${categories.id} != ${id}`,
+    ))
+    .limit(1)
+
+  if (duplicate) throw new Error('Já existe uma categoria com esse nome')
 
   const [updated] = await db
     .update(categories)
