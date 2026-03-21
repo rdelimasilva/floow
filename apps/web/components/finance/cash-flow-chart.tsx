@@ -13,14 +13,17 @@ const chartConfig = {
   income: { label: 'Receitas', color: '#16a34a' },
   expense: { label: 'Despesas', color: '#dc2626' },
   net: { label: 'Saldo', color: '#2563eb' },
+  projectedIncome: { label: 'Receitas (proj.)', color: '#86efac' },
+  projectedExpense: { label: 'Despesas (proj.)', color: '#fca5a5' },
 }
 
 interface CashFlowChartProps {
-  data: CashFlowMonth[]
+  data: any[]
   chartType?: ChartType
+  viewMode?: 'realized' | 'projected' | 'both'
 }
 
-export function CashFlowChart({ data, chartType = 'bar' }: CashFlowChartProps) {
+export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }: CashFlowChartProps) {
   if (data.length === 0) {
     return (
       <div className="min-h-[300px] w-full flex items-center justify-center text-sm text-gray-500">
@@ -89,12 +92,18 @@ export function CashFlowChart({ data, chartType = 'bar' }: CashFlowChartProps) {
   return (
     <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
       {chartType === 'bar' ? (
-        <BarChart data={chartData}>
+        <BarChart data={viewMode === 'both' ? data : chartData}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
           <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+          {viewMode === 'both' && (
+            <>
+              <Bar dataKey="projectedIncome" fill="var(--color-projectedIncome)" radius={[4, 4, 0, 0]} fillOpacity={0.5} />
+              <Bar dataKey="projectedExpense" fill="var(--color-projectedExpense)" radius={[4, 4, 0, 0]} fillOpacity={0.5} />
+            </>
+          )}
         </BarChart>
       ) : chartType === 'stacked' ? (
         <BarChart data={chartData}>

@@ -245,3 +245,28 @@ export async function getRecentTransactions(orgId: string, months: number = 6) {
     .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff), eq(transactions.isIgnored, false), eq(transactions.balanceApplied, true)))
     .orderBy(desc(transactions.date))
 }
+
+/**
+ * Returns future transactions (balance_applied = false) for cash flow projection.
+ * These are recurring installments with date > today that haven't impacted the balance yet.
+ */
+export async function getFutureTransactions(orgId: string) {
+  const db = getDb()
+
+  return db
+    .select({
+      id: transactions.id,
+      orgId: transactions.orgId,
+      accountId: transactions.accountId,
+      type: transactions.type,
+      amountCents: transactions.amountCents,
+      date: transactions.date,
+    })
+    .from(transactions)
+    .where(and(
+      eq(transactions.orgId, orgId),
+      eq(transactions.balanceApplied, false),
+      eq(transactions.isIgnored, false),
+    ))
+    .orderBy(asc(transactions.date))
+}

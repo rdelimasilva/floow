@@ -1,27 +1,27 @@
 import { Suspense } from 'react'
-import { getOrgId, getRecentTransactions, getAccounts } from '@/lib/finance/queries'
+import { getOrgId, getRecentTransactions, getFutureTransactions, getAccounts } from '@/lib/finance/queries'
 import { CashFlowClient } from '@/components/finance/cash-flow-client'
 import { PageHeader } from '@/components/ui/page-header'
 
 async function CashFlowContent({ orgId }: { orgId: string }) {
-  const [recentTransactions, accounts] = await Promise.all([
+  const [recentTransactions, futureTransactions, accounts] = await Promise.all([
     getRecentTransactions(orgId, 24),
+    getFutureTransactions(orgId),
     getAccounts(orgId),
   ])
 
-  const serializedTransactions = recentTransactions.map((t) => ({
+  const serialize = (t: typeof recentTransactions[number]) => ({
     date: t.date instanceof Date ? t.date.toISOString() : String(t.date),
     amountCents: t.amountCents,
     type: t.type,
     accountId: t.accountId,
-  }))
-
-  const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }))
+  })
 
   return (
     <CashFlowClient
-      transactions={serializedTransactions}
-      accounts={accountOptions}
+      transactions={recentTransactions.map(serialize)}
+      futureTransactions={futureTransactions.map(serialize)}
+      accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
     />
   )
 }
