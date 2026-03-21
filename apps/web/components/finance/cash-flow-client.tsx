@@ -38,25 +38,28 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
   const [period, setPeriod] = useState<PeriodKey>('last12')
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [viewMode, setViewMode] = useState<ViewMode>('realized')
+  const [hideTransfers, setHideTransfers] = useState(true)
 
   // Get date range for current period
   const { startDate, endDate } = useMemo(() => getPeriodDates(period), [period])
 
-  // Filter realized transactions by period
+  // Filter realized transactions by period + transfer toggle
   const filteredRealized = useMemo(() => {
     return transactions.filter((t) => {
+      if (hideTransfers && t.type === 'transfer') return false
       const d = t.date.split('T')[0]
       return d >= startDate && d <= endDate
     })
-  }, [transactions, startDate, endDate])
+  }, [transactions, startDate, endDate, hideTransfers])
 
-  // Filter future transactions by period
+  // Filter future transactions by period + transfer toggle
   const filteredFuture = useMemo(() => {
     return futureTransactions.filter((t) => {
+      if (hideTransfers && t.type === 'transfer') return false
       const d = t.date.split('T')[0]
       return d >= startDate && d <= endDate
     })
-  }, [futureTransactions, startDate, endDate])
+  }, [futureTransactions, startDate, endDate, hideTransfers])
 
   // Pick which transactions to show based on view mode
   const activeTransactions = useMemo(() => {
@@ -148,24 +151,37 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
         onChange={(p) => setPeriod(p)}
       />
 
-      {/* View mode toggle */}
-      <div className="flex gap-1.5">
-        {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            onClick={() => setViewMode(mode)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              viewMode === mode
-                ? 'bg-blue-600 text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {VIEW_LABELS[mode]}
-          </button>
-        ))}
+      {/* View mode toggle + transfer filter */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex gap-1.5">
+          {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setViewMode(mode)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                viewMode === mode
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {VIEW_LABELS[mode]}
+            </button>
+          ))}
+        </div>
+
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={hideTransfers}
+            onChange={(e) => setHideTransfers(e.target.checked)}
+            className="rounded border-gray-300"
+          />
+          <span className="text-xs text-gray-600">Ocultar transferências</span>
+        </label>
+
         {futureTransactions.length === 0 && (
-          <span className="self-center text-xs text-gray-400 ml-2">
+          <span className="text-xs text-gray-400">
             Sem lançamentos futuros (crie transações recorrentes para projetar)
           </span>
         )}
