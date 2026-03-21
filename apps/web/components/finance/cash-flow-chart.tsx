@@ -2,7 +2,7 @@
 
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
-  XAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  XAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import type { CashFlowMonth } from '@floow/core-finance'
@@ -56,6 +56,18 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
     { income: 0, expense: 0 }
   )
 
+  const legendFormatter = (value: string) => {
+    const labels: Record<string, string> = {
+      income: 'Receitas',
+      expense: 'Despesas',
+      net: 'Saldo',
+      projectedIncome: 'Receitas (proj.)',
+      projectedExpense: 'Despesas (proj.)',
+      delta: 'Variação',
+    }
+    return labels[value] ?? value
+  }
+
   if (chartType === 'pie') {
     const pieData = [
       { name: 'Receitas', value: pieTotals.income, color: '#16a34a' },
@@ -80,6 +92,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
               ))}
             </Pie>
             <Tooltip formatter={(value: number) => formatBRL(value)} />
+            <Legend />
           </PieChart>
         </ResponsiveContainer>
         <p className={`text-sm font-semibold ${netValue >= 0 ? 'text-green-700' : 'text-red-600'}`}>
@@ -96,8 +109,10 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
           <ChartTooltip content={<ChartTooltipContent />} />
+          <Legend formatter={legendFormatter} />
           <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
           <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="net" fill="var(--color-net)" radius={[4, 4, 0, 0]} />
           {viewMode === 'both' && (
             <>
               <Bar dataKey="projectedIncome" fill="var(--color-projectedIncome)" radius={[4, 4, 0, 0]} fillOpacity={0.5} />
@@ -110,6 +125,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
           <ChartTooltip content={<ChartTooltipContent />} />
+          <Legend formatter={legendFormatter} />
           <Bar dataKey="income" stackId="stack" fill="var(--color-income)" radius={[0, 0, 0, 0]} />
           <Bar dataKey="expense" stackId="stack" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
         </BarChart>
@@ -118,6 +134,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
           <ChartTooltip content={<ChartTooltipContent />} />
+          <Legend formatter={legendFormatter} />
           <Line type="monotone" dataKey="income" stroke="var(--color-income)" strokeWidth={2} dot={false} />
           <Line type="monotone" dataKey="expense" stroke="var(--color-expense)" strokeWidth={2} dot={false} />
           <Line type="monotone" dataKey="net" stroke="var(--color-net)" strokeWidth={2} dot={false} strokeDasharray="4 4" />
@@ -127,15 +144,18 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
           <ChartTooltip content={<ChartTooltipContent />} />
+          <Legend formatter={legendFormatter} />
           <Area type="monotone" dataKey="income" fill="var(--color-income)" fillOpacity={0.3} stroke="var(--color-income)" strokeWidth={2} />
           <Area type="monotone" dataKey="expense" fill="var(--color-expense)" fillOpacity={0.3} stroke="var(--color-expense)" strokeWidth={2} />
+          <Area type="monotone" dataKey="net" fill="var(--color-net)" fillOpacity={0.15} stroke="var(--color-net)" strokeWidth={2} strokeDasharray="4 4" />
         </AreaChart>
       ) : chartType === 'waterfall' ? (
         <BarChart data={waterfallData}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
           <ChartTooltip content={<ChartTooltipContent />} />
-          <Bar dataKey="base" stackId="waterfall" fill="transparent" />
+          <Legend formatter={legendFormatter} />
+          <Bar dataKey="base" stackId="waterfall" fill="transparent" legendType="none" />
           <Bar dataKey="delta" stackId="waterfall" radius={[4, 4, 0, 0]}>
             {waterfallData.map((entry, i) => (
               <Cell key={i} fill={entry.delta >= 0 ? '#16a34a' : '#dc2626'} />
@@ -147,8 +167,10 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
           <ChartTooltip content={<ChartTooltipContent />} />
+          <Legend formatter={legendFormatter} />
           <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
           <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="net" fill="var(--color-net)" radius={[4, 4, 0, 0]} />
         </BarChart>
       )}
     </ChartContainer>

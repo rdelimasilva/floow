@@ -54,25 +54,16 @@ export const getAccountById = cache(async function getAccountById(orgId: string,
   return account ?? null
 })
 
-/**
- * Returns transactions for the given org with optional filters.
- * Joined with category data (name, color, icon).
- * Supports search, date range, and account filtering.
- */
-export async function getTransactions(
-  orgId: string,
-  opts?: {
-    limit?: number; offset?: number; accountId?: string; search?: string;
-    startDate?: string; endDate?: string;
-    sortBy?: string; sortDir?: string;
-    types?: string; categoryIds?: string;
-    minAmount?: number; maxAmount?: number;
-  }
-) {
-  const db = getDb()
-  const limit = opts?.limit ?? 50
-  const offset = opts?.offset ?? 0
+/** Filter options shared between getTransactions queries. */
+interface TransactionFilterOpts {
+  accountId?: string; search?: string;
+  startDate?: string; endDate?: string;
+  types?: string; categoryIds?: string;
+  minAmount?: number; maxAmount?: number;
+}
 
+/** Builds WHERE conditions for transaction queries — single source of truth. */
+function buildTransactionConditions(orgId: string, opts?: TransactionFilterOpts) {
   const conditions = [eq(transactions.orgId, orgId)]
 
   if (opts?.accountId) conditions.push(eq(transactions.accountId, opts.accountId))
@@ -94,6 +85,27 @@ export async function getTransactions(
   if (opts?.maxAmount !== undefined) {
     conditions.push(sql`ABS(${transactions.amountCents}) <= ${opts.maxAmount}`)
   }
+
+  return conditions
+}
+
+/**
+ * Returns transactions + total count in a SINGLE query using COUNT(*) OVER().
+ * Eliminates the extra round-trip that getTransactionCount required.
+ * Joined with category data (name, color, icon).
+ */
+export async function getTransactionsWithCount(
+  orgId: string,
+  opts?: TransactionFilterOpts & {
+    limit?: number; offset?: number;
+    sortBy?: string; sortDir?: string;
+  }
+) {
+  const db = getDb()
+  const limit = opts?.limit ?? 50
+  const offset = opts?.offset ?? 0
+
+  const conditions = buildTransactionConditions(orgId, opts)
 
   const sortColumns: Record<string, any> = {
     date: transactions.date,
@@ -105,10 +117,9 @@ export async function getTransactions(
   const sortCol = sortColumns[opts?.sortBy ?? 'date'] ?? transactions.date
   const sortFn = opts?.sortDir === 'asc' ? asc : desc
 
-  return db
+  const rows = await db
     .select({
       id: transactions.id,
-      orgId: transactions.orgId,
       accountId: transactions.accountId,
       categoryId: transactions.categoryId,
       type: transactions.type,
@@ -116,7 +127,6 @@ export async function getTransactions(
       description: transactions.description,
       date: transactions.date,
       transferGroupId: transactions.transferGroupId,
-      importedAt: transactions.importedAt,
       externalId: transactions.externalId,
       isAutoCategorized: transactions.isAutoCategorized,
       isIgnored: transactions.isIgnored,
@@ -124,10 +134,10 @@ export async function getTransactions(
       balanceApplied: transactions.balanceApplied,
       installmentNumber: transactions.installmentNumber,
       installmentTotal: transactions.installmentTotal,
-      createdAt: transactions.createdAt,
       categoryName: categories.name,
       categoryColor: categories.color,
       categoryIcon: categories.icon,
+      _totalCount: sql<number>`count(*) over()`.as('total_count'),
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -135,49 +145,11 @@ export async function getTransactions(
     .orderBy(desc(transactions.balanceApplied), sortFn(sortCol))
     .limit(limit)
     .offset(offset)
-}
 
-/**
- * Returns total count of transactions matching the given filters.
- * Used for pagination alongside getTransactions.
- */
-export async function getTransactionCount(
-  orgId: string,
-  opts?: {
-    accountId?: string; search?: string; startDate?: string; endDate?: string;
-    types?: string; categoryIds?: string; minAmount?: number; maxAmount?: number;
-  }
-) {
-  const db = getDb()
+  const totalCount = rows[0]?._totalCount ?? 0
+  const data = rows.map(({ _totalCount, ...rest }) => rest)
 
-  const conditions = [eq(transactions.orgId, orgId)]
-
-  if (opts?.accountId) conditions.push(eq(transactions.accountId, opts.accountId))
-  if (opts?.search) conditions.push(ilike(transactions.description, `%${opts.search}%`))
-  if (opts?.startDate) conditions.push(gte(transactions.date, new Date(opts.startDate)))
-  if (opts?.endDate) conditions.push(lte(transactions.date, new Date(opts.endDate)))
-
-  if (opts?.types) {
-    const typeList = opts.types.split(',').filter(Boolean) as ('income' | 'expense' | 'transfer')[]
-    if (typeList.length > 0) conditions.push(inArray(transactions.type, typeList))
-  }
-  if (opts?.categoryIds) {
-    const catList = opts.categoryIds.split(',').filter(Boolean)
-    if (catList.length > 0) conditions.push(inArray(transactions.categoryId, catList))
-  }
-  if (opts?.minAmount !== undefined) {
-    conditions.push(sql`ABS(${transactions.amountCents}) >= ${opts.minAmount}`)
-  }
-  if (opts?.maxAmount !== undefined) {
-    conditions.push(sql`ABS(${transactions.amountCents}) <= ${opts.maxAmount}`)
-  }
-
-  const [result] = await db
-    .select({ total: count() })
-    .from(transactions)
-    .where(and(...conditions))
-
-  return result.total
+  return { transactions: data, totalCount }
 }
 
 /**

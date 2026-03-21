@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
 import { deleteTransaction, updateTransaction, toggleIgnoreTransaction, createCategory, cancelRecurring } from '@/lib/finance/actions'

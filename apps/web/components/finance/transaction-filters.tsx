@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
@@ -67,6 +67,8 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   const [accountId, setAccountId] = useState(searchParams.get('accountId') ?? '')
   const [startDate, setStartDate] = useState(searchParams.get('startDate') ?? '')
   const [endDate, setEndDate] = useState(searchParams.get('endDate') ?? '')
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }, [])
 
   const activePeriod = detectActivePeriod(startDate, endDate)
 
@@ -133,9 +135,18 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
           <input
             placeholder="Buscar descrição..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') navigate({ search: e.currentTarget.value }) }}
-            onBlur={(e) => { if (e.target.value !== (searchParams.get('search') ?? '')) navigate({ search: e.target.value }) }}
+            onChange={(e) => {
+              const value = e.target.value
+              setSearch(value)
+              if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+              searchTimerRef.current = setTimeout(() => navigate({ search: value }), 400)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+                navigate({ search: e.currentTarget.value })
+              }
+            }}
             className="h-8 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-xs text-gray-600 placeholder:text-gray-400"
           />
         </div>

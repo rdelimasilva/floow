@@ -113,6 +113,9 @@ export const transactions = pgTable(
       table.externalId,
       table.accountId
     ),
+    idxTransactionsOrgDate: index('idx_transactions_org_date').on(table.orgId, table.date),
+    idxTransactionsOrgCategory: index('idx_transactions_org_category').on(table.orgId, table.categoryId),
+    idxTransactionsOrgBalanceDate: index('idx_transactions_org_balance_date').on(table.orgId, table.balanceApplied, table.date),
   })
 )
 

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getOrgId, getTransactions, getTransactionCount, getAccounts, getCategories } from '@/lib/finance/queries'
+import { getOrgId, getTransactionsWithCount, getAccounts, getCategories } from '@/lib/finance/queries'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
@@ -31,9 +31,8 @@ export default async function TransactionsPage({ searchParams }: Props) {
     maxAmount: params.maxAmount ? parseInt(params.maxAmount, 10) : undefined,
   }
 
-  const [transactions, totalCount, accounts, categories] = await Promise.all([
-    getTransactions(orgId, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }),
-    getTransactionCount(orgId, filters),
+  const [{ transactions, totalCount }, accounts, categories] = await Promise.all([
+    getTransactionsWithCount(orgId, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }),
     getAccounts(orgId),
     getCategories(orgId),
   ])
@@ -52,6 +51,9 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (params.minAmount) paginationParams.minAmount = params.minAmount
   if (params.maxAmount) paginationParams.maxAmount = params.maxAmount
 
+  const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }))
+  const categoryOptions = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))
+
   return (
     <InlineTransactionFormProvider>
     <div className="space-y-4">
@@ -68,19 +70,16 @@ export default async function TransactionsPage({ searchParams }: Props) {
       </PageHeader>
 
       <InlineTransactionFormPanel
-        accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
-        categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))}
+        accounts={accountOptions}
+        categories={categoryOptions}
       />
 
-      <TransactionFilters accounts={accounts.map((a) => ({ id: a.id, name: a.name }))} />
+      <TransactionFilters accounts={accountOptions} />
 
       <TransactionListWrapper
-        transactions={transactions.map((t) => ({
-          ...t,
-          isAutoCategorized: t.isAutoCategorized,
-        }))}
-        accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
-        categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))}
+        transactions={transactions}
+        accounts={accountOptions}
+        categories={categoryOptions}
         sortBy={filters.sortBy}
         sortDir={filters.sortDir as 'asc' | 'desc'}
       />

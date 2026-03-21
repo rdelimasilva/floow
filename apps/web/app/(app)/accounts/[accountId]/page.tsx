@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Banknote, PiggyBank, TrendingUp, CreditCard, Wallet } from 'lucide-react'
-import { getOrgId, getAccountById, getTransactions, getTransactionCount, getCategories } from '@/lib/finance/queries'
+import { getOrgId, getAccountById, getTransactionsWithCount, getCategories } from '@/lib/finance/queries'
 import { TransactionList } from '@/components/finance/transaction-list'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { Pagination } from '@/components/ui/pagination'
@@ -40,9 +40,8 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
     endDate: sp.endDate,
   }
 
-  const [transactions, totalCount, categories] = await Promise.all([
-    getTransactions(orgId, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }),
-    getTransactionCount(orgId, filters),
+  const [{ transactions, totalCount }, categories] = await Promise.all([
+    getTransactionsWithCount(orgId, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }),
     getCategories(orgId),
   ])
 
