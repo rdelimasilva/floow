@@ -113,22 +113,11 @@ function aggregate(transactions: RawTransaction[], grouping: Grouping): Aggregat
 export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlowBreakdownProps) {
   const [grouping, setGrouping] = useState<Grouping>('monthly')
   const [accountId, setAccountId] = useState<string>('')
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
 
   const filtered = useMemo(() => {
-    let result = transactions
-    if (accountId) {
-      result = result.filter((t) => t.accountId === accountId)
-    }
-    if (startDate) {
-      result = result.filter((t) => t.date.split('T')[0] >= startDate)
-    }
-    if (endDate) {
-      result = result.filter((t) => t.date.split('T')[0] <= endDate)
-    }
-    return result
-  }, [transactions, accountId, startDate, endDate])
+    if (!accountId) return transactions
+    return transactions.filter((t) => t.accountId === accountId)
+  }, [transactions, accountId])
 
   const rows = useMemo(() => aggregate(filtered, grouping), [filtered, grouping])
 
@@ -156,30 +145,13 @@ export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlow
               ))}
             </select>
 
-            {/* Date range */}
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              placeholder="De"
-              className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
-            />
-            <span className="text-xs text-gray-400">até</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              placeholder="Até"
-              className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
-            />
-
-            {startDate || endDate || accountId ? (
+            {accountId ? (
               <button
                 type="button"
-                onClick={() => { setAccountId(''); setStartDate(''); setEndDate('') }}
+                onClick={() => setAccountId('')}
                 className="text-xs text-blue-600 hover:text-blue-800"
               >
-                Limpar filtros
+                Limpar
               </button>
             ) : null}
           </div>
