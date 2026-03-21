@@ -40,13 +40,14 @@ const GROUPING_LABELS: Record<Grouping, string> = {
 }
 
 function getGroupKey(dateStr: string, grouping: Grouping): string {
-  const d = new Date(dateStr + 'T12:00:00')
+  const normalized = dateStr.split('T')[0]
+  const d = new Date(normalized + 'T12:00:00')
   const y = d.getFullYear()
   const m = d.getMonth()
 
   switch (grouping) {
     case 'daily':
-      return dateStr.split('T')[0]
+      return normalized
     case 'monthly':
       return `${y}-${String(m + 1).padStart(2, '0')}`
     case 'quarterly': {
