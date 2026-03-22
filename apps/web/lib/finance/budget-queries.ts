@@ -2,7 +2,7 @@ import { cache } from 'react'
 import {
   getDb,
   budgetGoals,
-  budgetCategoryLimits,
+  budgetEntries,
   budgetAdjustments,
   transactions,
   portfolioEvents,
@@ -68,17 +68,24 @@ export const getBudgetGoals = cache(async function getBudgetGoals(
     .orderBy(budgetGoals.createdAt)
 })
 
-/**
- * Returns category limits for a given budget goal.
- * Wrapped in React cache() to deduplicate within a single request.
- */
-export const getCategoryLimits = cache(async function getCategoryLimits(goalId: string) {
+/** Returns budget entries for an org for a specific month. */
+export async function getBudgetEntries(orgId: string, periodMonth: Date) {
   const db = getDb()
   return db
     .select()
-    .from(budgetCategoryLimits)
-    .where(eq(budgetCategoryLimits.budgetGoalId, goalId))
-})
+    .from(budgetEntries)
+    .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.periodMonth, periodMonth)))
+}
+
+/** Returns all distinct months that have budget entries for an org, ordered by date. */
+export async function getBudgetMonths(orgId: string) {
+  const db = getDb()
+  return db
+    .selectDistinct({ periodMonth: budgetEntries.periodMonth })
+    .from(budgetEntries)
+    .where(eq(budgetEntries.orgId, orgId))
+    .orderBy(budgetEntries.periodMonth)
+}
 
 // ---------------------------------------------------------------------------
 // Spending / investment aggregation

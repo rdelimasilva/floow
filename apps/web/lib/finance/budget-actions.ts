@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getDb, budgetGoals, budgetCategoryLimits, budgetAdjustments } from '@floow/db'
+import { getDb, budgetGoals, budgetEntries, budgetAdjustments } from '@floow/db'
 import { eq, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
 
@@ -31,8 +31,8 @@ async function assertGoalOwnership(db: ReturnType<typeof getDb>, goalId: string,
  * Revalidates all budget-related paths so UI stays in sync.
  */
 function revalidateBudgetPaths() {
-  revalidatePath('/budget/spending')
-  revalidatePath('/budget/investing')
+  revalidatePath('/budgets/spending')
+  revalidatePath('/budgets/investing')
   revalidatePath('/dashboard')
 }
 
@@ -108,36 +108,66 @@ export async function deleteBudgetGoal(formData: FormData) {
 }
 
 // ---------------------------------------------------------------------------
-// Category Limits
+// Budget Entries
 // ---------------------------------------------------------------------------
 
-/**
- * Server action: save category limits for a budget goal.
- * Reads goalId and a JSON string of `{categoryId, limitCents}[]` from FormData.
- * Deletes all existing limits for the goal and re-inserts the new set.
- */
-export async function saveCategoryLimits(formData: FormData) {
+/** Upsert budget entries for a month — receives JSON array of {categoryId, plannedCents}. */
+export async function saveBudgetEntries(formData: FormData) {
   const orgId = await getOrgId()
   const db = getDb()
+  const periodMonth = new Date(formData.get('periodMonth') as string)
+  const entries: { categoryId: string; plannedCents: number }[] = JSON.parse(formData.get('entries') as string)
 
-  const goalId = formData.get('goalId') as string
-  const limitsJson = formData.get('limits') as string
+  // Delete existing entries for this month
+  await db.delete(budgetEntries)
+    .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.periodMonth, periodMonth)))
 
-  // Verify goal belongs to org
-  await assertGoalOwnership(db, goalId, orgId)
+  // Insert new entries (only those with plannedCents > 0)
+  const toInsert = entries.filter((e) => e.plannedCents > 0)
+  if (toInsert.length > 0) {
+    await db.insert(budgetEntries).values(
+      toInsert.map((e) => ({
+        orgId,
+        categoryId: e.categoryId,
+        periodMonth,
+        plannedCents: e.plannedCents,
+      }))
+    )
+  }
 
-  const limits: { categoryId: string; limitCents: number }[] = JSON.parse(limitsJson)
+  revalidateBudgetPaths()
+}
 
-  // Delete existing limits and re-insert
-  await db.delete(budgetCategoryLimits).where(eq(budgetCategoryLimits.budgetGoalId, goalId))
+/** Copy budget entries from one month to multiple future months. */
+export async function replicateBudgetEntries(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+  const sourceMonth = new Date(formData.get('sourceMonth') as string)
+  const targetMonths: string[] = JSON.parse(formData.get('targetMonths') as string)
 
-  if (limits.length > 0) {
-    await db.insert(budgetCategoryLimits).values(
-      limits.map((l) => ({
-        budgetGoalId: goalId,
-        categoryId: l.categoryId,
-        limitCents: l.limitCents,
-      })),
+  // Get source entries
+  const sourceEntries = await db
+    .select()
+    .from(budgetEntries)
+    .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.periodMonth, sourceMonth)))
+
+  if (sourceEntries.length === 0) return
+
+  for (const monthStr of targetMonths) {
+    const targetMonth = new Date(monthStr)
+
+    // Delete existing entries for target month
+    await db.delete(budgetEntries)
+      .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.periodMonth, targetMonth)))
+
+    // Copy source entries
+    await db.insert(budgetEntries).values(
+      sourceEntries.map((e) => ({
+        orgId,
+        categoryId: e.categoryId,
+        periodMonth: targetMonth,
+        plannedCents: e.plannedCents,
+      }))
     )
   }
 

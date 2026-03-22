@@ -55,26 +55,23 @@ export const budgetGoals = pgTable(
   })
 )
 
-export const budgetCategoryLimits = pgTable(
-  'budget_category_limits',
+export const budgetEntries = pgTable(
+  'budget_entries',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    budgetGoalId: uuid('budget_goal_id')
+    orgId: uuid('org_id')
       .notNull()
-      .references(() => budgetGoals.id, { onDelete: 'cascade' }),
+      .references(() => orgs.id, { onDelete: 'cascade' }),
     categoryId: uuid('category_id')
       .notNull()
       .references(() => categories.id, { onDelete: 'cascade' }),
-    limitCents: integer('limit_cents').notNull(),
+    periodMonth: date('period_month', { mode: 'date' }).notNull(), // first day of month: 2026-01-01
+    plannedCents: integer('planned_cents').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    uqBudgetCategoryLimit: uniqueIndex('uq_budget_category_limit').on(
-      table.budgetGoalId,
-      table.categoryId
-    ),
-    idxBudgetCategoryLimitsGoalId: index('idx_budget_category_limits_goal_id').on(
-      table.budgetGoalId
-    ),
+    uqBudgetEntry: uniqueIndex('uq_budget_entry').on(table.orgId, table.categoryId, table.periodMonth),
+    idxBudgetEntriesOrg: index('idx_budget_entries_org_period').on(table.orgId, table.periodMonth),
   })
 )
 
@@ -105,8 +102,8 @@ export const budgetAdjustments = pgTable(
 export type BudgetGoal = typeof budgetGoals.$inferSelect
 export type NewBudgetGoal = typeof budgetGoals.$inferInsert
 
-export type BudgetCategoryLimit = typeof budgetCategoryLimits.$inferSelect
-export type NewBudgetCategoryLimit = typeof budgetCategoryLimits.$inferInsert
+export type BudgetEntry = typeof budgetEntries.$inferSelect
+export type NewBudgetEntry = typeof budgetEntries.$inferInsert
 
 export type BudgetAdjustment = typeof budgetAdjustments.$inferSelect
 export type NewBudgetAdjustment = typeof budgetAdjustments.$inferInsert
