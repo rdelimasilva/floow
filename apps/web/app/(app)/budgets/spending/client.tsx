@@ -43,13 +43,14 @@ interface SpendingClientProps {
 }
 
 function formatMonth(monthStr: string): string {
-  const d = new Date(monthStr)
+  const [y, m] = monthStr.split('-').map(Number)
+  const d = new Date(y, m - 1, 1)
   return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
 function shiftMonth(monthStr: string, delta: number): string {
-  const d = new Date(monthStr)
-  d.setMonth(d.getMonth() + delta)
+  const [y, m] = monthStr.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 

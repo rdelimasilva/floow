@@ -18,8 +18,9 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   const selectedMonth = params.month ?? defaultMonth
-  const monthDate = new Date(selectedMonth)
-  const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0)
+  const [sy, sm] = selectedMonth.split('-').map(Number)
+  const monthDate = new Date(sy, sm - 1, 1)
+  const monthEnd = new Date(sy, sm, 0)
 
   const [categories, entriesForMonth, allEntries, spending] = await Promise.all([
     getCategories(orgId),
