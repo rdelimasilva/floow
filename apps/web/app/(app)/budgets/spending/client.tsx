@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
 import { createBudgetEntry, updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { formatBRL } from '@floow/core-finance'
 
@@ -63,6 +64,10 @@ export function SpendingClient({
   const { toast } = useToast()
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [editEndMonth, setEditEndMonth] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   // New entry form state
   const [newCategoryId, setNewCategoryId] = useState('')
@@ -105,11 +110,44 @@ export function SpendingClient({
     }
   }
 
+  function startEdit(entry: AllEntry) {
+    setEditingId(entry.id)
+    setEditValue((entry.plannedCents / 100).toFixed(2).replace('.', ','))
+    setEditEndMonth(entry.endMonth ? entry.endMonth.slice(0, 7) : '')
+  }
+
+  async function handleSaveEdit() {
+    if (!editingId) return
+    setSaving(true)
+    try {
+      const cents = Math.round(parseFloat(editValue.replace(',', '.')) * 100)
+      const fd = new FormData()
+      fd.set('id', editingId)
+      fd.set('plannedCents', String(cents))
+      if (editEndMonth) fd.set('endMonth', editEndMonth + '-01')
+      await updateBudgetEntry(fd)
+      toast('Lançamento atualizado')
+      setEditingId(null)
+    } catch {
+      toast('Erro ao atualizar', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleDelete(entryId: string) {
-    const fd = new FormData()
-    fd.set('id', entryId)
-    await deleteBudgetEntry(fd)
-    toast('Lançamento removido')
+    setSaving(true)
+    try {
+      const fd = new FormData()
+      fd.set('id', entryId)
+      await deleteBudgetEntry(fd)
+      toast('Lançamento removido')
+      setDeleteConfirm(null)
+    } catch {
+      toast('Erro ao remover', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -270,6 +308,41 @@ export function SpendingClient({
             <div className="space-y-2">
               {allEntries.map((entry) => {
                 const cat = categories.find((c) => c.id === entry.categoryId)
+                const isEditing = editingId === entry.id
+
+                if (isEditing) {
+                  return (
+                    <div key={entry.id} className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
+                      <span className="text-sm font-medium text-gray-900 w-36 truncate">
+                        {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                        {cat?.name ?? '—'}
+                      </span>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="h-7 w-28 text-sm"
+                        placeholder="R$"
+                      />
+                      <span className="text-xs text-gray-500">/mês</span>
+                      <span className="text-xs text-gray-500 ml-1">até:</span>
+                      <Input
+                        type="month"
+                        value={editEndMonth}
+                        onChange={(e) => setEditEndMonth(e.target.value)}
+                        className="h-7 w-36 text-sm"
+                      />
+                      <button type="button" onClick={handleSaveEdit} disabled={saving} className="rounded p-1 text-green-600 hover:bg-green-50">
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button type="button" onClick={() => setEditingId(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )
+                }
+
                 return (
                   <div key={entry.id} className="flex items-center justify-between rounded-lg border px-4 py-2.5">
                     <div>
@@ -283,13 +356,22 @@ export function SpendingClient({
                         {entry.endMonth ? ` até ${formatMonth(entry.endMonth)}` : ' em diante'}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(entry.id)}
-                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(entry)}
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirm(entry.id)}
+                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 )
               })}
@@ -297,6 +379,16 @@ export function SpendingClient({
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+        title="Remover lançamento"
+        description="Tem certeza que deseja remover este lançamento recorrente? Ele deixará de aparecer no orçamento de todos os meses."
+        confirmLabel="Remover"
+        loading={saving}
+      />
     </div>
   )
 }
