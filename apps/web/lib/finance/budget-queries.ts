@@ -5,7 +5,7 @@ import {
   budgetEntries,
   budgetAdjustments,
   transactions,
-  portfolioEvents,
+  accounts,
 } from '@floow/db'
 import { eq, and, sql, gte, lte, isNull, or } from 'drizzle-orm'
 
@@ -131,8 +131,9 @@ export async function getSpendingByCategory(
 }
 
 /**
- * Returns the total investment contributions (buy events) for a date range.
- * Uses COALESCE to return 0 when there are no matching events.
+ * Returns total investment contributions for a date range.
+ * Sums positive transfer transactions (incoming) to brokerage accounts.
+ * These represent money moving from checking/savings into investment accounts.
  */
 export async function getInvestmentContributions(
   orgId: string,
@@ -143,15 +144,19 @@ export async function getInvestmentContributions(
 
   const [row] = await db
     .select({
-      total: sql<number>`COALESCE(SUM(${portfolioEvents.totalCents}), 0)`.as('total'),
+      total: sql<number>`COALESCE(SUM(${transactions.amountCents}), 0)`.as('total'),
     })
-    .from(portfolioEvents)
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
     .where(
       and(
-        eq(portfolioEvents.orgId, orgId),
-        eq(portfolioEvents.eventType, 'buy'),
-        gte(portfolioEvents.eventDate, start),
-        lte(portfolioEvents.eventDate, end),
+        eq(transactions.orgId, orgId),
+        eq(transactions.type, 'transfer'),
+        eq(accounts.type, 'brokerage'),
+        sql`${transactions.amountCents} > 0`, // incoming side of transfer
+        eq(transactions.isIgnored, false),
+        gte(transactions.date, start),
+        lte(transactions.date, end),
       ),
     )
 

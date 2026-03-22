@@ -1,8 +1,8 @@
-import { getOrgId, getCategories } from '@/lib/finance/queries'
+import { getOrgId } from '@/lib/finance/queries'
 import {
   getBudgetEntriesForMonth,
   getAllBudgetEntries,
-  getSpendingByCategory,
+  getInvestmentContributions,
 } from '@/lib/finance/budget-queries'
 import { InvestingClient } from './client'
 
@@ -21,36 +21,27 @@ export default async function InvestingBudgetPage({ searchParams }: Props) {
   const monthDate = new Date(sy, sm - 1, 1)
   const monthEnd = new Date(sy, sm, 0)
 
-  const [categories, entriesForMonth, allEntries, spending] = await Promise.all([
-    getCategories(orgId),
+  const [entriesForMonth, allEntries, contributions] = await Promise.all([
     getBudgetEntriesForMonth(orgId, monthDate, 'investing'),
     getAllBudgetEntries(orgId, 'investing'),
-    getSpendingByCategory(orgId, monthDate, monthEnd),
+    getInvestmentContributions(orgId, monthDate, monthEnd),
   ])
-
-  // All categories (expense type) for the category picker
-  const expenseCategories = categories
-    .filter((c) => c.type === 'expense')
-    .map((c) => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))
 
   return (
     <InvestingClient
-      categories={expenseCategories}
       entriesForMonth={entriesForMonth.map((e) => ({
         id: e.id,
-        categoryId: e.categoryId,
-        name: e.name ?? 'Investimentos',
+        name: e.name ?? 'Aportes',
         plannedCents: e.plannedCents,
       }))}
       allEntries={allEntries.map((e) => ({
         id: e.id,
-        categoryId: e.categoryId,
-        name: e.name ?? 'Investimentos',
+        name: e.name ?? 'Aportes',
         plannedCents: e.plannedCents,
         startMonth: e.startMonth.toISOString().split('T')[0],
         endMonth: e.endMonth ? e.endMonth.toISOString().split('T')[0] : null,
       }))}
-      spending={spending}
+      totalContributed={contributions}
       selectedMonth={selectedMonth}
     />
   )
