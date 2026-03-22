@@ -10,8 +10,9 @@ async function CashFlowContent({ orgId }: { orgId: string }) {
     getAccounts(orgId),
   ])
 
+  const fmtDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const serialize = (t: typeof recentTransactions[number]) => ({
-    date: t.date instanceof Date ? t.date.toISOString() : String(t.date),
+    date: t.date instanceof Date ? fmtDate(t.date) : String(t.date).split('T')[0],
     amountCents: t.amountCents,
     type: t.type,
     accountId: t.accountId,

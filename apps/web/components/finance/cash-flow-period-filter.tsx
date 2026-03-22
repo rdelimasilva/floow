@@ -19,7 +19,7 @@ function getPeriodDates(key: PeriodKey): { startDate: string; endDate: string } 
   const now = new Date()
   const y = now.getFullYear()
   const m = now.getMonth()
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const endToday = fmt(now)
 
   switch (key) {
