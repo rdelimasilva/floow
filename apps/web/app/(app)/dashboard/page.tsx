@@ -9,7 +9,7 @@ import { PatrimonySummary } from '@/components/finance/patrimony-summary'
 import { CashFlowChart } from '@/components/finance/cash-flow-chart'
 import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getBudgetGoals, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotal, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
+import { getBudgetGoals, getBudgetEntries, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotal, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
 
 // -- Async sub-components for Suspense streaming ----------------------------
 
@@ -65,26 +65,30 @@ async function PatrimonySection({ orgId }: { orgId: string }) {
 }
 
 async function BudgetAlertSection({ orgId }: { orgId: string }) {
-  const [spendingGoals, investingGoals] = await Promise.all([
-    getBudgetGoals(orgId, 'spending'),
+  const now = new Date()
+  const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+  const [budgetEntriesData, spendingData, investingGoals] = await Promise.all([
+    getBudgetEntries(orgId, currentMonth),
+    getSpendingByCategory(orgId, currentMonth, currentMonthEnd),
     getBudgetGoals(orgId, 'investing'),
   ])
 
   const alerts: { name: string; currentCents: number; limitCents: number; href: string }[] = []
 
-  for (const goal of spendingGoals) {
-    const { start, end } = getCurrentPeriodRange(goal.period)
-    const [spending, adj] = await Promise.all([
-      getSpendingByCategory(orgId, start, end),
-      getAdjustmentTotal(goal.id, start, end),
-    ])
-    const totalSpent = spending.reduce((sum, s) => sum + Number(s.spent), 0) + adj
-    const pct = goal.targetCents > 0 ? (totalSpent / goal.targetCents) * 100 : 0
+  // Spending alerts from budget entries
+  const spendingMap = new Map(spendingData.map((s) => [s.categoryId, s.spent]))
+  const totalPlanned = budgetEntriesData.reduce((sum, e) => sum + e.plannedCents, 0)
+  const totalSpent = spendingData.reduce((sum, s) => sum + s.spent, 0)
+  if (totalPlanned > 0) {
+    const pct = (totalSpent / totalPlanned) * 100
     if (pct >= 80) {
-      alerts.push({ name: goal.name, currentCents: totalSpent, limitCents: goal.targetCents, href: '/budgets/spending' })
+      alerts.push({ name: 'Orçamento mensal', currentCents: totalSpent, limitCents: totalPlanned, href: '/budgets/spending' })
     }
   }
 
+  // Investment alerts
   for (const goal of investingGoals) {
     const { start, end } = getCurrentPeriodRange(goal.period)
     const [contributed, adj] = await Promise.all([
@@ -92,7 +96,6 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
       getAdjustmentTotal(goal.id, start, end),
     ])
     const totalContributed = contributed + adj
-    const now = new Date()
     const totalDays = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
     const elapsedDays = Math.max(1, (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
     const expectedPct = (elapsedDays / totalDays) * 100

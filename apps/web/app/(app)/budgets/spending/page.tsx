@@ -1,70 +1,64 @@
 import { getOrgId, getCategories } from '@/lib/finance/queries'
 import {
-  getBudgetGoals,
-  getCategoryLimits,
+  getBudgetEntries,
+  getBudgetMonths,
   getSpendingByCategory,
-  getAdjustmentTotal,
-  getCurrentPeriodRange,
 } from '@/lib/finance/budget-queries'
-import { SpendingGoalClient } from './client'
+import { SpendingClient } from './client'
 
-const PERIOD_LABELS: Record<string, string> = {
-  monthly: 'Mensal',
-  quarterly: 'Trimestral',
-  semiannual: 'Semestral',
-  annual: 'Anual',
+interface Props {
+  searchParams: Promise<Record<string, string | undefined>>
 }
 
-export default async function SpendingGoalPage() {
+export default async function SpendingBudgetPage({ searchParams }: Props) {
+  const params = await searchParams
   const orgId = await getOrgId()
 
-  const [goals, categories] = await Promise.all([
-    getBudgetGoals(orgId, 'spending'),
+  const [categories, budgetMonths] = await Promise.all([
     getCategories(orgId),
+    getBudgetMonths(orgId),
   ])
 
-  const goal = goals[0] ?? null
+  const expenseCategories = categories
+    .filter((c) => c.type === 'expense')
+    .map((c) => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))
 
-  if (!goal) {
-    return (
-      <SpendingGoalClient
-        goal={null}
-        categories={categories}
-        globalSpent={0}
-        categorySpending={[]}
-        categoryLimits={[]}
-        periodLabel=""
-      />
-    )
-  }
+  // Determine which month to show
+  const now = new Date()
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const selectedMonth = params.month ?? defaultMonth
 
-  const { start, end } = getCurrentPeriodRange(goal.period)
+  const periodMonth = new Date(selectedMonth)
+  const monthStart = new Date(periodMonth.getFullYear(), periodMonth.getMonth(), 1)
+  const monthEnd = new Date(periodMonth.getFullYear(), periodMonth.getMonth() + 1, 0)
 
-  const [spending, limits, adjustmentTotal] = await Promise.all([
-    getSpendingByCategory(orgId, start, end),
-    getCategoryLimits(goal.id),
-    getAdjustmentTotal(goal.id, start, end),
+  const [entries, spending] = await Promise.all([
+    getBudgetEntries(orgId, monthStart),
+    getSpendingByCategory(orgId, monthStart, monthEnd),
   ])
 
-  const spendingSum = spending.reduce((s, r) => s + r.spent, 0)
-  const globalSpent = spendingSum + adjustmentTotal
+  const entryData = entries.map((e) => ({
+    categoryId: e.categoryId,
+    plannedCents: e.plannedCents,
+  }))
+
+  const spendingData = spending.map((s) => ({
+    categoryId: s.categoryId,
+    spent: s.spent,
+  }))
+
+  const availableMonths = budgetMonths.map((m) => {
+    const d = new Date(m.periodMonth)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+  })
 
   return (
-    <SpendingGoalClient
-      goal={{
-        id: goal.id,
-        name: goal.name,
-        targetCents: goal.targetCents,
-        period: goal.period,
-      }}
-      categories={categories}
-      globalSpent={globalSpent}
-      categorySpending={spending}
-      categoryLimits={limits.map((l) => ({
-        categoryId: l.categoryId,
-        limitCents: l.limitCents,
-      }))}
-      periodLabel={PERIOD_LABELS[goal.period] ?? goal.period}
+    <SpendingClient
+      categories={expenseCategories}
+      entries={entryData}
+      spending={spendingData}
+      selectedMonth={selectedMonth}
+      availableMonths={availableMonths}
     />
   )
 }
