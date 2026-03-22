@@ -56,6 +56,12 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
     { income: 0, expense: 0 }
   )
 
+  const formatMonthTick = (value: string) => {
+    const [y, m] = value.split('-').map(Number)
+    const d = new Date(y, m - 1, 1)
+    return d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+  }
+
   const legendFormatter = (value: string) => {
     const labels: Record<string, string> = {
       income: 'Receitas',
@@ -107,7 +113,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
       {chartType === 'bar' ? (
         <BarChart data={viewMode === 'both' ? data : chartData}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+          <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
@@ -123,7 +129,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
       ) : chartType === 'stacked' ? (
         <BarChart data={chartData}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+          <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Bar dataKey="income" stackId="stack" fill="var(--color-income)" radius={[0, 0, 0, 0]} />
@@ -132,7 +138,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
       ) : chartType === 'line' ? (
         <LineChart data={chartData}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+          <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Line type="monotone" dataKey="income" stroke="var(--color-income)" strokeWidth={2} dot={false} />
@@ -142,7 +148,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
       ) : chartType === 'area' ? (
         <AreaChart data={chartData}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+          <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Area type="monotone" dataKey="income" fill="var(--color-income)" fillOpacity={0.3} stroke="var(--color-income)" strokeWidth={2} />
@@ -152,7 +158,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
       ) : chartType === 'waterfall' ? (
         <BarChart data={waterfallData}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+          <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Bar dataKey="base" stackId="waterfall" fill="transparent" legendType="none" />
@@ -165,7 +171,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
       ) : (
         <BarChart data={chartData}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+          <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
