@@ -22,6 +22,7 @@ import {
   Building2,
   BarChart3,
   PiggyBank,
+  Landmark,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -68,6 +69,12 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/investments', label: 'Investimentos', icon: TrendingUp },
       { href: '/fixed-assets', label: 'Ativos Imobilizados', icon: Building2 },
+    ],
+  },
+  {
+    title: 'Dívidas Contratadas',
+    items: [
+      { href: '/debts', label: 'Controle de Dívidas', icon: Landmark },
     ],
   },
   {
