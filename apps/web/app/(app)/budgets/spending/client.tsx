@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Copy, Save, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
-import { saveBudgetEntries, replicateBudgetEntries } from '@/lib/finance/budget-actions'
+import { createBudgetEntry, updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
 import { useToast } from '@/components/ui/toast'
 import { formatBRL } from '@floow/core-finance'
 
@@ -19,12 +19,26 @@ interface CategoryOption {
   icon: string | null
 }
 
+interface EntryForMonth {
+  id: string
+  categoryId: string
+  plannedCents: number
+}
+
+interface AllEntry {
+  id: string
+  categoryId: string
+  plannedCents: number
+  startMonth: string
+  endMonth: string | null
+}
+
 interface SpendingClientProps {
   categories: CategoryOption[]
-  entries: { categoryId: string; plannedCents: number }[]
+  entriesForMonth: EntryForMonth[]
+  allEntries: AllEntry[]
   spending: { categoryId: string | null; spent: number }[]
   selectedMonth: string
-  availableMonths: string[]
 }
 
 function formatMonth(monthStr: string): string {
@@ -40,91 +54,69 @@ function shiftMonth(monthStr: string, delta: number): string {
 
 export function SpendingClient({
   categories,
-  entries,
+  entriesForMonth,
+  allEntries,
   spending,
   selectedMonth,
-  availableMonths,
 }: SpendingClientProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const [editing, setEditing] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [replicating, setReplicating] = useState(false)
-  const [replicateMonths, setReplicateMonths] = useState(3)
 
-  // Local state for editing planned values
-  const [planned, setPlanned] = useState<Record<string, string>>(() => {
-    const map: Record<string, string> = {}
-    for (const e of entries) {
-      map[e.categoryId] = String(e.plannedCents)
-    }
-    return map
-  })
+  // New entry form state
+  const [newCategoryId, setNewCategoryId] = useState('')
+  const [newPlannedCents, setNewPlannedCents] = useState('')
+  const [newStartMonth, setNewStartMonth] = useState(selectedMonth)
+  const [newEndMonth, setNewEndMonth] = useState('')
 
   const spendingMap = new Map(spending.map((s) => [s.categoryId, s.spent]))
-  const entryMap = new Map(entries.map((e) => [e.categoryId, e.plannedCents]))
-
-  const totalPlanned = entries.reduce((sum, e) => sum + e.plannedCents, 0)
+  const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
   const totalSpent = spending.reduce((sum, s) => sum + s.spent, 0)
 
-  const hasEntries = entries.length > 0
-  const isPast = new Date(selectedMonth) < new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-  const isCurrent = selectedMonth === `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
+  // Categories that already have an active entry
+  const usedCategoryIds = new Set(allEntries.map((e) => e.categoryId))
+  const availableCategories = categories.filter((c) => !usedCategoryIds.has(c.id))
 
   function navigateMonth(delta: number) {
-    const newMonth = shiftMonth(selectedMonth, delta)
-    router.push(`/budgets/spending?month=${newMonth}`)
+    router.push(`/budgets/spending?month=${shiftMonth(selectedMonth, delta)}`)
   }
 
-  async function handleSave() {
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
     setSaving(true)
     try {
-      const entryList = Object.entries(planned)
-        .filter(([, v]) => v && parseInt(v, 10) > 0)
-        .map(([categoryId, v]) => ({ categoryId, plannedCents: parseInt(v, 10) }))
-
       const fd = new FormData()
-      fd.set('periodMonth', selectedMonth)
-      fd.set('entries', JSON.stringify(entryList))
-      await saveBudgetEntries(fd)
-      toast('Orçamento salvo')
-      setEditing(false)
+      fd.set('categoryId', newCategoryId)
+      fd.set('plannedCents', newPlannedCents)
+      fd.set('startMonth', newStartMonth)
+      if (newEndMonth) fd.set('endMonth', newEndMonth)
+      await createBudgetEntry(fd)
+      toast('Lançamento criado')
+      setShowAdd(false)
+      setNewCategoryId('')
+      setNewPlannedCents('')
+      setNewEndMonth('')
     } catch {
-      toast('Erro ao salvar', 'error')
+      toast('Erro ao criar lançamento', 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleReplicate() {
-    setReplicating(true)
-    try {
-      const targets: string[] = []
-      for (let i = 1; i <= replicateMonths; i++) {
-        targets.push(shiftMonth(selectedMonth, i))
-      }
-      const fd = new FormData()
-      fd.set('sourceMonth', selectedMonth)
-      fd.set('targetMonths', JSON.stringify(targets))
-      await replicateBudgetEntries(fd)
-      toast(`Orçamento replicado para ${replicateMonths} meses`)
-    } catch {
-      toast('Erro ao replicar', 'error')
-    } finally {
-      setReplicating(false)
-    }
+  async function handleDelete(entryId: string) {
+    const fd = new FormData()
+    fd.set('id', entryId)
+    await deleteBudgetEntry(fd)
+    toast('Lançamento removido')
   }
 
   return (
     <div className="space-y-6">
       <PageHeader title="Meta de Gastos" description="Orçado vs Realizado por categoria">
-        {hasEntries && !editing && (
-          <>
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              Editar orçamento
-            </Button>
-          </>
-        )}
+        <Button variant="outline" size="sm" onClick={() => setShowAdd(true)}>
+          <Plus className="h-4 w-4" /> Novo lançamento
+        </Button>
       </PageHeader>
 
       {/* Month navigator */}
@@ -138,148 +130,171 @@ export function SpendingClient({
         </Button>
       </div>
 
-      {/* Editing mode */}
-      {(editing || !hasEntries) && (
+      {/* Add new recurring entry */}
+      {showAdd && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
-              {hasEntries ? 'Editar Orçamento' : 'Criar Orçamento'} — {formatMonth(selectedMonth)}
-            </CardTitle>
+            <CardTitle className="text-base">Novo Lançamento Recorrente</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-gray-500">Defina o valor orçado (em centavos) para cada categoria:</p>
-            {categories.map((cat) => (
-              <div key={cat.id} className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700 w-44 truncate">
-                  {cat.icon && <span>{cat.icon}</span>}
-                  {cat.name}
-                </span>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={planned[cat.id] ?? ''}
-                  onChange={(e) => setPlanned((prev) => ({ ...prev, [cat.id]: e.target.value }))}
-                  className="h-8 text-sm w-36"
-                />
-                <span className="text-xs text-gray-400">centavos</span>
+          <CardContent>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Categoria</label>
+                  <select
+                    value={newCategoryId}
+                    onChange={(e) => setNewCategoryId(e.target.value)}
+                    required
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  >
+                    <option value="">Selecione...</option>
+                    {availableCategories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.icon ?? ''} {c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Valor mensal (centavos)</label>
+                  <Input type="number" min={1} value={newPlannedCents} onChange={(e) => setNewPlannedCents(e.target.value)} required placeholder="Ex: 80000" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">A partir de</label>
+                  <Input type="month" value={newStartMonth.slice(0, 7)} onChange={(e) => setNewStartMonth(e.target.value + '-01')} required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Até (vazio = para sempre)</label>
+                  <Input type="month" value={newEndMonth ? newEndMonth.slice(0, 7) : ''} onChange={(e) => setNewEndMonth(e.target.value ? e.target.value + '-01' : '')} />
+                </div>
               </div>
-            ))}
-            <div className="flex justify-end gap-2 pt-2">
-              {hasEntries && (
-                <Button variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
-              )}
-              <Button onClick={handleSave} disabled={saving}>
-                <Save className="h-4 w-4" /> {saving ? 'Salvando...' : 'Salvar'}
-              </Button>
-            </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
+                <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Criar'}</Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
       )}
 
-      {/* Dashboard view */}
-      {hasEntries && !editing && (
-        <>
-          {/* Global summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Resumo — {formatMonth(selectedMonth)}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BudgetProgressBar
-                label="Total"
-                currentCents={totalSpent}
-                limitCents={totalPlanned}
-              />
-            </CardContent>
-          </Card>
+      {/* Summary */}
+      {entriesForMonth.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Resumo — {formatMonth(selectedMonth)}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BudgetProgressBar label="Total" currentCents={totalSpent} limitCents={totalPlanned} />
+          </CardContent>
+        </Card>
+      )}
 
-          {/* Per-category table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Orçado vs Realizado</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-hidden rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Categoria</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Orçado</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Realizado</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Diferença</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">%</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {entries.map((entry) => {
-                      const cat = categories.find((c) => c.id === entry.categoryId)
-                      const actual = spendingMap.get(entry.categoryId) ?? 0
-                      const diff = entry.plannedCents - actual
-                      const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
-                      const isOver = actual > entry.plannedCents
+      {/* Orçado vs Realizado table */}
+      {entriesForMonth.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Orçado vs Realizado</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-hidden rounded-lg border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Categoria</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Orçado</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Realizado</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Diferença</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">%</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {entriesForMonth.map((entry) => {
+                    const cat = categories.find((c) => c.id === entry.categoryId)
+                    const actual = spendingMap.get(entry.categoryId) ?? 0
+                    const diff = entry.plannedCents - actual
+                    const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
+                    const isOver = actual > entry.plannedCents
 
-                      return (
-                        <tr key={entry.categoryId} className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
-                            {cat?.icon && <span className="mr-1">{cat.icon}</span>}
-                            {cat?.name ?? '—'}
-                          </td>
-                          <td className="px-4 py-2.5 text-sm text-right text-gray-600">
-                            {formatBRL(entry.plannedCents)}
-                          </td>
-                          <td className="px-4 py-2.5 text-sm text-right text-gray-900 font-medium">
-                            {formatBRL(actual)}
-                          </td>
-                          <td className={`px-4 py-2.5 text-sm text-right font-medium ${isOver ? 'text-red-600' : 'text-green-700'}`}>
-                            {isOver ? '-' : '+'}{formatBRL(Math.abs(diff))}
-                          </td>
-                          <td className={`px-4 py-2.5 text-sm text-right font-medium ${pct > 100 ? 'text-red-600' : pct > 80 ? 'text-yellow-600' : 'text-green-700'}`}>
-                            {pct}%
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                  <tfoot className="bg-gray-50">
-                    <tr>
-                      <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
-                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-600">{formatBRL(totalPlanned)}</td>
-                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalSpent)}</td>
-                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalSpent > totalPlanned ? 'text-red-600' : 'text-green-700'}`}>
-                        {totalSpent > totalPlanned ? '-' : '+'}{formatBRL(Math.abs(totalPlanned - totalSpent))}
-                      </td>
-                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned > 0 && Math.round((totalSpent / totalPlanned) * 100) > 100 ? 'text-red-600' : 'text-green-700'}`}>
-                        {totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0}%
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                    return (
+                      <tr key={entry.categoryId} className="hover:bg-gray-50">
+                        <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
+                          {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                          {cat?.name ?? '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm text-right text-gray-600">{formatBRL(entry.plannedCents)}</td>
+                        <td className="px-4 py-2.5 text-sm text-right text-gray-900 font-medium">{formatBRL(actual)}</td>
+                        <td className={`px-4 py-2.5 text-sm text-right font-medium ${isOver ? 'text-red-600' : 'text-green-700'}`}>
+                          {isOver ? '-' : '+'}{formatBRL(Math.abs(diff))}
+                        </td>
+                        <td className={`px-4 py-2.5 text-sm text-right font-medium ${pct > 100 ? 'text-red-600' : pct > 80 ? 'text-yellow-600' : 'text-green-700'}`}>
+                          {pct}%
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-50">
+                  <tr>
+                    <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
+                    <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-600">{formatBRL(totalPlanned)}</td>
+                    <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalSpent)}</td>
+                    <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalSpent > totalPlanned ? 'text-red-600' : 'text-green-700'}`}>
+                      {totalSpent > totalPlanned ? '-' : '+'}{formatBRL(Math.abs(totalPlanned - totalSpent))}
+                    </td>
+                    <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned > 0 && Math.round((totalSpent / totalPlanned) * 100) > 100 ? 'text-red-600' : 'text-green-700'}`}>
+                      {totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0}%
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <p className="text-gray-500 text-sm">Nenhum orçamento ativo para {formatMonth(selectedMonth)}.</p>
+            <Button variant="outline" className="mt-3" onClick={() => setShowAdd(true)}>
+              <Plus className="h-4 w-4" /> Criar lançamento
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-          {/* Replicate to future months */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-700">Replicar este orçamento para os próximos</span>
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={replicateMonths}
-                  onChange={(e) => setReplicateMonths(parseInt(e.target.value, 10) || 1)}
-                  className="h-8 w-16 text-sm"
-                />
-                <span className="text-sm text-gray-700">meses</span>
-                <Button variant="outline" size="sm" onClick={handleReplicate} disabled={replicating}>
-                  <Copy className="h-3.5 w-3.5" /> {replicating ? 'Replicando...' : 'Replicar'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </>
+      {/* Active recurring entries */}
+      {allEntries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Lançamentos Recorrentes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {allEntries.map((entry) => {
+                const cat = categories.find((c) => c.id === entry.categoryId)
+                return (
+                  <div key={entry.id} className="flex items-center justify-between rounded-lg border px-4 py-2.5">
+                    <div>
+                      <span className="text-sm font-medium text-gray-900">
+                        {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                        {cat?.name ?? '—'}
+                      </span>
+                      <span className="ml-2 text-sm text-gray-600">{formatBRL(entry.plannedCents)}/mês</span>
+                      <span className="ml-2 text-xs text-gray-400">
+                        de {formatMonth(entry.startMonth)}
+                        {entry.endMonth ? ` até ${formatMonth(entry.endMonth)}` : ' em diante'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(entry.id)}
+                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

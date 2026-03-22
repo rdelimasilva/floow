@@ -7,7 +7,7 @@ import {
   transactions,
   portfolioEvents,
 } from '@floow/db'
-import { eq, and, sql, gte, lte } from 'drizzle-orm'
+import { eq, and, sql, gte, lte, isNull, or } from 'drizzle-orm'
 
 // ---------------------------------------------------------------------------
 // Period helpers
@@ -68,23 +68,30 @@ export const getBudgetGoals = cache(async function getBudgetGoals(
     .orderBy(budgetGoals.createdAt)
 })
 
-/** Returns budget entries for an org for a specific month. */
-export async function getBudgetEntries(orgId: string, periodMonth: Date) {
+/**
+ * Returns budget entries active for a given month.
+ * An entry is active if: startMonth <= month AND (endMonth IS NULL OR endMonth >= month)
+ */
+export async function getBudgetEntriesForMonth(orgId: string, month: Date) {
   const db = getDb()
   return db
     .select()
     .from(budgetEntries)
-    .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.periodMonth, periodMonth)))
+    .where(and(
+      eq(budgetEntries.orgId, orgId),
+      lte(budgetEntries.startMonth, month),
+      or(isNull(budgetEntries.endMonth), gte(budgetEntries.endMonth, month)),
+    ))
 }
 
-/** Returns all distinct months that have budget entries for an org, ordered by date. */
-export async function getBudgetMonths(orgId: string) {
+/** Returns all budget entries for an org (for listing/managing). */
+export async function getAllBudgetEntries(orgId: string) {
   const db = getDb()
   return db
-    .selectDistinct({ periodMonth: budgetEntries.periodMonth })
+    .select()
     .from(budgetEntries)
     .where(eq(budgetEntries.orgId, orgId))
-    .orderBy(budgetEntries.periodMonth)
+    .orderBy(budgetEntries.startMonth)
 }
 
 // ---------------------------------------------------------------------------

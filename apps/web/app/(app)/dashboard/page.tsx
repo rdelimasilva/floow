@@ -9,7 +9,7 @@ import { PatrimonySummary } from '@/components/finance/patrimony-summary'
 import { CashFlowChart } from '@/components/finance/cash-flow-chart'
 import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getBudgetGoals, getBudgetEntries, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotal, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
+import { getBudgetGoals, getBudgetEntriesForMonth, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotal, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
 
 // -- Async sub-components for Suspense streaming ----------------------------
 
@@ -70,7 +70,7 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
   const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
   const [budgetEntriesData, spendingData, investingGoals] = await Promise.all([
-    getBudgetEntries(orgId, currentMonth),
+    getBudgetEntriesForMonth(orgId, currentMonth),
     getSpendingByCategory(orgId, currentMonth, currentMonthEnd),
     getBudgetGoals(orgId, 'investing'),
   ])

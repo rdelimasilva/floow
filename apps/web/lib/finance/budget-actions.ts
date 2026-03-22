@@ -108,68 +108,56 @@ export async function deleteBudgetGoal(formData: FormData) {
 }
 
 // ---------------------------------------------------------------------------
-// Budget Entries
+// Budget Entries (recurring category budgets)
 // ---------------------------------------------------------------------------
 
-/** Upsert budget entries for a month — receives JSON array of {categoryId, plannedCents}. */
-export async function saveBudgetEntries(formData: FormData) {
+/** Create a new recurring budget entry for a category. */
+export async function createBudgetEntry(formData: FormData) {
   const orgId = await getOrgId()
   const db = getDb()
-  const periodMonth = new Date(formData.get('periodMonth') as string)
-  const entries: { categoryId: string; plannedCents: number }[] = JSON.parse(formData.get('entries') as string)
 
-  // Delete existing entries for this month
-  await db.delete(budgetEntries)
-    .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.periodMonth, periodMonth)))
+  const categoryId = formData.get('categoryId') as string
+  const plannedCents = parseInt(formData.get('plannedCents') as string, 10)
+  const startMonth = new Date(formData.get('startMonth') as string)
+  const endMonthRaw = formData.get('endMonth') as string | null
+  const endMonth = endMonthRaw ? new Date(endMonthRaw) : null
 
-  // Insert new entries (only those with plannedCents > 0)
-  const toInsert = entries.filter((e) => e.plannedCents > 0)
-  if (toInsert.length > 0) {
-    await db.insert(budgetEntries).values(
-      toInsert.map((e) => ({
-        orgId,
-        categoryId: e.categoryId,
-        periodMonth,
-        plannedCents: e.plannedCents,
-      }))
-    )
-  }
+  await db.insert(budgetEntries).values({
+    orgId,
+    categoryId,
+    plannedCents,
+    startMonth,
+    endMonth,
+  })
 
   revalidateBudgetPaths()
 }
 
-/** Copy budget entries from one month to multiple future months. */
-export async function replicateBudgetEntries(formData: FormData) {
+/** Update an existing budget entry. */
+export async function updateBudgetEntry(formData: FormData) {
   const orgId = await getOrgId()
   const db = getDb()
-  const sourceMonth = new Date(formData.get('sourceMonth') as string)
-  const targetMonths: string[] = JSON.parse(formData.get('targetMonths') as string)
 
-  // Get source entries
-  const sourceEntries = await db
-    .select()
-    .from(budgetEntries)
-    .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.periodMonth, sourceMonth)))
+  const id = formData.get('id') as string
+  const plannedCents = parseInt(formData.get('plannedCents') as string, 10)
+  const endMonthRaw = formData.get('endMonth') as string | null
+  const endMonth = endMonthRaw ? new Date(endMonthRaw) : null
 
-  if (sourceEntries.length === 0) return
+  await db
+    .update(budgetEntries)
+    .set({ plannedCents, endMonth })
+    .where(and(eq(budgetEntries.id, id), eq(budgetEntries.orgId, orgId)))
 
-  for (const monthStr of targetMonths) {
-    const targetMonth = new Date(monthStr)
+  revalidateBudgetPaths()
+}
 
-    // Delete existing entries for target month
-    await db.delete(budgetEntries)
-      .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.periodMonth, targetMonth)))
+/** Delete a budget entry. */
+export async function deleteBudgetEntry(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+  const id = formData.get('id') as string
 
-    // Copy source entries
-    await db.insert(budgetEntries).values(
-      sourceEntries.map((e) => ({
-        orgId,
-        categoryId: e.categoryId,
-        periodMonth: targetMonth,
-        plannedCents: e.plannedCents,
-      }))
-    )
-  }
+  await db.delete(budgetEntries).where(and(eq(budgetEntries.id, id), eq(budgetEntries.orgId, orgId)))
 
   revalidateBudgetPaths()
 }

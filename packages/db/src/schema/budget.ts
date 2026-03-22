@@ -65,13 +65,13 @@ export const budgetEntries = pgTable(
     categoryId: uuid('category_id')
       .notNull()
       .references(() => categories.id, { onDelete: 'cascade' }),
-    periodMonth: date('period_month', { mode: 'date' }).notNull(), // first day of month: 2026-01-01
     plannedCents: integer('planned_cents').notNull(),
+    startMonth: date('start_month', { mode: 'date' }).notNull(), // first day of month
+    endMonth: date('end_month', { mode: 'date' }), // null = recurs forever
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    uqBudgetEntry: uniqueIndex('uq_budget_entry').on(table.orgId, table.categoryId, table.periodMonth),
-    idxBudgetEntriesOrg: index('idx_budget_entries_org_period').on(table.orgId, table.periodMonth),
+    idxBudgetEntriesOrgCategory: index('idx_budget_entries_org_cat').on(table.orgId, table.categoryId),
   })
 )
 
