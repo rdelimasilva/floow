@@ -7,7 +7,9 @@ import { AccountSummaryRow } from '@/components/finance/account-summary-row'
 import { QuickStatsRow } from '@/components/finance/quick-stats-row'
 import { PatrimonySummary } from '@/components/finance/patrimony-summary'
 import { CashFlowChart } from '@/components/finance/cash-flow-chart'
+import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { getBudgetGoals, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotal, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
 
 // -- Async sub-components for Suspense streaming ----------------------------
 
@@ -62,6 +64,47 @@ async function PatrimonySection({ orgId }: { orgId: string }) {
   )
 }
 
+async function BudgetAlertSection({ orgId }: { orgId: string }) {
+  const [spendingGoals, investingGoals] = await Promise.all([
+    getBudgetGoals(orgId, 'spending'),
+    getBudgetGoals(orgId, 'investing'),
+  ])
+
+  const alerts: { name: string; currentCents: number; limitCents: number; href: string }[] = []
+
+  for (const goal of spendingGoals) {
+    const { start, end } = getCurrentPeriodRange(goal.period)
+    const [spending, adj] = await Promise.all([
+      getSpendingByCategory(orgId, start, end),
+      getAdjustmentTotal(goal.id, start, end),
+    ])
+    const totalSpent = spending.reduce((sum, s) => sum + Number(s.spent), 0) + adj
+    const pct = goal.targetCents > 0 ? (totalSpent / goal.targetCents) * 100 : 0
+    if (pct >= 80) {
+      alerts.push({ name: goal.name, currentCents: totalSpent, limitCents: goal.targetCents, href: '/budgets/spending' })
+    }
+  }
+
+  for (const goal of investingGoals) {
+    const { start, end } = getCurrentPeriodRange(goal.period)
+    const [contributed, adj] = await Promise.all([
+      getInvestmentContributions(orgId, start, end),
+      getAdjustmentTotal(goal.id, start, end),
+    ])
+    const totalContributed = contributed + adj
+    const now = new Date()
+    const totalDays = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    const elapsedDays = Math.max(1, (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    const expectedPct = (elapsedDays / totalDays) * 100
+    const actualPct = goal.targetCents > 0 ? (totalContributed / goal.targetCents) * 100 : 0
+    if (actualPct < expectedPct * 0.8) {
+      alerts.push({ name: goal.name, currentCents: totalContributed, limitCents: goal.targetCents, href: '/budgets/investing' })
+    }
+  }
+
+  return <BudgetAlertCard alerts={alerts} />
+}
+
 function SectionSkeleton() {
   return <div className="h-32 animate-pulse rounded-xl bg-gray-100" />
 }
@@ -84,6 +127,11 @@ export default async function DashboardPage() {
       {/* Stats Row */}
       <Suspense fallback={<SectionSkeleton />}>
         <StatsSection orgId={orgId} />
+      </Suspense>
+
+      {/* Budget Alerts */}
+      <Suspense fallback={null}>
+        <BudgetAlertSection orgId={orgId} />
       </Suspense>
 
       {/* Chart + Accounts Grid */}
