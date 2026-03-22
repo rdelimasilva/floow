@@ -145,13 +145,59 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
 
   return (
     <>
-      {/* Period filter */}
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <Card className="p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Receitas {viewMode === 'projected' ? '(projetado)' : ''}
+          </p>
+          <p className="mt-2 text-xl font-bold text-green-700">{formatBRL(totalIncome)}</p>
+        </Card>
+        <Card className="p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Despesas {viewMode === 'projected' ? '(projetado)' : ''}
+          </p>
+          <p className="mt-2 text-xl font-bold text-red-600">{formatBRL(totalExpense)}</p>
+        </Card>
+        <Card className="p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Saldo {viewMode === 'projected' ? '(projetado)' : ''}
+          </p>
+          <p className={`mt-2 text-xl font-bold ${totalNet >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+            {formatBRL(totalNet)}
+          </p>
+        </Card>
+        <Card className="p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Média Mensal</p>
+          <p className={`mt-2 text-xl font-bold ${avgMonthlyNet >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+            {formatBRL(Math.round(avgMonthlyNet))}
+          </p>
+        </Card>
+      </div>
+
+      {/* Chart */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle>Fluxo de Caixa</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <CashFlowChartPicker activeType={chartType} onChange={setChartType} />
+          {chartData.length === 0 ? (
+            <div className="flex min-h-[300px] items-center justify-center text-sm text-muted-foreground">
+              Nenhuma transação encontrada para o período selecionado.
+            </div>
+          ) : (
+            <CashFlowChart data={chartData} chartType={chartType} viewMode={viewMode} />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Filters below chart */}
       <CashFlowPeriodFilter
         activePeriod={period}
         onChange={(p) => setPeriod(p)}
       />
 
-      {/* View mode toggle + transfer filter */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1.5">
           {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
@@ -186,53 +232,6 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
           </span>
         )}
       </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Receitas {viewMode === 'projected' ? '(projetado)' : ''}
-          </p>
-          <p className="mt-2 text-xl font-bold text-green-700">{formatBRL(totalIncome)}</p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Despesas {viewMode === 'projected' ? '(projetado)' : ''}
-          </p>
-          <p className="mt-2 text-xl font-bold text-red-600">{formatBRL(totalExpense)}</p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Saldo {viewMode === 'projected' ? '(projetado)' : ''}
-          </p>
-          <p className={`mt-2 text-xl font-bold ${totalNet >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-            {formatBRL(totalNet)}
-          </p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Média Mensal</p>
-          <p className={`mt-2 text-xl font-bold ${avgMonthlyNet >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-            {formatBRL(Math.round(avgMonthlyNet))}
-          </p>
-        </Card>
-      </div>
-
-      {/* Chart type picker + Chart */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Fluxo de Caixa</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <CashFlowChartPicker activeType={chartType} onChange={setChartType} />
-          {chartData.length === 0 ? (
-            <div className="flex min-h-[300px] items-center justify-center text-sm text-muted-foreground">
-              Nenhuma transação encontrada para o período selecionado.
-            </div>
-          ) : (
-            <CashFlowChart data={chartData} chartType={chartType} viewMode={viewMode} />
-          )}
-        </CardContent>
-      </Card>
 
       {/* Breakdown */}
       <CashFlowBreakdown
