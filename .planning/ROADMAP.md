@@ -68,11 +68,11 @@ Plans:
   3. User can click "Gerar agora" on a template, which creates the transaction and advances the next due date — clicking twice does not create a duplicate
   4. User can view a list of all recurring transactions due in the next 30 days from the /transactions/recurring page
   5. User can pause a recurring template and reactivate it later without losing previously generated transaction history
-**Plans**: TBD
+**Plans**: 0/2 planned
 
 Plans:
-- [ ] 07-01: Server actions + DB queries (createRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate, generateDueTransactions, pauseTemplate, reactivateTemplate)
-- [ ] 07-02: UI — /transactions/recurring page with template list, upcoming-due section, and generate/pause actions
+- [ ] 07-01-PLAN.md — Drizzle schema for recurringTemplates, recurringTemplateId on transactions, CRUD server actions, generateRecurringTransaction with atomic balance update + dedup + auto-categorize, toggleRecurringActive, recurring queries
+- [ ] 07-02-PLAN.md — UI: /transactions/recurring page with template list, upcoming-due section, create/edit dialog, generate/pause actions, sidebar nav item
 
 ## Progress
 
@@ -84,4 +84,4 @@ Plans:
 | 4. Planning Engine | v1.0 | 3/3 | Complete | 2026-03-18 |
 | 5. Automation Foundation | v1.1 | 1/1 | Complete | 2026-03-19 |
 | 6. Categorization Rules | 2/2 | Complete   | 2026-03-19 | - |
-| 7. Recurring Transactions | v1.1 | 0/2 | Not started | - |
+| 7. Recurring Transactions | v1.1 | 0/2 | Planned | - |

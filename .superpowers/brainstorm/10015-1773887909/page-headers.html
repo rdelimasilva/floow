@@ -1,0 +1,57 @@
+<h2>Como tratar os headers de página?</h2>
+<p class="subtitle">Todas as páginas internas (Contas, Transações, Investimentos, etc.) têm um header com título + ações. Como estilizar?</p>
+
+<div class="cards">
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden;">
+      <div style="background: #fafafa; height: 200px; display: flex; font-family: system-ui, sans-serif;">
+        <div style="width: 44px; background: #fff; border-right: 1px solid #f0f0f0;"></div>
+        <div style="flex: 1; padding: 28px 32px;">
+          <!-- Header -->
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+            <div>
+              <div style="font-size: 20px; font-weight: 600; color: #111; letter-spacing: -0.3px;">Transações</div>
+              <div style="font-size: 12px; color: #999; margin-top: 2px;">Gerencie suas receitas e despesas</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <div style="padding: 7px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 12px; color: #555; background: #fff;">Filtros</div>
+              <div style="padding: 7px 14px; border-radius: 8px; background: #111; color: #fff; font-size: 12px;">+ Nova</div>
+            </div>
+          </div>
+          <!-- Content hint -->
+          <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; height: 60px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Simples com Descrição</h3>
+      <p>Título grande + descrição sutil. Botões de ação à direita, alinhados. Limpo como o Sana.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden;">
+      <div style="background: #fafafa; height: 200px; display: flex; font-family: system-ui, sans-serif;">
+        <div style="width: 44px; background: #fff; border-right: 1px solid #f0f0f0;"></div>
+        <div style="flex: 1; padding: 28px 32px;">
+          <!-- Header -->
+          <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; margin-bottom: 20px;">
+            <div style="font-size: 20px; font-weight: 600; color: #111; letter-spacing: -0.3px;">Transações</div>
+            <div style="display: flex; gap: 8px;">
+              <div style="padding: 7px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 12px; color: #555; background: #fff;">Filtros</div>
+              <div style="padding: 7px 14px; border-radius: 8px; background: #111; color: #fff; font-size: 12px;">+ Nova</div>
+            </div>
+          </div>
+          <!-- Content hint -->
+          <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; height: 60px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Título + Divider</h3>
+      <p>Só o título (sem descrição), separado do conteúdo por uma linha fina. Mais compacto e direto.</p>
+    </div>
+  </div>
+</div>

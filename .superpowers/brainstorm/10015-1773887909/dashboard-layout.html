@@ -1,0 +1,173 @@
+<h2>Como organizar o conteúdo do Dashboard?</h2>
+<p class="subtitle">O Sana usa cards grandes com bastante espaço. Como adaptar isso para dados financeiros?</p>
+
+<div class="cards">
+  <!-- Option A: Card Grid -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden;">
+      <div style="background: #fafafa; height: 360px; display: flex; font-family: system-ui, sans-serif;">
+        <!-- Mini sidebar hint -->
+        <div style="width: 44px; background: #fff; border-right: 1px solid #f0f0f0;"></div>
+        <!-- Content -->
+        <div style="flex: 1; padding: 28px 32px; overflow: hidden;">
+          <div style="font-size: 18px; font-weight: 600; color: #111; margin-bottom: 4px;">Dashboard Financeiro</div>
+          <div style="font-size: 11px; color: #999; margin-bottom: 24px;">Visão geral do seu patrimônio</div>
+
+          <!-- Stats row -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px;">
+              <div style="font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">Receitas</div>
+              <div style="font-size: 18px; font-weight: 600; color: #16a34a; margin-top: 4px;">R$ 8.500</div>
+            </div>
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px;">
+              <div style="font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">Despesas</div>
+              <div style="font-size: 18px; font-weight: 600; color: #dc2626; margin-top: 4px;">R$ 5.200</div>
+            </div>
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px;">
+              <div style="font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">Saldo</div>
+              <div style="font-size: 18px; font-weight: 600; color: #111; margin-top: 4px;">R$ 3.300</div>
+            </div>
+          </div>
+
+          <!-- Chart + Accounts grid -->
+          <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px;">
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px;">
+              <div style="font-size: 12px; font-weight: 500; color: #555; margin-bottom: 12px;">Fluxo de Caixa</div>
+              <div style="height: 80px; background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%); border-radius: 8px; display: flex; align-items: end; padding: 0 8px; gap: 6px;">
+                <div style="width: 14%; height: 40%; background: #86efac; border-radius: 4px 4px 0 0;"></div>
+                <div style="width: 14%; height: 60%; background: #86efac; border-radius: 4px 4px 0 0;"></div>
+                <div style="width: 14%; height: 45%; background: #86efac; border-radius: 4px 4px 0 0;"></div>
+                <div style="width: 14%; height: 75%; background: #4ade80; border-radius: 4px 4px 0 0;"></div>
+                <div style="width: 14%; height: 55%; background: #86efac; border-radius: 4px 4px 0 0;"></div>
+                <div style="width: 14%; height: 65%; background: #4ade80; border-radius: 4px 4px 0 0;"></div>
+              </div>
+            </div>
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px;">
+              <div style="font-size: 12px; font-weight: 500; color: #555; margin-bottom: 12px;">Contas</div>
+              <div style="font-size: 11px; color: #888; padding: 6px 0; border-bottom: 1px solid #f5f5f5; display: flex; justify-content: space-between;">
+                <span>Nubank</span> <span style="color: #111; font-weight: 500;">R$ 4.200</span>
+              </div>
+              <div style="font-size: 11px; color: #888; padding: 6px 0; border-bottom: 1px solid #f5f5f5; display: flex; justify-content: space-between;">
+                <span>Itaú</span> <span style="color: #111; font-weight: 500;">R$ 12.800</span>
+              </div>
+              <div style="font-size: 11px; color: #888; padding: 6px 0; display: flex; justify-content: space-between;">
+                <span>XP</span> <span style="color: #111; font-weight: 500;">R$ 45.000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Grid de Cards</h3>
+      <p>Stats em row no topo, depois grid 2 colunas com chart e contas. Cards com borda sutil e border-radius grande. Bastante white space.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Full-width sections -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden;">
+      <div style="background: #fafafa; height: 360px; display: flex; font-family: system-ui, sans-serif;">
+        <div style="width: 44px; background: #fff; border-right: 1px solid #f0f0f0;"></div>
+        <div style="flex: 1; padding: 28px 32px; overflow: hidden;">
+          <div style="font-size: 18px; font-weight: 600; color: #111; margin-bottom: 4px;">Dashboard Financeiro</div>
+          <div style="font-size: 11px; color: #999; margin-bottom: 24px;">Visão geral do seu patrimônio</div>
+
+          <!-- Big patrimony card -->
+          <div style="background: #111; border-radius: 14px; padding: 20px 24px; margin-bottom: 16px; color: #fff;">
+            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #888;">Patrimônio Total</div>
+            <div style="font-size: 28px; font-weight: 700; margin-top: 4px;">R$ 142.350,00</div>
+            <div style="font-size: 11px; color: #4ade80; margin-top: 4px;">+2.3% este mês</div>
+          </div>
+
+          <!-- Stats row -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 14px;">
+              <div style="font-size: 10px; color: #999;">Receitas</div>
+              <div style="font-size: 16px; font-weight: 600; color: #16a34a; margin-top: 2px;">R$ 8.500</div>
+            </div>
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 14px;">
+              <div style="font-size: 10px; color: #999;">Despesas</div>
+              <div style="font-size: 16px; font-weight: 600; color: #dc2626; margin-top: 2px;">R$ 5.200</div>
+            </div>
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 14px;">
+              <div style="font-size: 10px; color: #999;">Saldo</div>
+              <div style="font-size: 16px; font-weight: 600; color: #111; margin-top: 2px;">R$ 3.300</div>
+            </div>
+          </div>
+
+          <!-- Chart full width -->
+          <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 14px;">
+            <div style="font-size: 12px; font-weight: 500; color: #555; margin-bottom: 8px;">Fluxo de Caixa — 6 meses</div>
+            <div style="height: 50px; display: flex; align-items: end; gap: 6px;">
+              <div style="width: 16%; height: 40%; background: #86efac; border-radius: 3px 3px 0 0;"></div>
+              <div style="width: 16%; height: 60%; background: #86efac; border-radius: 3px 3px 0 0;"></div>
+              <div style="width: 16%; height: 45%; background: #86efac; border-radius: 3px 3px 0 0;"></div>
+              <div style="width: 16%; height: 75%; background: #4ade80; border-radius: 3px 3px 0 0;"></div>
+              <div style="width: 16%; height: 55%; background: #86efac; border-radius: 3px 3px 0 0;"></div>
+              <div style="width: 16%; height: 65%; background: #4ade80; border-radius: 3px 3px 0 0;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Hero + Seções Full-Width</h3>
+      <p>Card "hero" escuro com patrimônio total em destaque no topo. Depois stats e chart em seções full-width empilhadas. Mais impactante.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Bento Grid -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden;">
+      <div style="background: #fafafa; height: 360px; display: flex; font-family: system-ui, sans-serif;">
+        <div style="width: 44px; background: #fff; border-right: 1px solid #f0f0f0;"></div>
+        <div style="flex: 1; padding: 28px 32px; overflow: hidden;">
+          <div style="font-size: 18px; font-weight: 600; color: #111; margin-bottom: 4px;">Dashboard Financeiro</div>
+          <div style="font-size: 11px; color: #999; margin-bottom: 20px;">Visão geral do seu patrimônio</div>
+
+          <!-- Bento grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto auto; gap: 10px;">
+            <!-- Patrimony spans 2 cols -->
+            <div style="grid-column: span 2; background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px;">
+              <div style="font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">Patrimônio</div>
+              <div style="font-size: 22px; font-weight: 700; color: #111; margin-top: 4px;">R$ 142.350</div>
+              <div style="font-size: 10px; color: #4ade80; margin-top: 2px;">+2.3% este mês</div>
+            </div>
+            <!-- Saldo -->
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 16px;">
+              <div style="font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">Saldo Mensal</div>
+              <div style="font-size: 18px; font-weight: 600; color: #111; margin-top: 4px;">R$ 3.300</div>
+            </div>
+            <!-- Receitas -->
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 14px;">
+              <div style="font-size: 10px; color: #999;">Receitas</div>
+              <div style="font-size: 15px; font-weight: 600; color: #16a34a; margin-top: 2px;">R$ 8.500</div>
+            </div>
+            <!-- Despesas -->
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 14px;">
+              <div style="font-size: 10px; color: #999;">Despesas</div>
+              <div style="font-size: 15px; font-weight: 600; color: #dc2626; margin-top: 2px;">R$ 5.200</div>
+            </div>
+            <!-- Chart -->
+            <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 14px;">
+              <div style="font-size: 10px; color: #999; margin-bottom: 8px;">Fluxo</div>
+              <div style="height: 40px; display: flex; align-items: end; gap: 3px;">
+                <div style="width: 16%; height: 40%; background: #86efac; border-radius: 2px 2px 0 0;"></div>
+                <div style="width: 16%; height: 65%; background: #86efac; border-radius: 2px 2px 0 0;"></div>
+                <div style="width: 16%; height: 50%; background: #86efac; border-radius: 2px 2px 0 0;"></div>
+                <div style="width: 16%; height: 80%; background: #4ade80; border-radius: 2px 2px 0 0;"></div>
+                <div style="width: 16%; height: 55%; background: #86efac; border-radius: 2px 2px 0 0;"></div>
+                <div style="width: 16%; height: 70%; background: #4ade80; border-radius: 2px 2px 0 0;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Bento Grid</h3>
+      <p>Grid estilo "bento" com cards de tamanhos variados. Patrimônio ocupa 2 colunas. Layout mais moderno e dinâmico, próximo de dashboards SaaS.</p>
+    </div>
+  </div>
+</div>

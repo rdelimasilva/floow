@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" commit \"docs: initialize project\" --files .planning/PROJECT.md)",
+      "Skill(gsd:discuss-phase)",
+      "Skill(gsd:plan-phase)",
+      "WebSearch",
+      "Skill(gsd:execute-phase)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" state advance-plan 2>&1)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" state update-progress 2>&1)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" roadmap update-plan-progress 1 2>&1)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && pnpm --filter @floow/web test --reporter=verbose 2>&1 | head -80)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && pnpm turbo run typecheck 2>&1 | tail -40)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" state record-metric --phase \"01\" --plan \"04\" --duration \"35\" --tasks \"3\" --files \"12\" 2>&1)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" state add-decision --phase \"01-04\" --summary \"Lazy Stripe client instantiation via getStripeServer\\(\\) factory — established as project pattern for all external service clients in Next.js App Router \\(mirrors Supabase client pattern from 01-03\\)\" 2>&1)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" state record-session --stopped-at \"Completed 01-04-PLAN.md — Phase 01 Platform Foundation fully complete\" 2>&1)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" requirements mark-complete BILL-01 BILL-02 BILL-03 2>&1)",
+      "Bash(cd \"/c/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" phase complete \"01\")",
+      "Bash(cd \"/c/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" commit \"docs\\(phase-01\\): complete phase execution — all gaps closed, human verified\" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md .planning/phases/01-platform-foundation/01-VERIFICATION.md)",
+      "Bash(sleep 12 && curl -s http://localhost:3001/dashboard 2>&1 | head -20)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && grep -r \"transaction\" packages/db/node_modules/drizzle-orm/pg-core/db.d.ts 2>/dev/null | head -10 || find packages/db/node_modules/drizzle-orm -name \"*.d.ts\" -path \"*/postgres-js*\" 2>/dev/null | head -5)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && pnpm build --filter=@floow/web 2>&1)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" roadmap update-plan-progress 2 2>&1)",
+      "Bash(cd \"C:/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" requirements mark-complete DASH-01 VAL-01 2>&1)",
+      "Bash(cd \"/c/Users/rdeli/OneDrive/Área de Trabalho/floow\" && pnpm --filter @floow/core-finance test 2>&1 | tail -30)",
+      "Bash(cd \"/c/Users/rdeli/OneDrive/Área de Trabalho/floow\" && pnpm --filter @floow/web test 2>&1 | tail -30)",
+      "Bash(cd \"/c/Users/rdeli/OneDrive/Área de Trabalho/floow\" && pnpm --filter @floow/web test 2>&1 | head -60)",
+      "Bash(cd \"/c/Users/rdeli/OneDrive/Área de Trabalho/floow\" && node \"$HOME/.claude/get-shit-done/bin/gsd-tools.cjs\" phase complete \"02\" 2>&1)",
+      "Bash(ls \"C:\\\\Users\\\\rdeli\\\\OneDrive\\\\Área de Trabalho\\\\floow/apps/web/app/\\(app\\)/\" 2>/dev/null)",
+      "mcp__Neon__list_projects"
+    ]
+  }
+}
