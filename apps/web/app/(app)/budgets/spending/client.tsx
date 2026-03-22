@@ -86,9 +86,10 @@ export function SpendingClient({
     e.preventDefault()
     setSaving(true)
     try {
+      const cents = Math.round(parseFloat(newPlannedCents.replace(',', '.')) * 100)
       const fd = new FormData()
       fd.set('categoryId', newCategoryId)
-      fd.set('plannedCents', newPlannedCents)
+      fd.set('plannedCents', String(cents))
       fd.set('startMonth', newStartMonth)
       if (newEndMonth) fd.set('endMonth', newEndMonth)
       await createBudgetEntry(fd)
@@ -154,8 +155,8 @@ export function SpendingClient({
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Valor mensal (centavos)</label>
-                  <Input type="number" min={1} value={newPlannedCents} onChange={(e) => setNewPlannedCents(e.target.value)} required placeholder="Ex: 80000" />
+                  <label className="text-xs font-medium text-gray-600">Valor mensal (R$)</label>
+                  <Input type="text" inputMode="decimal" value={newPlannedCents} onChange={(e) => setNewPlannedCents(e.target.value)} required placeholder="Ex: 800,00" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">A partir de</label>

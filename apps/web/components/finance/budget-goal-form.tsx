@@ -44,6 +44,13 @@ export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
       const fd = new FormData(form)
       fd.set('type', type)
       if (goal?.id) fd.set('id', goal.id)
+      // Convert R$ to cents
+      const targetRaw = fd.get('targetCents') as string
+      fd.set('targetCents', String(Math.round(parseFloat(targetRaw.replace(',', '.')) * 100)))
+      const patrimonyRaw = fd.get('patrimonyTargetCents') as string | null
+      if (patrimonyRaw) {
+        fd.set('patrimonyTargetCents', String(Math.round(parseFloat(patrimonyRaw.replace(',', '.')) * 100)))
+      }
       await upsertBudgetGoal(fd)
       toast(goal ? 'Meta atualizada com sucesso' : 'Meta criada com sucesso')
       onClose()
@@ -66,14 +73,14 @@ export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Limite (centavos)</label>
+        <label className="text-sm font-medium text-gray-700">Meta de aporte (R$)</label>
         <Input
           name="targetCents"
-          type="number"
+          type="text"
+          inputMode="decimal"
           required
-          min={1}
-          defaultValue={goal?.targetCents ?? ''}
-          placeholder="Ex: 500000 (R$ 5.000)"
+          defaultValue={goal?.targetCents ? (goal.targetCents / 100).toFixed(2).replace('.', ',') : ''}
+          placeholder="Ex: 2.000,00"
         />
       </div>
 
@@ -96,14 +103,14 @@ export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
         <>
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
-              Meta patrimonial (centavos, opcional)
+              Meta patrimonial (R$, opcional)
             </label>
             <Input
               name="patrimonyTargetCents"
-              type="number"
-              min={0}
-              defaultValue={goal?.patrimonyTargetCents ?? ''}
-              placeholder="Ex: 10000000 (R$ 100.000)"
+              type="text"
+              inputMode="decimal"
+              defaultValue={goal?.patrimonyTargetCents ? (goal.patrimonyTargetCents / 100).toFixed(2).replace('.', ',') : ''}
+              placeholder="Ex: 500.000,00"
             />
           </div>
 

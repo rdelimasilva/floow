@@ -27,6 +27,8 @@ export function BudgetAdjustmentDialog({ goalId, open, onClose }: BudgetAdjustme
       const form = e.currentTarget
       const fd = new FormData(form)
       fd.set('goalId', goalId)
+      const amountRaw = fd.get('amountCents') as string
+      fd.set('amountCents', String(Math.round(parseFloat(amountRaw.replace(',', '.')) * 100)))
       await createAdjustment(fd)
       toast('Ajuste registrado com sucesso')
       onClose()
@@ -42,13 +44,13 @@ export function BudgetAdjustmentDialog({ goalId, open, onClose }: BudgetAdjustme
       <div className="w-[420px] rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900">Ajuste Manual</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Valor em centavos (negativo para subtrair).
+          Use valor negativo para subtrair.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Valor (centavos)</label>
-            <Input name="amountCents" type="number" required placeholder="Ex: -10000" />
+            <label className="text-sm font-medium text-gray-700">Valor (R$)</label>
+            <Input name="amountCents" type="text" inputMode="decimal" required placeholder="Ex: -100,00" />
           </div>
 
           <div className="space-y-2">
