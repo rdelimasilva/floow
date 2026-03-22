@@ -21,6 +21,7 @@ import {
   Settings,
   Building2,
   BarChart3,
+  PiggyBank,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -53,6 +54,13 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/cash-flow', label: 'Fluxo de Caixa', icon: BarChart3 },
       { href: '/transactions', label: 'Transações', icon: ArrowLeftRight },
+    ],
+  },
+  {
+    title: 'Orçamento',
+    items: [
+      { href: '/budgets/spending', label: 'Meta de Gastos', icon: PiggyBank },
+      { href: '/budgets/investing', label: 'Meta de Investimentos', icon: Target },
     ],
   },
   {
