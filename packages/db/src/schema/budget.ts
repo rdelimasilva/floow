@@ -62,16 +62,17 @@ export const budgetEntries = pgTable(
     orgId: uuid('org_id')
       .notNull()
       .references(() => orgs.id, { onDelete: 'cascade' }),
+    type: text('type').notNull().default('spending'), // 'spending' | 'investing'
     categoryId: uuid('category_id')
-      .notNull()
-      .references(() => categories.id, { onDelete: 'cascade' }),
+      .references(() => categories.id, { onDelete: 'cascade' }), // nullable for investing
+    name: text('name'), // label for investing entries (e.g. "Aporte mensal")
     plannedCents: integer('planned_cents').notNull(),
-    startMonth: date('start_month', { mode: 'date' }).notNull(), // first day of month
-    endMonth: date('end_month', { mode: 'date' }), // null = recurs forever
+    startMonth: date('start_month', { mode: 'date' }).notNull(),
+    endMonth: date('end_month', { mode: 'date' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    idxBudgetEntriesOrgCategory: index('idx_budget_entries_org_cat').on(table.orgId, table.categoryId),
+    idxBudgetEntriesOrgType: index('idx_budget_entries_org_type').on(table.orgId, table.type),
   })
 )
 

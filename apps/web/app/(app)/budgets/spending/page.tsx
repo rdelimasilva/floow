@@ -24,8 +24,8 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
 
   const [categories, entriesForMonth, allEntries, spending] = await Promise.all([
     getCategories(orgId),
-    getBudgetEntriesForMonth(orgId, monthDate),
-    getAllBudgetEntries(orgId),
+    getBudgetEntriesForMonth(orgId, monthDate, 'spending'),
+    getAllBudgetEntries(orgId, 'spending'),
     getSpendingByCategory(orgId, monthDate, monthEnd),
   ])
 

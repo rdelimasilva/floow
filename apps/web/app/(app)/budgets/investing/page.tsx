@@ -1,61 +1,48 @@
 import { getOrgId } from '@/lib/finance/queries'
 import {
-  getBudgetGoals,
+  getBudgetEntriesForMonth,
+  getAllBudgetEntries,
   getInvestmentContributions,
-  getAdjustmentTotal,
-  getCurrentPeriodRange,
 } from '@/lib/finance/budget-queries'
-import { getPositions } from '@/lib/investments/queries'
-import { InvestingGoalClient } from './client'
+import { InvestingClient } from './client'
 
-const PERIOD_LABELS: Record<string, string> = {
-  monthly: 'Mensal',
-  quarterly: 'Trimestral',
-  semiannual: 'Semestral',
-  annual: 'Anual',
+interface Props {
+  searchParams: Promise<Record<string, string | undefined>>
 }
 
-export default async function InvestingGoalPage() {
+export default async function InvestingBudgetPage({ searchParams }: Props) {
+  const params = await searchParams
   const orgId = await getOrgId()
 
-  const goals = await getBudgetGoals(orgId, 'investing')
-  const goal = goals[0] ?? null
+  const now = new Date()
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const selectedMonth = params.month ?? defaultMonth
+  const [sy, sm] = selectedMonth.split('-').map(Number)
+  const monthDate = new Date(sy, sm - 1, 1)
+  const monthEnd = new Date(sy, sm, 0)
 
-  if (!goal) {
-    return (
-      <InvestingGoalClient
-        goal={null}
-        contributed={0}
-        patrimony={0}
-        periodLabel=""
-      />
-    )
-  }
-
-  const { start, end } = getCurrentPeriodRange(goal.period)
-
-  const [contributions, adjustmentTotal, positions] = await Promise.all([
-    getInvestmentContributions(orgId, start, end),
-    getAdjustmentTotal(goal.id, start, end),
-    getPositions(orgId),
+  const [entriesForMonth, allEntries, contributions] = await Promise.all([
+    getBudgetEntriesForMonth(orgId, monthDate, 'investing'),
+    getAllBudgetEntries(orgId, 'investing'),
+    getInvestmentContributions(orgId, monthDate, monthEnd),
   ])
 
-  const totalContributed = contributions + adjustmentTotal
-  const patrimony = positions.reduce((sum, p) => sum + p.currentValueCents, 0)
-
   return (
-    <InvestingGoalClient
-      goal={{
-        id: goal.id,
-        name: goal.name,
-        targetCents: goal.targetCents,
-        period: goal.period,
-        patrimonyTargetCents: goal.patrimonyTargetCents,
-        patrimonyDeadline: goal.patrimonyDeadline,
-      }}
-      contributed={totalContributed}
-      patrimony={patrimony}
-      periodLabel={PERIOD_LABELS[goal.period] ?? goal.period}
+    <InvestingClient
+      entriesForMonth={entriesForMonth.map((e) => ({
+        id: e.id,
+        name: e.name ?? 'Investimentos',
+        plannedCents: e.plannedCents,
+      }))}
+      allEntries={allEntries.map((e) => ({
+        id: e.id,
+        name: e.name ?? 'Investimentos',
+        plannedCents: e.plannedCents,
+        startMonth: e.startMonth.toISOString().split('T')[0],
+        endMonth: e.endMonth ? e.endMonth.toISOString().split('T')[0] : null,
+      }))}
+      totalContributed={contributions}
+      selectedMonth={selectedMonth}
     />
   )
 }

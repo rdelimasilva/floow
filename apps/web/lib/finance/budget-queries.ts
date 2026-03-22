@@ -69,28 +69,29 @@ export const getBudgetGoals = cache(async function getBudgetGoals(
 })
 
 /**
- * Returns budget entries active for a given month.
+ * Returns budget entries active for a given month, filtered by type.
  * An entry is active if: startMonth <= month AND (endMonth IS NULL OR endMonth >= month)
  */
-export async function getBudgetEntriesForMonth(orgId: string, month: Date) {
+export async function getBudgetEntriesForMonth(orgId: string, month: Date, type: 'spending' | 'investing' = 'spending') {
   const db = getDb()
   return db
     .select()
     .from(budgetEntries)
     .where(and(
       eq(budgetEntries.orgId, orgId),
+      eq(budgetEntries.type, type),
       lte(budgetEntries.startMonth, month),
       or(isNull(budgetEntries.endMonth), gte(budgetEntries.endMonth, month)),
     ))
 }
 
-/** Returns all budget entries for an org (for listing/managing). */
-export async function getAllBudgetEntries(orgId: string) {
+/** Returns all budget entries for an org filtered by type (for listing/managing). */
+export async function getAllBudgetEntries(orgId: string, type: 'spending' | 'investing' = 'spending') {
   const db = getDb()
   return db
     .select()
     .from(budgetEntries)
-    .where(eq(budgetEntries.orgId, orgId))
+    .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.type, type)))
     .orderBy(budgetEntries.startMonth)
 }
 

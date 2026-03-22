@@ -22,13 +22,13 @@ interface CategoryOption {
 
 interface EntryForMonth {
   id: string
-  categoryId: string
+  categoryId: string | null
   plannedCents: number
 }
 
 interface AllEntry {
   id: string
-  categoryId: string
+  categoryId: string | null
   plannedCents: number
   startMonth: string
   endMonth: string | null
@@ -94,6 +94,7 @@ export function SpendingClient({
     try {
       const cents = Math.round(parseFloat(newPlannedCents.replace(',', '.')) * 100)
       const fd = new FormData()
+      fd.set('type', 'spending')
       fd.set('categoryId', newCategoryId)
       fd.set('plannedCents', String(cents))
       fd.set('startMonth', newStartMonth)

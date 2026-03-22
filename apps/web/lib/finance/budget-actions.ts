@@ -111,12 +111,14 @@ export async function deleteBudgetGoal(formData: FormData) {
 // Budget Entries (recurring category budgets)
 // ---------------------------------------------------------------------------
 
-/** Create a new recurring budget entry for a category. */
+/** Create a new recurring budget entry. */
 export async function createBudgetEntry(formData: FormData) {
   const orgId = await getOrgId()
   const db = getDb()
 
-  const categoryId = formData.get('categoryId') as string
+  const type = (formData.get('type') as string) ?? 'spending'
+  const categoryId = formData.get('categoryId') as string | null
+  const name = formData.get('name') as string | null
   const plannedCents = parseInt(formData.get('plannedCents') as string, 10)
   const startMonth = new Date(formData.get('startMonth') as string)
   const endMonthRaw = formData.get('endMonth') as string | null
@@ -124,7 +126,9 @@ export async function createBudgetEntry(formData: FormData) {
 
   await db.insert(budgetEntries).values({
     orgId,
+    type,
     categoryId,
+    name,
     plannedCents,
     startMonth,
     endMonth,
