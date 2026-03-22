@@ -13,14 +13,23 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { formatBRL } from '@floow/core-finance'
 
+interface CategoryOption {
+  id: string
+  name: string
+  color: string | null
+  icon: string | null
+}
+
 interface EntryForMonth {
   id: string
+  categoryId: string | null
   name: string
   plannedCents: number
 }
 
 interface AllEntry {
   id: string
+  categoryId: string | null
   name: string
   plannedCents: number
   startMonth: string
@@ -28,9 +37,10 @@ interface AllEntry {
 }
 
 interface InvestingClientProps {
+  categories: CategoryOption[]
   entriesForMonth: EntryForMonth[]
   allEntries: AllEntry[]
-  totalContributed: number
+  spending: { categoryId: string | null; spent: number }[]
   selectedMonth: string
 }
 
@@ -47,9 +57,10 @@ function shiftMonth(monthStr: string, delta: number): string {
 }
 
 export function InvestingClient({
+  categories,
   entriesForMonth,
   allEntries,
-  totalContributed,
+  spending,
   selectedMonth,
 }: InvestingClientProps) {
   const router = useRouter()
@@ -62,12 +73,18 @@ export function InvestingClient({
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   // New entry form
-  const [newName, setNewName] = useState('Aporte mensal')
+  const [newCategoryId, setNewCategoryId] = useState('')
   const [newPlanned, setNewPlanned] = useState('')
   const [newStartMonth, setNewStartMonth] = useState(selectedMonth)
   const [newEndMonth, setNewEndMonth] = useState('')
 
+  const spendingMap = new Map(spending.map((s) => [s.categoryId, s.spent]))
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
+  const totalActual = entriesForMonth.reduce((sum, e) => sum + (spendingMap.get(e.categoryId) ?? 0), 0)
+
+  // Categories already used
+  const usedCategoryIds = new Set(allEntries.map((e) => e.categoryId).filter(Boolean))
+  const availableCategories = categories.filter((c) => !usedCategoryIds.has(c.id))
 
   function navigateMonth(delta: number) {
     router.push(`/budgets/investing?month=${shiftMonth(selectedMonth, delta)}`)
@@ -78,9 +95,11 @@ export function InvestingClient({
     setSaving(true)
     try {
       const cents = Math.round(parseFloat(newPlanned.replace(',', '.')) * 100)
+      const cat = categories.find((c) => c.id === newCategoryId)
       const fd = new FormData()
       fd.set('type', 'investing')
-      fd.set('name', newName)
+      fd.set('categoryId', newCategoryId)
+      fd.set('name', cat?.name ?? 'Investimentos')
       fd.set('plannedCents', String(cents))
       fd.set('startMonth', newStartMonth)
       if (newEndMonth) fd.set('endMonth', newEndMonth + '-01')
@@ -88,6 +107,7 @@ export function InvestingClient({
       toast('Lançamento criado')
       setShowAdd(false)
       setNewPlanned('')
+      setNewCategoryId('')
     } catch {
       toast('Erro ao criar lançamento', 'error')
     } finally {
@@ -137,7 +157,7 @@ export function InvestingClient({
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Meta de Investimentos" description="Orçado vs Realizado — Aportes">
+      <PageHeader title="Meta de Investimentos" description="Orçado vs Realizado por categoria">
         <Button variant="outline" size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" /> Novo lançamento
         </Button>
@@ -164,8 +184,18 @@ export function InvestingClient({
             <form onSubmit={handleCreate} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Descrição</label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ex: Aporte mensal" />
+                  <label className="text-xs font-medium text-gray-600">Categoria</label>
+                  <select
+                    value={newCategoryId}
+                    onChange={(e) => setNewCategoryId(e.target.value)}
+                    required
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  >
+                    <option value="">Selecione...</option>
+                    {availableCategories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.icon ?? ''} {c.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Valor mensal (R$)</label>
@@ -196,7 +226,7 @@ export function InvestingClient({
             <CardTitle className="text-base">Resumo — {formatMonth(selectedMonth)}</CardTitle>
           </CardHeader>
           <CardContent>
-            <BudgetProgressBar label="Total aportes" currentCents={totalContributed} limitCents={totalPlanned} invertColors />
+            <BudgetProgressBar label="Total investimentos" currentCents={totalActual} limitCents={totalPlanned} invertColors />
           </CardContent>
         </Card>
       )}
@@ -212,7 +242,7 @@ export function InvestingClient({
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Descrição</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Categoria</th>
                     <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Orçado</th>
                     <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Realizado</th>
                     <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Diferença</th>
@@ -221,22 +251,22 @@ export function InvestingClient({
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {entriesForMonth.map((entry) => {
-                    // For investing, all contributions count toward all entries proportionally
-                    // Simple: if one entry, it gets all contributions
-                    const actual = entriesForMonth.length === 1
-                      ? totalContributed
-                      : Math.round(totalContributed * (entry.plannedCents / totalPlanned))
-                    const diff = entry.plannedCents - actual
+                    const cat = categories.find((c) => c.id === entry.categoryId)
+                    const actual = spendingMap.get(entry.categoryId) ?? 0
+                    const diff = actual - entry.plannedCents
                     const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
                     const isUnder = actual < entry.plannedCents
 
                     return (
                       <tr key={entry.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2.5 text-sm font-medium text-gray-900">{entry.name}</td>
+                        <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
+                          {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                          {cat?.name ?? entry.name}
+                        </td>
                         <td className="px-4 py-2.5 text-sm text-right text-gray-600">{formatBRL(entry.plannedCents)}</td>
                         <td className="px-4 py-2.5 text-sm text-right text-gray-900 font-medium">{formatBRL(actual)}</td>
                         <td className={`px-4 py-2.5 text-sm text-right font-medium ${isUnder ? 'text-red-600' : 'text-green-700'}`}>
-                          {isUnder ? '-' : '+'}{formatBRL(Math.abs(diff))}
+                          {diff >= 0 ? '+' : '-'}{formatBRL(Math.abs(diff))}
                         </td>
                         <td className={`px-4 py-2.5 text-sm text-right font-medium ${pct < 80 ? 'text-red-600' : pct < 100 ? 'text-yellow-600' : 'text-green-700'}`}>
                           {pct}%
@@ -250,12 +280,12 @@ export function InvestingClient({
                     <tr>
                       <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
                       <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-600">{formatBRL(totalPlanned)}</td>
-                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalContributed)}</td>
-                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalContributed < totalPlanned ? 'text-red-600' : 'text-green-700'}`}>
-                        {totalContributed < totalPlanned ? '-' : '+'}{formatBRL(Math.abs(totalPlanned - totalContributed))}
+                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalActual)}</td>
+                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalActual < totalPlanned ? 'text-red-600' : 'text-green-700'}`}>
+                        {totalActual >= totalPlanned ? '+' : '-'}{formatBRL(Math.abs(totalActual - totalPlanned))}
                       </td>
-                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned > 0 && Math.round((totalContributed / totalPlanned) * 100) < 100 ? 'text-red-600' : 'text-green-700'}`}>
-                        {totalPlanned > 0 ? Math.round((totalContributed / totalPlanned) * 100) : 0}%
+                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned > 0 && Math.round((totalActual / totalPlanned) * 100) < 100 ? 'text-red-600' : 'text-green-700'}`}>
+                        {totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0}%
                       </td>
                     </tr>
                   </tfoot>
@@ -284,12 +314,16 @@ export function InvestingClient({
           <CardContent>
             <div className="space-y-2">
               {allEntries.map((entry) => {
+                const cat = categories.find((c) => c.id === entry.categoryId)
                 const isEditing = editingId === entry.id
 
                 if (isEditing) {
                   return (
                     <div key={entry.id} className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
-                      <span className="text-sm font-medium text-gray-900 w-36 truncate">{entry.name}</span>
+                      <span className="text-sm font-medium text-gray-900 w-36 truncate">
+                        {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                        {cat?.name ?? entry.name}
+                      </span>
                       <Input
                         type="text"
                         inputMode="decimal"
@@ -319,7 +353,10 @@ export function InvestingClient({
                 return (
                   <div key={entry.id} className="flex items-center justify-between rounded-lg border px-4 py-2.5">
                     <div>
-                      <span className="text-sm font-medium text-gray-900">{entry.name}</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                        {cat?.name ?? entry.name}
+                      </span>
                       <span className="ml-2 text-sm text-gray-600">{formatBRL(entry.plannedCents)}/mês</span>
                       <span className="ml-2 text-xs text-gray-400">
                         de {formatMonth(entry.startMonth)}
