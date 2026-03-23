@@ -88,22 +88,24 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
     }
   }
 
-  // Investment alerts
-  for (const goal of investingGoals) {
-    const { start, end } = getCurrentPeriodRange(goal.period)
-    const [contributed, adj] = await Promise.all([
-      getInvestmentContributions(orgId, start, end),
-      getAdjustmentTotal(goal.id, start, end),
-    ])
-    const totalContributed = contributed + adj
-    const totalDays = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-    const elapsedDays = Math.max(1, (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-    const expectedPct = (elapsedDays / totalDays) * 100
-    const actualPct = goal.targetCents > 0 ? (totalContributed / goal.targetCents) * 100 : 0
-    if (actualPct < expectedPct * 0.8) {
-      alerts.push({ name: goal.name, currentCents: totalContributed, limitCents: goal.targetCents, href: '/budgets/investing' })
-    }
-  }
+  // Investment alerts — fetch all goals in parallel to avoid sequential waterfall
+  await Promise.all(
+    investingGoals.map(async (goal) => {
+      const { start, end } = getCurrentPeriodRange(goal.period)
+      const [contributed, adj] = await Promise.all([
+        getInvestmentContributions(orgId, start, end),
+        getAdjustmentTotal(goal.id, start, end),
+      ])
+      const totalContributed = contributed + adj
+      const totalDays = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+      const elapsedDays = Math.max(1, (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+      const expectedPct = (elapsedDays / totalDays) * 100
+      const actualPct = goal.targetCents > 0 ? (totalContributed / goal.targetCents) * 100 : 0
+      if (actualPct < expectedPct * 0.8) {
+        alerts.push({ name: goal.name, currentCents: totalContributed, limitCents: goal.targetCents, href: '/budgets/investing' })
+      }
+    })
+  )
 
   return <BudgetAlertCard alerts={alerts} />
 }

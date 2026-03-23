@@ -167,8 +167,9 @@ export const getCategories = cache(async function getCategories(orgId: string) {
 
 /**
  * Returns the most recent patrimony snapshot for the given org, or null if none exists.
+ * Wrapped in React cache() to deduplicate within a single request.
  */
-export async function getLatestSnapshot(orgId: string) {
+export const getLatestSnapshot = cache(async function getLatestSnapshot(orgId: string) {
   const db = getDb()
   const results = await db
     .select()
@@ -178,7 +179,7 @@ export async function getLatestSnapshot(orgId: string) {
     .limit(1)
 
   return results[0] ?? null
-}
+})
 
 /**
  * Returns all categorization rules for the given org, ordered by priority DESC.
@@ -197,8 +198,10 @@ export async function getCategoryRules(orgId: string) {
 /**
  * Returns transactions from the last N months for cash flow chart aggregation.
  * Defaults to 6 months. Ordered by date descending.
+ * Wrapped in React cache() to deduplicate within a single request (e.g., dashboard
+ * calls this twice from StatsSection and ChartSection — cache prevents double DB round-trip).
  */
-export async function getRecentTransactions(orgId: string, months: number = 6) {
+export const getRecentTransactions = cache(async function getRecentTransactions(orgId: string, months: number = 6) {
   const db = getDb()
 
   const cutoff = new Date()
@@ -216,7 +219,7 @@ export async function getRecentTransactions(orgId: string, months: number = 6) {
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff), eq(transactions.isIgnored, false), eq(transactions.balanceApplied, true)))
     .orderBy(desc(transactions.date))
-}
+})
 
 /**
  * Returns future transactions (balance_applied = false) for cash flow projection.

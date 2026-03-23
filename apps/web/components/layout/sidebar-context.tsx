@@ -1,8 +1,8 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback } from 'react'
 
-const STORAGE_KEY = 'floow-sidebar-collapsed'
+export const SIDEBAR_COOKIE_NAME = 'floow-sidebar-collapsed'
 
 interface SidebarContextValue {
   collapsed: boolean
@@ -14,18 +14,24 @@ const SidebarContext = createContext<SidebarContextValue>({
   toggle: () => {},
 })
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false)
+interface SidebarProviderProps {
+  children: React.ReactNode
+  /**
+   * Initial collapsed state, read server-side from a cookie.
+   * Passed as a prop to avoid a client-side useEffect that would
+   * cause a layout flash and hydration mismatch.
+   */
+  defaultCollapsed?: boolean
+}
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'true') setCollapsed(true)
-  }, [])
+export function SidebarProvider({ children, defaultCollapsed = false }: SidebarProviderProps) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
 
   const toggle = useCallback(() => {
     setCollapsed((prev) => {
       const next = !prev
-      localStorage.setItem(STORAGE_KEY, String(next))
+      // Persist to cookie (accessible server-side on next request)
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`
       return next
     })
   }, [])

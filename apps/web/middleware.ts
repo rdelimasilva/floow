@@ -30,7 +30,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  runtime: 'nodejs',
   matcher: [
     /*
      * Match all request paths except:
@@ -38,7 +37,8 @@ export const config = {
      * - _next/image (image optimization)
      * - favicon.ico
      * - api/webhooks (webhooks must not require auth)
+     * - api/reconcile (background reconcile endpoint, auth enforced internally)
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/reconcile).*)',
   ],
 }

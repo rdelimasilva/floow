@@ -1,10 +1,11 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/sidebar'
 import { SidebarLayout } from '@/components/layout/sidebar-layout'
-import { SidebarProvider } from '@/components/layout/sidebar-context'
+import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/providers/toast-provider'
-import { reconcileRecurringBalances } from '@/lib/finance/actions'
+import { ReconcileProvider } from '@/components/providers/reconcile-provider'
 
 export default async function AppLayout({
   children,
@@ -23,22 +24,26 @@ export default async function AppLayout({
   const user = session.user
   const meta = user.user_metadata ?? {}
 
-  // Reconcile recurring transaction balances (short-circuits if nothing pending)
-  await reconcileRecurringBalances()
+  // Read sidebar collapsed state from cookie server-side to avoid client-side
+  // layout flash (prevents hydration mismatch and re-render on mount).
+  const cookieStore = await cookies()
+  const sidebarCollapsed = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === 'true'
 
   return (
     <ToastProvider>
-      <SidebarProvider>
-        <div className="min-h-screen bg-gray-50">
-          <Sidebar
-            userEmail={user.email ?? ''}
-            userName={meta.full_name ?? meta.name ?? null}
-            avatarUrl={meta.avatar_url ?? meta.picture ?? null}
-          />
-          <SidebarLayout>
-            {children}
-          </SidebarLayout>
-        </div>
+      <SidebarProvider defaultCollapsed={sidebarCollapsed}>
+        <ReconcileProvider>
+          <div className="min-h-screen bg-gray-50">
+            <Sidebar
+              userEmail={user.email ?? ''}
+              userName={meta.full_name ?? meta.name ?? null}
+              avatarUrl={meta.avatar_url ?? meta.picture ?? null}
+            />
+            <SidebarLayout>
+              {children}
+            </SidebarLayout>
+          </div>
+        </ReconcileProvider>
       </SidebarProvider>
     </ToastProvider>
   )
