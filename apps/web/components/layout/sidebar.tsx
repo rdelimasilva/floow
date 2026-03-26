@@ -23,6 +23,8 @@ import {
   BarChart3,
   PiggyBank,
   Landmark,
+  HelpCircle,
+  Bot,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -84,10 +86,22 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'Inteligência',
+    items: [
+      { href: '/cfo', label: 'CFO Pessoal', icon: Bot },
+    ],
+  },
+  {
     title: 'Cadastros',
     items: [
       { href: '/accounts', label: 'Contas', icon: Wallet },
       { href: '/categories', label: 'Categorias', icon: Tags },
+    ],
+  },
+  {
+    title: 'Suporte',
+    items: [
+      { href: '/help', label: 'Ajuda', icon: HelpCircle },
     ],
   },
 ]
@@ -101,11 +115,13 @@ function NavLink({
   isActive,
   collapsed,
   onClick,
+  cfoBadgeCount,
 }: {
   item: NavItem
   isActive: boolean
   collapsed: boolean
   onClick?: () => void
+  cfoBadgeCount?: number
 }) {
   return (
     <Link
@@ -123,6 +139,15 @@ function NavLink({
     >
       <item.icon className={cn('shrink-0', collapsed ? 'h-4 w-4 lg:h-5 lg:w-5' : 'h-4 w-4')} />
       <span className={cn(collapsed && 'lg:hidden')}>{item.label}</span>
+
+      {item.href === '/cfo' && cfoBadgeCount !== undefined && cfoBadgeCount > 0 && (
+        <span className={cn(
+          'ml-auto rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700',
+          collapsed && 'lg:hidden',
+        )}>
+          {cfoBadgeCount}
+        </span>
+      )}
 
       {collapsed && (
         <span className="pointer-events-none absolute left-full ml-2 hidden rounded-md bg-popover px-2.5 py-1.5 text-xs font-medium text-popover-foreground shadow-md border lg:group-hover:block z-[60] whitespace-nowrap">
@@ -332,9 +357,10 @@ interface SidebarProps {
   userEmail: string
   userName: string | null
   avatarUrl: string | null
+  cfoBadgeCount?: number
 }
 
-export function Sidebar({ userEmail, userName, avatarUrl }: SidebarProps) {
+export function Sidebar({ userEmail, userName, avatarUrl, cfoBadgeCount }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed, toggle } = useSidebar()
@@ -356,8 +382,7 @@ export function Sidebar({ userEmail, userName, avatarUrl }: SidebarProps) {
   const handleSignOut = useCallback(async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/auth')
-    router.refresh()
+    router.replace('/auth')
   }, [router])
 
   function isActive(href: string) {
@@ -399,27 +424,16 @@ export function Sidebar({ userEmail, userName, avatarUrl }: SidebarProps) {
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        {/* Header: logo + toggle */}
-        <div className="flex h-14 items-center justify-between px-4">
-          <Link
-            href="/dashboard"
-            onClick={closeMobile}
-            className={cn(
-              'text-lg font-semibold tracking-tight',
-              collapsed && 'lg:hidden',
-            )}
-          >
-            Floow
-          </Link>
-
+        {/* Header: toggle + close */}
+        <div className={cn(
+          'flex items-center px-4 pt-3',
+          collapsed ? 'lg:justify-center' : 'justify-end',
+        )}>
           <button
             type="button"
             onClick={toggle}
             aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-            className={cn(
-              'hidden rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors lg:block',
-              collapsed && 'lg:mx-auto',
-            )}
+            className="hidden rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors lg:block"
           >
             {collapsed ? (
               <PanelLeftOpen className="h-4 w-4" />
@@ -436,6 +450,26 @@ export function Sidebar({ userEmail, userName, avatarUrl }: SidebarProps) {
           >
             <X className="h-5 w-5" />
           </button>
+        </div>
+
+        {/* Logo card — hidden when collapsed */}
+        <div className={cn(
+          'mx-3 mt-2 mb-1 overflow-hidden transition-all duration-200',
+          collapsed && 'lg:hidden',
+        )}>
+          <Link
+            href="/dashboard"
+            onClick={closeMobile}
+            className="flex items-center justify-center rounded-xl bg-white border border-gray-100 p-4"
+          >
+            <Image
+              src="https://ak8t3l6j6j.ufs.sh/f/CwfRtcqQB4vVZAAoyfCr1bHQ52TfliXL8pR9wgYu7dBDt3nk"
+              alt="Floow"
+              width={120}
+              height={120}
+              className="shrink-0"
+            />
+          </Link>
         </div>
 
         {/* Navigation sections */}
@@ -459,6 +493,7 @@ export function Sidebar({ userEmail, userName, avatarUrl }: SidebarProps) {
                     isActive={isActive(item.href)}
                     collapsed={collapsed}
                     onClick={closeMobile}
+                    cfoBadgeCount={cfoBadgeCount}
                   />
                 ))}
               </div>

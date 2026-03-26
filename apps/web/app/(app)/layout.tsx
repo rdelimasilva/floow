@@ -6,6 +6,9 @@ import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/providers/toast-provider'
 import { ReconcileProvider } from '@/components/providers/reconcile-provider'
+import { CommandPalette } from '@/components/layout/command-palette'
+import { getInsightBadgeCount } from '@/lib/cfo/queries'
+import { getOrgId } from '@/lib/finance/queries'
 
 export default async function AppLayout({
   children,
@@ -29,15 +32,26 @@ export default async function AppLayout({
   const cookieStore = await cookies()
   const sidebarCollapsed = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === 'true'
 
+  // Fetch CFO badge count (critical/warning insights) for sidebar badge.
+  let cfoBadgeCount: number | undefined
+  try {
+    const orgId = await getOrgId()
+    cfoBadgeCount = await getInsightBadgeCount(orgId)
+  } catch {
+    cfoBadgeCount = undefined
+  }
+
   return (
     <ToastProvider>
       <SidebarProvider defaultCollapsed={sidebarCollapsed}>
         <ReconcileProvider>
           <div className="min-h-screen bg-gray-50">
+            <CommandPalette />
             <Sidebar
               userEmail={user.email ?? ''}
               userName={meta.full_name ?? meta.name ?? null}
               avatarUrl={meta.avatar_url ?? meta.picture ?? null}
+              cfoBadgeCount={cfoBadgeCount}
             />
             <SidebarLayout>
               {children}
