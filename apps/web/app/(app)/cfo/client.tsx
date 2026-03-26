@@ -1,6 +1,7 @@
 'use client'
 
 import { InsightCard } from '@/components/cfo/insight-card'
+import { ChatPanel } from '@/components/cfo/chat-panel'
 import type { CfoInsight, CfoRun } from '@floow/db'
 
 interface CfoClientProps {
@@ -54,6 +55,14 @@ export function CfoClient({ insights, latestRun }: CfoClientProps) {
       {positive.length > 0 && (
         <InsightSection title="Positivo" insights={positive} />
       )}
+
+      {/* Chat Section */}
+      <div className="border-t pt-6">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          Converse com seu Consultor
+        </h3>
+        <ChatPanel />
+      </div>
     </div>
   )
 }
