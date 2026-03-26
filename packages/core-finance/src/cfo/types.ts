@@ -105,3 +105,49 @@ export interface SynthesisOutput {
 export interface LLMProvider {
   synthesize(input: SynthesisInput): Promise<SynthesisOutput>
 }
+
+// -- Chat Types --
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant' | 'tool_result'
+  content: string
+  toolCall?: ToolCall
+  toolResult?: { success: boolean; message: string }
+  createdAt: string
+}
+
+export interface ChatTool {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
+export interface ToolCall {
+  id: string
+  name: string
+  params: Record<string, unknown>
+}
+
+export interface ChatStreamChunk {
+  type: 'text' | 'tool_call' | 'done' | 'error'
+  text?: string
+  toolCall?: ToolCall
+}
+
+export interface ChatResponse {
+  content: string
+  toolCalls: ToolCall[]
+  usage?: { inputTokens: number; outputTokens: number }
+}
+
+export interface ChatProvider extends LLMProvider {
+  streamChat(
+    messages: ChatMessage[],
+    options: {
+      system: string
+      tools?: ChatTool[]
+      onChunk: (chunk: ChatStreamChunk) => void
+    }
+  ): Promise<ChatResponse>
+}
