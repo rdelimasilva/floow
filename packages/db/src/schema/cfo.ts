@@ -73,7 +73,47 @@ export const cfoRuns = pgTable(
   })
 )
 
+export const cfoConversations = pgTable(
+  'cfo_conversations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    title: text('title'),
+    insightId: uuid('insight_id').references(() => cfoInsights.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    idxOrg: index('idx_cfo_conversations_org').on(table.orgId, table.updatedAt),
+  })
+)
+
+export const cfoMessages = pgTable(
+  'cfo_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => cfoConversations.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    content: text('content').notNull(),
+    toolCall: jsonb('tool_call'),
+    toolResult: jsonb('tool_result'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    idxConversation: index('idx_cfo_messages_conversation').on(table.conversationId, table.createdAt),
+  })
+)
+
 export type CfoInsight = typeof cfoInsights.$inferSelect
 export type NewCfoInsight = typeof cfoInsights.$inferInsert
 export type CfoRun = typeof cfoRuns.$inferSelect
 export type NewCfoRun = typeof cfoRuns.$inferInsert
+export type CfoConversation = typeof cfoConversations.$inferSelect
+export type NewCfoConversation = typeof cfoConversations.$inferInsert
+export type CfoMessage = typeof cfoMessages.$inferSelect
+export type NewCfoMessage = typeof cfoMessages.$inferInsert
