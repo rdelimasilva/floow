@@ -88,7 +88,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Inteligência',
     items: [
-      { href: '/cfo', label: 'CFO Pessoal', icon: Bot },
+      { href: '/cfo', label: 'Consultor Financeiro', icon: Bot },
     ],
   },
   {

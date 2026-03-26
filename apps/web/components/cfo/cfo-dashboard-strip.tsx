@@ -15,7 +15,7 @@ export async function CfoDashboardStrip({ orgId }: CfoDashboardStripProps) {
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          CFO Pessoal
+          Consultor Financeiro
         </h2>
         <Link
           href="/cfo"

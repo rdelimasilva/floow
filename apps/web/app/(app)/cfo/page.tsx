@@ -29,7 +29,7 @@ export default async function CfoPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="CFO Pessoal"
+        title="Consultor Financeiro"
         description="Insights diários sobre sua estratégia financeira"
       />
 
