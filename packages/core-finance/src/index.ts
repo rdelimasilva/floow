@@ -18,3 +18,5 @@ export * from './recurring'
 export { generateInstallmentDates } from './recurring-batch'
 // Phase 7 — Fixed assets
 export * from './asset-valuation'
+// Phase 8 — CFO AI Agents
+export * from './cfo/types'
