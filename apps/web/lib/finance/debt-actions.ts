@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getDb, debts, categories } from '@floow/db'
 import { eq, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
+import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
 
 export async function createDebt(formData: FormData) {
   const orgId = await getOrgId()
@@ -29,7 +30,7 @@ export async function createDebt(formData: FormData) {
     categoryId = newCat.id
   }
 
-  await db.insert(debts).values({
+  const [created] = await db.insert(debts).values({
     orgId,
     name,
     type,
@@ -39,10 +40,13 @@ export async function createDebt(formData: FormData) {
     interestRate: interestRate || null,
     startDate,
     categoryId,
-  })
+  }).returning()
 
   revalidatePath('/debts')
   revalidatePath('/dashboard')
+  triggerCfoAnalysis(orgId, 'debt_changed', ['debt', 'retirement'])
+
+  return created
 }
 
 export async function updateDebt(formData: FormData) {
@@ -57,12 +61,16 @@ export async function updateDebt(formData: FormData) {
   const installmentCents = parseInt(formData.get('installmentCents') as string, 10)
   const interestRate = formData.get('interestRate') as string | null
 
-  await db
+  const [updated] = await db
     .update(debts)
     .set({ name, type, totalCents, installments, installmentCents, interestRate: interestRate || null })
     .where(and(eq(debts.id, id), eq(debts.orgId, orgId)))
+    .returning()
 
   revalidatePath('/debts')
+  triggerCfoAnalysis(orgId, 'debt_changed', ['debt', 'retirement'])
+
+  return updated
 }
 
 export async function deleteDebt(formData: FormData) {

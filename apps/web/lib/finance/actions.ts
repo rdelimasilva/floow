@@ -1,14 +1,49 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules, recurringTemplates } from '@floow/db'
 import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema, createRecurringTransactionSchema } from '@floow/shared'
 import { computeSnapshot, matchCategory, generateInstallmentDates, advanceByFrequency } from '@floow/core-finance'
-import { eq, sql, and, or, desc, isNull, ilike, count, max } from 'drizzle-orm'
+import { eq, sql, and, or, desc, isNull, ilike, count, max, inArray } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { getPositions } from '@/lib/investments/queries'
+import {
+  accountsTag,
+  categoriesTag,
+  futureTransactionsTag,
+  investmentsTag,
+  patrimonyHistoryTag,
+  recentTransactionsTag,
+  snapshotsTag,
+  transactionsTag,
+} from '@/lib/cache-tags'
+import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
 
 type Db = ReturnType<typeof getDb>
+
+function revalidateAccountData(orgId: string) {
+  revalidateTag(accountsTag(orgId))
+}
+
+function revalidateTransactionData(orgId: string) {
+  revalidateTag(transactionsTag(orgId))
+  revalidateTag(recentTransactionsTag(orgId, 6))
+  revalidateTag(recentTransactionsTag(orgId, 24))
+  revalidateTag(futureTransactionsTag(orgId, 24))
+}
+
+function revalidateCategoryData(orgId: string) {
+  revalidateTag(categoriesTag(orgId))
+}
+
+function revalidateSnapshotData(orgId: string) {
+  revalidateTag(snapshotsTag(orgId))
+  revalidateTag(patrimonyHistoryTag(orgId, 12))
+}
+
+function revalidateInvestmentData(orgId: string) {
+  revalidateTag(investmentsTag(orgId))
+}
 
 /**
  * Verifies that an account belongs to the given org.
@@ -54,6 +89,7 @@ export async function createAccount(formData: FormData) {
     .returning()
 
   revalidatePath('/accounts')
+  revalidateAccountData(orgId)
 
   return account
 }
@@ -171,6 +207,9 @@ export async function createTransaction(formData: FormData) {
 
     revalidatePath('/transactions')
     revalidatePath('/accounts')
+    revalidateTransactionData(orgId)
+    revalidateAccountData(orgId)
+    triggerCfoAnalysis(orgId, 'transaction_created', ['cash_flow', 'budget', 'behavior'])
 
     return result
   }
@@ -207,6 +246,9 @@ export async function createTransaction(formData: FormData) {
 
   revalidatePath('/transactions')
   revalidatePath('/accounts')
+  revalidateTransactionData(orgId)
+  revalidateAccountData(orgId)
+  triggerCfoAnalysis(orgId, 'transaction_created', ['cash_flow', 'budget', 'behavior'])
 
   return result
 }
@@ -425,6 +467,9 @@ export async function createRecurringTransactions(formData: FormData) {
 
   revalidatePath('/transactions')
   revalidatePath('/accounts')
+  revalidateTransactionData(orgId)
+  revalidateAccountData(orgId)
+  triggerCfoAnalysis(orgId, 'transaction_created', ['cash_flow', 'budget', 'behavior'])
 
   return result
 }
@@ -476,6 +521,7 @@ export async function refreshSnapshot() {
     .returning()
 
   revalidatePath('/dashboard')
+  revalidateSnapshotData(orgId)
 
   return saved
 }
@@ -538,6 +584,9 @@ export async function deleteTransaction(formData: FormData) {
   revalidatePath('/transactions')
   revalidatePath('/accounts')
   revalidatePath('/dashboard')
+  revalidateTransactionData(orgId)
+  revalidateAccountData(orgId)
+  revalidateSnapshotData(orgId)
 }
 
 /**
@@ -581,6 +630,9 @@ export async function toggleIgnoreTransaction(formData: FormData) {
   revalidatePath('/transactions')
   revalidatePath('/accounts')
   revalidatePath('/dashboard')
+  revalidateTransactionData(orgId)
+  revalidateAccountData(orgId)
+  revalidateSnapshotData(orgId)
 }
 
 /**
@@ -659,6 +711,9 @@ export async function updateTransaction(formData: FormData) {
   revalidatePath('/transactions')
   revalidatePath('/accounts')
   revalidatePath('/dashboard')
+  revalidateTransactionData(orgId)
+  revalidateAccountData(orgId)
+  revalidateSnapshotData(orgId)
 }
 
 /**
@@ -693,6 +748,8 @@ export async function updateAccount(formData: FormData) {
 
   revalidatePath('/accounts')
   revalidatePath('/dashboard')
+  revalidateAccountData(orgId)
+  revalidateSnapshotData(orgId)
 
   return updated
 }
@@ -719,6 +776,9 @@ export async function deleteAccount(formData: FormData) {
   revalidatePath('/accounts')
   revalidatePath('/dashboard')
   revalidatePath('/transactions')
+  revalidateAccountData(orgId)
+  revalidateTransactionData(orgId)
+  revalidateSnapshotData(orgId)
 
   return updated
 }
@@ -764,6 +824,8 @@ export async function createCategory(formData: FormData) {
 
   revalidatePath('/categories')
   revalidatePath('/transactions')
+  revalidateCategoryData(orgId)
+  revalidateTransactionData(orgId)
 
   return category
 }
@@ -822,6 +884,8 @@ export async function updateCategory(formData: FormData) {
 
   revalidatePath('/categories')
   revalidatePath('/transactions')
+  revalidateCategoryData(orgId)
+  revalidateTransactionData(orgId)
 
   return updated
 }
@@ -852,6 +916,8 @@ export async function deleteCategory(formData: FormData) {
 
   revalidatePath('/categories')
   revalidatePath('/transactions')
+  revalidateCategoryData(orgId)
+  revalidateTransactionData(orgId)
 }
 
 // ---------------------------------------------------------------------------
@@ -906,6 +972,7 @@ export async function createRule(formData: FormData) {
     .returning()
 
   revalidatePath('/categories')
+  revalidateCategoryData(orgId)
   return rule
 }
 
@@ -964,6 +1031,7 @@ export async function updateRule(formData: FormData) {
     .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
 
   revalidatePath('/categories')
+  revalidateCategoryData(orgId)
 }
 
 /**
@@ -982,6 +1050,7 @@ export async function deleteRule(formData: FormData) {
     .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
 
   revalidatePath('/categories')
+  revalidateCategoryData(orgId)
 }
 
 /**
@@ -1022,6 +1091,7 @@ export async function reorderRule(formData: FormData) {
   })
 
   revalidatePath('/categories')
+  revalidateCategoryData(orgId)
 }
 
 /**
@@ -1049,6 +1119,7 @@ export async function toggleEnabled(formData: FormData) {
     .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
 
   revalidatePath('/categories')
+  revalidateCategoryData(orgId)
 }
 
 /**
@@ -1126,6 +1197,8 @@ export async function bulkRecategorize(formData: FormData): Promise<{ updated: n
 
   revalidatePath('/transactions')
   revalidatePath('/categories')
+  revalidateTransactionData(orgId)
+  revalidateCategoryData(orgId)
 
   return { updated: updated.length }
 }
@@ -1174,6 +1247,8 @@ export async function cancelRecurring(formData: FormData) {
 
   revalidatePath('/transactions')
   revalidatePath('/accounts')
+  revalidateTransactionData(orgId)
+  revalidateAccountData(orgId)
 }
 
 /**
@@ -1220,7 +1295,7 @@ export async function reconcileRecurringBalances() {
       )
     )
 
-  // Group by account
+  // Group by account and apply in bulk to avoid N update statements.
   const deltaByAccount = new Map<string, number>()
   const txIds: string[] = []
   for (const tx of pendingTxs) {
@@ -1229,20 +1304,116 @@ export async function reconcileRecurringBalances() {
   }
 
   await db.transaction(async (dbTx) => {
-    // Apply balance deltas
-    for (const [accountId, delta] of deltaByAccount) {
+    const deltas = Array.from(deltaByAccount.entries())
+    if (deltas.length > 0) {
+      const cases = sql.join(
+        deltas.map(([accountId, delta]) => sql`WHEN ${accounts.id} = ${accountId} THEN ${delta}`),
+        sql.raw(' ')
+      )
+      const ids = deltas.map(([accountId]) => accountId)
+
       await dbTx
         .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${delta}` })
-        .where(eq(accounts.id, accountId))
+        .set({ balanceCents: sql`${accounts.balanceCents} + CASE ${cases} ELSE 0 END` })
+        .where(inArray(accounts.id, ids))
     }
 
-    // Mark all as applied
-    for (const txId of txIds) {
-      await dbTx
-        .update(transactions)
-        .set({ balanceApplied: true })
-        .where(eq(transactions.id, txId))
+    await dbTx
+      .update(transactions)
+      .set({ balanceApplied: true })
+      .where(inArray(transactions.id, txIds))
+  })
+
+  revalidateTransactionData(orgId)
+  revalidateAccountData(orgId)
+  revalidateSnapshotData(orgId)
+  revalidateInvestmentData(orgId)
+}
+
+// ---------------------------------------------------------------------------
+// Bulk operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Bulk delete transactions by IDs. Reverses balance for each and handles transfers.
+ */
+export async function bulkDeleteTransactions(ids: string[]) {
+  if (ids.length === 0) return
+
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const txRows = await db
+    .select()
+    .from(transactions)
+    .where(and(inArray(transactions.id, ids), eq(transactions.orgId, orgId)))
+
+  if (txRows.length === 0) return
+
+  // Collect all transfer group IDs to delete both legs
+  const transferGroupIds = new Set(txRows.filter((t) => t.transferGroupId).map((t) => t.transferGroupId!))
+  const standaloneIds = txRows.filter((t) => !t.transferGroupId).map((t) => t.id)
+
+  await db.transaction(async (dbTx) => {
+    // Handle transfers (both legs)
+    for (const groupId of transferGroupIds) {
+      const legs = await dbTx.select().from(transactions)
+        .where(and(eq(transactions.transferGroupId, groupId), eq(transactions.orgId, orgId)))
+
+      for (const leg of legs) {
+        if (leg.balanceApplied) {
+          await dbTx.update(accounts)
+            .set({ balanceCents: sql`balance_cents + ${-leg.amountCents}` })
+            .where(eq(accounts.id, leg.accountId))
+        }
+      }
+
+      await dbTx.delete(transactions)
+        .where(and(eq(transactions.transferGroupId, groupId), eq(transactions.orgId, orgId)))
+    }
+
+    // Handle standalone transactions
+    if (standaloneIds.length > 0) {
+      const standalone = txRows.filter((t) => !t.transferGroupId && t.balanceApplied)
+      // Reverse balances grouped by account
+      const deltaByAccount = new Map<string, number>()
+      for (const t of standalone) {
+        deltaByAccount.set(t.accountId, (deltaByAccount.get(t.accountId) ?? 0) - t.amountCents)
+      }
+      for (const [accountId, delta] of deltaByAccount) {
+        if (delta !== 0) {
+          await dbTx.update(accounts)
+            .set({ balanceCents: sql`balance_cents + ${delta}` })
+            .where(eq(accounts.id, accountId))
+        }
+      }
+
+      await dbTx.delete(transactions)
+        .where(and(inArray(transactions.id, standaloneIds), eq(transactions.orgId, orgId)))
     }
   })
+
+  revalidatePath('/transactions')
+  revalidatePath('/accounts')
+  revalidateTransactionData(orgId)
+  revalidateAccountData(orgId)
+  revalidateSnapshotData(orgId)
+}
+
+/**
+ * Bulk update category for transactions by IDs.
+ */
+export async function bulkCategorizeTransactions(ids: string[], categoryId: string | null) {
+  if (ids.length === 0) return
+
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  await db
+    .update(transactions)
+    .set({ categoryId, isAutoCategorized: false })
+    .where(and(inArray(transactions.id, ids), eq(transactions.orgId, orgId)))
+
+  revalidatePath('/transactions')
+  revalidateTransactionData(orgId)
 }

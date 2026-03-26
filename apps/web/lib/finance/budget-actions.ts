@@ -1,9 +1,17 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getDb, budgetGoals, budgetEntries, budgetAdjustments } from '@floow/db'
 import { eq, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
+import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
+import {
+  budgetEntriesTag,
+  budgetGoalsTag,
+  budgetInvestingTag,
+  budgetSpendingTag,
+  snapshotsTag,
+} from '@/lib/cache-tags'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,6 +42,16 @@ function revalidateBudgetPaths() {
   revalidatePath('/budgets/spending')
   revalidatePath('/budgets/investing')
   revalidatePath('/dashboard')
+}
+
+function revalidateBudgetData(orgId: string) {
+  revalidateTag(budgetGoalsTag(orgId, 'spending'))
+  revalidateTag(budgetGoalsTag(orgId, 'investing'))
+  revalidateTag(budgetEntriesTag(orgId, 'spending'))
+  revalidateTag(budgetEntriesTag(orgId, 'investing'))
+  revalidateTag(budgetSpendingTag(orgId))
+  revalidateTag(budgetInvestingTag(orgId))
+  revalidateTag(snapshotsTag(orgId))
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +106,8 @@ export async function upsertBudgetGoal(formData: FormData) {
   }
 
   revalidateBudgetPaths()
+  revalidateBudgetData(orgId)
+  triggerCfoAnalysis(orgId, 'budget_changed', ['budget'])
 }
 
 /**
@@ -105,6 +125,7 @@ export async function deleteBudgetGoal(formData: FormData) {
   await db.delete(budgetGoals).where(eq(budgetGoals.id, id))
 
   revalidateBudgetPaths()
+  revalidateBudgetData(orgId)
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +156,8 @@ export async function createBudgetEntry(formData: FormData) {
   })
 
   revalidateBudgetPaths()
+  revalidateBudgetData(orgId)
+  triggerCfoAnalysis(orgId, 'budget_changed', ['budget'])
 }
 
 /** Update an existing budget entry. */
@@ -153,6 +176,8 @@ export async function updateBudgetEntry(formData: FormData) {
     .where(and(eq(budgetEntries.id, id), eq(budgetEntries.orgId, orgId)))
 
   revalidateBudgetPaths()
+  revalidateBudgetData(orgId)
+  triggerCfoAnalysis(orgId, 'budget_changed', ['budget'])
 }
 
 /** Delete a budget entry. */
@@ -164,6 +189,7 @@ export async function deleteBudgetEntry(formData: FormData) {
   await db.delete(budgetEntries).where(and(eq(budgetEntries.id, id), eq(budgetEntries.orgId, orgId)))
 
   revalidateBudgetPaths()
+  revalidateBudgetData(orgId)
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +220,8 @@ export async function createAdjustment(formData: FormData) {
   })
 
   revalidateBudgetPaths()
+  revalidateBudgetData(orgId)
+  triggerCfoAnalysis(orgId, 'budget_changed', ['budget'])
 }
 
 /**
@@ -222,4 +250,5 @@ export async function deleteAdjustment(formData: FormData) {
   await db.delete(budgetAdjustments).where(eq(budgetAdjustments.id, id))
 
   revalidateBudgetPaths()
+  revalidateBudgetData(orgId)
 }

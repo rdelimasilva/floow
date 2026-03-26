@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import {
   getDb,
   assets,
@@ -12,8 +12,40 @@ import {
 import { createAssetSchema, createPortfolioEventSchema, updateAssetSchema, updatePortfolioEventSchema } from '@floow/shared'
 import { eq, and, sql } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
+import { recomputeAssetPositionSnapshot } from './position-snapshots'
+import {
+  accountsTag,
+  incomeEventsTag,
+  investmentsTag,
+  patrimonyHistoryTag,
+  priceHistoryTag,
+  pricesTag,
+  recentTransactionsTag,
+  snapshotsTag,
+  transactionsTag,
+} from '@/lib/cache-tags'
+import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
 
 type Db = ReturnType<typeof getDb>
+
+function revalidateInvestmentData(orgId: string) {
+  revalidateTag(investmentsTag(orgId))
+}
+
+function revalidatePriceData(orgId: string, assetId?: string) {
+  revalidateTag(pricesTag(orgId))
+  if (assetId) revalidateTag(priceHistoryTag(orgId, assetId))
+}
+
+function revalidateCrossModuleData(orgId: string) {
+  revalidateTag(transactionsTag(orgId))
+  revalidateTag(recentTransactionsTag(orgId, 6))
+  revalidateTag(recentTransactionsTag(orgId, 24))
+  revalidateTag(accountsTag(orgId))
+  revalidateTag(snapshotsTag(orgId))
+  revalidateTag(patrimonyHistoryTag(orgId, 12))
+  revalidateTag(incomeEventsTag(orgId, 12))
+}
 
 /**
  * Verifies that an asset belongs to the given org.
@@ -95,6 +127,7 @@ export async function createAsset(formData: FormData) {
     .returning()
 
   revalidatePath('/investments')
+  revalidateInvestmentData(orgId)
 
   return asset
 }
@@ -198,16 +231,22 @@ export async function createPortfolioEvent(formData: FormData) {
         .set({ transactionId: txRow.id })
         .where(eq(portfolioEvents.id, event.id))
     }
+
+    await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, input.assetId)
   })
 
   revalidatePath('/investments')
   revalidatePath('/investments/dashboard')
   revalidatePath('/investments/income')
+  revalidateInvestmentData(orgId)
 
   if (cashFlowMapping && input.totalCents) {
     revalidatePath('/dashboard')
     revalidatePath('/transactions')
+    revalidateCrossModuleData(orgId)
   }
+
+  triggerCfoAnalysis(orgId, 'portfolio_event_created', ['investment'])
 }
 
 /**
@@ -230,15 +269,21 @@ export async function updateAssetPrice(formData: FormData) {
   // Verify the asset belongs to the user's org before writing
   await assertAssetOwnership(db, assetId, orgId)
 
-  await db.insert(assetPrices).values({
-    orgId,
-    assetId,
-    priceDate,
-    priceCents,
+  await db.transaction(async (tx) => {
+    await tx.insert(assetPrices).values({
+      orgId,
+      assetId,
+      priceDate,
+      priceCents,
+    })
+
+    await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, assetId)
   })
 
   revalidatePath('/investments')
   revalidatePath('/investments/dashboard')
+  revalidateInvestmentData(orgId)
+  revalidatePriceData(orgId, assetId)
 }
 
 /**
@@ -295,6 +340,9 @@ export async function deleteAsset(formData: FormData) {
   revalidatePath('/dashboard')
   revalidatePath('/transactions')
   revalidatePath('/accounts')
+  revalidateInvestmentData(orgId)
+  revalidatePriceData(orgId, assetId)
+  revalidateCrossModuleData(orgId)
 }
 
 /**
@@ -331,6 +379,7 @@ export async function updateAsset(formData: FormData) {
 
   revalidatePath('/investments')
   revalidatePath('/investments/dashboard')
+  revalidateInvestmentData(orgId)
 
   return updated
 }
@@ -379,6 +428,8 @@ export async function deletePortfolioEvent(formData: FormData) {
     await tx
       .delete(portfolioEvents)
       .where(and(eq(portfolioEvents.id, eventId), eq(portfolioEvents.orgId, orgId)))
+
+    await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, event.assetId)
   })
 
   revalidatePath('/investments')
@@ -387,6 +438,8 @@ export async function deletePortfolioEvent(formData: FormData) {
   revalidatePath('/dashboard')
   revalidatePath('/transactions')
   revalidatePath('/accounts')
+  revalidateInvestmentData(orgId)
+  revalidateCrossModuleData(orgId)
 }
 
 /**
@@ -432,6 +485,7 @@ export async function updatePortfolioEvent(formData: FormData) {
   if (!existing) throw new Error('Portfolio event not found')
 
   const cashFlowMapping = CASH_FLOW_EVENT_TYPES[input.eventType]
+  const oldAssetId = existing.assetId
 
   await db.transaction(async (tx) => {
     // 0. Verify ownership of asset and account before any write
@@ -511,6 +565,11 @@ export async function updatePortfolioEvent(formData: FormData) {
         .set({ transactionId: txRow.id })
         .where(eq(portfolioEvents.id, input.id))
     }
+
+    await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, input.assetId)
+    if (oldAssetId !== input.assetId) {
+      await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, oldAssetId)
+    }
   })
 
   revalidatePath('/investments')
@@ -519,4 +578,7 @@ export async function updatePortfolioEvent(formData: FormData) {
   revalidatePath('/dashboard')
   revalidatePath('/transactions')
   revalidatePath('/accounts')
+  revalidateInvestmentData(orgId)
+  revalidatePriceData(orgId, input.assetId)
+  revalidateCrossModuleData(orgId)
 }
