@@ -3,7 +3,7 @@ import { updateSession } from '@/lib/supabase/middleware'
 
 // Public routes that do NOT require authentication.
 // Protect all routes by default — only explicitly listed paths are accessible without auth.
-const publicRoutes = ['/auth', '/api/webhooks', '/api/cfo']
+const publicRoutes = ['/auth', '/api/webhooks', '/api/cfo/run-daily', '/api/cfo/run-event']
 
 function isPublicRoute(pathname: string): boolean {
   if (pathname === '/') return true
@@ -39,6 +39,6 @@ export const config = {
      * - api/webhooks (webhooks must not require auth)
      * - api/reconcile (background reconcile endpoint, auth enforced internally)
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/reconcile|api/cfo).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/reconcile|api/cfo/run-).*)',
   ],
 }
