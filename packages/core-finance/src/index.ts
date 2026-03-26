@@ -20,3 +20,4 @@ export { generateInstallmentDates } from './recurring-batch'
 export * from './asset-valuation'
 // Phase 8 — CFO AI Agents
 export * from './cfo/types'
+export * from './cfo/analyzers'
