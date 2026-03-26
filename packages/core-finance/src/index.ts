@@ -21,3 +21,5 @@ export * from './asset-valuation'
 // Phase 8 — CFO AI Agents
 export * from './cfo/types'
 export * from './cfo/analyzers'
+export { createAnthropicProvider } from './cfo/llm/anthropic'
+export { synthesizeInsights } from './cfo/llm/synthesizer'
