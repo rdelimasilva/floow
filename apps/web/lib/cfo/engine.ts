@@ -24,6 +24,8 @@ import { eq, and, gte, desc } from 'drizzle-orm'
 import {
   aggregateCashFlow,
   runAnalyzers,
+  createAnthropicProvider,
+  synthesizeInsights,
   type AllAnalyzerInputs,
   type InsightCategory,
 } from '@floow/core-finance'
@@ -370,6 +372,45 @@ export async function runCfoEngine(
     // -----------------------------------------------------------------------
 
     const insights = runAnalyzers(inputs, categories)
+
+    // -----------------------------------------------------------------------
+    // Step 3b — LLM synthesis (optional, requires ANTHROPIC_API_KEY)
+    // -----------------------------------------------------------------------
+
+    let dailySummary: string | null = null
+
+    if (insights.length > 0 && process.env.ANTHROPIC_API_KEY) {
+      const provider = createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+      // Build financial context from the inputs we already fetched
+      const financialContext = {
+        monthlyIncome: inputs.cashFlow?.monthlyTotals[0]?.income ?? 0,
+        monthlyExpenses: Math.abs(inputs.cashFlow?.monthlyTotals[0]?.expense ?? 0),
+        netWorth: inputs.patrimony?.snapshots[0]?.netWorth ?? 0,
+        debtTotal: inputs.debt?.debts.reduce((s, d) => s + d.balance, 0) ?? 0,
+        investmentTotal: inputs.investment?.totalInvested ?? 0,
+        savingsRate: inputs.retirement?.currentSavingsRate ?? 0,
+        topCategories: [] as { name: string; amount: number }[],
+      }
+
+      const result = await synthesizeInsights(provider, insights, financialContext)
+
+      if (result) {
+        // Merge LLM text into insights (1:1 by index)
+        for (let i = 0; i < insights.length; i++) {
+          const llmInsight = result.synthesized.prioritizedInsights[i]
+          if (llmInsight) {
+            insights[i] = { ...insights[i], title: llmInsight.title, body: llmInsight.body }
+          }
+        }
+        dailySummary = result.synthesized.dailySummary
+
+        await db
+          .update(cfoRuns)
+          .set({ llmCalled: true, dailySummary })
+          .where(eq(cfoRuns.id, run.id))
+      }
+    }
 
     // -----------------------------------------------------------------------
     // Step 4 — Save insights
