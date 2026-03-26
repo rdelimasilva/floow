@@ -20,7 +20,7 @@ import {
   cfoInsights,
   cfoRuns,
 } from '@floow/db'
-import { eq, and, gte, desc } from 'drizzle-orm'
+import { eq, and, gte, gt, desc, sql } from 'drizzle-orm'
 import {
   aggregateCashFlow,
   runAnalyzers,
@@ -75,10 +75,28 @@ export async function runCfoEngine(
   const now = new Date()
 
   // -------------------------------------------------------------------------
-  // Step 1 — Insert cfo_runs row (debounce via onConflictDoNothing)
+  // Step 1 — Debounce check + insert cfo_runs row
   // -------------------------------------------------------------------------
 
   const runType = categories ? categories.join(',') : 'full'
+
+  // Debounce: skip if same (org, triggerEvent) ran in the last 5 minutes
+  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000)
+  const [recentRun] = await db
+    .select({ id: cfoRuns.id })
+    .from(cfoRuns)
+    .where(
+      and(
+        eq(cfoRuns.orgId, orgId),
+        eq(cfoRuns.triggerEvent, triggerEvent),
+        gt(cfoRuns.startedAt, fiveMinutesAgo),
+      )
+    )
+    .limit(1)
+
+  if (recentRun) {
+    return { insightsGenerated: 0, runId: '' }
+  }
 
   const [run] = await db
     .insert(cfoRuns)
@@ -98,10 +116,8 @@ export async function runCfoEngine(
       ],
       insightsGenerated: 0,
     })
-    .onConflictDoNothing()
     .returning({ id: cfoRuns.id })
 
-  // If onConflictDoNothing silently dropped the insert, bail out early
   if (!run) {
     return { insightsGenerated: 0, runId: '' }
   }

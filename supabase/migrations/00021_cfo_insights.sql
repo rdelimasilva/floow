@@ -37,7 +37,7 @@ CREATE POLICY "cfo_insights_delete" ON cfo_insights FOR DELETE TO authenticated
 
 CREATE INDEX idx_cfo_insights_org_active
   ON cfo_insights (org_id, severity, generated_at DESC)
-  WHERE dismissed_at IS NULL AND expires_at > now();
+  WHERE dismissed_at IS NULL;
 
 -- CFO Runs table
 CREATE TABLE cfo_runs (
@@ -67,6 +67,6 @@ CREATE POLICY "cfo_runs_insert" ON cfo_runs FOR INSERT TO authenticated
 CREATE INDEX idx_cfo_runs_org_latest
   ON cfo_runs (org_id, run_type, started_at DESC);
 
-CREATE UNIQUE INDEX idx_cfo_runs_debounce
-  ON cfo_runs (org_id, trigger_event)
-  WHERE started_at > now() - interval '5 minutes';
+-- Debounce is handled in application code (query before insert)
+-- instead of a partial unique index, because PostgreSQL requires
+-- IMMUTABLE functions in index predicates and now() is STABLE.
