@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
-import { getOrgId, getAccounts, getRecentTransactions, getLatestSnapshot } from '@/lib/finance/queries'
+import { getOrgId, getAccounts, getRecentTransactions, getLatestSnapshot, getTransactionsWithCount } from '@/lib/finance/queries'
 import { refreshSnapshot } from '@/lib/finance/actions'
 import { aggregateCashFlow } from '@floow/core-finance'
 import { AccountSummaryRow } from '@/components/finance/account-summary-row'
@@ -9,9 +9,24 @@ import { PatrimonySummary } from '@/components/finance/patrimony-summary'
 import { CashFlowChart } from '@/components/finance/cash-flow-chart'
 import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getBudgetGoals, getBudgetEntriesForMonth, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotal, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
+import { getBudgetGoals, getBudgetEntriesForMonth, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotalsForGoals, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
+import { WelcomeCard } from '@/components/finance/welcome-card'
+import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
 
 // -- Async sub-components for Suspense streaming ----------------------------
+
+async function OnboardingSection({ orgId }: { orgId: string }) {
+  const [userAccounts, { totalCount }] = await Promise.all([
+    getAccounts(orgId),
+    getTransactionsWithCount(orgId, { limit: 1 }),
+  ])
+  return (
+    <WelcomeCard
+      hasAccounts={userAccounts.length > 0}
+      hasTransactions={totalCount > 0}
+    />
+  )
+}
 
 async function AccountSection({ orgId }: { orgId: string }) {
   const userAccounts = await getAccounts(orgId)
@@ -78,7 +93,6 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
   const alerts: { name: string; currentCents: number; limitCents: number; href: string }[] = []
 
   // Spending alerts from budget entries
-  const spendingMap = new Map(spendingData.map((s) => [s.categoryId, s.spent]))
   const totalPlanned = budgetEntriesData.reduce((sum, e) => sum + e.plannedCents, 0)
   const totalSpent = spendingData.reduce((sum, s) => sum + s.spent, 0)
   if (totalPlanned > 0) {
@@ -88,21 +102,30 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
     }
   }
 
-  // Investment alerts — fetch all goals in parallel to avoid sequential waterfall
+  const goalsByPeriod = new Map<string, typeof investingGoals>()
+  for (const goal of investingGoals) {
+    const periodGoals = goalsByPeriod.get(goal.period) ?? []
+    periodGoals.push(goal)
+    goalsByPeriod.set(goal.period, periodGoals)
+  }
+
   await Promise.all(
-    investingGoals.map(async (goal) => {
-      const { start, end } = getCurrentPeriodRange(goal.period)
-      const [contributed, adj] = await Promise.all([
+    Array.from(goalsByPeriod.entries()).map(async ([period, goals]) => {
+      const { start, end } = getCurrentPeriodRange(period)
+      const [contributed, adjustmentTotals] = await Promise.all([
         getInvestmentContributions(orgId, start, end),
-        getAdjustmentTotal(goal.id, start, end),
+        getAdjustmentTotalsForGoals(goals.map((goal) => goal.id), start, end),
       ])
-      const totalContributed = contributed + adj
-      const totalDays = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-      const elapsedDays = Math.max(1, (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-      const expectedPct = (elapsedDays / totalDays) * 100
-      const actualPct = goal.targetCents > 0 ? (totalContributed / goal.targetCents) * 100 : 0
-      if (actualPct < expectedPct * 0.8) {
-        alerts.push({ name: goal.name, currentCents: totalContributed, limitCents: goal.targetCents, href: '/budgets/investing' })
+
+      for (const goal of goals) {
+        const totalContributed = contributed + (adjustmentTotals.get(goal.id) ?? 0)
+        const totalDays = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+        const elapsedDays = Math.max(1, (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+        const expectedPct = (elapsedDays / totalDays) * 100
+        const actualPct = goal.targetCents > 0 ? (totalContributed / goal.targetCents) * 100 : 0
+        if (actualPct < expectedPct * 0.8) {
+          alerts.push({ name: goal.name, currentCents: totalContributed, limitCents: goal.targetCents, href: '/budgets/investing' })
+        }
       }
     })
   )
@@ -129,6 +152,11 @@ export default async function DashboardPage() {
         description="Visão geral do seu patrimônio e fluxo de caixa"
       />
 
+      {/* Onboarding — auto-hides once steps are completed */}
+      <Suspense fallback={null}>
+        <OnboardingSection orgId={orgId} />
+      </Suspense>
+
       {/* Stats Row */}
       <Suspense fallback={<SectionSkeleton />}>
         <StatsSection orgId={orgId} />
@@ -137,6 +165,11 @@ export default async function DashboardPage() {
       {/* Budget Alerts */}
       <Suspense fallback={null}>
         <BudgetAlertSection orgId={orgId} />
+      </Suspense>
+
+      {/* CFO Insights */}
+      <Suspense fallback={<SectionSkeleton />}>
+        <CfoDashboardStrip orgId={orgId} />
       </Suspense>
 
       {/* Chart + Accounts Grid */}
