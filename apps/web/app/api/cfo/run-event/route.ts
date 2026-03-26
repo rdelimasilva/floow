@@ -17,12 +17,12 @@ export async function POST(request: Request) {
       analyzers: InsightCategory[]
     }
 
-    const count = await runCfoEngine(orgId, {
+    const result = await runCfoEngine(orgId, {
       triggerEvent: event,
       categories: analyzers,
     })
 
-    return NextResponse.json({ ok: true, insights: count })
+    return NextResponse.json({ ok: true, insights: result.insightsGenerated })
   } catch (err) {
     console.error('[CFO] Event run failed:', err)
     return NextResponse.json({ error: 'Event run failed' }, { status: 500 })

@@ -28,10 +28,12 @@ export async function POST(request: Request) {
       const batch = activeOrgs.slice(i, i + batchSize)
       const results = await Promise.all(
         batch.map((row) =>
-          runCfoEngine(row.orgId).catch((err) => {
-            console.error(`[CFO] Daily run failed for org=${row.orgId}:`, err)
-            return 0
-          })
+          runCfoEngine(row.orgId)
+            .then((r) => r.insightsGenerated)
+            .catch((err) => {
+              console.error(`[CFO] Daily run failed for org=${row.orgId}:`, err)
+              return 0
+            })
         )
       )
       totalInsights += results.reduce((s, n) => s + n, 0)
