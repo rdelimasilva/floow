@@ -50,6 +50,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Principal',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/cfo', label: 'Consultor Financeiro', icon: Bot },
     ],
   },
   {
@@ -83,12 +84,6 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Planejamento',
     items: [
       { href: '/planning', label: 'Planejamento', icon: Target },
-    ],
-  },
-  {
-    title: 'Inteligência',
-    items: [
-      { href: '/cfo', label: 'Consultor Financeiro', icon: Bot },
     ],
   },
   {
