@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, ChevronUp, X, AlertTriangle, AlertCircle, Info, CheckCircle2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, X, AlertTriangle, AlertCircle, Info, CheckCircle2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { dismissInsight, markInsightActedOn } from '@/lib/cfo/actions'
+import { ChatPanel } from './chat-panel'
 import type { CfoInsight } from '@floow/db'
 
 const SEVERITY_CONFIG = {
@@ -54,6 +55,7 @@ interface InsightCardProps {
 export function InsightCard({ insight, compact = false }: InsightCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
   const router = useRouter()
 
   const config = SEVERITY_CONFIG[insight.severity as keyof typeof SEVERITY_CONFIG] ?? SEVERITY_CONFIG.info
@@ -125,6 +127,15 @@ export function InsightCard({ insight, compact = false }: InsightCardProps) {
           </div>
         )}
 
+        {!compact && (
+          <div className="mt-2">
+            <Button size="sm" variant="ghost" onClick={() => setChatOpen(!chatOpen)}>
+              <MessageCircle className="h-3 w-3 mr-1" />
+              {chatOpen ? 'Fechar chat' : 'Conversar'}
+            </Button>
+          </div>
+        )}
+
         {compact && insight.suggestedActionType && (
           <Button
             size="sm"
@@ -134,6 +145,22 @@ export function InsightCard({ insight, compact = false }: InsightCardProps) {
           >
             {getActionLabel(insight.suggestedActionType)} &rarr;
           </Button>
+        )}
+
+        {compact && (
+          <Button
+            size="sm"
+            variant="link"
+            className="mt-1 h-auto p-0 text-xs"
+            onClick={() => setChatOpen(!chatOpen)}
+          >
+            <MessageCircle className="h-3 w-3 mr-1" />
+            {chatOpen ? 'Fechar' : 'Conversar'}
+          </Button>
+        )}
+
+        {chatOpen && (
+          <ChatPanel insightId={insight.id} className="mt-3 pt-3 border-t" />
         )}
       </CardContent>
     </Card>
