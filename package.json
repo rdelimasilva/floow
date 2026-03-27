@@ -8,9 +8,7 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test"
   },
-  "dependencies": {
-    "@netlify/plugin-nextjs": "5.8.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "turbo": "^2.8.0",
     "typescript": "^5.7.0",
