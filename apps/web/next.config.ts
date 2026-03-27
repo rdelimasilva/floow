@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   transpilePackages: ['@floow/db', '@floow/shared', '@floow/core-finance'],
   images: {
     remotePatterns: [
