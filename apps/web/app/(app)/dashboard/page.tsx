@@ -11,7 +11,7 @@ import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBudgetGoals, getBudgetEntriesForMonth, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotalsForGoals, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
 import { WelcomeCard } from '@/components/finance/welcome-card'
-import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
+// import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
 
 // -- Async sub-components for Suspense streaming ----------------------------
 
@@ -165,11 +165,6 @@ export default async function DashboardPage() {
       {/* Budget Alerts */}
       <Suspense fallback={null}>
         <BudgetAlertSection orgId={orgId} />
-      </Suspense>
-
-      {/* CFO Insights */}
-      <Suspense fallback={<SectionSkeleton />}>
-        <CfoDashboardStrip orgId={orgId} />
       </Suspense>
 
       {/* Chart + Accounts Grid */}
