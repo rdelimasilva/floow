@@ -7,5 +7,4 @@
   publish = "apps/web/.next"
 
 [build.environment]
-  NODE_VERSION = "22"
-  AWS_LAMBDA_JS_RUNTIME = "nodejs22.x"
+  NODE_VERSION = "20"
