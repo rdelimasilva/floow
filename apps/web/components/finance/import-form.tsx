@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { parseOFXFile, parseCSVFile, type NormalizedTransaction, type CsvColumnMapping } from '@floow/core-finance'
 import type { Account } from '@floow/db'
-import { previewImport, importSelectedTransactions, type PreviewItem } from '@/lib/finance/import-actions'
+import { previewImport, importSelectedTransactions, type PreviewItem, type TransactionOverride } from '@/lib/finance/import-actions'
 import { ImportPreview } from './import-preview'
+import { ImportReview } from './import-review'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,7 +27,7 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Step = 'select-file' | 'preview' | 'reconciliation' | 'importing' | 'done'
+type Step = 'select-file' | 'preview' | 'reconciliation' | 'review' | 'importing' | 'done'
 
 interface ImportDoneResult {
   imported: number
@@ -59,13 +60,30 @@ function formatDate(date: Date): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-interface ImportFormProps {
-  accounts: Account[]
+interface CategoryOption {
+  id: string
+  name: string
+  type: string
 }
 
-export function ImportForm({ accounts }: ImportFormProps) {
+interface ImportFormProps {
+  accounts: Account[]
+  categories: CategoryOption[]
+}
+
+const LAST_ACCOUNT_KEY = 'floow:import-last-account'
+
+export function ImportForm({ accounts, categories }: ImportFormProps) {
   const [step, setStep] = useState<Step>('select-file')
   const [selectedAccountId, setSelectedAccountId] = useState<string>('')
+
+  // Restore last used account from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(LAST_ACCOUNT_KEY)
+    if (saved && accounts.some((a) => a.id === saved)) {
+      setSelectedAccountId(saved)
+    }
+  }, [accounts])
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<NormalizedTransaction[]>([])
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
@@ -80,6 +98,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
   const [result, setResult] = useState<ImportDoneResult | null>(null)
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([])
   const [reconciling, setReconciling] = useState(false)
+  const [reviewSelectedIndices, setReviewSelectedIndices] = useState<number[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ── File selection handler ─────────────────────────────────────────────────
@@ -174,7 +193,12 @@ export function ImportForm({ accounts }: ImportFormProps) {
     }
   }
 
-  async function handleImportSelected(selectedIndices: number[]) {
+  function handleGoToReview(selectedIndices: number[]) {
+    setReviewSelectedIndices(selectedIndices)
+    setStep('review')
+  }
+
+  async function handleFinalImport(selectedIndices: number[], overrides: TransactionOverride[]) {
     if (!selectedFile || !selectedAccountId) return
     setReconciling(true)
     setStep('importing')
@@ -185,6 +209,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
       formData.set('file', selectedFile)
       formData.set('accountId', selectedAccountId)
       formData.set('selectedIndices', JSON.stringify(selectedIndices))
+      formData.set('overrides', JSON.stringify(overrides))
 
       const isCSV = !selectedFile.name.toLowerCase().endsWith('.ofx')
       if (isCSV) {
@@ -199,7 +224,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
       setStep('done')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao importar transações')
-      setStep('reconciliation')
+      setStep('review')
     } finally {
       setReconciling(false)
     }
@@ -216,6 +241,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
     setError(null)
     setResult(null)
     setPreviewItems([])
+    setReviewSelectedIndices([])
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -242,7 +268,7 @@ export function ImportForm({ accounts }: ImportFormProps) {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Conta de destino</label>
-              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+              <Select value={selectedAccountId} onValueChange={(v) => { setSelectedAccountId(v); localStorage.setItem(LAST_ACCOUNT_KEY, v) }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma conta" />
                 </SelectTrigger>
@@ -275,8 +301,12 @@ export function ImportForm({ accounts }: ImportFormProps) {
                   disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <p className="text-xs text-gray-500">
-                Suportamos arquivos OFX (Itau, Bradesco, BB) e CSV (qualquer banco).
+                Suportamos arquivos OFX (Itaú, Bradesco, BB) e CSV (qualquer banco).
               </p>
+            </div>
+
+            <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
+              Importação anterior incompleta? Selecione o mesmo arquivo novamente — duplicatas são ignoradas automaticamente.
             </div>
           </CardContent>
         </Card>
@@ -450,8 +480,22 @@ export function ImportForm({ accounts }: ImportFormProps) {
       {step === 'reconciliation' && (
         <ImportPreview
           items={previewItems}
-          onConfirm={handleImportSelected}
+          onConfirm={handleGoToReview}
           onCancel={handleReset}
+          loading={reconciling}
+        />
+      )}
+
+      {/* Step 3: Review & Categorize */}
+      {step === 'review' && (
+        <ImportReview
+          items={previewItems}
+          selectedIndices={reviewSelectedIndices}
+          accounts={accounts}
+          sourceAccountId={selectedAccountId}
+          categories={categories}
+          onConfirm={handleFinalImport}
+          onBack={() => setStep('reconciliation')}
           loading={reconciling}
         />
       )}

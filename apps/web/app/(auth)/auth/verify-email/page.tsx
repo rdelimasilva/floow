@@ -5,22 +5,22 @@ export default function VerifyEmailPage() {
     <div className="w-full text-center space-y-4">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-          Check your email
+          Verifique seu email
         </h1>
         <p className="text-sm text-gray-500 leading-relaxed">
-          We sent a verification link to your email address.
+          Enviamos um link de verificação para o seu email.
           <br />
-          Click the link to verify your account.
+          Clique no link para ativar sua conta.
         </p>
       </div>
       <p className="text-sm text-gray-400">
-        Didn&apos;t receive it? Check your spam folder.
+        Não recebeu? Verifique a pasta de spam.
       </p>
       <Link
         href="/auth"
         className="text-sm text-gray-700 underline underline-offset-4 hover:text-gray-900"
       >
-        Back to login
+        Voltar ao login
       </Link>
     </div>
   )

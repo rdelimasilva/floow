@@ -53,7 +53,36 @@ export default async function FixedAssetsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+              {/* Mobile: card layout */}
+              <div className="md:hidden space-y-3">
+                {assetsWithEstimate.map((a) => (
+                  <Link key={a.id} href={`/fixed-assets/${a.id}`} className="block rounded-lg border border-gray-200 bg-white p-4 space-y-2 hover:border-blue-200 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{a.name}</p>
+                        {a.model && <p className="text-xs text-gray-400">{a.model}</p>}
+                        <p className="text-xs text-gray-500 mt-0.5">{typeMap.get(a.typeId) ?? '—'}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold text-gray-900">{formatBRL(a.estimatedValueCents)}</p>
+                        <span className={`text-xs font-medium ${Number(a.annualRate) >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                          {(Number(a.annualRate) * 100).toFixed(1)}%/ano
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-100">
+                      <span className="text-gray-400">Compra: {formatBRL(a.purchaseValueCents)}</span>
+                    </div>
+                  </Link>
+                ))}
+                <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-4 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-700">Total Estimado</p>
+                  <p className="text-sm font-bold text-gray-900">{formatBRL(totalEstimated)}</p>
+                </div>
+              </div>
+
+              {/* Desktop: table layout */}
+              <div className="hidden md:block overflow-hidden rounded-xl border border-gray-200 bg-white">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>

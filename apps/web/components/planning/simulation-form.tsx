@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { HelpTooltip } from '@/components/ui/help-tooltip'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { retirementPlanSchema, type RetirementPlanInput } from '@floow/shared'
@@ -17,16 +18,28 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { RetirementPlan } from '@floow/db'
+
+interface SimulationPlanDefaults {
+  currentAge: number
+  retirementAge: number
+  lifeExpectancy: number
+  monthlyContributionCents: number
+  desiredMonthlyIncomeCents: number
+  inflationRate: string
+  conservativeReturnRate: string | null
+  baseReturnRate: string | null
+  aggressiveReturnRate: string | null
+  contributionGrowthRate: string | null
+}
 
 interface SimulationFormProps {
-  defaultValues: RetirementPlan | null
+  defaultValues: SimulationPlanDefaults | null
   currentPortfolioCents: number
   currentPassiveIncomeCents: number
 }
 
 // Convert DB row (numeric fields stored as strings) to form number values
-function planToFormDefaults(plan: RetirementPlan | null): Partial<RetirementPlanInput> {
+function planToFormDefaults(plan: SimulationPlanDefaults | null): Partial<RetirementPlanInput> {
   if (!plan) return {}
   return {
     currentAge: plan.currentAge,
@@ -187,7 +200,7 @@ export function SimulationForm({
       {/* Chart */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle>Projecao de Patrimonio (3 Cenarios)</CardTitle>
             <button
               type="button"
@@ -341,7 +354,10 @@ export function SimulationForm({
             </div>
 
             <div>
-              <Label htmlFor="inflationRate">Taxa de Inflacao Anual (ex: 0.04 = 4%)</Label>
+              <Label htmlFor="inflationRate" className="flex items-center gap-1">
+                Taxa de Inflação Anual (ex: 0.04 = 4%)
+                <HelpTooltip text="Taxa anual de perda de poder de compra. É usada para converter valores futuros em valores de hoje, permitindo comparações realistas. O IPCA médio no Brasil é de 4-5% ao ano." />
+              </Label>
               <Input
                 id="inflationRate"
                 type="number"
@@ -370,8 +386,9 @@ export function SimulationForm({
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <Label htmlFor="conservativeReturnRate">
+                      <Label htmlFor="conservativeReturnRate" className="flex items-center gap-1">
                         Retorno Conservador (ex: 0.04)
+                        <HelpTooltip text="Cenário pessimista: rendimento real baixo, típico de renda fixa pura (Tesouro IPCA+, CDBs)." />
                       </Label>
                       <Input
                         id="conservativeReturnRate"
@@ -382,7 +399,10 @@ export function SimulationForm({
                       />
                     </div>
                     <div>
-                      <Label htmlFor="baseReturnRate">Retorno Base (ex: 0.06)</Label>
+                      <Label htmlFor="baseReturnRate" className="flex items-center gap-1">
+                        Retorno Base (ex: 0.06)
+                        <HelpTooltip text="Cenário moderado: carteira diversificada entre renda fixa e variável. É a estimativa mais provável." />
+                      </Label>
                       <Input
                         id="baseReturnRate"
                         type="number"
@@ -392,7 +412,10 @@ export function SimulationForm({
                       />
                     </div>
                     <div>
-                      <Label htmlFor="aggressiveReturnRate">Retorno Arrojado (ex: 0.09)</Label>
+                      <Label htmlFor="aggressiveReturnRate" className="flex items-center gap-1">
+                        Retorno Arrojado (ex: 0.09)
+                        <HelpTooltip text="Cenário otimista: carteira com maior exposição a renda variável e ativos de risco. Maior retorno potencial, mas com maior volatilidade." />
+                      </Label>
                       <Input
                         id="aggressiveReturnRate"
                         type="number"
@@ -403,8 +426,9 @@ export function SimulationForm({
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="contributionGrowthRate">
+                    <Label htmlFor="contributionGrowthRate" className="flex items-center gap-1">
                       Crescimento Anual dos Aportes (ex: 0.03 = 3%)
+                      <HelpTooltip text="Percentual de aumento anual nos seus aportes. Simula aumentos de salário ou renda ao longo do tempo. Ex: 3% significa que seus aportes crescem 3% a cada ano." />
                     </Label>
                     <Input
                       id="contributionGrowthRate"

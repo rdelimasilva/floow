@@ -35,8 +35,7 @@ export function LoginForm() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    router.replace('/dashboard')
   }
 
   return (
@@ -46,35 +45,37 @@ export function LoginForm() {
         <Input
           id="login-email"
           type="email"
-          placeholder="you@example.com"
+          placeholder="seu@email.com"
           autoComplete="email"
+          error={!!errors.email}
           {...register('email')}
         />
         {errors.email && (
-          <p className="text-xs text-red-500">{errors.email.message}</p>
+          <p className="text-sm text-red-600">{errors.email.message}</p>
         )}
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="login-password">Password</Label>
+        <Label htmlFor="login-password">Senha</Label>
         <Input
           id="login-password"
           type="password"
           placeholder="••••••••"
           autoComplete="current-password"
+          error={!!errors.password}
           {...register('password')}
         />
         {errors.password && (
-          <p className="text-xs text-red-500">{errors.password.message}</p>
+          <p className="text-sm text-red-600">{errors.password.message}</p>
         )}
       </div>
 
       {serverError && (
-        <p className="text-xs text-red-500">{serverError}</p>
+        <p className="text-sm text-red-600">{serverError}</p>
       )}
 
       <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? 'Logging in...' : 'Log in'}
+        {isSubmitting ? 'Entrando...' : 'Entrar'}
       </Button>
     </form>
   )

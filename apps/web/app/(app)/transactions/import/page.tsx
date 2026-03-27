@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ImportForm } from '@/components/finance/import-form'
-import { getOrgId, getAccounts } from '@/lib/finance/queries'
+import { getOrgId, getAccounts, getCategories } from '@/lib/finance/queries'
 
 /**
  * Import page — allows users to upload OFX or CSV bank statements.
@@ -10,7 +10,10 @@ import { getOrgId, getAccounts } from '@/lib/finance/queries'
  */
 export default async function ImportPage() {
   const orgId = await getOrgId()
-  const accounts = await getAccounts(orgId)
+  const [accounts, categories] = await Promise.all([
+    getAccounts(orgId),
+    getCategories(orgId),
+  ])
 
   return (
     <div className="container mx-auto max-w-4xl py-8 px-4">
@@ -31,7 +34,10 @@ export default async function ImportPage() {
         </p>
       </div>
 
-      <ImportForm accounts={accounts} />
+      <ImportForm
+        accounts={accounts}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))}
+      />
     </div>
   )
 }

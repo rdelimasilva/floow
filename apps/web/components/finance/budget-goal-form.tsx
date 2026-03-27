@@ -55,7 +55,7 @@ export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
       toast(goal ? 'Meta atualizada com sucesso' : 'Meta criada com sucesso')
       onClose()
     } catch {
-      toast('Erro ao salvar meta', 'error')
+      toast('Não foi possível salvar a meta. Verifique os valores e tente novamente.', 'error')
     } finally {
       setLoading(false)
     }

@@ -35,27 +35,46 @@ export async function getDebtProgress(orgId: string, categoryId: string) {
 /** Returns payment progress for multiple debts at once (batch). */
 export async function getDebtsWithProgress(orgId: string) {
   const allDebts = await getDebts(orgId)
+  if (allDebts.length === 0) return []
 
-  const results = await Promise.all(
-    allDebts.map(async (debt) => {
-      const progress = await getDebtProgress(orgId, debt.categoryId)
-      const remainingCents = debt.totalCents - progress.paidCents
-      const paidMonths = progress.paidCount
-
-      // Next due date = start_date + paidMonths months
-      const nextDue = new Date(debt.startDate)
-      nextDue.setMonth(nextDue.getMonth() + paidMonths)
-
-      return {
-        ...debt,
-        paidCount: progress.paidCount,
-        paidCents: progress.paidCents,
-        remainingCents: Math.max(0, remainingCents),
-        progressPct: debt.totalCents > 0 ? Math.round((progress.paidCents / debt.totalCents) * 100) : 0,
-        nextDueDate: nextDue,
-      }
+  const db = getDb()
+  const progressRows = await db
+    .select({
+      categoryId: transactions.categoryId,
+      paidCount: sql<number>`COUNT(*)`.as('paid_count'),
+      paidCents: sql<number>`COALESCE(SUM(ABS(${transactions.amountCents})), 0)`.as('paid_cents'),
     })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.orgId, orgId),
+        eq(transactions.type, 'expense'),
+        eq(transactions.isIgnored, false),
+      )
+    )
+    .groupBy(transactions.categoryId)
+
+  const progressByCategory = new Map(
+    progressRows.map((row) => [
+      row.categoryId,
+      { paidCount: Number(row.paidCount), paidCents: Number(row.paidCents) },
+    ])
   )
 
-  return results
+  return allDebts.map((debt) => {
+    const progress = progressByCategory.get(debt.categoryId) ?? { paidCount: 0, paidCents: 0 }
+    const remainingCents = debt.totalCents - progress.paidCents
+    const paidMonths = progress.paidCount
+    const nextDue = new Date(debt.startDate)
+    nextDue.setMonth(nextDue.getMonth() + paidMonths)
+
+    return {
+      ...debt,
+      paidCount: progress.paidCount,
+      paidCents: progress.paidCents,
+      remainingCents: Math.max(0, remainingCents),
+      progressPct: debt.totalCents > 0 ? Math.round((progress.paidCents / debt.totalCents) * 100) : 0,
+      nextDueDate: nextDue,
+    }
+  })
 }

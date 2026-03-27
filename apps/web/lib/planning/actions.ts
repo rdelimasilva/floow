@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import {
   getDb,
   retirementPlans,
@@ -21,6 +21,7 @@ import {
   type HeirInput,
 } from '@floow/shared'
 import { validateHeirPercentages } from '@floow/core-finance'
+import { planningSummaryTag, planningTag } from '@/lib/cache-tags'
 
 /**
  * Upserts the retirement plan for the current org.
@@ -81,6 +82,8 @@ export async function saveRetirementPlan(input: RetirementPlanInput) {
 
   revalidatePath('/planning')
   revalidatePath('/planning/simulation')
+  revalidateTag(planningTag(orgId))
+  revalidateTag(planningSummaryTag(orgId))
 }
 
 /**
@@ -122,6 +125,7 @@ export async function saveWithdrawalStrategy(input: WithdrawalStrategyInput) {
 
   revalidatePath('/planning')
   revalidatePath('/planning/withdrawal')
+  revalidateTag(planningTag(orgId))
 }
 
 /**
@@ -189,4 +193,5 @@ export async function saveSuccessionPlan(input: {
 
   revalidatePath('/planning')
   revalidatePath('/planning/succession')
+  revalidateTag(planningTag(orgId))
 }

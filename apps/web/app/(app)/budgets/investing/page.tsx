@@ -38,8 +38,8 @@ export default async function InvestingBudgetPage({ searchParams }: Props) {
         id: e.id,
         name: e.name ?? 'Aportes',
         plannedCents: e.plannedCents,
-        startMonth: e.startMonth.toISOString().split('T')[0],
-        endMonth: e.endMonth ? e.endMonth.toISOString().split('T')[0] : null,
+        startMonth: e.startMonth instanceof Date ? e.startMonth.toISOString().split('T')[0] : String(e.startMonth),
+        endMonth: e.endMonth ? (e.endMonth instanceof Date ? e.endMonth.toISOString().split('T')[0] : String(e.endMonth)) : null,
       }))}
       totalContributed={contributions}
       selectedMonth={selectedMonth}

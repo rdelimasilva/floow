@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { aggregateCashFlow, formatBRL } from '@floow/core-finance'
+import { useState, useMemo, useDeferredValue } from 'react'
+import { formatBRL } from '@floow/core-finance'
 import { CashFlowPeriodFilter, getPeriodDates, type PeriodKey } from './cash-flow-period-filter'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
 import { CashFlowChart } from './cash-flow-chart'
@@ -15,12 +15,24 @@ interface RawTransaction {
   accountId: string
 }
 
+interface PreparedTransaction extends RawTransaction {
+  dateKey: string
+  month: string
+}
+
 interface AccountOption {
   id: string
   name: string
 }
 
 type ViewMode = 'realized' | 'projected' | 'both'
+
+interface MonthlyCashFlow {
+  month: string
+  income: number
+  expense: number
+  net: number
+}
 
 const VIEW_LABELS: Record<ViewMode, string> = {
   realized: 'Realizado',
@@ -40,26 +52,40 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
   const [viewMode, setViewMode] = useState<ViewMode>('realized')
   const [hideTransfers, setHideTransfers] = useState(true)
 
+  const preparedTransactions = useMemo<PreparedTransaction[]>(
+    () => transactions.map((t) => {
+      const dateKey = t.date.split('T')[0]
+      return { ...t, dateKey, month: dateKey.slice(0, 7) }
+    }),
+    [transactions],
+  )
+
+  const preparedFutureTransactions = useMemo<PreparedTransaction[]>(
+    () => futureTransactions.map((t) => {
+      const dateKey = t.date.split('T')[0]
+      return { ...t, dateKey, month: dateKey.slice(0, 7) }
+    }),
+    [futureTransactions],
+  )
+
   // Get date range for current period
   const { startDate, endDate } = useMemo(() => getPeriodDates(period), [period])
 
   // Filter realized transactions by period + transfer toggle
   const filteredRealized = useMemo(() => {
-    return transactions.filter((t) => {
+    return preparedTransactions.filter((t) => {
       if (hideTransfers && t.type === 'transfer') return false
-      const d = t.date.split('T')[0]
-      return d >= startDate && d <= endDate
+      return t.dateKey >= startDate && t.dateKey <= endDate
     })
-  }, [transactions, startDate, endDate, hideTransfers])
+  }, [preparedTransactions, startDate, endDate, hideTransfers])
 
   // Filter future transactions by period + transfer toggle
   const filteredFuture = useMemo(() => {
-    return futureTransactions.filter((t) => {
+    return preparedFutureTransactions.filter((t) => {
       if (hideTransfers && t.type === 'transfer') return false
-      const d = t.date.split('T')[0]
-      return d >= startDate && d <= endDate
+      return t.dateKey >= startDate && t.dateKey <= endDate
     })
-  }, [futureTransactions, startDate, endDate, hideTransfers])
+  }, [preparedFutureTransactions, startDate, endDate, hideTransfers])
 
   // Pick which transactions to show based on view mode
   const activeTransactions = useMemo(() => {
@@ -68,16 +94,39 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
     return [...filteredRealized, ...filteredFuture]
   }, [viewMode, filteredRealized, filteredFuture])
 
-  // Aggregate for chart
-  const toDateObj = (t: RawTransaction) => ({ ...t, date: new Date(t.date) })
+  const deferredActiveTransactions = useDeferredValue(activeTransactions)
+
+  function aggregateByMonth(items: PreparedTransaction[]): MonthlyCashFlow[] {
+    const monthMap = new Map<string, MonthlyCashFlow>()
+
+    for (const transaction of items) {
+      const existing = monthMap.get(transaction.month) ?? {
+        month: transaction.month,
+        income: 0,
+        expense: 0,
+        net: 0,
+      }
+
+      if (transaction.type === 'income') {
+        existing.income += transaction.amountCents
+      } else if (transaction.type === 'expense') {
+        existing.expense += transaction.amountCents
+      }
+
+      existing.net = existing.income + existing.expense
+      monthMap.set(transaction.month, existing)
+    }
+
+    return Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month))
+  }
 
   const realizedData = useMemo(() =>
-    [...aggregateCashFlow(filteredRealized.map(toDateObj))].reverse(),
+    aggregateByMonth(filteredRealized),
     [filteredRealized]
   )
 
   const projectedData = useMemo(() =>
-    [...aggregateCashFlow(filteredFuture.map(toDateObj))].reverse(),
+    aggregateByMonth(filteredFuture),
     [filteredFuture]
   )
 
@@ -235,7 +284,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
 
       {/* Breakdown */}
       <CashFlowBreakdown
-        transactions={activeTransactions}
+        transactions={deferredActiveTransactions}
         accounts={accounts}
       />
     </>

@@ -155,7 +155,7 @@ export function SpendingClient({
   return (
     <div className="space-y-6">
       <PageHeader title="Meta de Gastos" description="Orçado vs Realizado por categoria">
-        <Button variant="outline" size="sm" onClick={() => setShowAdd(true)}>
+        <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" /> Novo lançamento
         </Button>
       </PageHeader>
@@ -228,67 +228,115 @@ export function SpendingClient({
         </Card>
       )}
 
-      {/* Orçado vs Realizado table */}
+      {/* Orçado vs Realizado */}
       {entriesForMonth.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Orçado vs Realizado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-hidden rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Categoria</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Orçado</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Realizado</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Diferença</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">%</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {entriesForMonth.map((entry) => {
-                    const cat = categories.find((c) => c.id === entry.categoryId)
-                    const actual = spendingMap.get(entry.categoryId) ?? 0
-                    const diff = entry.plannedCents - actual
-                    const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
-                    const isOver = actual > entry.plannedCents
+        <>
+          {/* Mobile: card layout */}
+          <div className="md:hidden space-y-2">
+            {entriesForMonth.map((entry) => {
+              const cat = categories.find((c) => c.id === entry.categoryId)
+              const actual = spendingMap.get(entry.categoryId) ?? 0
+              const diff = entry.plannedCents - actual
+              const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
+              const isOver = actual > entry.plannedCents
 
-                    return (
-                      <tr key={entry.categoryId} className="hover:bg-gray-50">
-                        <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
-                          {cat?.icon && <span className="mr-1">{cat.icon}</span>}
-                          {cat?.name ?? '—'}
-                        </td>
-                        <td className="px-4 py-2.5 text-sm text-right text-gray-600">{formatBRL(entry.plannedCents)}</td>
-                        <td className="px-4 py-2.5 text-sm text-right text-gray-900 font-medium">{formatBRL(actual)}</td>
-                        <td className={`px-4 py-2.5 text-sm text-right font-medium ${isOver ? 'text-red-600' : 'text-green-700'}`}>
-                          {isOver ? '-' : '+'}{formatBRL(Math.abs(diff))}
-                        </td>
-                        <td className={`px-4 py-2.5 text-sm text-right font-medium ${pct > 100 ? 'text-red-600' : pct > 80 ? 'text-yellow-600' : 'text-green-700'}`}>
-                          {pct}%
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot className="bg-gray-50">
-                  <tr>
-                    <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
-                    <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-600">{formatBRL(totalPlanned)}</td>
-                    <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalSpent)}</td>
-                    <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalSpent > totalPlanned ? 'text-red-600' : 'text-green-700'}`}>
-                      {totalSpent > totalPlanned ? '-' : '+'}{formatBRL(Math.abs(totalPlanned - totalSpent))}
-                    </td>
-                    <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned > 0 && Math.round((totalSpent / totalPlanned) * 100) > 100 ? 'text-red-600' : 'text-green-700'}`}>
-                      {totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0}%
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+              return (
+                <Card key={entry.categoryId}>
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-900">
+                        {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                        {cat?.name ?? '—'}
+                      </p>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pct > 100 ? 'bg-red-100 text-red-700' : pct > 80 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                        {pct}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">Orçado: {formatBRL(entry.plannedCents)}</span>
+                      <span className="font-medium text-gray-900">Gasto: {formatBRL(actual)}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div className={`h-1.5 rounded-full ${pct > 100 ? 'bg-red-500' : pct > 80 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                    </div>
+                    <p className={`text-xs font-medium text-right ${isOver ? 'text-red-600' : 'text-green-700'}`}>
+                      {isOver ? '-' : '+'}{formatBRL(Math.abs(diff))}
+                    </p>
+                  </CardContent>
+                </Card>
+              )
+            })}
+            <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-gray-700">Total</span>
+                <span className={`font-bold ${totalSpent > totalPlanned ? 'text-red-600' : 'text-green-700'}`}>
+                  {formatBRL(totalSpent)} / {formatBRL(totalPlanned)} ({totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0}%)
+                </span>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Desktop: table layout */}
+          <Card className="hidden md:block">
+            <CardHeader>
+              <CardTitle className="text-base">Orçado vs Realizado</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-hidden rounded-lg border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Categoria</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Orçado</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Realizado</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Diferença</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">%</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {entriesForMonth.map((entry) => {
+                      const cat = categories.find((c) => c.id === entry.categoryId)
+                      const actual = spendingMap.get(entry.categoryId) ?? 0
+                      const diff = entry.plannedCents - actual
+                      const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
+                      const isOver = actual > entry.plannedCents
+
+                      return (
+                        <tr key={entry.categoryId} className="hover:bg-gray-50">
+                          <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
+                            {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                            {cat?.name ?? '—'}
+                          </td>
+                          <td className="px-4 py-2.5 text-sm text-right text-gray-600">{formatBRL(entry.plannedCents)}</td>
+                          <td className="px-4 py-2.5 text-sm text-right text-gray-900 font-medium">{formatBRL(actual)}</td>
+                          <td className={`px-4 py-2.5 text-sm text-right font-medium ${isOver ? 'text-red-600' : 'text-green-700'}`}>
+                            {isOver ? '-' : '+'}{formatBRL(Math.abs(diff))}
+                          </td>
+                          <td className={`px-4 py-2.5 text-sm text-right font-medium ${pct > 100 ? 'text-red-600' : pct > 80 ? 'text-yellow-600' : 'text-green-700'}`}>
+                            {pct}%
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot className="bg-gray-50">
+                    <tr>
+                      <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
+                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-600">{formatBRL(totalPlanned)}</td>
+                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalSpent)}</td>
+                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalSpent > totalPlanned ? 'text-red-600' : 'text-green-700'}`}>
+                        {totalSpent > totalPlanned ? '-' : '+'}{formatBRL(Math.abs(totalPlanned - totalSpent))}
+                      </td>
+                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned > 0 && Math.round((totalSpent / totalPlanned) * 100) > 100 ? 'text-red-600' : 'text-green-700'}`}>
+                        {totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0}%
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       ) : (
         <Card>
           <CardContent className="py-8 text-center">

@@ -167,7 +167,7 @@ export function ImportPreview({ items, onConfirm, onCancel, loading }: ImportPre
             Cancelar
           </Button>
           <Button variant="primary" onClick={() => onConfirm(Array.from(selected))} disabled={loading || selected.size === 0}>
-            {loading ? 'Importando...' : `Importar ${selected.size} transação${selected.size !== 1 ? 'es' : ''}`}
+            {`Revisar ${selected.size} transação${selected.size !== 1 ? 'es' : ''}`}
           </Button>
         </div>
       </div>

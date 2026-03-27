@@ -2,9 +2,8 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { getOrgId } from '@/lib/finance/queries'
 import { PageHeader } from '@/components/ui/page-header'
-import { getPlanningDashboardData } from '@/lib/planning/queries'
-import { getPositions, getIncomeEvents } from '@/lib/investments/queries'
-import { estimateMonthlyIncome, calculateFI, SCENARIO_PRESETS } from '@floow/core-finance'
+import { getPlanningDashboardData, getPlanningPortfolioSummary } from '@/lib/planning/queries'
+import { calculateFI, SCENARIO_PRESETS } from '@floow/core-finance'
 import { PlanningSummaryRow } from '@/components/planning/planning-summary-row'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BarChart3, Target, Wallet, Users } from 'lucide-react'
@@ -12,25 +11,14 @@ import { BarChart3, Target, Wallet, Users } from 'lucide-react'
 // -- Async sub-component for Suspense streaming --------------------------------
 
 async function PlanningHubContent({ orgId }: { orgId: string }) {
-  const [{ retirementPlan, withdrawalStrategy, successionPlan }, positions, incomeEvents] =
+  const [{ retirementPlan, withdrawalStrategy, successionPlan }, summary] =
     await Promise.all([
       getPlanningDashboardData(orgId),
-      getPositions(orgId),
-      getIncomeEvents(orgId),
+      getPlanningPortfolioSummary(orgId),
     ])
 
-  const currentPassiveIncomeCents = estimateMonthlyIncome(
-    incomeEvents.map((e) => ({
-      eventType: e.eventType,
-      totalCents: e.totalCents,
-      eventDate: e.eventDate,
-    }))
-  )
-
-  const currentPortfolioCents = positions.reduce(
-    (sum, p) => sum + p.currentValueCents,
-    0
-  )
+  const currentPassiveIncomeCents = summary.currentPassiveIncomeCents
+  const currentPortfolioCents = summary.currentPortfolioCents
 
   // Compute FI progress if a retirement plan exists
   let fiProgressPercent: number | null = null

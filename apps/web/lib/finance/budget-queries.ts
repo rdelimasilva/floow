@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import {
   getDb,
   budgetGoals,
@@ -7,7 +8,13 @@ import {
   transactions,
   accounts,
 } from '@floow/db'
-import { eq, and, sql, gte, lte, isNull, or } from 'drizzle-orm'
+import { eq, and, sql, gte, lte, isNull, or, inArray } from 'drizzle-orm'
+import {
+  budgetEntriesTag,
+  budgetGoalsTag,
+  budgetInvestingTag,
+  budgetSpendingTag,
+} from '@/lib/cache-tags'
 
 // ---------------------------------------------------------------------------
 // Period helpers
@@ -54,18 +61,24 @@ export const getBudgetGoals = cache(async function getBudgetGoals(
   orgId: string,
   type: 'spending' | 'investing',
 ) {
-  const db = getDb()
-  return db
-    .select()
-    .from(budgetGoals)
-    .where(
-      and(
-        eq(budgetGoals.orgId, orgId),
-        eq(budgetGoals.type, type),
-        eq(budgetGoals.isActive, true),
-      ),
-    )
-    .orderBy(budgetGoals.createdAt)
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      return db
+        .select()
+        .from(budgetGoals)
+        .where(
+          and(
+            eq(budgetGoals.orgId, orgId),
+            eq(budgetGoals.type, type),
+            eq(budgetGoals.isActive, true),
+          ),
+        )
+        .orderBy(budgetGoals.createdAt)
+    },
+    ['budget-goals', orgId, type],
+    { tags: [budgetGoalsTag(orgId, type), type === 'spending' ? budgetSpendingTag(orgId) : budgetInvestingTag(orgId)], revalidate: 300 },
+  )()
 })
 
 /**
@@ -73,26 +86,38 @@ export const getBudgetGoals = cache(async function getBudgetGoals(
  * An entry is active if: startMonth <= month AND (endMonth IS NULL OR endMonth >= month)
  */
 export async function getBudgetEntriesForMonth(orgId: string, month: Date, type: 'spending' | 'investing' = 'spending') {
-  const db = getDb()
-  return db
-    .select()
-    .from(budgetEntries)
-    .where(and(
-      eq(budgetEntries.orgId, orgId),
-      eq(budgetEntries.type, type),
-      lte(budgetEntries.startMonth, month),
-      or(isNull(budgetEntries.endMonth), gte(budgetEntries.endMonth, month)),
-    ))
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      return db
+        .select()
+        .from(budgetEntries)
+        .where(and(
+          eq(budgetEntries.orgId, orgId),
+          eq(budgetEntries.type, type),
+          lte(budgetEntries.startMonth, month),
+          or(isNull(budgetEntries.endMonth), gte(budgetEntries.endMonth, month)),
+        ))
+    },
+    ['budget-entries-for-month', orgId, type, month.toISOString()],
+    { tags: [budgetEntriesTag(orgId, type), type === 'spending' ? budgetSpendingTag(orgId) : budgetInvestingTag(orgId)], revalidate: 300 },
+  )()
 }
 
 /** Returns all budget entries for an org filtered by type (for listing/managing). */
 export async function getAllBudgetEntries(orgId: string, type: 'spending' | 'investing' = 'spending') {
-  const db = getDb()
-  return db
-    .select()
-    .from(budgetEntries)
-    .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.type, type)))
-    .orderBy(budgetEntries.startMonth)
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      return db
+        .select()
+        .from(budgetEntries)
+        .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.type, type)))
+        .orderBy(budgetEntries.startMonth)
+    },
+    ['budget-all-entries', orgId, type],
+    { tags: [budgetEntriesTag(orgId, type), type === 'spending' ? budgetSpendingTag(orgId) : budgetInvestingTag(orgId)], revalidate: 300 },
+  )()
 }
 
 // ---------------------------------------------------------------------------
@@ -210,4 +235,33 @@ export async function getAdjustmentTotal(
     )
 
   return Number(row?.total ?? 0)
+}
+
+/**
+ * Returns adjustment totals for multiple goals in a single grouped query.
+ */
+export async function getAdjustmentTotalsForGoals(
+  goalIds: string[],
+  start: Date,
+  end: Date,
+): Promise<Map<string, number>> {
+  if (goalIds.length === 0) return new Map()
+
+  const db = getDb()
+  const rows = await db
+    .select({
+      goalId: budgetAdjustments.budgetGoalId,
+      total: sql<number>`COALESCE(SUM(${budgetAdjustments.amountCents}), 0)`.as('total'),
+    })
+    .from(budgetAdjustments)
+    .where(
+      and(
+        inArray(budgetAdjustments.budgetGoalId, goalIds),
+        gte(budgetAdjustments.date, start),
+        lte(budgetAdjustments.date, end),
+      ),
+    )
+    .groupBy(budgetAdjustments.budgetGoalId)
+
+  return new Map(rows.map((row) => [row.goalId, Number(row.total)]))
 }

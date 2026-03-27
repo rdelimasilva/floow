@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,10 +11,6 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { createDebt, updateDebt, deleteDebt } from '@/lib/finance/debt-actions'
 import { formatBRL } from '@floow/core-finance'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 interface DebtRow {
   id: string
@@ -39,15 +34,11 @@ interface DebtsClientProps {
   categories: { id: string; name: string }[]
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const TYPE_LABELS: Record<string, string> = {
   financing: 'Financiamento',
-  loan: 'Empréstimo',
+  loan: 'Emprestimo',
   installment: 'Parcelamento',
-  consortium: 'Consórcio',
+  consortium: 'Consorcio',
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -56,10 +47,6 @@ const TYPE_COLORS: Record<string, string> = {
   installment: 'bg-purple-100 text-purple-800',
   consortium: 'bg-teal-100 text-teal-800',
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function parseCents(value: string): number {
   return Math.round(parseFloat(value.replace(',', '.')) * 100)
@@ -75,20 +62,28 @@ function formatDateBR(dateStr: string): string {
   return dt.toLocaleDateString('pt-BR')
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+function buildDebtRow(base: Omit<DebtRow, 'remainingCents' | 'progressPct' | 'nextDueDate'>): DebtRow {
+  const remainingCents = Math.max(0, base.totalCents - base.paidCents)
+  const progressPct = base.totalCents > 0 ? Math.round((base.paidCents / base.totalCents) * 100) : 0
+  const nextDue = new Date(base.startDate)
+  nextDue.setMonth(nextDue.getMonth() + base.paidCount)
+
+  return {
+    ...base,
+    remainingCents,
+    progressPct,
+    nextDueDate: `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, '0')}-${String(nextDue.getDate()).padStart(2, '0')}`,
+  }
+}
 
 export function DebtsClient({ debts, categories }: DebtsClientProps) {
-  const router = useRouter()
   const { toast } = useToast()
-
+  const [debtRows, setDebtRows] = useState(debts)
   const [showForm, setShowForm] = useState(false)
   const [editingDebt, setEditingDebt] = useState<DebtRow | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  // Form state
   const [formName, setFormName] = useState('')
   const [formType, setFormType] = useState('installment')
   const [formTotal, setFormTotal] = useState('')
@@ -98,7 +93,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
   const [formStartDate, setFormStartDate] = useState('')
   const [formCategoryId, setFormCategoryId] = useState('')
 
-  const totalRemaining = debts.reduce((sum, d) => sum + d.remainingCents, 0)
+  const totalRemaining = debtRows.reduce((sum, d) => sum + d.remainingCents, 0)
 
   function resetForm() {
     setFormName('')
@@ -152,16 +147,51 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
 
       if (editingDebt) {
         fd.set('id', editingDebt.id)
-        await updateDebt(fd)
-        toast('Dívida atualizada')
+        const updated = await updateDebt(fd)
+        if (updated) {
+          setDebtRows((prev) =>
+            prev.map((debt) =>
+              debt.id === editingDebt.id
+                ? buildDebtRow({
+                    ...debt,
+                    name: updated.name,
+                    type: updated.type,
+                    totalCents: updated.totalCents,
+                    installments: updated.installments,
+                    installmentCents: updated.installmentCents,
+                    interestRate: updated.interestRate,
+                  })
+                : debt
+            )
+          )
+        }
+        toast('Divida atualizada')
       } else {
-        await createDebt(fd)
+        const created = await createDebt(fd)
+        if (created) {
+          setDebtRows((prev) => [
+            ...prev,
+            buildDebtRow({
+              id: created.id,
+              name: created.name,
+              type: created.type,
+              totalCents: created.totalCents,
+              installments: created.installments,
+              installmentCents: created.installmentCents,
+              interestRate: created.interestRate,
+              startDate: new Date(created.startDate).toISOString().split('T')[0],
+              categoryId: created.categoryId,
+              paidCount: 0,
+              paidCents: 0,
+            }),
+          ])
+        }
         toast('Dívida cadastrada')
       }
+
       closeForm()
-      router.refresh()
     } catch {
-      toast('Erro ao salvar dívida', 'error')
+      toast('Não foi possível salvar a dívida. Verifique os dados e tente novamente.', 'error')
     } finally {
       setSaving(false)
     }
@@ -173,11 +203,11 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
       const fd = new FormData()
       fd.set('id', id)
       await deleteDebt(fd)
+      setDebtRows((prev) => prev.filter((debt) => debt.id !== id))
       toast('Dívida removida')
       setDeleteConfirm(null)
-      router.refresh()
     } catch {
-      toast('Erro ao remover dívida', 'error')
+      toast('Não foi possível remover a dívida. Tente novamente.', 'error')
     } finally {
       setSaving(false)
     }
@@ -185,221 +215,173 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Controle de Dívidas">
-        <Button variant="outline" size="sm" onClick={openAdd}>
+      <PageHeader title="Controle de Dividas">
+        <Button variant="primary" size="sm" onClick={openAdd}>
           <Plus className="h-4 w-4" /> Nova dívida
         </Button>
       </PageHeader>
 
-      {/* Form */}
       {showForm && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              {editingDebt ? 'Editar Dívida' : 'Nova Dívida'}
+              {editingDebt ? 'Editar Divida' : 'Nova Divida'}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Nome</label>
-                  <Input
-                    type="text"
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    required
-                    placeholder="Ex: Financiamento Imóvel"
-                  />
+                  <Input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} required placeholder="Ex: Financiamento Imovel" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Tipo</label>
-                  <select
-                    value={formType}
-                    onChange={(e) => setFormType(e.target.value)}
-                    required
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                  >
+                  <select value={formType} onChange={(e) => setFormType(e.target.value)} required className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                     {Object.entries(TYPE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
+                      <option key={value} value={value}>{label}</option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Valor total (R$)</label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={formTotal}
-                    onChange={(e) => setFormTotal(e.target.value)}
-                    required
-                    placeholder="Ex: 150.000,00"
-                  />
+                  <Input type="text" inputMode="decimal" value={formTotal} onChange={(e) => setFormTotal(e.target.value)} required placeholder="Ex: 150.000,00" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Parcelas</label>
-                  <Input
-                    type="number"
-                    value={formInstallments}
-                    onChange={(e) => setFormInstallments(e.target.value)}
-                    required
-                    min={1}
-                    placeholder="Ex: 360"
-                  />
+                  <Input type="number" value={formInstallments} onChange={(e) => setFormInstallments(e.target.value)} required min={1} placeholder="Ex: 360" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Valor da parcela (R$)</label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={formInstallmentValue}
-                    onChange={(e) => setFormInstallmentValue(e.target.value)}
-                    required
-                    placeholder="Ex: 1.200,00"
-                  />
+                  <Input type="text" inputMode="decimal" value={formInstallmentValue} onChange={(e) => setFormInstallmentValue(e.target.value)} required placeholder="Ex: 1.200,00" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Taxa de juros (%)</label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={formInterestRate}
-                    onChange={(e) => setFormInterestRate(e.target.value)}
-                    placeholder="Ex: 0,99"
-                  />
+                  <Input type="text" inputMode="decimal" value={formInterestRate} onChange={(e) => setFormInterestRate(e.target.value)} placeholder="Ex: 0,99" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Data início</label>
-                  <Input
-                    type="date"
-                    value={formStartDate}
-                    onChange={(e) => setFormStartDate(e.target.value)}
-                    required
-                  />
+                  <label className="text-xs font-medium text-gray-600">Data inicio</label>
+                  <Input type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} required />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Categoria</label>
-                  <select
-                    value={formCategoryId}
-                    onChange={(e) => setFormCategoryId(e.target.value)}
-                    required
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                  >
+                  <select value={formCategoryId} onChange={(e) => setFormCategoryId(e.target.value)} required className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                     <option value="">Selecione...</option>
                     <option value="__new__">+ Criar automaticamente</option>
                     {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="outline" onClick={closeForm}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Salvando...' : editingDebt ? 'Salvar' : 'Criar'}
-                </Button>
+                <Button type="button" variant="outline" onClick={closeForm}>Cancelar</Button>
+                <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : editingDebt ? 'Salvar' : 'Criar'}</Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
-      {/* Table or empty state */}
-      {debts.length === 0 ? (
+      {debtRows.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-gray-500 text-sm">Nenhuma dívida cadastrada.</p>
-            <Button variant="outline" className="mt-3" onClick={openAdd}>
+            <p className="text-sm text-gray-500">Nenhuma dívida cadastrada.</p>
+            <Button variant="primary" className="mt-3" onClick={openAdd}>
               <Plus className="h-4 w-4" /> Nova dívida
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <>
+        {/* Mobile: card layout */}
+        <div className="md:hidden space-y-3">
+          {debtRows.map((debt) => (
+            <Card key={debt.id}>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{debt.name}</p>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium mt-1 ${TYPE_COLORS[debt.type] ?? 'bg-gray-100 text-gray-700'}`}>
+                      {TYPE_LABELS[debt.type] ?? debt.type}
+                    </span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-gray-900">{formatBRL(debt.remainingCents)}</p>
+                    <p className="text-[10px] text-gray-400">saldo devedor</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <p className="text-gray-400">Parcelas</p>
+                    <p className="font-medium">{debt.paidCount}/{debt.installments}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Pago</p>
+                    <p className="font-medium">{formatBRL(debt.paidCents)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Próx. Venc.</p>
+                    <p className="font-medium">{formatDateBR(debt.nextDueDate)}</p>
+                  </div>
+                </div>
+                <BudgetProgressBar label="" currentCents={debt.paidCents} limitCents={debt.totalCents} invertColors />
+                <div className="flex items-center justify-end gap-1 pt-1 border-t border-gray-100">
+                  <button type="button" onClick={() => openEdit(debt)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-4 flex items-center justify-between">
+            <p className="text-xs font-semibold text-gray-700">Total Saldo Devedor</p>
+            <p className="text-sm font-bold text-gray-900">{formatBRL(totalRemaining)}</p>
+          </div>
+        </div>
+
+        {/* Desktop: table layout */}
+        <Card className="hidden md:block">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                      Nome
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                      Tipo
-                    </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">
-                      Parcelas
-                    </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">
-                      Valor Pago
-                    </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">
-                      Saldo Devedor
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                      Próx. Vencimento
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500 min-w-[160px]">
-                      Progresso
-                    </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">
-                      Ações
-                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Nome</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Tipo</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Parcelas</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Valor Pago</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Saldo Devedor</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Prox. Vencimento</th>
+                    <th className="min-w-[160px] px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Progresso</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {debts.map((debt) => (
+                  {debtRows.map((debt) => (
                     <tr key={debt.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
-                        {debt.name}
-                      </td>
+                      <td className="px-4 py-2.5 text-sm font-medium text-gray-900">{debt.name}</td>
                       <td className="px-4 py-2.5 text-sm">
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[debt.type] ?? 'bg-gray-100 text-gray-700'}`}
-                        >
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[debt.type] ?? 'bg-gray-100 text-gray-700'}`}>
                           {TYPE_LABELS[debt.type] ?? debt.type}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-sm text-right text-gray-600">
-                        {debt.paidCount}/{debt.installments}
-                      </td>
-                      <td className="px-4 py-2.5 text-sm text-right text-gray-600">
-                        {formatBRL(debt.paidCents)}
-                      </td>
-                      <td className="px-4 py-2.5 text-sm text-right font-medium text-gray-900">
-                        {formatBRL(debt.remainingCents)}
-                      </td>
-                      <td className="px-4 py-2.5 text-sm text-gray-600">
-                        {formatDateBR(debt.nextDueDate)}
-                      </td>
+                      <td className="px-4 py-2.5 text-right text-sm text-gray-600">{debt.paidCount}/{debt.installments}</td>
+                      <td className="px-4 py-2.5 text-right text-sm text-gray-600">{formatBRL(debt.paidCents)}</td>
+                      <td className="px-4 py-2.5 text-right text-sm font-medium text-gray-900">{formatBRL(debt.remainingCents)}</td>
+                      <td className="px-4 py-2.5 text-sm text-gray-600">{formatDateBR(debt.nextDueDate)}</td>
                       <td className="px-4 py-2.5">
-                        <BudgetProgressBar
-                          label=""
-                          currentCents={debt.paidCents}
-                          limitCents={debt.totalCents}
-                          invertColors
-                        />
+                        <BudgetProgressBar label="" currentCents={debt.paidCents} limitCents={debt.totalCents} invertColors />
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(debt)}
-                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                          >
+                          <button type="button" onClick={() => openEdit(debt)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirm(debt.id)}
-                            className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                          >
+                          <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -409,15 +391,8 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="px-4 py-2.5 text-sm font-semibold text-gray-900"
-                    >
-                      Total
-                    </td>
-                    <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">
-                      {formatBRL(totalRemaining)}
-                    </td>
+                    <td colSpan={4} className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
+                    <td className="px-4 py-2.5 text-right text-sm font-semibold text-gray-900">{formatBRL(totalRemaining)}</td>
                     <td colSpan={3} />
                   </tr>
                 </tfoot>
@@ -425,14 +400,15 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
             </div>
           </CardContent>
         </Card>
+        </>
       )}
 
       <ConfirmDialog
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
         onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
-        title="Remover dívida"
-        description="Tem certeza que deseja remover esta dívida? Esta ação não pode ser desfeita."
+        title="Remover divida"
+        description="Tem certeza que deseja remover esta divida? Esta acao nao pode ser desfeita."
         confirmLabel="Remover"
         loading={saving}
       />

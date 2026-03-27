@@ -10,8 +10,7 @@ export function SignOutButton() {
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/auth')
-    router.refresh()
+    router.replace('/auth')
   }
 
   return (
@@ -20,7 +19,7 @@ export function SignOutButton() {
       size="sm"
       onClick={handleSignOut}
     >
-      Sign out
+      Sair
     </Button>
   )
 }

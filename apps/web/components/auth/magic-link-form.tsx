@@ -42,7 +42,7 @@ export function MagicLinkForm() {
   if (sent) {
     return (
       <p className="text-sm text-gray-600 text-center py-2">
-        Check your email for the magic link.
+        Verifique seu email para acessar com o link mágico.
       </p>
     )
   }
@@ -54,12 +54,12 @@ export function MagicLinkForm() {
         <Input
           id="magic-email"
           type="email"
-          placeholder="you@example.com"
+          placeholder="seu@email.com"
           autoComplete="email"
           {...register('email')}
         />
         {errors.email && (
-          <p className="text-xs text-red-500">{errors.email.message}</p>
+          <p className="text-sm text-red-600">{errors.email.message}</p>
         )}
       </div>
 
@@ -68,7 +68,7 @@ export function MagicLinkForm() {
       )}
 
       <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? 'Sending...' : 'Send magic link'}
+        {isSubmitting ? 'Enviando...' : 'Enviar link mágico'}
       </Button>
     </form>
   )

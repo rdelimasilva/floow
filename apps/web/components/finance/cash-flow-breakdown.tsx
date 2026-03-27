@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 import { formatBRL } from '@floow/core-finance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -8,6 +8,7 @@ type Grouping = 'daily' | 'monthly' | 'quarterly' | 'semiannual' | 'annual'
 
 interface RawTransaction {
   date: string
+  dateKey?: string
   amountCents: number
   type: string
   accountId: string
@@ -117,13 +118,15 @@ export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlow
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
 
+  const deferredTransactions = useDeferredValue(transactions)
+
   const filtered = useMemo(() => {
-    let result = transactions
+    let result = deferredTransactions
     if (accountId) result = result.filter((t) => t.accountId === accountId)
-    if (startDate) result = result.filter((t) => t.date.split('T')[0] >= startDate)
-    if (endDate) result = result.filter((t) => t.date.split('T')[0] <= endDate)
+    if (startDate) result = result.filter((t) => (t.dateKey ?? t.date.split('T')[0]) >= startDate)
+    if (endDate) result = result.filter((t) => (t.dateKey ?? t.date.split('T')[0]) <= endDate)
     return result
-  }, [transactions, accountId, startDate, endDate])
+  }, [deferredTransactions, accountId, startDate, endDate])
 
   const hasFilters = accountId || startDate || endDate
 

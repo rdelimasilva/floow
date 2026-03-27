@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Search } from 'lucide-react'
+import { Search, SlidersHorizontal } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 type PeriodKey = 'today' | 'month' | 'quarter' | 'semester' | 'year'
@@ -67,6 +67,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   const [accountId, setAccountId] = useState(searchParams.get('accountId') ?? '')
   const [startDate, setStartDate] = useState(searchParams.get('startDate') ?? '')
   const [endDate, setEndDate] = useState(searchParams.get('endDate') ?? '')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }, [])
 
@@ -80,7 +81,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     if (values.startDate) params.set('startDate', values.startDate)
     if (values.endDate) params.set('endDate', values.endDate)
     params.set('page', '1')
-    router.push(`${baseUrl}?${params.toString()}`)
+    router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
   }, [router, baseUrl, search, accountId, startDate, endDate])
 
   function clearFilters() {
@@ -88,7 +89,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     setAccountId('')
     setStartDate('')
     setEndDate('')
-    router.push(baseUrl)
+    router.replace(baseUrl, { scroll: false })
   }
 
   const hasFilters = search || accountId || startDate || endDate
@@ -127,8 +128,19 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
         )}
       </div>
 
-      {/* Existing filters row */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Mobile: toggle button for filters */}
+      <button
+        type="button"
+        onClick={() => setFiltersOpen((v) => !v)}
+        className="md:hidden flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600"
+      >
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        Filtros
+        {hasFilters && <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />}
+      </button>
+
+      {/* Filters row — always visible on desktop, collapsible on mobile */}
+      <div className={`flex-wrap items-center gap-2 ${filtersOpen ? 'flex' : 'hidden md:flex'}`}>
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-2 h-4 w-4 text-gray-400" />

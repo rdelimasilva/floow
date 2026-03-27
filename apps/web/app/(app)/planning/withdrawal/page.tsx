@@ -1,8 +1,11 @@
 import { Suspense } from 'react'
 import { getOrgId } from '@/lib/finance/queries'
 import { PageHeader } from '@/components/ui/page-header'
-import { getWithdrawalStrategy, getRetirementPlan } from '@/lib/planning/queries'
-import { getPositions } from '@/lib/investments/queries'
+import {
+  getPlanningPortfolioSummary,
+  getWithdrawalStrategy,
+  getRetirementPlan,
+} from '@/lib/planning/queries'
 import { WithdrawalForm } from '@/components/planning/withdrawal-form'
 
 // ---------------------------------------------------------------------------
@@ -10,20 +13,26 @@ import { WithdrawalForm } from '@/components/planning/withdrawal-form'
 // ---------------------------------------------------------------------------
 
 async function WithdrawalContent({ orgId }: { orgId: string }) {
-  const [withdrawalStrategy, retirementPlan, positions] = await Promise.all([
+  const [withdrawalStrategy, retirementPlan, summary] = await Promise.all([
     getWithdrawalStrategy(orgId),
     getRetirementPlan(orgId),
-    getPositions(orgId),
+    getPlanningPortfolioSummary(orgId),
   ])
 
-  const currentPortfolioCents = positions.reduce((sum, p) => sum + p.currentValueCents, 0)
   const retirementAge = retirementPlan?.retirementAge ?? 65
   const lifeExpectancy = retirementPlan?.lifeExpectancy ?? 85
 
   return (
     <WithdrawalForm
-      defaultValues={withdrawalStrategy}
-      currentPortfolioCents={currentPortfolioCents}
+      defaultValues={withdrawalStrategy ? {
+        mode: withdrawalStrategy.mode,
+        fixedMonthlyAmountCents: withdrawalStrategy.fixedMonthlyAmountCents,
+        percentageRate: withdrawalStrategy.percentageRate != null
+          ? String(withdrawalStrategy.percentageRate)
+          : null,
+        liquidationPreset: withdrawalStrategy.liquidationPreset,
+      } : null}
+      currentPortfolioCents={summary.currentPortfolioCents}
       retirementAge={retirementAge}
       lifeExpectancy={lifeExpectancy}
     />

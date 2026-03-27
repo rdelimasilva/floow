@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { Account, Category } from '@floow/db'
+import { useToast } from '@/components/ui/toast'
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +64,23 @@ type EndMode = 'count' | 'end_date' | 'indefinite'
 interface TransactionFormProps {
   accounts: Account[]
   categories: Category[]
-  onSuccess?: () => void
+  onSuccess?: (transactions?: Array<{
+    id: string
+    accountId: string
+    categoryId?: string | null
+    type: 'income' | 'expense' | 'transfer'
+    amountCents: number
+    description: string
+    date: string | Date
+    transferGroupId?: string | null
+    externalId?: string | null
+    isAutoCategorized?: boolean
+    isIgnored?: boolean
+    recurringTemplateId?: string | null
+    balanceApplied?: boolean
+    installmentNumber?: number | null
+    installmentTotal?: number | null
+  }>) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -75,6 +93,7 @@ const TYPE_LABELS: Record<TransactionType, string> = {
 
 export function TransactionForm({ accounts, categories: initialCategories, onSuccess }: TransactionFormProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [txType, setTxType] = useState<TransactionType>('expense')
   const [categories, setCategories] = useState(initialCategories)
   const [showNewCategory, setShowNewCategory] = useState(false)
@@ -92,7 +111,7 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
     control,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionFormSchema),
     defaultValues: {
@@ -100,6 +119,8 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
       date: new Date().toISOString().split('T')[0],
     },
   })
+
+  useUnsavedChanges(isDirty)
 
   // Filter categories by transaction type (income categories for income, expense categories for expense)
   const filteredCategories = categories.filter((cat) => {
@@ -166,6 +187,10 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
       }
 
       await createRecurringTransactions(formData)
+      if (onSuccess) {
+        onSuccess()
+        return
+      }
     } else {
       const formData = new FormData()
       formData.append('type', data.type)
@@ -179,12 +204,14 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
         formData.append('transferToAccountId', data.transferToAccountId)
       }
 
-      await createTransaction(formData)
+      const created = await createTransaction(formData)
+      if (onSuccess) {
+        onSuccess(Array.isArray(created) ? created : [created])
+        return
+      }
     }
 
-    if (onSuccess) {
-      onSuccess()
-    } else {
+    if (!onSuccess) {
       router.push('/transactions')
     }
   }
@@ -210,8 +237,8 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
       setValue('categoryId', created.id)
       setNewCategoryName('')
       setShowNewCategory(false)
-    } catch {
-      // toast would be nice but keeping it simple
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao criar categoria. Tente novamente.', 'error')
     } finally {
       setCreatingCategory(false)
     }
@@ -265,7 +292,7 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
           )}
         />
         {errors.accountId && (
-          <p className="text-xs text-red-600">{errors.accountId.message}</p>
+          <p className="text-sm text-red-600">{errors.accountId.message}</p>
         )}
       </div>
 
@@ -292,7 +319,7 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
             )}
           />
           {errors.transferToAccountId && (
-            <p className="text-xs text-red-600">{errors.transferToAccountId.message}</p>
+            <p className="text-sm text-red-600">{errors.transferToAccountId.message}</p>
           )}
         </div>
       )}
@@ -366,10 +393,11 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
         <Input
           id="amountRaw"
           placeholder="Ex: 150,75"
+          error={!!errors.amountRaw}
           {...register('amountRaw')}
         />
         {errors.amountRaw && (
-          <p className="text-xs text-red-600">{errors.amountRaw.message}</p>
+          <p className="text-sm text-red-600">{errors.amountRaw.message}</p>
         )}
       </div>
 
@@ -379,10 +407,11 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
         <Input
           id="description"
           placeholder="Ex: Mercado semanal"
+          error={!!errors.description}
           {...register('description')}
         />
         {errors.description && (
-          <p className="text-xs text-red-600">{errors.description.message}</p>
+          <p className="text-sm text-red-600">{errors.description.message}</p>
         )}
       </div>
 
@@ -392,10 +421,11 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
         <Input
           id="date"
           type="date"
+          error={!!errors.date}
           {...register('date')}
         />
         {errors.date && (
-          <p className="text-xs text-red-600">{errors.date.message}</p>
+          <p className="text-sm text-red-600">{errors.date.message}</p>
         )}
       </div>
 

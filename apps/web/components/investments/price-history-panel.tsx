@@ -5,6 +5,8 @@ import { getPriceHistory } from '@/lib/investments/client-actions'
 import { formatBRL } from '@floow/core-finance'
 import type { PriceHistoryEntry } from '@/lib/investments/queries'
 
+const historyCache = new Map<string, PriceHistoryEntry[]>()
+
 interface PriceHistoryPanelProps {
   orgId: string
   assetId: string
@@ -20,8 +22,19 @@ export function PriceHistoryPanel({ orgId, assetId }: PriceHistoryPanelProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const cacheKey = `${orgId}:${assetId}`
+    const cached = historyCache.get(cacheKey)
+    if (cached) {
+      setEntries(cached)
+      setLoading(false)
+      return
+    }
+
     getPriceHistory(orgId, assetId)
-      .then((data) => setEntries(data))
+      .then((data) => {
+        historyCache.set(cacheKey, data)
+        setEntries(data)
+      })
       .finally(() => setLoading(false))
   }, [orgId, assetId])
 

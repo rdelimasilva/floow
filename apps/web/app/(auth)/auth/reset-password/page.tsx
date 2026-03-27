@@ -90,7 +90,7 @@ export default function ResetPasswordPage() {
             {...register('password')}
           />
           {errors.password && (
-            <p className="text-xs text-red-500">{errors.password.message}</p>
+            <p className="text-sm text-red-600">{errors.password.message}</p>
           )}
         </div>
 
@@ -104,14 +104,14 @@ export default function ResetPasswordPage() {
             {...register('confirmPassword')}
           />
           {errors.confirmPassword && (
-            <p className="text-xs text-red-500">
+            <p className="text-sm text-red-600">
               {errors.confirmPassword.message}
             </p>
           )}
         </div>
 
         {serverError && (
-          <p className="text-xs text-red-500">{serverError}</p>
+          <p className="text-sm text-red-600">{serverError}</p>
         )}
 
         <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>

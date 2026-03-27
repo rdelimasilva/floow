@@ -240,7 +240,63 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
   const totalPnLColor = totalUnrealizedPnLCents >= 0 ? 'text-green-700' : 'text-red-600'
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <>
+      {/* Mobile: card layout */}
+      <div className="md:hidden space-y-3">
+        {positions.map((position) => {
+          const pnlColor = position.unrealizedPnLCents >= 0 ? 'text-green-700' : 'text-red-600'
+          return (
+            <div key={position.assetId} className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-mono text-sm font-semibold text-gray-900">{position.ticker}</p>
+                  <p className="text-xs text-gray-500 truncate">{position.name}</p>
+                  <span className="text-[10px] text-gray-400 uppercase">{ASSET_CLASS_LABELS[position.assetClass] ?? position.assetClass}</span>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-semibold text-gray-900">{formatBRL(position.currentValueCents)}</p>
+                  <p className={`text-xs font-medium ${pnlColor}`}>
+                    {position.unrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(position.unrealizedPnLCents)} ({position.unrealizedPnLPercent > 0 ? '+' : ''}{position.unrealizedPnLPercent.toFixed(2)}%)
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <p className="text-gray-400">Qtd</p>
+                  <p className="font-medium tabular-nums">{position.quantityHeld.toLocaleString('pt-BR')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">PM</p>
+                  <p className="font-medium tabular-nums">{formatBRL(position.avgCostCents)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Dividendos</p>
+                  <p className="font-medium tabular-nums text-green-700">{position.totalDividendsCents > 0 ? formatBRL(position.totalDividendsCents) : '—'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+                <Link href={`/investments/${position.assetId}`} className="text-xs text-blue-600 hover:underline">Editar</Link>
+              </div>
+            </div>
+          )
+        })}
+        {/* Mobile totals */}
+        <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-gray-700">Total ({positions.length} ativos)</p>
+            <p className="text-sm font-bold text-gray-900">{formatBRL(totalValueCents)}</p>
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs text-gray-500">P&L</p>
+            <p className={`text-xs font-bold ${totalPnLColor}`}>
+              {totalUnrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(totalUnrealizedPnLCents)} ({totalUnrealizedPnLPercent > 0 ? '+' : ''}{totalUnrealizedPnLPercent.toFixed(2)}%)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop: table layout */}
+      <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200 bg-white">
       <table className="w-full min-w-[900px]">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
@@ -284,6 +340,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
           </tr>
         </tfoot>
       </table>
-    </div>
+      </div>
+    </>
   )
 }

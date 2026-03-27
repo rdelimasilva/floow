@@ -1,11 +1,14 @@
 import Link from 'next/link'
-import { getOrgId, getTransactionsWithCount, getAccounts, getCategories } from '@/lib/finance/queries'
+import { getOrgId, getTransactionsWithCount, getAccounts, getCategories, getPageStartBalance, getCategoryUsageOrder } from '@/lib/finance/queries'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
+import { ExportCsvButton } from '@/components/finance/export-csv-button'
 import { Pagination } from '@/components/ui/pagination'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
+
+export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 30
 
@@ -31,10 +34,14 @@ export default async function TransactionsPage({ searchParams }: Props) {
     maxAmount: params.maxAmount ? parseInt(params.maxAmount, 10) : undefined,
   }
 
-  const [{ transactions, totalCount }, accounts, categories] = await Promise.all([
-    getTransactionsWithCount(orgId, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }),
+  const queryOpts = { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }
+
+  const [{ transactions, totalCount }, accounts, categories, startingBalance, categoryOrder] = await Promise.all([
+    getTransactionsWithCount(orgId, queryOpts),
     getAccounts(orgId),
     getCategories(orgId),
+    getPageStartBalance(orgId, queryOpts),
+    getCategoryUsageOrder(orgId),
   ])
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
@@ -52,7 +59,14 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (params.maxAmount) paginationParams.maxAmount = params.maxAmount
 
   const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }))
-  const categoryOptions = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))
+  const categoryOrderMap = new Map(categoryOrder.map((id, i) => [id, i]))
+  const categoryOptions = categories
+    .map((c) => ({ id: c.id, name: c.name, type: c.type }))
+    .sort((a, b) => {
+      const aIdx = categoryOrderMap.get(a.id) ?? 999
+      const bIdx = categoryOrderMap.get(b.id) ?? 999
+      return aIdx - bIdx
+    })
 
   return (
     <InlineTransactionFormProvider>
@@ -63,6 +77,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
           ? `${totalCount} transação(ões) encontrada(s)`
           : 'Nenhuma transação registrada'}
       >
+        <ExportCsvButton />
         <Button asChild variant="outline">
           <Link href="/transactions/import">Importar</Link>
         </Button>
@@ -82,6 +97,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
         categories={categoryOptions}
         sortBy={filters.sortBy}
         sortDir={filters.sortDir as 'asc' | 'desc'}
+        startingBalance={startingBalance}
       />
 
       <Pagination

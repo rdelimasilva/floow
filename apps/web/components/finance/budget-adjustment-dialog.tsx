@@ -33,7 +33,7 @@ export function BudgetAdjustmentDialog({ goalId, open, onClose }: BudgetAdjustme
       toast('Ajuste registrado com sucesso')
       onClose()
     } catch {
-      toast('Erro ao registrar ajuste', 'error')
+      toast('Não foi possível registrar o ajuste. Tente novamente.', 'error')
     } finally {
       setLoading(false)
     }

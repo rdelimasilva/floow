@@ -1,7 +1,15 @@
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules } from '@floow/db'
 import { eq, and, desc, asc, isNull, or, gte, count, ilike, lte, inArray, sql } from 'drizzle-orm'
+import {
+  accountsTag,
+  categoriesTag,
+  futureTransactionsTag,
+  recentTransactionsTag,
+  snapshotsTag,
+} from '@/lib/cache-tags'
 
 /**
  * Extracts the orgId from the authenticated user's JWT app_metadata.
@@ -31,12 +39,18 @@ export const getOrgId = cache(async function getOrgId(): Promise<string> {
  * Wrapped in React cache() to deduplicate within a single request.
  */
 export const getAccounts = cache(async function getAccounts(orgId: string) {
-  const db = getDb()
-  return db
-    .select()
-    .from(accounts)
-    .where(and(eq(accounts.orgId, orgId), eq(accounts.isActive, true)))
-    .orderBy(accounts.name)
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      return db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.orgId, orgId), eq(accounts.isActive, true)))
+        .orderBy(accounts.name)
+    },
+    ['finance-accounts', orgId],
+    { tags: [accountsTag(orgId)], revalidate: 300 },
+  )()
 })
 
 /**
@@ -60,6 +74,13 @@ interface TransactionFilterOpts {
   startDate?: string; endDate?: string;
   types?: string; categoryIds?: string;
   minAmount?: number; maxAmount?: number;
+}
+
+interface TransactionQueryOpts extends TransactionFilterOpts {
+  limit?: number
+  offset?: number
+  sortBy?: string
+  sortDir?: string
 }
 
 /** Builds WHERE conditions for transaction queries — single source of truth. */
@@ -89,24 +110,7 @@ function buildTransactionConditions(orgId: string, opts?: TransactionFilterOpts)
   return conditions
 }
 
-/**
- * Returns transactions + total count in a SINGLE query using COUNT(*) OVER().
- * Eliminates the extra round-trip that getTransactionCount required.
- * Joined with category data (name, color, icon).
- */
-export async function getTransactionsWithCount(
-  orgId: string,
-  opts?: TransactionFilterOpts & {
-    limit?: number; offset?: number;
-    sortBy?: string; sortDir?: string;
-  }
-) {
-  const db = getDb()
-  const limit = opts?.limit ?? 50
-  const offset = opts?.offset ?? 0
-
-  const conditions = buildTransactionConditions(orgId, opts)
-
+function buildTransactionOrder(opts?: Pick<TransactionQueryOpts, 'sortBy' | 'sortDir'>) {
   const sortColumns: Record<string, any> = {
     date: transactions.date,
     description: transactions.description,
@@ -114,8 +118,28 @@ export async function getTransactionsWithCount(
     type: transactions.type,
     amountCents: transactions.amountCents,
   }
+
   const sortCol = sortColumns[opts?.sortBy ?? 'date'] ?? transactions.date
   const sortFn = opts?.sortDir === 'asc' ? asc : desc
+
+  return [desc(transactions.balanceApplied), sortFn(sortCol)] as const
+}
+
+/**
+ * Returns transactions + total count in a SINGLE query using COUNT(*) OVER().
+ * Eliminates the extra round-trip that getTransactionCount required.
+ * Joined with category data (name, color, icon).
+ */
+export async function getTransactionsWithCount(
+  orgId: string,
+  opts?: TransactionQueryOpts
+) {
+  const db = getDb()
+  const limit = opts?.limit ?? 50
+  const offset = opts?.offset ?? 0
+
+  const conditions = buildTransactionConditions(orgId, opts)
+  const orderBy = buildTransactionOrder(opts)
 
   const rows = await db
     .select({
@@ -137,19 +161,80 @@ export async function getTransactionsWithCount(
       categoryName: categories.name,
       categoryColor: categories.color,
       categoryIcon: categories.icon,
-      _totalCount: sql<number>`count(*) over()`.as('total_count'),
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(and(...conditions))
-    .orderBy(desc(transactions.balanceApplied), sortFn(sortCol))
+    .orderBy(...orderBy)
     .limit(limit)
     .offset(offset)
 
-  const totalCount = rows[0]?._totalCount ?? 0
-  const data = rows.map(({ _totalCount, ...rest }) => rest)
+  const totalCount = rows.length < limit
+    ? offset + rows.length
+    : await db
+        .select({ total: count() })
+        .from(transactions)
+        .where(and(...conditions))
+        .then((result) => result[0]?.total ?? 0)
 
-  return { transactions: data, totalCount }
+  return { transactions: rows, totalCount }
+}
+
+/**
+ * Returns the starting balance for running-balance display on the current page.
+ * For DESC sort: totalSum - sum of transactions on earlier pages (newer txns).
+ * For ASC sort: sum of transactions on earlier pages (older txns).
+ */
+export async function getPageStartBalance(
+  orgId: string,
+  opts?: TransactionQueryOpts,
+): Promise<number> {
+  const db = getDb()
+  const offset = opts?.offset ?? 0
+  const sortDir = opts?.sortDir ?? 'desc'
+  const conditions = buildTransactionConditions(orgId, opts)
+
+  const [totalResult] = await db
+    .select({ sum: sql<string>`COALESCE(SUM(${transactions.amountCents}), 0)` })
+    .from(transactions)
+    .where(and(...conditions))
+  const totalSum = Number(totalResult.sum)
+
+  if (offset === 0) {
+    return sortDir === 'desc' ? totalSum : 0
+  }
+
+  const orderBy = buildTransactionOrder(opts)
+  const prevRows = await db
+    .select({ amountCents: transactions.amountCents })
+    .from(transactions)
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(and(...conditions))
+    .orderBy(...orderBy)
+    .limit(offset)
+  const prevSum = prevRows.reduce((acc, r) => acc + r.amountCents, 0)
+
+  return sortDir === 'desc' ? totalSum - prevSum : prevSum
+}
+
+/**
+ * Returns category IDs ordered by usage frequency (most used first).
+ * Used to sort category dropdowns with most-used at top.
+ */
+export async function getCategoryUsageOrder(orgId: string): Promise<string[]> {
+  const db = getDb()
+  const rows = await db
+    .select({
+      categoryId: transactions.categoryId,
+      cnt: count(),
+    })
+    .from(transactions)
+    .where(and(eq(transactions.orgId, orgId), sql`${transactions.categoryId} IS NOT NULL`))
+    .groupBy(transactions.categoryId)
+    .orderBy(desc(count()))
+    .limit(50)
+
+  return rows.map((r) => r.categoryId!)
 }
 
 /**
@@ -157,12 +242,18 @@ export async function getTransactionsWithCount(
  * Wrapped in React cache() to deduplicate within a single request.
  */
 export const getCategories = cache(async function getCategories(orgId: string) {
-  const db = getDb()
-  return db
-    .select()
-    .from(categories)
-    .where(or(eq(categories.orgId, orgId), isNull(categories.orgId)))
-    .orderBy(categories.type, categories.name)
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      return db
+        .select()
+        .from(categories)
+        .where(or(eq(categories.orgId, orgId), isNull(categories.orgId)))
+        .orderBy(categories.type, categories.name)
+    },
+    ['finance-categories', orgId],
+    { tags: [categoriesTag(orgId)], revalidate: 60 },
+  )()
 })
 
 /**
@@ -170,15 +261,21 @@ export const getCategories = cache(async function getCategories(orgId: string) {
  * Wrapped in React cache() to deduplicate within a single request.
  */
 export const getLatestSnapshot = cache(async function getLatestSnapshot(orgId: string) {
-  const db = getDb()
-  const results = await db
-    .select()
-    .from(patrimonySnapshots)
-    .where(eq(patrimonySnapshots.orgId, orgId))
-    .orderBy(desc(patrimonySnapshots.snapshotDate))
-    .limit(1)
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      const results = await db
+        .select()
+        .from(patrimonySnapshots)
+        .where(eq(patrimonySnapshots.orgId, orgId))
+        .orderBy(desc(patrimonySnapshots.snapshotDate))
+        .limit(1)
 
-  return results[0] ?? null
+      return results[0] ?? null
+    },
+    ['finance-latest-snapshot', orgId],
+    { tags: [snapshotsTag(orgId)], revalidate: 300 },
+  )()
 })
 
 /**
@@ -202,46 +299,70 @@ export async function getCategoryRules(orgId: string) {
  * calls this twice from StatsSection and ChartSection — cache prevents double DB round-trip).
  */
 export const getRecentTransactions = cache(async function getRecentTransactions(orgId: string, months: number = 6) {
-  const db = getDb()
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      const cutoff = new Date()
+      cutoff.setMonth(cutoff.getMonth() - months)
 
-  const cutoff = new Date()
-  cutoff.setMonth(cutoff.getMonth() - months)
-
-  return db
-    .select({
-      id: transactions.id,
-      orgId: transactions.orgId,
-      accountId: transactions.accountId,
-      type: transactions.type,
-      amountCents: transactions.amountCents,
-      date: transactions.date,
-    })
-    .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff), eq(transactions.isIgnored, false), eq(transactions.balanceApplied, true)))
-    .orderBy(desc(transactions.date))
+      return db
+        .select({
+          id: transactions.id,
+          orgId: transactions.orgId,
+          accountId: transactions.accountId,
+          type: transactions.type,
+          amountCents: transactions.amountCents,
+          date: transactions.date,
+        })
+        .from(transactions)
+        .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff), eq(transactions.isIgnored, false), eq(transactions.balanceApplied, true)))
+        .orderBy(desc(transactions.date))
+    },
+    ['finance-recent-transactions', orgId, String(months)],
+    { tags: [recentTransactionsTag(orgId, months)], revalidate: 180 },
+  )().then((rows) =>
+    rows.map((row) => ({
+      ...row,
+      date: row.date instanceof Date ? row.date : new Date(row.date as unknown as string),
+    }))
+  )
 })
 
 /**
  * Returns future transactions (balance_applied = false) for cash flow projection.
  * These are recurring installments with date > today that haven't impacted the balance yet.
  */
-export async function getFutureTransactions(orgId: string) {
-  const db = getDb()
+export async function getFutureTransactions(orgId: string, months: number = 24) {
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      const endDate = new Date()
+      endDate.setMonth(endDate.getMonth() + months)
 
-  return db
-    .select({
-      id: transactions.id,
-      orgId: transactions.orgId,
-      accountId: transactions.accountId,
-      type: transactions.type,
-      amountCents: transactions.amountCents,
-      date: transactions.date,
-    })
-    .from(transactions)
-    .where(and(
-      eq(transactions.orgId, orgId),
-      eq(transactions.balanceApplied, false),
-      eq(transactions.isIgnored, false),
-    ))
-    .orderBy(asc(transactions.date))
+      return db
+        .select({
+          id: transactions.id,
+          orgId: transactions.orgId,
+          accountId: transactions.accountId,
+          type: transactions.type,
+          amountCents: transactions.amountCents,
+          date: transactions.date,
+        })
+        .from(transactions)
+        .where(and(
+          eq(transactions.orgId, orgId),
+          eq(transactions.balanceApplied, false),
+          eq(transactions.isIgnored, false),
+          lte(transactions.date, endDate),
+        ))
+        .orderBy(asc(transactions.date))
+    },
+    ['finance-future-transactions', orgId, String(months)],
+    { tags: [futureTransactionsTag(orgId, months)], revalidate: 180 },
+  )().then((rows) =>
+    rows.map((row) => ({
+      ...row,
+      date: row.date instanceof Date ? row.date : new Date(row.date as unknown as string),
+    }))
+  )
 }

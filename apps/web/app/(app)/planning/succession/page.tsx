@@ -1,8 +1,12 @@
 import { Suspense } from 'react'
 import { getOrgId, getAccounts } from '@/lib/finance/queries'
 import { PageHeader } from '@/components/ui/page-header'
-import { getSuccessionPlan, getHeirs } from '@/lib/planning/queries'
-import { getPositions, getPatrimonySnapshots } from '@/lib/investments/queries'
+import {
+  getPlanningPortfolioSummary,
+  getSuccessionPlan,
+  getHeirs,
+} from '@/lib/planning/queries'
+import { getPatrimonySnapshots } from '@/lib/investments/queries'
 import { SuccessionForm } from '@/components/planning/succession-form'
 
 // ---------------------------------------------------------------------------
@@ -10,17 +14,15 @@ import { SuccessionForm } from '@/components/planning/succession-form'
 // ---------------------------------------------------------------------------
 
 async function SuccessionContent({ orgId }: { orgId: string }) {
-  const [successionPlan, positions, snapshots] = await Promise.all([
+  const [successionPlan, summary, snapshots] = await Promise.all([
     getSuccessionPlan(orgId),
-    getPositions(orgId),
+    getPlanningPortfolioSummary(orgId),
     getPatrimonySnapshots(orgId, 1),
   ])
 
   const savedHeirs = successionPlan
     ? await getHeirs(orgId, successionPlan.id)
     : []
-
-  const currentPortfolioCents = positions.reduce((sum, p) => sum + p.currentValueCents, 0)
 
   // Compute liquidAssetsCents: prefer latest patrimony snapshot, else sum non-credit-card accounts
   let liquidAssetsCents = 0
@@ -36,9 +38,18 @@ async function SuccessionContent({ orgId }: { orgId: string }) {
 
   return (
     <SuccessionForm
-      defaultValues={successionPlan}
-      defaultHeirs={savedHeirs}
-      currentPortfolioCents={currentPortfolioCents}
+      defaultValues={successionPlan ? {
+        brazilianState: successionPlan.brazilianState,
+        estimatedFuneralCostsCents: successionPlan.estimatedFuneralCostsCents,
+        estimatedLegalFeesCents: successionPlan.estimatedLegalFeesCents,
+        additionalLiabilitiesCents: successionPlan.additionalLiabilitiesCents,
+      } : null}
+      defaultHeirs={savedHeirs.map((heir) => ({
+        name: heir.name,
+        relationship: heir.relationship,
+        percentageShare: String(heir.percentageShare),
+      }))}
+      currentPortfolioCents={summary.currentPortfolioCents}
       liquidAssetsCents={liquidAssetsCents}
     />
   )

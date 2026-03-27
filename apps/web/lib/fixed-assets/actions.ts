@@ -1,10 +1,20 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getDb, fixedAssets, fixedAssetTypes } from '@floow/db'
 import { createFixedAssetSchema, updateFixedAssetSchema, updateAssetValueSchema } from '@floow/shared'
 import { eq, and, or, isNull, ilike } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
+import { fixedAssetsTag, fixedAssetTypesTag, snapshotsTag } from '@/lib/cache-tags'
+
+function revalidateFixedAssetData(orgId: string) {
+  revalidateTag(fixedAssetsTag(orgId))
+  revalidateTag(snapshotsTag(orgId))
+}
+
+function revalidateFixedAssetTypeData(orgId: string) {
+  revalidateTag(fixedAssetTypesTag(orgId))
+}
 
 // -- Asset Type CRUD --
 
@@ -30,6 +40,7 @@ export async function createFixedAssetType(formData: FormData) {
     .returning()
 
   revalidatePath('/fixed-assets')
+  revalidateFixedAssetTypeData(orgId)
   return type
 }
 
@@ -56,6 +67,7 @@ export async function updateFixedAssetType(formData: FormData) {
     .where(and(eq(fixedAssetTypes.id, id), or(eq(fixedAssetTypes.orgId, orgId), isNull(fixedAssetTypes.orgId))))
 
   revalidatePath('/fixed-assets')
+  revalidateFixedAssetTypeData(orgId)
 }
 
 export async function deleteFixedAssetType(formData: FormData) {
@@ -69,6 +81,7 @@ export async function deleteFixedAssetType(formData: FormData) {
     .where(and(eq(fixedAssetTypes.id, id), eq(fixedAssetTypes.orgId, orgId)))
 
   revalidatePath('/fixed-assets')
+  revalidateFixedAssetTypeData(orgId)
 }
 
 // -- Fixed Asset CRUD --
@@ -107,6 +120,7 @@ export async function createFixedAsset(formData: FormData) {
 
   revalidatePath('/fixed-assets')
   revalidatePath('/dashboard')
+  revalidateFixedAssetData(orgId)
   return asset
 }
 
@@ -143,6 +157,7 @@ export async function updateFixedAsset(formData: FormData) {
 
   revalidatePath('/fixed-assets')
   revalidatePath('/dashboard')
+  revalidateFixedAssetData(orgId)
 }
 
 export async function updateAssetValue(formData: FormData) {
@@ -166,6 +181,7 @@ export async function updateAssetValue(formData: FormData) {
 
   revalidatePath('/fixed-assets')
   revalidatePath('/dashboard')
+  revalidateFixedAssetData(orgId)
 }
 
 export async function deleteFixedAsset(formData: FormData) {
@@ -181,4 +197,5 @@ export async function deleteFixedAsset(formData: FormData) {
 
   revalidatePath('/fixed-assets')
   revalidatePath('/dashboard')
+  revalidateFixedAssetData(orgId)
 }

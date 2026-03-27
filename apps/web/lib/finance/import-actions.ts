@@ -1,11 +1,16 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getDb, accounts, transactions } from '@floow/db'
 import { parseOFXFile, parseCSVFile, matchCategory } from '@floow/core-finance'
 import type { CsvColumnMapping } from '@floow/core-finance'
 import { eq, sql, and, gte, lte } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
+import {
+  accountsTag,
+  recentTransactionsTag,
+  transactionsTag,
+} from '@/lib/cache-tags'
 
 /**
  * Result returned after an import operation.
@@ -33,12 +38,24 @@ export interface PreviewItem {
     externalId: string | null
   }
   status: MatchStatus
+  suggestedCategoryId: string | null
+  isAutoCategorized: boolean
   matchedTransaction?: {
     id: string
     date: string
     description: string
     amountCents: number
   }
+}
+
+/**
+ * Per-transaction override applied during import review step.
+ */
+export interface TransactionOverride {
+  index: number
+  categoryId: string | null
+  type: 'income' | 'expense' | 'transfer'
+  transferToAccountId?: string
 }
 
 /**
@@ -103,6 +120,10 @@ export async function previewImport(formData: FormData): Promise<PreviewItem[]> 
   // Build lookup structures
   const externalIdSet = new Set(existing.filter((t) => t.externalId).map((t) => t.externalId!))
 
+  // Auto-categorize for suggestions
+  const allRules = await getCategoryRules(orgId)
+  const enabledRules = allRules.filter((r) => r.isEnabled)
+
   const items: PreviewItem[] = normalized.map((tx, index) => {
     const parsed = {
       date: tx.date.toISOString(),
@@ -112,6 +133,11 @@ export async function previewImport(formData: FormData): Promise<PreviewItem[]> 
       externalId: tx.externalId,
     }
 
+    const suggestedCategoryId =
+      tx.description && enabledRules.length > 0
+        ? matchCategory(tx.description, enabledRules)
+        : null
+
     // Check exact duplicate by externalId
     if (tx.externalId && externalIdSet.has(tx.externalId)) {
       const matched = existing.find((e) => e.externalId === tx.externalId)
@@ -119,6 +145,8 @@ export async function previewImport(formData: FormData): Promise<PreviewItem[]> 
         index,
         parsed,
         status: 'duplicate' as MatchStatus,
+        suggestedCategoryId,
+        isAutoCategorized: suggestedCategoryId !== null,
         matchedTransaction: matched
           ? { id: matched.id, date: matched.date.toISOString(), description: matched.description, amountCents: matched.amountCents }
           : undefined,
@@ -139,6 +167,8 @@ export async function previewImport(formData: FormData): Promise<PreviewItem[]> 
         index,
         parsed,
         status: 'possible_match' as MatchStatus,
+        suggestedCategoryId,
+        isAutoCategorized: suggestedCategoryId !== null,
         matchedTransaction: {
           id: possibleMatch.id,
           date: possibleMatch.date.toISOString(),
@@ -148,7 +178,7 @@ export async function previewImport(formData: FormData): Promise<PreviewItem[]> 
       }
     }
 
-    return { index, parsed, status: 'new' as MatchStatus }
+    return { index, parsed, status: 'new' as MatchStatus, suggestedCategoryId, isAutoCategorized: suggestedCategoryId !== null }
   })
 
   return items
@@ -271,6 +301,10 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
 
   revalidatePath('/transactions')
   revalidatePath('/accounts', 'layout')
+  revalidateTag(transactionsTag(orgId))
+  revalidateTag(recentTransactionsTag(orgId, 6))
+  revalidateTag(recentTransactionsTag(orgId, 24))
+  revalidateTag(accountsTag(orgId))
 
   return { imported, skipped }
 }
@@ -294,6 +328,10 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
   if (!selectedIndicesJson) throw new Error('No selected indices provided')
   const selectedIndices = new Set<number>(JSON.parse(selectedIndicesJson))
 
+  const overridesJson = formData.get('overrides') as string | null
+  const overrides: TransactionOverride[] = overridesJson ? JSON.parse(overridesJson) : []
+  const overrideMap = new Map(overrides.map((o) => [o.index, o]))
+
   if (selectedIndices.size === 0) return { imported: 0, skipped: 0 }
 
   const content = await file.text()
@@ -308,9 +346,24 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
         dateFormat: ((formData.get('dateFormat') as string) ?? 'dd/MM/yyyy') as CsvColumnMapping['dateFormat'],
       })
 
-  // Filter to only selected indices
-  const selected = normalized.filter((_, idx) => selectedIndices.has(idx))
-  if (selected.length === 0) return { imported: 0, skipped: 0 }
+  // Filter to only selected indices, preserving original index for override lookup
+  const selectedWithIndex = normalized
+    .map((tx, idx) => ({ tx, idx }))
+    .filter(({ idx }) => selectedIndices.has(idx))
+  if (selectedWithIndex.length === 0) return { imported: 0, skipped: 0 }
+
+  // Separate regular transactions from transfers
+  const regularItems: typeof selectedWithIndex = []
+  const transferItems: { tx: (typeof normalized)[number]; idx: number; destAccountId: string }[] = []
+
+  for (const item of selectedWithIndex) {
+    const override = overrideMap.get(item.idx)
+    if (override?.type === 'transfer' && override.transferToAccountId) {
+      transferItems.push({ ...item, destAccountId: override.transferToAccountId })
+    } else {
+      regularItems.push(item)
+    }
+  }
 
   const importedAt = new Date()
 
@@ -318,22 +371,31 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
   const allRulesSelected = await getCategoryRules(orgId)
   const enabledRulesSelected = allRulesSelected.filter((r) => r.isEnabled)
 
-  const rows = selected.map((tx) => {
-    const autoCategoryId =
+  const rows = regularItems.map(({ tx, idx }) => {
+    const override = overrideMap.get(idx)
+    const categoryId = override?.categoryId ?? (
       tx.description && enabledRulesSelected.length > 0
         ? matchCategory(tx.description, enabledRulesSelected)
         : null
+    )
+    const type = override?.type ?? tx.type
+    // If user changed type, flip the sign accordingly
+    const amountCents = type === 'income'
+      ? Math.abs(tx.amountCents)
+      : type === 'expense'
+        ? -Math.abs(tx.amountCents)
+        : tx.amountCents
     return {
       orgId,
       accountId,
-      type: tx.type,
-      amountCents: tx.amountCents,
+      type,
+      amountCents,
       description: tx.description,
       date: tx.date,
       externalId: tx.externalId,
       importedAt,
-      categoryId: autoCategoryId,
-      isAutoCategorized: autoCategoryId !== null,
+      categoryId,
+      isAutoCategorized: !override?.categoryId && categoryId !== null,
     }
   })
 
@@ -348,23 +410,74 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
       throw new Error(`Account ${accountId} not found or does not belong to this organization`)
     }
 
-    const insertedRows = await tx
-      .insert(transactions)
-      .values(rows)
-      .onConflictDoNothing()
-      .returning({ id: transactions.id, amountCents: transactions.amountCents })
+    let importedCount = 0
+    let skippedCount = 0
 
-    const importedCount = insertedRows.length
-    const skippedCount = selected.length - importedCount
+    // Insert regular (income/expense) transactions
+    if (rows.length > 0) {
+      const insertedRows = await tx
+        .insert(transactions)
+        .values(rows)
+        .onConflictDoNothing()
+        .returning({ id: transactions.id, amountCents: transactions.amountCents })
 
-    if (importedCount > 0) {
-      const totalDelta = insertedRows.reduce((sum, row) => sum + row.amountCents, 0)
-      if (totalDelta !== 0) {
-        await tx
-          .update(accounts)
-          .set({ balanceCents: sql`balance_cents + ${totalDelta}` })
-          .where(eq(accounts.id, accountId))
+      importedCount += insertedRows.length
+      skippedCount += rows.length - insertedRows.length
+
+      if (insertedRows.length > 0) {
+        const totalDelta = insertedRows.reduce((sum, row) => sum + row.amountCents, 0)
+        if (totalDelta !== 0) {
+          await tx
+            .update(accounts)
+            .set({ balanceCents: sql`balance_cents + ${totalDelta}` })
+            .where(eq(accounts.id, accountId))
+        }
       }
+    }
+
+    // Insert transfer transactions (two legs each)
+    for (const item of transferItems) {
+      const absAmount = Math.abs(item.tx.amountCents)
+      const transferGroupId = crypto.randomUUID()
+      const override = overrideMap.get(item.idx)
+
+      // Source leg (debit from import account)
+      await tx.insert(transactions).values({
+        orgId,
+        accountId,
+        type: 'transfer',
+        amountCents: -absAmount,
+        description: item.tx.description,
+        date: item.tx.date,
+        externalId: item.tx.externalId,
+        importedAt,
+        transferGroupId,
+        categoryId: override?.categoryId ?? null,
+        isAutoCategorized: false,
+      }).onConflictDoNothing()
+
+      // Destination leg (credit to target account)
+      await tx.insert(transactions).values({
+        orgId,
+        accountId: item.destAccountId,
+        type: 'transfer',
+        amountCents: absAmount,
+        description: item.tx.description,
+        date: item.tx.date,
+        transferGroupId,
+        categoryId: override?.categoryId ?? null,
+        isAutoCategorized: false,
+      })
+
+      // Update both account balances
+      await tx.update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${-absAmount}` })
+        .where(eq(accounts.id, accountId))
+      await tx.update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${absAmount}` })
+        .where(eq(accounts.id, item.destAccountId))
+
+      importedCount++
     }
 
     return { imported: importedCount, skipped: skippedCount }
@@ -372,6 +485,10 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
 
   revalidatePath('/transactions')
   revalidatePath('/accounts', 'layout')
+  revalidateTag(transactionsTag(orgId))
+  revalidateTag(recentTransactionsTag(orgId, 6))
+  revalidateTag(recentTransactionsTag(orgId, 24))
+  revalidateTag(accountsTag(orgId))
 
   return { imported, skipped }
 }

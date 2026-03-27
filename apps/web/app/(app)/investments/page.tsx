@@ -17,10 +17,10 @@ export default async function InvestmentsPage() {
         description="Acompanhe sua carteira de investimentos e evolução patrimonial"
       >
         <Button asChild variant="outline">
-          <Link href="/investments/new">Novo Ativo</Link>
+          <Link href="/investments/new">Registrar Evento</Link>
         </Button>
         <Button asChild variant="primary">
-          <Link href="/investments/new">Registrar Evento</Link>
+          <Link href="/investments/new">Novo Ativo</Link>
         </Button>
       </PageHeader>
 

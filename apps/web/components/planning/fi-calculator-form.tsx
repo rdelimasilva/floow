@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { HelpTooltip } from '@/components/ui/help-tooltip'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,7 +10,13 @@ import { formatBRL } from '@floow/core-finance/src/balance'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { RetirementPlan } from '@floow/db'
+
+interface FICalculatorPlanDefaults {
+  desiredMonthlyIncomeCents: number
+  monthlyContributionCents: number
+  baseReturnRate: string | null
+  currentAge: number
+}
 
 // ── Local schema ───────────────────────────────────────────────────────────────
 
@@ -24,7 +31,7 @@ const fiFormSchema = z.object({
 type FIFormData = z.infer<typeof fiFormSchema>
 
 interface FICalculatorFormProps {
-  defaultValues: RetirementPlan | null
+  defaultValues: FICalculatorPlanDefaults | null
   currentPortfolioCents: number
   currentPassiveIncomeCents: number
 }
@@ -142,75 +149,78 @@ export function FICalculatorForm({
           <CardTitle>Parametros</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="targetMonthlyPassiveIncomeCents">
-              Renda Passiva Mensal Desejada (centavos)
-            </Label>
-            <Input
-              id="targetMonthlyPassiveIncomeCents"
-              type="number"
-              placeholder="ex: 1000000 = R$10.000/mes"
-              {...register('targetMonthlyPassiveIncomeCents', { valueAsNumber: true })}
-            />
-            {currentPassiveIncomeCents > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="targetMonthlyPassiveIncomeCents">
+                Renda Passiva Mensal Desejada (centavos)
+              </Label>
+              <Input
+                id="targetMonthlyPassiveIncomeCents"
+                type="number"
+                placeholder="ex: 1000000 = R$10.000/mes"
+                {...register('targetMonthlyPassiveIncomeCents', { valueAsNumber: true })}
+              />
+              {currentPassiveIncomeCents > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents / 100)}/mes
+                </p>
+              )}
+              {errors.targetMonthlyPassiveIncomeCents && (
+                <p className="text-xs text-red-600 mt-1">
+                  {errors.targetMonthlyPassiveIncomeCents.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="currentPortfolioCents">Portfolio Atual (centavos)</Label>
+              <Input
+                id="currentPortfolioCents"
+                type="number"
+                {...register('currentPortfolioCents', { valueAsNumber: true })}
+              />
               <p className="text-xs text-gray-500 mt-1">
-                Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents / 100)}/mes
+                Pre-preenchido com seu portfolio de investimentos atual
               </p>
-            )}
-            {errors.targetMonthlyPassiveIncomeCents && (
-              <p className="text-xs text-red-600 mt-1">
-                {errors.targetMonthlyPassiveIncomeCents.message}
+              {errors.currentPortfolioCents && (
+                <p className="text-xs text-red-600 mt-1">{errors.currentPortfolioCents.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="monthlyContributionCents">Aporte Mensal (centavos)</Label>
+              <Input
+                id="monthlyContributionCents"
+                type="number"
+                placeholder="ex: 200000 = R$2.000"
+                {...register('monthlyContributionCents', { valueAsNumber: true })}
+              />
+              {errors.monthlyContributionCents && (
+                <p className="text-xs text-red-600 mt-1">{errors.monthlyContributionCents.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="annualRealReturnRate" className="flex items-center gap-1">
+                Taxa de Retorno Real Anual (ex: 0.06 = 6%)
+                <HelpTooltip text="Rendimento anual já descontada a inflação. Determina a velocidade de crescimento real do seu patrimônio. Conservador: 4%, Moderado: 6%, Arrojado: 9%." />
+              </Label>
+              <Input
+                id="annualRealReturnRate"
+                type="number"
+                step="0.01"
+                {...register('annualRealReturnRate', { valueAsNumber: true })}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Presets: conservador 4%, base 6%, arrojado 9% (termos reais, descontada inflacao)
               </p>
-            )}
+              {errors.annualRealReturnRate && (
+                <p className="text-xs text-red-600 mt-1">{errors.annualRealReturnRate.message}</p>
+              )}
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="currentPortfolioCents">Portfolio Atual (centavos)</Label>
-            <Input
-              id="currentPortfolioCents"
-              type="number"
-              {...register('currentPortfolioCents', { valueAsNumber: true })}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Pre-preenchido com seu portfolio de investimentos atual
-            </p>
-            {errors.currentPortfolioCents && (
-              <p className="text-xs text-red-600 mt-1">{errors.currentPortfolioCents.message}</p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="monthlyContributionCents">Aporte Mensal (centavos)</Label>
-            <Input
-              id="monthlyContributionCents"
-              type="number"
-              placeholder="ex: 200000 = R$2.000"
-              {...register('monthlyContributionCents', { valueAsNumber: true })}
-            />
-            {errors.monthlyContributionCents && (
-              <p className="text-xs text-red-600 mt-1">{errors.monthlyContributionCents.message}</p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="annualRealReturnRate">
-              Taxa de Retorno Real Anual (ex: 0.06 = 6%)
-            </Label>
-            <Input
-              id="annualRealReturnRate"
-              type="number"
-              step="0.01"
-              {...register('annualRealReturnRate', { valueAsNumber: true })}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Presets: conservador 4%, base 6%, arrojado 9% (termos reais, descontada inflacao)
-            </p>
-            {errors.annualRealReturnRate && (
-              <p className="text-xs text-red-600 mt-1">{errors.annualRealReturnRate.message}</p>
-            )}
-          </div>
-
-          <div>
+          <div className="max-w-xs">
             <Label htmlFor="currentAge">Idade Atual</Label>
             <Input
               id="currentAge"

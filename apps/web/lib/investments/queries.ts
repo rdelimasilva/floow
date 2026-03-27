@@ -1,14 +1,23 @@
 import {
   getDb,
   assets,
+  assetPositionSnapshots,
   portfolioEvents,
   assetPrices,
   patrimonySnapshots,
 } from '@floow/db'
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { eq, and, desc, asc, inArray, gte, sql } from 'drizzle-orm'
 import { computePosition } from '@floow/core-finance'
-import { getOrgId } from '@/lib/finance/queries'
+import { recomputeOrgPositionSnapshots } from './position-snapshots'
+import {
+  incomeEventsTag,
+  investmentsTag,
+  patrimonyHistoryTag,
+  priceHistoryTag,
+  pricesTag,
+} from '@/lib/cache-tags'
 
 // ---------------------------------------------------------------------------
 // Type Definitions
@@ -70,12 +79,18 @@ export interface PortfolioEventDetail {
  * Returns all assets for the given org, ordered by ticker.
  */
 export async function getAssets(orgId: string) {
-  const db = getDb()
-  return db
-    .select()
-    .from(assets)
-    .where(eq(assets.orgId, orgId))
-    .orderBy(asc(assets.ticker))
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      return db
+        .select()
+        .from(assets)
+        .where(eq(assets.orgId, orgId))
+        .orderBy(asc(assets.ticker))
+    },
+    ['investment-assets', orgId],
+    { tags: [investmentsTag(orgId)], revalidate: 300 },
+  )()
 }
 
 /**
@@ -132,24 +147,28 @@ export async function getPortfolioEvents(orgId: string, assetId?: string) {
  * Returns a Map of assetId -> most recent priceCents for all assets in the org.
  * Uses DISTINCT ON to efficiently fetch only the latest price per asset in SQL.
  */
-export async function getLatestPrices(orgId: string): Promise<Map<string, number>> {
-  const db = getDb()
+export async function getLatestPrices(orgId: string): Promise<Record<string, number>> {
+  return unstable_cache(
+    async () => {
+      const db = getDb()
 
-  // Use raw SQL with DISTINCT ON to fetch only the latest price per asset
-  // This is dramatically faster than fetching all prices and filtering in JS
-  const rows = await db.execute<{ asset_id: string; price_cents: number }>(
-    sql`SELECT DISTINCT ON (asset_id) asset_id, price_cents
-        FROM asset_prices
-        WHERE org_id = ${orgId}
-        ORDER BY asset_id, price_date DESC`
-  )
+      const rows = await db.execute<{ asset_id: string; price_cents: number }>(
+        sql`SELECT DISTINCT ON (asset_id) asset_id, price_cents
+            FROM asset_prices
+            WHERE org_id = ${orgId}
+            ORDER BY asset_id, price_date DESC`
+      )
 
-  const latestPrices = new Map<string, number>()
-  for (const row of rows) {
-    latestPrices.set(row.asset_id, row.price_cents)
-  }
+      const latestPrices: Record<string, number> = {}
+      for (const row of rows) {
+        latestPrices[row.asset_id] = row.price_cents
+      }
 
-  return latestPrices
+      return latestPrices
+    },
+    ['investment-latest-prices', orgId],
+    { tags: [pricesTag(orgId)], revalidate: 300 },
+  )()
 }
 
 /**
@@ -157,19 +176,25 @@ export async function getLatestPrices(orgId: string): Promise<Map<string, number
  * Fulfills INV-06: view historical prices and asset evolution per asset.
  */
 export async function getPriceHistory(orgId: string, assetId: string): Promise<PriceHistoryEntry[]> {
-  const db = getDb()
+  return unstable_cache(
+    async () => {
+      const db = getDb()
 
-  const rows = await db
-    .select({
-      priceDate: assetPrices.priceDate,
-      priceCents: assetPrices.priceCents,
-      createdAt: assetPrices.createdAt,
-    })
-    .from(assetPrices)
-    .where(and(eq(assetPrices.orgId, orgId), eq(assetPrices.assetId, assetId)))
-    .orderBy(asc(assetPrices.priceDate))
+      const rows = await db
+        .select({
+          priceDate: assetPrices.priceDate,
+          priceCents: assetPrices.priceCents,
+          createdAt: assetPrices.createdAt,
+        })
+        .from(assetPrices)
+        .where(and(eq(assetPrices.orgId, orgId), eq(assetPrices.assetId, assetId)))
+        .orderBy(asc(assetPrices.priceDate))
 
-  return rows as PriceHistoryEntry[]
+      return rows as PriceHistoryEntry[]
+    },
+    ['investment-price-history', orgId, assetId],
+    { tags: [priceHistoryTag(orgId, assetId), pricesTag(orgId)], revalidate: 300 },
+  )()
 }
 
 /**
@@ -180,82 +205,66 @@ export async function getPriceHistory(orgId: string, assetId: string): Promise<P
  * (fully sold positions with historical gains remain visible).
  */
 export const getPositions = cache(async function getPositions(orgId: string): Promise<EnrichedPosition[]> {
-  const db = getDb()
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      const loadRows = async () => db
+        .select({
+          assetId: assets.id,
+          ticker: assets.ticker,
+          name: assets.name,
+          assetClass: assets.assetClass,
+          quantityHeld: assetPositionSnapshots.quantityHeld,
+          avgCostCents: assetPositionSnapshots.avgCostCents,
+          totalCostCents: assetPositionSnapshots.totalCostCents,
+          currentPriceCents: assetPositionSnapshots.currentPriceCents,
+          currentValueCents: assetPositionSnapshots.currentValueCents,
+          unrealizedPnLCents: assetPositionSnapshots.unrealizedPnLCents,
+          unrealizedPnLPercentBps: assetPositionSnapshots.unrealizedPnLPercentBps,
+          realizedPnLCents: assetPositionSnapshots.realizedPnLCents,
+          totalDividendsCents: assetPositionSnapshots.totalDividendsCents,
+        })
+        .from(assetPositionSnapshots)
+        .innerJoin(assets, eq(assetPositionSnapshots.assetId, assets.id))
+        .where(eq(assetPositionSnapshots.orgId, orgId))
+        .orderBy(asc(assets.ticker))
 
-  // Fetch all assets and their events in parallel
-  const [allAssets, allEvents, latestPrices] = await Promise.all([
-    getAssets(orgId),
-    db
-      .select({
-        assetId: portfolioEvents.assetId,
-        eventType: portfolioEvents.eventType,
-        eventDate: portfolioEvents.eventDate,
-        quantity: portfolioEvents.quantity,
-        priceCents: portfolioEvents.priceCents,
-        totalCents: portfolioEvents.totalCents,
-        splitRatio: portfolioEvents.splitRatio,
-      })
-      .from(portfolioEvents)
-      .where(eq(portfolioEvents.orgId, orgId))
-      .orderBy(asc(portfolioEvents.eventDate)),
-    getLatestPrices(orgId),
-  ])
+      let rows = await loadRows()
 
-  // Group events by assetId
-  const eventsByAsset = new Map<string, typeof allEvents>()
-  for (const event of allEvents) {
-    const list = eventsByAsset.get(event.assetId) ?? []
-    list.push(event)
-    eventsByAsset.set(event.assetId, list)
-  }
+      const [assetCount, trackedAssetCount] = await Promise.all([
+        db.select({ total: sql<number>`count(*)`.as('total') }).from(assets).where(eq(assets.orgId, orgId)),
+        db
+          .select({ total: sql<number>`count(distinct ${portfolioEvents.assetId})`.as('total') })
+          .from(portfolioEvents)
+          .where(eq(portfolioEvents.orgId, orgId)),
+      ])
 
-  const positions: EnrichedPosition[] = []
+      const hasAssets = Number(assetCount[0]?.total ?? 0) > 0
+      const expectedSnapshots = Number(trackedAssetCount[0]?.total ?? 0)
+      if (hasAssets && expectedSnapshots > 0 && rows.length !== expectedSnapshots) {
+        await recomputeOrgPositionSnapshots(orgId)
+        rows = await loadRows()
+      }
 
-  for (const asset of allAssets) {
-    const events = eventsByAsset.get(asset.id) ?? []
-    const currentPriceCents = latestPrices.get(asset.id) ?? 0
-
-    // Map DB rows to PortfolioEventInput for pure function
-    const eventInputs = events.map((e) => ({
-      eventType: e.eventType as 'buy' | 'sell' | 'dividend' | 'interest' | 'split' | 'amortization',
-      quantity: e.quantity,
-      priceCents: e.priceCents,
-      totalCents: e.totalCents,
-      splitRatio: e.splitRatio,
-      eventDate: e.eventDate instanceof Date ? e.eventDate : new Date(e.eventDate as unknown as string),
-    }))
-
-    const result = computePosition(eventInputs, currentPriceCents)
-
-    // Skip zero-quantity positions with no realized PnL and no dividends (never had activity)
-    if (result.quantityHeld === 0 && result.realizedPnLCents === 0 && result.totalDividendsCents === 0) {
-      continue
-    }
-
-    const currentValueCents = result.quantityHeld * currentPriceCents
-    const unrealizedPnLCents = currentValueCents - result.totalCostCents
-    const unrealizedPnLPercent = result.totalCostCents > 0
-      ? Math.round((unrealizedPnLCents / result.totalCostCents) * 10000) / 100
-      : 0
-
-    positions.push({
-      assetId: asset.id,
-      ticker: asset.ticker,
-      name: asset.name,
-      assetClass: asset.assetClass,
-      quantityHeld: result.quantityHeld,
-      avgCostCents: result.avgCostCents,
-      totalCostCents: result.totalCostCents,
-      currentPriceCents,
-      currentValueCents,
-      unrealizedPnLCents,
-      unrealizedPnLPercent,
-      realizedPnLCents: result.realizedPnLCents,
-      totalDividendsCents: result.totalDividendsCents,
-    })
-  }
-
-  return positions
+      return rows.map((row) => ({
+        assetId: row.assetId,
+        ticker: row.ticker,
+        name: row.name,
+        assetClass: row.assetClass,
+        quantityHeld: row.quantityHeld,
+        avgCostCents: row.avgCostCents,
+        totalCostCents: row.totalCostCents,
+        currentPriceCents: row.currentPriceCents,
+        currentValueCents: row.currentValueCents,
+        unrealizedPnLCents: row.unrealizedPnLCents,
+        unrealizedPnLPercent: row.unrealizedPnLPercentBps / 100,
+        realizedPnLCents: row.realizedPnLCents,
+        totalDividendsCents: row.totalDividendsCents,
+      }))
+    },
+    ['investment-positions', orgId],
+    { tags: [investmentsTag(orgId), pricesTag(orgId)], revalidate: 300 },
+  )()
 })
 
 /**
@@ -264,46 +273,49 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
  * Uses a single JOIN with assets and filters by date in SQL for efficiency.
  */
 export async function getIncomeEvents(orgId: string, months: number = 12): Promise<IncomeEventWithAsset[]> {
-  const db = getDb()
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      const INCOME_TYPES: Array<'dividend' | 'interest' | 'amortization'> = ['dividend', 'interest', 'amortization']
+      const cutoff = new Date()
+      cutoff.setMonth(cutoff.getMonth() - months)
 
-  const INCOME_TYPES: Array<'dividend' | 'interest' | 'amortization'> = ['dividend', 'interest', 'amortization']
+      const rows = await db
+        .select({
+          id: portfolioEvents.id,
+          assetId: portfolioEvents.assetId,
+          eventType: portfolioEvents.eventType,
+          eventDate: portfolioEvents.eventDate,
+          totalCents: portfolioEvents.totalCents,
+          notes: portfolioEvents.notes,
+          ticker: assets.ticker,
+          name: assets.name,
+        })
+        .from(portfolioEvents)
+        .innerJoin(assets, eq(portfolioEvents.assetId, assets.id))
+        .where(
+          and(
+            eq(portfolioEvents.orgId, orgId),
+            inArray(portfolioEvents.eventType, INCOME_TYPES),
+            gte(portfolioEvents.eventDate, cutoff)
+          )
+        )
+        .orderBy(desc(portfolioEvents.eventDate))
 
-  const cutoff = new Date()
-  cutoff.setMonth(cutoff.getMonth() - months)
-
-  // Single query with JOIN and date filter in SQL (no JS filtering or second query)
-  const rows = await db
-    .select({
-      id: portfolioEvents.id,
-      assetId: portfolioEvents.assetId,
-      eventType: portfolioEvents.eventType,
-      eventDate: portfolioEvents.eventDate,
-      totalCents: portfolioEvents.totalCents,
-      notes: portfolioEvents.notes,
-      ticker: assets.ticker,
-      name: assets.name,
-    })
-    .from(portfolioEvents)
-    .innerJoin(assets, eq(portfolioEvents.assetId, assets.id))
-    .where(
-      and(
-        eq(portfolioEvents.orgId, orgId),
-        inArray(portfolioEvents.eventType, INCOME_TYPES),
-        gte(portfolioEvents.eventDate, cutoff)
-      )
-    )
-    .orderBy(desc(portfolioEvents.eventDate))
-
-  return rows.map((e) => ({
-    id: e.id,
-    assetId: e.assetId,
-    eventType: e.eventType,
-    eventDate: e.eventDate instanceof Date ? e.eventDate : new Date(e.eventDate as unknown as string),
-    totalCents: e.totalCents,
-    notes: e.notes,
-    ticker: e.ticker,
-    name: e.name,
-  }))
+      return rows.map((e) => ({
+        id: e.id,
+        assetId: e.assetId,
+        eventType: e.eventType,
+        eventDate: e.eventDate instanceof Date ? e.eventDate : new Date(e.eventDate as unknown as string),
+        totalCents: e.totalCents,
+        notes: e.notes,
+        ticker: e.ticker,
+        name: e.name,
+      }))
+    },
+    ['investment-income-events', orgId, String(months)],
+    { tags: [incomeEventsTag(orgId, months), investmentsTag(orgId)], revalidate: 300 },
+  )()
 }
 
 /**
@@ -315,14 +327,19 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
  * @returns Array of PatrimonySnapshot rows ordered oldest-first for chronological chart display
  */
 export async function getPatrimonySnapshots(orgId: string, months: number = 12) {
-  const db = getDb()
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      const cutoff = new Date()
+      cutoff.setMonth(cutoff.getMonth() - months)
 
-  const cutoff = new Date()
-  cutoff.setMonth(cutoff.getMonth() - months)
-
-  return db
-    .select()
-    .from(patrimonySnapshots)
-    .where(and(eq(patrimonySnapshots.orgId, orgId), gte(patrimonySnapshots.snapshotDate, cutoff)))
-    .orderBy(asc(patrimonySnapshots.snapshotDate))
+      return db
+        .select()
+        .from(patrimonySnapshots)
+        .where(and(eq(patrimonySnapshots.orgId, orgId), gte(patrimonySnapshots.snapshotDate, cutoff)))
+        .orderBy(asc(patrimonySnapshots.snapshotDate))
+    },
+    ['investment-patrimony-history', orgId, String(months)],
+    { tags: [patrimonyHistoryTag(orgId, months)], revalidate: 300 },
+  )()
 }

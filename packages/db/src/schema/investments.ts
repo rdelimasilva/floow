@@ -6,6 +6,7 @@ import {
   integer,
   timestamp,
   index,
+  uniqueIndex,
   date,
   numeric,
 } from 'drizzle-orm/pg-core'
@@ -118,6 +119,33 @@ export const assetPrices = pgTable(
   })
 )
 
+export const assetPositionSnapshots = pgTable(
+  'asset_position_snapshots',
+  {
+    assetId: uuid('asset_id')
+      .primaryKey()
+      .references(() => assets.id, { onDelete: 'cascade' }),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    quantityHeld: integer('quantity_held').notNull(),
+    avgCostCents: integer('avg_cost_cents').notNull(),
+    totalCostCents: integer('total_cost_cents').notNull(),
+    currentPriceCents: integer('current_price_cents').notNull(),
+    currentValueCents: integer('current_value_cents').notNull(),
+    unrealizedPnLCents: integer('unrealized_pnl_cents').notNull(),
+    unrealizedPnLPercentBps: integer('unrealized_pnl_percent_bps').notNull(),
+    realizedPnLCents: integer('realized_pnl_cents').notNull(),
+    totalDividendsCents: integer('total_dividends_cents').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    idxAssetPositionSnapshotsOrgId: index('idx_asset_position_snapshots_org_id').on(table.orgId),
+    idxAssetPositionSnapshotsOrgValue: index('idx_asset_position_snapshots_org_value').on(table.orgId, table.currentValueCents),
+    uqAssetPositionSnapshotsAssetOrg: uniqueIndex('uq_asset_position_snapshots_asset_org').on(table.assetId, table.orgId),
+  })
+)
+
 // ---------------------------------------------------------------------------
 // Inferred TypeScript types
 // ---------------------------------------------------------------------------
@@ -132,3 +160,5 @@ export type NewPortfolioEventRow = typeof portfolioEvents.$inferInsert
 
 export type AssetPrice = typeof assetPrices.$inferSelect
 export type NewAssetPrice = typeof assetPrices.$inferInsert
+export type AssetPositionSnapshot = typeof assetPositionSnapshots.$inferSelect
+export type NewAssetPositionSnapshot = typeof assetPositionSnapshots.$inferInsert

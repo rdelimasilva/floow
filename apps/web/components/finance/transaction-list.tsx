@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect, memo } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react'
 import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
-import { deleteTransaction, updateTransaction, toggleIgnoreTransaction, createCategory, cancelRecurring } from '@/lib/finance/actions'
+import { deleteTransaction, updateTransaction, toggleIgnoreTransaction, createCategory, cancelRecurring, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -50,6 +50,7 @@ interface TransactionListProps {
   categories: CategoryOption[]
   sortBy?: string
   sortDir?: 'asc' | 'desc'
+  startingBalance?: number
   activeTypes?: string[]
   activeCategoryIds?: string[]
   activeMinAmount?: string
@@ -85,11 +86,14 @@ const TYPE_LABELS = {
 export function TransactionList({
   transactions, accounts, categories,
   sortBy = 'date', sortDir = 'desc',
+  startingBalance = 0,
   activeTypes = [], activeCategoryIds = [],
   activeMinAmount = '', activeMaxAmount = '',
   onSort = () => {}, onFilterTypes = () => {}, onFilterCategories = () => {}, onFilterAmount = () => {},
 }: TransactionListProps) {
   const { toast } = useToast()
+  const toastRef = useRef(toast)
+  toastRef.current = toast
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TransactionRow | null>(null)
   const [loading, setLoading] = useState(false)
@@ -103,6 +107,72 @@ export function TransactionList({
 
   const [cancelTarget, setCancelTarget] = useState<{ templateId: string; description: string } | null>(null)
 
+  // Bulk selection
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkCatId, setBulkCatId] = useState<string>('')
+  const [showBulkCat, setShowBulkCat] = useState(false)
+
+  const allSelected = transactions.length > 0 && selected.size === transactions.length
+  function toggleSelect(id: string) {
+    setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  }
+  function toggleAll() {
+    if (allSelected) setSelected(new Set())
+    else setSelected(new Set(transactions.map((t) => t.id)))
+  }
+
+  async function handleBulkDelete() {
+    setBulkLoading(true)
+    try {
+      await bulkDeleteTransactions(Array.from(selected))
+      toast(`${selected.size} transações removidas`)
+      setSelected(new Set())
+      setBulkDeleteOpen(false)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Não foi possível remover as transações.', 'error')
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  async function handleBulkCategorize() {
+    if (!bulkCatId) return
+    setBulkLoading(true)
+    try {
+      await bulkCategorizeTransactions(Array.from(selected), bulkCatId)
+      toast(`${selected.size} transações categorizadas`)
+      setSelected(new Set())
+      setShowBulkCat(false)
+      setBulkCatId('')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Não foi possível categorizar as transações.', 'error')
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  // Compute running balance for each row
+  const runningBalances = useMemo(() => {
+    const balances: number[] = []
+    let balance = startingBalance
+
+    if (sortDir === 'desc') {
+      for (let i = 0; i < transactions.length; i++) {
+        balances.push(balance)
+        balance -= transactions[i].amountCents
+      }
+    } else {
+      for (let i = 0; i < transactions.length; i++) {
+        balance += transactions[i].amountCents
+        balances.push(balance)
+      }
+    }
+
+    return balances
+  }, [startingBalance, transactions, sortDir])
+
   async function handleCancelRecurring() {
     if (!cancelTarget) return
     setLoading(true)
@@ -113,7 +183,7 @@ export function TransactionList({
       setCancelTarget(null)
       toast('Recorrência cancelada — parcelas futuras removidas')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao cancelar recorrência', 'error')
+      toast(e instanceof Error ? e.message : 'Não foi possível cancelar a recorrência. Tente novamente.', 'error')
     } finally {
       setLoading(false)
     }
@@ -133,7 +203,7 @@ export function TransactionList({
       setShowNewCat(false)
       toast('Categoria criada')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao criar categoria', 'error')
+      toast(e instanceof Error ? e.message : 'Não foi possível criar a categoria. Tente novamente.', 'error')
     } finally {
       setCreatingCat(false)
     }
@@ -143,12 +213,13 @@ export function TransactionList({
   const [editDesc, setEditDesc] = useState('')
   const [editAmount, setEditAmount] = useState('')
   const [editDate, setEditDate] = useState('')
-  const [editType, setEditType] = useState<'income' | 'expense'>('expense')
+  const [editType, setEditType] = useState<'income' | 'expense' | 'transfer'>('expense')
+  const [editDestAccountId, setEditDestAccountId] = useState('')
   const [editAccountId, setEditAccountId] = useState('')
   const [editCategoryId, setEditCategoryId] = useState('')
 
   const editRowRef = useRef<HTMLTableRowElement>(null)
-  const editStateRef = useRef({ id: '', desc: '', amount: '', date: '', type: '' as string, accountId: '', categoryId: '' })
+  const editStateRef = useRef({ id: '', desc: '', amount: '', date: '', type: '' as string, accountId: '', categoryId: '', destAccountId: '' })
 
   function startEdit(tx: TransactionRow) {
     // Auto-save previous edit if switching rows
@@ -159,16 +230,17 @@ export function TransactionList({
     setEditDesc(tx.description)
     setEditAmount(String(Math.abs(tx.amountCents)))
     setEditDate(toDateInputValue(tx.date))
-    setEditType(tx.type === 'income' ? 'income' : 'expense')
+    setEditType(tx.type)
     setEditAccountId(tx.accountId)
     setEditCategoryId(tx.categoryId ?? '')
+    setEditDestAccountId('')
     setShowNewCat(false)
   }
 
   // Keep ref in sync for the click-outside handler
   useEffect(() => {
-    editStateRef.current = { id: editingId ?? '', desc: editDesc, amount: editAmount, date: editDate, type: editType, accountId: editAccountId, categoryId: editCategoryId }
-  }, [editingId, editDesc, editAmount, editDate, editType, editAccountId, editCategoryId])
+    editStateRef.current = { id: editingId ?? '', desc: editDesc, amount: editAmount, date: editDate, type: editType, accountId: editAccountId, categoryId: editCategoryId, destAccountId: editDestAccountId }
+  }, [editingId, editDesc, editAmount, editDate, editType, editAccountId, editCategoryId, editDestAccountId])
 
   const saveEdit = useCallback(async () => {
     const s = editStateRef.current
@@ -182,9 +254,13 @@ export function TransactionList({
       formData.append('amountCents', s.amount)
       formData.append('description', s.desc)
       formData.append('date', s.date)
+      if (s.type === 'transfer' && s.destAccountId) formData.append('destAccountId', s.destAccountId)
       await updateTransaction(formData)
-    } catch {
-      // silent — data persists on next page load
+    } catch (e) {
+      toastRef.current(
+        e instanceof Error ? e.message : 'Não foi possível salvar a edição. Tente novamente.',
+        'error',
+      )
     }
   }, [])
 
@@ -221,7 +297,7 @@ export function TransactionList({
       await toggleIgnoreTransaction(formData)
       toast(tx.isIgnored ? 'Transação restaurada' : 'Transação ignorada')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao alterar transação', 'error')
+      toast(e instanceof Error ? e.message : 'Não foi possível alterar a transação. Tente novamente.', 'error')
     } finally {
       setLoading(false)
     }
@@ -237,7 +313,7 @@ export function TransactionList({
       setDeleteTarget(null)
       toast('Transação removida com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao remover transação', 'error')
+      toast(e instanceof Error ? e.message : 'Não foi possível remover a transação. Tente novamente.', 'error')
     } finally {
       setLoading(false)
     }
@@ -254,10 +330,106 @@ export function TransactionList({
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 mb-2">
+          <span className="text-sm font-medium text-blue-800">{selected.size} selecionadas</span>
+          <div className="flex gap-2 ml-auto">
+            {showBulkCat ? (
+              <div className="flex items-center gap-1.5">
+                <select value={bulkCatId} onChange={(e) => setBulkCatId(e.target.value)} className="h-8 rounded border border-gray-300 text-xs">
+                  <option value="">Escolher categoria</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <Button size="sm" variant="primary" onClick={handleBulkCategorize} disabled={bulkLoading || !bulkCatId}>Aplicar</Button>
+                <Button size="sm" variant="outline" onClick={() => setShowBulkCat(false)}>Cancelar</Button>
+              </div>
+            ) : (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setShowBulkCat(true)} disabled={bulkLoading}>Categorizar</Button>
+                <Button size="sm" variant="destructive" onClick={() => setBulkDeleteOpen(true)} disabled={bulkLoading}>Remover</Button>
+              </>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={bulkLoading}>Limpar</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile: card layout */}
+      <div className="md:hidden space-y-2">
+        {transactions.map((tx, idx) => (
+          <div
+            key={tx.id}
+            className={`rounded-lg border bg-white p-3 ${selected.has(tx.id) ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'} ${tx.isIgnored ? 'opacity-40' : ''} ${tx.balanceApplied === false ? 'opacity-60' : ''}`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <input type="checkbox" checked={selected.has(tx.id)} onChange={() => toggleSelect(tx.id)} className="mt-1 h-4 w-4 rounded border-gray-300 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+                  {tx.recurringTemplateId && <Repeat className="h-3 w-3 text-blue-400 shrink-0" />}
+                  {tx.description}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-gray-500">{formatDate(tx.date)}</span>
+                  {tx.categoryName && (
+                    <span
+                      className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium"
+                      style={{
+                        backgroundColor: tx.categoryColor ? `${tx.categoryColor}20` : '#e5e7eb',
+                        color: tx.categoryColor ?? '#6b7280',
+                      }}
+                    >
+                      {tx.categoryName}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className={`text-sm font-semibold ${TYPE_STYLES[tx.type]}`}>
+                  {tx.amountCents >= 0 ? '+' : ''}{formatBRL(tx.amountCents)}
+                </p>
+                <p className={`text-xs ${(runningBalances[idx] ?? 0) >= 0 ? 'text-gray-500' : 'text-red-500'}`}>
+                  Saldo: {formatBRL(runningBalances[idx] ?? 0)}
+                </p>
+              </div>
+            </div>
+            {/* Actions row */}
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+              <span className="text-[10px] text-gray-400 uppercase">{TYPE_LABELS[tx.type]}</span>
+              <div className="flex gap-1">
+                {tx.recurringTemplateId && (
+                  <button type="button" title="Cancelar recorrência" onClick={() => setCancelTarget({ templateId: tx.recurringTemplateId!, description: tx.description })} className="rounded p-1 text-gray-400 hover:text-orange-600">
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                )}
+                {!tx.transferGroupId && (
+                  <button type="button" onClick={() => startEdit(tx)} className="rounded p-1 text-gray-400 hover:text-gray-700">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+                {tx.externalId ? (
+                  <button type="button" onClick={() => handleIgnore(tx)} disabled={loading} className={`rounded p-1 ${tx.isIgnored ? 'text-blue-500' : 'text-gray-400'}`}>
+                    {tx.isIgnored ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setDeleteTarget(tx)} className="rounded p-1 text-gray-400 hover:text-red-600">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: table layout */}
+      <div className="hidden md:block overflow-hidden rounded-xl border border-gray-200 bg-white">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="w-10 px-4 py-3">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-gray-300" />
+              </th>
               <SortableHeader
                 label="Data"
                 sortKey="date"
@@ -279,6 +451,7 @@ export function TransactionList({
                 currentSortDir={sortDir}
                 onSort={onSort}
                 hasActiveFilter={activeCategoryIds.length > 0}
+                className="hidden md:table-cell"
                 filterContent={
                   <CategoryFilter
                     categories={categories}
@@ -294,6 +467,7 @@ export function TransactionList({
                 currentSortDir={sortDir}
                 onSort={onSort}
                 hasActiveFilter={activeTypes.length > 0}
+                className="hidden md:table-cell"
                 filterContent={
                   <TypeFilter
                     selected={activeTypes}
@@ -317,20 +491,26 @@ export function TransactionList({
                 }
                 className="text-right"
               />
+              <th className="hidden lg:table-cell px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Saldo</th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {transactions.map((tx) => (
+            {transactions.map((tx, idx) => (
               editingId === tx.id && !tx.transferGroupId ? (
                 <tr key={tx.id} ref={editRowRef} className="bg-blue-50">
+                  <td className="px-4 py-2"><input type="checkbox" checked={selected.has(tx.id)} onChange={() => toggleSelect(tx.id)} className="h-4 w-4 rounded border-gray-300" /></td>
                   <td className="px-4 py-2">
                     <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="h-8 text-xs" />
                   </td>
                   <td className="px-4 py-2">
                     <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="h-8 text-xs" />
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="hidden md:table-cell px-4 py-2">
+                    {editType === 'transfer' ? (
+                      <span className="text-xs text-gray-400">—</span>
+                    ) : (
+                    <>
                     <select
                       value={editCategoryId}
                       onChange={(e) => {
@@ -372,26 +552,50 @@ export function TransactionList({
                         </Button>
                       </div>
                     )}
+                    </>
+                    )}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="hidden md:table-cell px-4 py-2">
                     <select
                       value={editType}
-                      onChange={(e) => setEditType(e.target.value as 'income' | 'expense')}
+                      onChange={(e) => {
+                        const newType = e.target.value as 'income' | 'expense' | 'transfer'
+                        setEditType(newType)
+                        if (newType !== 'transfer') setEditDestAccountId('')
+                        if (newType === 'transfer') setEditCategoryId('')
+                      }}
                       className="h-8 rounded border border-gray-300 text-xs"
                     >
                       <option value="income">Receita</option>
                       <option value="expense">Despesa</option>
+                      <option value="transfer">Transferência</option>
                     </select>
+                    {editType === 'transfer' && (
+                      <select
+                        value={editDestAccountId}
+                        onChange={(e) => setEditDestAccountId(e.target.value)}
+                        className="h-8 w-full rounded border border-gray-300 text-xs mt-1"
+                      >
+                        <option value="">Conta destino...</option>
+                        {accounts.filter((a) => a.id !== editAccountId).map((a) => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <Input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="h-8 text-xs text-right" />
+                  </td>
+                  <td className="hidden lg:table-cell whitespace-nowrap px-4 py-2 text-right text-sm text-gray-400">
+                    {formatBRL(runningBalances[idx] ?? 0)}
                   </td>
                   <td className="px-4 py-2">
                     <span className="text-[10px] text-gray-400">auto-salva ao sair</span>
                   </td>
                 </tr>
               ) : (
-                <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${tx.isIgnored ? 'opacity-40 line-through' : ''} ${tx.balanceApplied === false ? 'opacity-60' : ''}`}>
+                <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${selected.has(tx.id) ? 'bg-blue-50/50' : ''} ${tx.isIgnored ? 'opacity-40 line-through' : ''} ${tx.balanceApplied === false ? 'opacity-60' : ''}`}>
+                  <td className="px-4 py-3"><input type="checkbox" checked={selected.has(tx.id)} onChange={() => toggleSelect(tx.id)} className="h-4 w-4 rounded border-gray-300" /></td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{formatDate(tx.date)}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">
                     <span className="flex items-center gap-1.5">
@@ -401,7 +605,7 @@ export function TransactionList({
                       {tx.description}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="hidden md:table-cell px-4 py-3">
                     {tx.categoryName ? (
                       <span className="inline-flex items-center gap-1">
                         <span
@@ -411,7 +615,6 @@ export function TransactionList({
                             color: tx.categoryColor ?? '#6b7280',
                           }}
                         >
-                          {tx.categoryIcon && <span>{tx.categoryIcon}</span>}
                           {tx.categoryName}
                         </span>
                         {tx.isAutoCategorized && (
@@ -422,9 +625,12 @@ export function TransactionList({
                       <span className="text-xs text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500">{TYPE_LABELS[tx.type]}</td>
+                  <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-500">{TYPE_LABELS[tx.type]}</td>
                   <td className={`whitespace-nowrap px-4 py-3 text-right text-sm font-semibold ${TYPE_STYLES[tx.type]}`}>
                     {tx.amountCents >= 0 ? '+' : ''}{formatBRL(tx.amountCents)}
+                  </td>
+                  <td className={`hidden lg:table-cell whitespace-nowrap px-4 py-3 text-right text-sm font-medium ${(runningBalances[idx] ?? 0) >= 0 ? 'text-gray-700' : 'text-red-600'}`}>
+                    {formatBRL(runningBalances[idx] ?? 0)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
@@ -519,6 +725,16 @@ export function TransactionList({
         description={`Tem certeza que deseja cancelar a recorrência "${cancelTarget?.description ?? ''}"? Todas as parcelas futuras serão removidas. Parcelas já vencidas permanecem.`}
         confirmLabel="Cancelar recorrência"
         loading={loading}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Remover transações em lote"
+        description={`Tem certeza que deseja remover ${selected.size} transações? Os saldos das contas serão revertidos. Esta ação não pode ser desfeita.`}
+        confirmLabel="Remover todas"
+        loading={bulkLoading}
       />
     </>
   )

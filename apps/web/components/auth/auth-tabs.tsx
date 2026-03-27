@@ -15,8 +15,8 @@ export function AuthTabs() {
   return (
     <Tabs defaultValue="login" className="w-full" onValueChange={() => { setShowMagicLink(false); setShowForgotPassword(false) }}>
       <TabsList className="grid w-full grid-cols-2 mb-6">
-        <TabsTrigger value="login">Login</TabsTrigger>
-        <TabsTrigger value="signup">Sign Up</TabsTrigger>
+        <TabsTrigger value="login">Entrar</TabsTrigger>
+        <TabsTrigger value="signup">Registrar</TabsTrigger>
       </TabsList>
 
       <TabsContent value="login" className="space-y-4">
@@ -28,7 +28,7 @@ export function AuthTabs() {
             <span className="w-full border-t border-gray-200" />
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-2 text-gray-400">or</span>
+            <span className="bg-white px-2 text-gray-400">ou</span>
           </div>
         </div>
 
@@ -51,7 +51,7 @@ export function AuthTabs() {
               onClick={() => setShowMagicLink(false)}
               className="w-full text-center text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
             >
-              Use email and password instead
+              Usar email e senha
             </button>
           </>
         ) : (
@@ -70,7 +70,7 @@ export function AuthTabs() {
                 onClick={() => setShowMagicLink(true)}
                 className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
               >
-                Use magic link instead
+                Usar link mágico
               </button>
             </div>
           </>
@@ -86,7 +86,7 @@ export function AuthTabs() {
             <span className="w-full border-t border-gray-200" />
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-2 text-gray-400">or</span>
+            <span className="bg-white px-2 text-gray-400">ou</span>
           </div>
         </div>
 

@@ -62,12 +62,12 @@ export function ForgotPasswordForm() {
         <Input
           id="forgot-email"
           type="email"
-          placeholder="you@example.com"
+          placeholder="seu@email.com"
           autoComplete="email"
           {...register('email')}
         />
         {errors.email && (
-          <p className="text-xs text-red-500">{errors.email.message}</p>
+          <p className="text-sm text-red-600">{errors.email.message}</p>
         )}
       </div>
 

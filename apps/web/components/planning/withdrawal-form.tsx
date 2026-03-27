@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import { HelpTooltip } from '@/components/ui/help-tooltip'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -20,7 +21,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { WithdrawalStrategy } from '@floow/db'
+
+interface WithdrawalStrategyDefaults {
+  mode: string
+  fixedMonthlyAmountCents: number | null
+  percentageRate: string | null
+  liquidationPreset: string
+}
 
 // ---------------------------------------------------------------------------
 // Local form schema (converts BRL inputs to cents)
@@ -52,7 +59,7 @@ const LIQUIDATION_PRESETS = [
 // ---------------------------------------------------------------------------
 
 interface WithdrawalFormProps {
-  defaultValues: WithdrawalStrategy | null
+  defaultValues: WithdrawalStrategyDefaults | null
   currentPortfolioCents: number
   retirementAge: number
   lifeExpectancy: number
@@ -180,7 +187,7 @@ export function WithdrawalForm({
             control={control}
             name="mode"
             render={({ field }) => (
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -226,7 +233,10 @@ export function WithdrawalForm({
           {/* Percentage mode fields */}
           {mode === 'percentage' && (
             <div className="space-y-1.5">
-              <Label htmlFor="percentageRate">Taxa de Retirada Anual (%)</Label>
+              <Label htmlFor="percentageRate" className="flex items-center gap-1">
+                Taxa de Retirada Anual (%)
+                <HelpTooltip text="Percentual do patrimônio retirado por ano. A regra dos 4% sugere que retirar até 4% ao ano permite que o patrimônio dure pelo menos 30 anos, considerando retornos reais históricos." />
+              </Label>
               <Input
                 id="percentageRate"
                 type="number"
@@ -250,7 +260,10 @@ export function WithdrawalForm({
           <CardTitle>Taxa de Crescimento Real</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
-          <Label htmlFor="annualRealReturnRate">Retorno Real Anual (%)</Label>
+          <Label htmlFor="annualRealReturnRate" className="flex items-center gap-1">
+            Retorno Real Anual (%)
+            <HelpTooltip text="Rendimento anual já descontada a inflação. Ex: se o investimento rende 10% e a inflação é 4%, o retorno real é ~6%. Valores entre 3% e 6% são realistas para carteiras diversificadas." />
+          </Label>
           <Input
             id="annualRealReturnRate"
             type="number"

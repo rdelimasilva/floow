@@ -47,16 +47,17 @@ export function SignupForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="signup-name">Full name</Label>
+        <Label htmlFor="signup-name">Nome completo</Label>
         <Input
           id="signup-name"
           type="text"
-          placeholder="Jane Smith"
+          placeholder="Maria Silva"
           autoComplete="name"
+          error={!!errors.fullName}
           {...register('fullName')}
         />
         {errors.fullName && (
-          <p className="text-xs text-red-500">{errors.fullName.message}</p>
+          <p className="text-sm text-red-600">{errors.fullName.message}</p>
         )}
       </div>
 
@@ -65,35 +66,37 @@ export function SignupForm() {
         <Input
           id="signup-email"
           type="email"
-          placeholder="you@example.com"
+          placeholder="seu@email.com"
           autoComplete="email"
+          error={!!errors.email}
           {...register('email')}
         />
         {errors.email && (
-          <p className="text-xs text-red-500">{errors.email.message}</p>
+          <p className="text-sm text-red-600">{errors.email.message}</p>
         )}
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="signup-password">Password</Label>
+        <Label htmlFor="signup-password">Senha</Label>
         <Input
           id="signup-password"
           type="password"
           placeholder="••••••••"
           autoComplete="new-password"
+          error={!!errors.password}
           {...register('password')}
         />
         {errors.password && (
-          <p className="text-xs text-red-500">{errors.password.message}</p>
+          <p className="text-sm text-red-600">{errors.password.message}</p>
         )}
       </div>
 
       {serverError && (
-        <p className="text-xs text-red-500">{serverError}</p>
+        <p className="text-sm text-red-600">{serverError}</p>
       )}
 
       <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? 'Creating account...' : 'Create account'}
+        {isSubmitting ? 'Criando conta...' : 'Criar conta'}
       </Button>
     </form>
   )

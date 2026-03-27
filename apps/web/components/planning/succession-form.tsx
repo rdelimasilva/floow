@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import { HelpTooltip } from '@/components/ui/help-tooltip'
 import { calcItcmd, calcLiquidityGap, ITCMD_RATES_BY_STATE, validateHeirPercentages } from '@floow/core-finance/src/succession'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { saveSuccessionPlan } from '@/lib/planning/actions'
@@ -16,7 +17,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { SuccessionPlan, Heir } from '@floow/db'
+
+interface SuccessionPlanDefaults {
+  brazilianState: string | null
+  estimatedFuneralCostsCents: number
+  estimatedLegalFeesCents: number
+  additionalLiabilitiesCents: number
+}
+
+interface SuccessionHeirDefaults {
+  name: string
+  relationship: string
+  percentageShare: string
+}
 
 // ---------------------------------------------------------------------------
 // Brazilian states list (from ITCMD_RATES_BY_STATE keys)
@@ -43,7 +56,7 @@ function nextHeirId() {
   return `heir-${++_heirIdCounter}`
 }
 
-function dbHeirToRow(h: Heir): HeirRow {
+function dbHeirToRow(h: SuccessionHeirDefaults): HeirRow {
   return {
     id: nextHeirId(),
     name: h.name,
@@ -57,8 +70,8 @@ function dbHeirToRow(h: Heir): HeirRow {
 // ---------------------------------------------------------------------------
 
 interface SuccessionFormProps {
-  defaultValues: SuccessionPlan | null
-  defaultHeirs: Heir[]
+  defaultValues: SuccessionPlanDefaults | null
+  defaultHeirs: SuccessionHeirDefaults[]
   currentPortfolioCents: number
   liquidAssetsCents: number
 }
@@ -201,7 +214,10 @@ export function SuccessionForm({
       {/* Estate info */}
       <Card>
         <CardHeader>
-          <CardTitle>Estado para ITCMD</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            Estado para ITCMD
+            <HelpTooltip text="ITCMD (Imposto sobre Transmissão Causa Mortis e Doação) é o imposto estadual cobrado sobre heranças e doações. A alíquota varia por estado, de 2% a 8% sobre o valor transmitido." />
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
@@ -242,36 +258,38 @@ export function SuccessionForm({
           </button>
         </CardHeader>
         {showCosts && (
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Custos com Funeral (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={funeralCosts}
-                onChange={(e) => setFuneralCosts(parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Honorários Jurídicos (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={legalFees}
-                onChange={(e) => setLegalFees(parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Outros Passivos (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={additionalLiabilities}
-                onChange={(e) => setAdditionalLiabilities(parseFloat(e.target.value) || 0)}
-              />
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label>Custos com Funeral (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={funeralCosts}
+                  onChange={(e) => setFuneralCosts(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Honorários Jurídicos (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={legalFees}
+                  onChange={(e) => setLegalFees(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Outros Passivos (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={additionalLiabilities}
+                  onChange={(e) => setAdditionalLiabilities(parseFloat(e.target.value) || 0)}
+                />
+              </div>
             </div>
           </CardContent>
         )}
@@ -340,7 +358,28 @@ export function SuccessionForm({
             <CardTitle>Detalhamento por Herdeiro</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            {/* Mobile: card layout */}
+            <div className="sm:hidden space-y-2">
+              {computedValues.perHeirData.map((heir) => (
+                <div key={heir.id} className="rounded-lg border border-gray-100 p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-900">{heir.name || '—'}</p>
+                    <span className="text-xs text-gray-500 capitalize">{heir.relationship || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">{heir.percentageShare.toFixed(2)}%</span>
+                    <span className="font-medium text-gray-900">{formatBRL(heir.estimatedValueCents)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-400">ITCMD</span>
+                    <span className="font-medium text-amber-700">{formatBRL(heir.estimatedItcmdCents)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table layout */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200">

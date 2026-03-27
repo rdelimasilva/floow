@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -41,10 +42,12 @@ export default function NewAccountPage() {
     register,
     handleSubmit,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<NewAccountForm>({
     resolver: zodResolver(newAccountSchema),
   })
+
+  useUnsavedChanges(isDirty)
 
   async function onSubmit(data: NewAccountForm) {
     const formData = new FormData()

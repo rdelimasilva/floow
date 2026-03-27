@@ -1,38 +1,41 @@
 import { Suspense } from 'react'
 import { getOrgId } from '@/lib/finance/queries'
 import { PageHeader } from '@/components/ui/page-header'
-import { getRetirementPlan } from '@/lib/planning/queries'
-import { getPositions, getIncomeEvents } from '@/lib/investments/queries'
-import { estimateMonthlyIncome } from '@floow/core-finance'
+import { getPlanningPortfolioSummary, getRetirementPlan } from '@/lib/planning/queries'
 import { SimulationForm } from '@/components/planning/simulation-form'
 
 // -- Async sub-component for Suspense streaming --------------------------------
 
 async function SimulationContent({ orgId }: { orgId: string }) {
-  const [retirementPlan, positions, incomeEvents] = await Promise.all([
+  const [retirementPlan, summary] = await Promise.all([
     getRetirementPlan(orgId),
-    getPositions(orgId),
-    getIncomeEvents(orgId),
+    getPlanningPortfolioSummary(orgId),
   ])
-
-  const currentPortfolioCents = positions.reduce(
-    (sum, p) => sum + p.currentValueCents,
-    0
-  )
-
-  const currentPassiveIncomeCents = estimateMonthlyIncome(
-    incomeEvents.map((e) => ({
-      eventType: e.eventType,
-      totalCents: e.totalCents,
-      eventDate: e.eventDate,
-    }))
-  )
 
   return (
     <SimulationForm
-      defaultValues={retirementPlan}
-      currentPortfolioCents={currentPortfolioCents}
-      currentPassiveIncomeCents={currentPassiveIncomeCents}
+      defaultValues={retirementPlan ? {
+        currentAge: retirementPlan.currentAge,
+        retirementAge: retirementPlan.retirementAge,
+        lifeExpectancy: retirementPlan.lifeExpectancy,
+        monthlyContributionCents: retirementPlan.monthlyContributionCents,
+        desiredMonthlyIncomeCents: retirementPlan.desiredMonthlyIncomeCents,
+        inflationRate: String(retirementPlan.inflationRate),
+        conservativeReturnRate: retirementPlan.conservativeReturnRate != null
+          ? String(retirementPlan.conservativeReturnRate)
+          : null,
+        baseReturnRate: retirementPlan.baseReturnRate != null
+          ? String(retirementPlan.baseReturnRate)
+          : null,
+        aggressiveReturnRate: retirementPlan.aggressiveReturnRate != null
+          ? String(retirementPlan.aggressiveReturnRate)
+          : null,
+        contributionGrowthRate: retirementPlan.contributionGrowthRate != null
+          ? String(retirementPlan.contributionGrowthRate)
+          : null,
+      } : null}
+      currentPortfolioCents={summary.currentPortfolioCents}
+      currentPassiveIncomeCents={summary.currentPassiveIncomeCents}
     />
   )
 }

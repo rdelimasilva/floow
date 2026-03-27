@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createFixedAsset } from '@/lib/fixed-assets/actions'
@@ -41,6 +42,9 @@ export function AssetForm({ types }: AssetFormProps) {
   const [address, setAddress] = useState('')
   const [licensePlate, setLicensePlate] = useState('')
   const [model, setModel] = useState('')
+
+  const isDirty = useMemo(() => !!(name || typeId || purchaseValue || annualRate), [name, typeId, purchaseValue, annualRate])
+  useUnsavedChanges(isDirty)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
