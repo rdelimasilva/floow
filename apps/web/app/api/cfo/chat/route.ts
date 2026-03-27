@@ -96,7 +96,14 @@ export async function POST(request: Request) {
     insightContext = insight
   }
 
-  const systemPrompt = await buildChatSystemPrompt(orgId, insightContext)
+  let systemPrompt: string
+  try {
+    systemPrompt = await buildChatSystemPrompt(orgId, insightContext)
+  } catch (err) {
+    console.error('[CFO Chat] Context build error:', err)
+    return NextResponse.json({ error: 'Failed to build context', detail: String(err) }, { status: 500 })
+  }
+
   const provider = createAnthropicProvider({ apiKey })
 
   let fullContent = ''
@@ -128,7 +135,8 @@ export async function POST(request: Request) {
 
         controller.close()
       } catch (err) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', text: 'Erro ao processar' })}\n\n`))
+        console.error('[CFO Chat] Stream error:', err)
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', text: String(err) })}\n\n`))
         controller.close()
       }
     },

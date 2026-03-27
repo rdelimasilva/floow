@@ -42,6 +42,7 @@ export function useChat(options?: UseChatOptions) {
       const response = await fetch('/api/cfo/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           conversationId,
           insightId: options?.insightId,
@@ -52,8 +53,16 @@ export function useChat(options?: UseChatOptions) {
       })
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}))
-        throw new Error(err.message || err.error || 'Erro ao conectar')
+        const contentType = response.headers.get('content-type') ?? ''
+        if (contentType.includes('application/json')) {
+          const err = await response.json().catch(() => ({}))
+          throw new Error(err.message || err.error || `Erro ${response.status}`)
+        }
+        throw new Error(`Erro ${response.status}: ${response.statusText}`)
+      }
+
+      if (!response.body) {
+        throw new Error('Sem resposta do servidor')
       }
 
       const newConvId = response.headers.get('X-Conversation-Id')
@@ -75,6 +84,10 @@ export function useChat(options?: UseChatOptions) {
           if (!line.startsWith('data: ')) continue
           try {
             const chunk: ChatStreamChunk = JSON.parse(line.slice(6))
+            if (chunk.type === 'error') {
+              setError(chunk.text || 'Erro do consultor')
+              break
+            }
             if (chunk.type === 'text' && chunk.text) {
               setMessages((prev) => {
                 const updated = [...prev]
@@ -98,6 +111,7 @@ export function useChat(options?: UseChatOptions) {
         }
       }
     } catch (err: any) {
+      console.error('[useChat] error:', err)
       if (err.name !== 'AbortError') {
         setError(err.message || 'Erro ao conectar com o consultor. Tente novamente.')
       }
