@@ -10,7 +10,7 @@ function isPublicRoute(pathname: string): boolean {
   return publicRoutes.some((prefix) => pathname.startsWith(prefix))
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request)
 
   const pathname = request.nextUrl.pathname
