@@ -8,8 +8,6 @@ import { Pagination } from '@/components/ui/pagination'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 
-export const dynamic = 'force-dynamic'
-
 const PAGE_SIZE = 30
 
 interface Props {
