@@ -13,7 +13,12 @@ import {
 } from '@floow/core-finance/src/simulation'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { saveRetirementPlan } from '@/lib/planning/actions'
-import { RetirementSimulationChart } from '@/components/planning/retirement-simulation-chart'
+import dynamic from 'next/dynamic'
+
+const RetirementSimulationChart = dynamic(() => import('@/components/planning/retirement-simulation-chart').then(m => ({ default: m.RetirementSimulationChart })), {
+  loading: () => <div className="min-h-[200px] animate-pulse rounded-xl bg-gray-100" />,
+  ssr: false,
+})
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

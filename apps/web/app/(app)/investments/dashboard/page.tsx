@@ -3,8 +3,15 @@ import { PageHeader } from '@/components/ui/page-header'
 import { getOrgId } from '@/lib/finance/queries'
 import { getPositions, getPatrimonySnapshots } from '@/lib/investments/queries'
 import { PortfolioSummaryRow } from '@/components/investments/portfolio-summary-row'
-import { AllocationChart } from '@/components/investments/allocation-chart'
-import { NetWorthEvolution } from '@/components/investments/net-worth-evolution'
+import dynamic from 'next/dynamic'
+
+const AllocationChart = dynamic(() => import('@/components/investments/allocation-chart').then(m => ({ default: m.AllocationChart })), {
+  loading: () => <div className="min-h-[200px] animate-pulse rounded-xl bg-gray-100" />,
+})
+
+const NetWorthEvolution = dynamic(() => import('@/components/investments/net-worth-evolution').then(m => ({ default: m.NetWorthEvolution })), {
+  loading: () => <div className="min-h-[200px] animate-pulse rounded-xl bg-gray-100" />,
+})
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 

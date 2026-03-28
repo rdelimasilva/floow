@@ -6,7 +6,11 @@ import { aggregateCashFlow } from '@floow/core-finance'
 import { AccountSummaryRow } from '@/components/finance/account-summary-row'
 import { QuickStatsRow } from '@/components/finance/quick-stats-row'
 import { PatrimonySummary } from '@/components/finance/patrimony-summary'
-import { CashFlowChart } from '@/components/finance/cash-flow-chart'
+import dynamic from 'next/dynamic'
+
+const CashFlowChart = dynamic(() => import('@/components/finance/cash-flow-chart').then(m => ({ default: m.CashFlowChart })), {
+  loading: () => <div className="min-h-[300px] animate-pulse rounded-xl bg-gray-100" />,
+})
 import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBudgetGoals, getBudgetEntriesForMonth, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotalsForGoals, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
@@ -102,6 +106,10 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
     }
   }
 
+  if (investingGoals.length === 0) {
+    return <BudgetAlertCard alerts={alerts} />
+  }
+
   const goalsByPeriod = new Map<string, typeof investingGoals>()
   for (const goal of investingGoals) {
     const periodGoals = goalsByPeriod.get(goal.period) ?? []
@@ -114,7 +122,7 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
       const { start, end } = getCurrentPeriodRange(period)
       const [contributed, adjustmentTotals] = await Promise.all([
         getInvestmentContributions(orgId, start, end),
-        getAdjustmentTotalsForGoals(goals.map((goal) => goal.id), start, end),
+        getAdjustmentTotalsForGoals(orgId, goals.map((goal) => goal.id), start, end),
       ])
 
       for (const goal of goals) {

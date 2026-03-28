@@ -6,7 +6,9 @@ import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/providers/toast-provider'
 import { ReconcileProvider } from '@/components/providers/reconcile-provider'
-import { CommandPalette } from '@/components/layout/command-palette'
+import dynamic from 'next/dynamic'
+
+const CommandPalette = dynamic(() => import('@/components/layout/command-palette').then(m => ({ default: m.CommandPalette })))
 export default async function AppLayout({
   children,
 }: {

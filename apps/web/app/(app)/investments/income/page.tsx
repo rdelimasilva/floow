@@ -2,7 +2,11 @@ import { getOrgId } from '@/lib/finance/queries'
 import { PageHeader } from '@/components/ui/page-header'
 import { getIncomeEvents } from '@/lib/investments/queries'
 import { aggregateIncome, estimateMonthlyIncome, formatBRL } from '@floow/core-finance'
-import { IncomeChart } from '@/components/investments/income-chart'
+import dynamic from 'next/dynamic'
+
+const IncomeChart = dynamic(() => import('@/components/investments/income-chart').then(m => ({ default: m.IncomeChart })), {
+  loading: () => <div className="min-h-[200px] animate-pulse rounded-xl bg-gray-100" />,
+})
 import { IncomeEventTable } from '@/components/investments/income-event-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'

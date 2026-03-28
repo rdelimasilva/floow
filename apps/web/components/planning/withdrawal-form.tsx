@@ -9,7 +9,12 @@ import { simulateWithdrawal } from '@floow/core-finance/src/withdrawal'
 import { SCENARIO_PRESETS } from '@floow/core-finance/src/simulation'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { saveWithdrawalStrategy } from '@/lib/planning/actions'
-import { DepletionChart } from '@/components/planning/depletion-chart'
+import dynamic from 'next/dynamic'
+
+const DepletionChart = dynamic(() => import('@/components/planning/depletion-chart').then(m => ({ default: m.DepletionChart })), {
+  loading: () => <div className="min-h-[200px] animate-pulse rounded-xl bg-gray-100" />,
+  ssr: false,
+})
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

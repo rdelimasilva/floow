@@ -85,7 +85,7 @@ export const getBudgetGoals = cache(async function getBudgetGoals(
  * Returns budget entries active for a given month, filtered by type.
  * An entry is active if: startMonth <= month AND (endMonth IS NULL OR endMonth >= month)
  */
-export async function getBudgetEntriesForMonth(orgId: string, month: Date, type: 'spending' | 'investing' = 'spending') {
+export const getBudgetEntriesForMonth = cache(async function getBudgetEntriesForMonth(orgId: string, month: Date, type: 'spending' | 'investing' = 'spending') {
   return unstable_cache(
     async () => {
       const db = getDb()
@@ -102,7 +102,7 @@ export async function getBudgetEntriesForMonth(orgId: string, month: Date, type:
     ['budget-entries-for-month', orgId, type, month.toISOString()],
     { tags: [budgetEntriesTag(orgId, type), type === 'spending' ? budgetSpendingTag(orgId) : budgetInvestingTag(orgId)], revalidate: 300 },
   )()
-}
+})
 
 /** Returns all budget entries for an org filtered by type (for listing/managing). */
 export async function getAllBudgetEntries(orgId: string, type: 'spending' | 'investing' = 'spending') {
@@ -128,65 +128,77 @@ export async function getAllBudgetEntries(orgId: string, type: 'spending' | 'inv
  * Returns spending totals grouped by category for a date range.
  * Only includes expense transactions that are not ignored.
  */
-export async function getSpendingByCategory(
+export const getSpendingByCategory = cache(async function getSpendingByCategory(
   orgId: string,
   start: Date,
   end: Date,
 ): Promise<{ categoryId: string | null; spent: number }[]> {
-  const db = getDb()
+  return unstable_cache(
+    async () => {
+      const db = getDb()
 
-  const rows = await db
-    .select({
-      categoryId: transactions.categoryId,
-      spent: sql<number>`SUM(ABS(${transactions.amountCents}))`.as('spent'),
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.type, 'expense'),
-        eq(transactions.isIgnored, false),
-        gte(transactions.date, start),
-        lte(transactions.date, end),
-      ),
-    )
-    .groupBy(transactions.categoryId)
+      const rows = await db
+        .select({
+          categoryId: transactions.categoryId,
+          spent: sql<number>`SUM(ABS(${transactions.amountCents}))`.as('spent'),
+        })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.orgId, orgId),
+            eq(transactions.type, 'expense'),
+            eq(transactions.isIgnored, false),
+            gte(transactions.date, start),
+            lte(transactions.date, end),
+          ),
+        )
+        .groupBy(transactions.categoryId)
 
-  return rows.map((r) => ({ categoryId: r.categoryId, spent: Number(r.spent) }))
-}
+      return rows.map((r) => ({ categoryId: r.categoryId, spent: Number(r.spent) }))
+    },
+    ['budget-spending-by-category', orgId, start.toISOString(), end.toISOString()],
+    { tags: [budgetSpendingTag(orgId)], revalidate: 300 },
+  )()
+})
 
 /**
  * Returns total investment contributions for a date range.
  * Sums positive transfer transactions (incoming) to brokerage accounts.
  * These represent money moving from checking/savings into investment accounts.
  */
-export async function getInvestmentContributions(
+export const getInvestmentContributions = cache(async function getInvestmentContributions(
   orgId: string,
   start: Date,
   end: Date,
 ): Promise<number> {
-  const db = getDb()
+  return unstable_cache(
+    async () => {
+      const db = getDb()
 
-  const [row] = await db
-    .select({
-      total: sql<number>`COALESCE(SUM(${transactions.amountCents}), 0)`.as('total'),
-    })
-    .from(transactions)
-    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-    .where(
-      and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.type, 'transfer'),
-        eq(accounts.type, 'brokerage'),
-        sql`${transactions.amountCents} > 0`, // incoming side of transfer
-        eq(transactions.isIgnored, false),
-        gte(transactions.date, start),
-        lte(transactions.date, end),
-      ),
-    )
+      const [row] = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(${transactions.amountCents}), 0)`.as('total'),
+        })
+        .from(transactions)
+        .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+        .where(
+          and(
+            eq(transactions.orgId, orgId),
+            eq(transactions.type, 'transfer'),
+            eq(accounts.type, 'brokerage'),
+            sql`${transactions.amountCents} > 0`,
+            eq(transactions.isIgnored, false),
+            gte(transactions.date, start),
+            lte(transactions.date, end),
+          ),
+        )
 
-  return Number(row?.total ?? 0)
-}
+      return Number(row?.total ?? 0)
+    },
+    ['budget-investment-contributions', orgId, start.toISOString(), end.toISOString()],
+    { tags: [budgetInvestingTag(orgId)], revalidate: 300 },
+  )()
+})
 
 // ---------------------------------------------------------------------------
 // Budget adjustments
@@ -240,28 +252,35 @@ export async function getAdjustmentTotal(
 /**
  * Returns adjustment totals for multiple goals in a single grouped query.
  */
-export async function getAdjustmentTotalsForGoals(
+export const getAdjustmentTotalsForGoals = cache(async function getAdjustmentTotalsForGoals(
+  orgId: string,
   goalIds: string[],
   start: Date,
   end: Date,
 ): Promise<Map<string, number>> {
   if (goalIds.length === 0) return new Map()
 
-  const db = getDb()
-  const rows = await db
-    .select({
-      goalId: budgetAdjustments.budgetGoalId,
-      total: sql<number>`COALESCE(SUM(${budgetAdjustments.amountCents}), 0)`.as('total'),
-    })
-    .from(budgetAdjustments)
-    .where(
-      and(
-        inArray(budgetAdjustments.budgetGoalId, goalIds),
-        gte(budgetAdjustments.date, start),
-        lte(budgetAdjustments.date, end),
-      ),
-    )
-    .groupBy(budgetAdjustments.budgetGoalId)
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      const rows = await db
+        .select({
+          goalId: budgetAdjustments.budgetGoalId,
+          total: sql<number>`COALESCE(SUM(${budgetAdjustments.amountCents}), 0)`.as('total'),
+        })
+        .from(budgetAdjustments)
+        .where(
+          and(
+            inArray(budgetAdjustments.budgetGoalId, goalIds),
+            gte(budgetAdjustments.date, start),
+            lte(budgetAdjustments.date, end),
+          ),
+        )
+        .groupBy(budgetAdjustments.budgetGoalId)
 
-  return new Map(rows.map((row) => [row.goalId, Number(row.total)]))
-}
+      return new Map(rows.map((row) => [row.goalId, Number(row.total)]))
+    },
+    ['budget-adjustment-totals', orgId, ...goalIds.sort(), start.toISOString(), end.toISOString()],
+    { tags: [budgetInvestingTag(orgId)], revalidate: 300 },
+  )()
+})

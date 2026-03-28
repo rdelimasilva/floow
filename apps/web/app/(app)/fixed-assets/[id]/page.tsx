@@ -8,7 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { UpdateValueForm } from './update-value-form'
 import { DeleteAssetButton } from './delete-asset-button'
-import { AssetValueHistory } from '@/components/fixed-assets/asset-value-history'
+import dynamic from 'next/dynamic'
+
+const AssetValueHistory = dynamic(() => import('@/components/fixed-assets/asset-value-history').then(m => ({ default: m.AssetValueHistory })), {
+  loading: () => <div className="min-h-[200px] animate-pulse rounded-xl bg-gray-100" />,
+})
 
 export default async function FixedAssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

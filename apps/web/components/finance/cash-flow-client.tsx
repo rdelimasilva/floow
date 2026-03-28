@@ -4,7 +4,12 @@ import { useState, useMemo, useDeferredValue } from 'react'
 import { formatBRL } from '@floow/core-finance'
 import { CashFlowPeriodFilter, getPeriodDates, type PeriodKey } from './cash-flow-period-filter'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
-import { CashFlowChart } from './cash-flow-chart'
+import dynamic from 'next/dynamic'
+
+const CashFlowChart = dynamic(() => import('./cash-flow-chart').then(m => ({ default: m.CashFlowChart })), {
+  loading: () => <div className="min-h-[300px] animate-pulse rounded-xl bg-gray-100" />,
+  ssr: false,
+})
 import { CashFlowBreakdown } from './cash-flow-breakdown'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
