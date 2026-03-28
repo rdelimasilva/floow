@@ -463,6 +463,7 @@ export function Sidebar({ userEmail, userName, avatarUrl, cfoBadgeCount }: Sideb
               width={120}
               height={120}
               className="shrink-0"
+              unoptimized
             />
           </Link>
         </div>
