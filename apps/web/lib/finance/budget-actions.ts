@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { getDb, budgetGoals, budgetEntries, budgetAdjustments } from '@floow/db'
 import { eq, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
@@ -11,6 +11,7 @@ import {
   budgetInvestingTag,
   budgetSpendingTag,
   snapshotsTag,
+  invalidateTag,
 } from '@/lib/cache-tags'
 
 // ---------------------------------------------------------------------------
@@ -45,13 +46,13 @@ function revalidateBudgetPaths() {
 }
 
 function revalidateBudgetData(orgId: string) {
-  revalidateTag(budgetGoalsTag(orgId, 'spending'))
-  revalidateTag(budgetGoalsTag(orgId, 'investing'))
-  revalidateTag(budgetEntriesTag(orgId, 'spending'))
-  revalidateTag(budgetEntriesTag(orgId, 'investing'))
-  revalidateTag(budgetSpendingTag(orgId))
-  revalidateTag(budgetInvestingTag(orgId))
-  revalidateTag(snapshotsTag(orgId))
+  invalidateTag(budgetGoalsTag(orgId, 'spending'))
+  invalidateTag(budgetGoalsTag(orgId, 'investing'))
+  invalidateTag(budgetEntriesTag(orgId, 'spending'))
+  invalidateTag(budgetEntriesTag(orgId, 'investing'))
+  invalidateTag(budgetSpendingTag(orgId))
+  invalidateTag(budgetInvestingTag(orgId))
+  invalidateTag(snapshotsTag(orgId))
 }
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,9 @@
 'use server'
 
-import { revalidateTag } from 'next/cache'
 import { getDb, cfoInsights } from '@floow/db'
 import { eq, and } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
-import { cfoInsightsTag } from '../cache-tags'
+import { cfoInsightsTag, invalidateTag } from '../cache-tags'
 
 export async function dismissInsight(insightId: string) {
   const orgId = await getOrgId()
@@ -15,7 +14,7 @@ export async function dismissInsight(insightId: string) {
     .set({ dismissedAt: new Date() })
     .where(and(eq(cfoInsights.id, insightId), eq(cfoInsights.orgId, orgId)))
 
-  revalidateTag(cfoInsightsTag(orgId))
+  invalidateTag(cfoInsightsTag(orgId))
 }
 
 export async function markInsightActedOn(insightId: string) {
@@ -27,5 +26,5 @@ export async function markInsightActedOn(insightId: string) {
     .set({ actedOnAt: new Date() })
     .where(and(eq(cfoInsights.id, insightId), eq(cfoInsights.orgId, orgId)))
 
-  revalidateTag(cfoInsightsTag(orgId))
+  invalidateTag(cfoInsightsTag(orgId))
 }

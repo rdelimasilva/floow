@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules, recurringTemplates } from '@floow/db'
 import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema, createRecurringTransactionSchema } from '@floow/shared'
 import { computeSnapshot, matchCategory, generateInstallmentDates, advanceByFrequency } from '@floow/core-finance'
@@ -16,33 +16,34 @@ import {
   recentTransactionsTag,
   snapshotsTag,
   transactionsTag,
+  invalidateTag,
 } from '@/lib/cache-tags'
 import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
 
 type Db = ReturnType<typeof getDb>
 
 function revalidateAccountData(orgId: string) {
-  revalidateTag(accountsTag(orgId))
+  invalidateTag(accountsTag(orgId))
 }
 
 function revalidateTransactionData(orgId: string) {
-  revalidateTag(transactionsTag(orgId))
-  revalidateTag(recentTransactionsTag(orgId, 6))
-  revalidateTag(recentTransactionsTag(orgId, 24))
-  revalidateTag(futureTransactionsTag(orgId, 24))
+  invalidateTag(transactionsTag(orgId))
+  invalidateTag(recentTransactionsTag(orgId, 6))
+  invalidateTag(recentTransactionsTag(orgId, 24))
+  invalidateTag(futureTransactionsTag(orgId, 24))
 }
 
 function revalidateCategoryData(orgId: string) {
-  revalidateTag(categoriesTag(orgId))
+  invalidateTag(categoriesTag(orgId))
 }
 
 function revalidateSnapshotData(orgId: string) {
-  revalidateTag(snapshotsTag(orgId))
-  revalidateTag(patrimonyHistoryTag(orgId, 12))
+  invalidateTag(snapshotsTag(orgId))
+  invalidateTag(patrimonyHistoryTag(orgId, 12))
 }
 
 function revalidateInvestmentData(orgId: string) {
-  revalidateTag(investmentsTag(orgId))
+  invalidateTag(investmentsTag(orgId))
 }
 
 /**

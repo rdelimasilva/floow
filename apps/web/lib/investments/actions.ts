@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import {
   getDb,
   assets,
@@ -23,28 +23,29 @@ import {
   recentTransactionsTag,
   snapshotsTag,
   transactionsTag,
+  invalidateTag,
 } from '@/lib/cache-tags'
 import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
 
 type Db = ReturnType<typeof getDb>
 
 function revalidateInvestmentData(orgId: string) {
-  revalidateTag(investmentsTag(orgId))
+  invalidateTag(investmentsTag(orgId))
 }
 
 function revalidatePriceData(orgId: string, assetId?: string) {
-  revalidateTag(pricesTag(orgId))
-  if (assetId) revalidateTag(priceHistoryTag(orgId, assetId))
+  invalidateTag(pricesTag(orgId))
+  if (assetId) invalidateTag(priceHistoryTag(orgId, assetId))
 }
 
 function revalidateCrossModuleData(orgId: string) {
-  revalidateTag(transactionsTag(orgId))
-  revalidateTag(recentTransactionsTag(orgId, 6))
-  revalidateTag(recentTransactionsTag(orgId, 24))
-  revalidateTag(accountsTag(orgId))
-  revalidateTag(snapshotsTag(orgId))
-  revalidateTag(patrimonyHistoryTag(orgId, 12))
-  revalidateTag(incomeEventsTag(orgId, 12))
+  invalidateTag(transactionsTag(orgId))
+  invalidateTag(recentTransactionsTag(orgId, 6))
+  invalidateTag(recentTransactionsTag(orgId, 24))
+  invalidateTag(accountsTag(orgId))
+  invalidateTag(snapshotsTag(orgId))
+  invalidateTag(patrimonyHistoryTag(orgId, 12))
+  invalidateTag(incomeEventsTag(orgId, 12))
 }
 
 /**

@@ -1,19 +1,19 @@
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { getDb, fixedAssets, fixedAssetTypes } from '@floow/db'
 import { createFixedAssetSchema, updateFixedAssetSchema, updateAssetValueSchema } from '@floow/shared'
 import { eq, and, or, isNull, ilike } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
-import { fixedAssetsTag, fixedAssetTypesTag, snapshotsTag } from '@/lib/cache-tags'
+import { fixedAssetsTag, fixedAssetTypesTag, snapshotsTag, invalidateTag } from '@/lib/cache-tags'
 
 function revalidateFixedAssetData(orgId: string) {
-  revalidateTag(fixedAssetsTag(orgId))
-  revalidateTag(snapshotsTag(orgId))
+  invalidateTag(fixedAssetsTag(orgId))
+  invalidateTag(snapshotsTag(orgId))
 }
 
 function revalidateFixedAssetTypeData(orgId: string) {
-  revalidateTag(fixedAssetTypesTag(orgId))
+  invalidateTag(fixedAssetTypesTag(orgId))
 }
 
 // -- Asset Type CRUD --

@@ -1,3 +1,10 @@
+import { revalidateTag } from 'next/cache'
+
+/** Wrapper for Next.js 16 revalidateTag (requires cacheLife profile as 2nd arg) */
+export function invalidateTag(tag: string) {
+  revalidateTag(tag, 'default')
+}
+
 export function accountsTag(orgId: string) {
   return `accounts:${orgId}`
 }

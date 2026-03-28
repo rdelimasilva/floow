@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { getDb, accounts, transactions } from '@floow/db'
 import { parseOFXFile, parseCSVFile, matchCategory } from '@floow/core-finance'
 import type { CsvColumnMapping } from '@floow/core-finance'
@@ -10,6 +10,7 @@ import {
   accountsTag,
   recentTransactionsTag,
   transactionsTag,
+  invalidateTag,
 } from '@/lib/cache-tags'
 
 /**
@@ -301,10 +302,10 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
 
   revalidatePath('/transactions')
   revalidatePath('/accounts', 'layout')
-  revalidateTag(transactionsTag(orgId))
-  revalidateTag(recentTransactionsTag(orgId, 6))
-  revalidateTag(recentTransactionsTag(orgId, 24))
-  revalidateTag(accountsTag(orgId))
+  invalidateTag(transactionsTag(orgId))
+  invalidateTag(recentTransactionsTag(orgId, 6))
+  invalidateTag(recentTransactionsTag(orgId, 24))
+  invalidateTag(accountsTag(orgId))
 
   return { imported, skipped }
 }
@@ -485,10 +486,10 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
 
   revalidatePath('/transactions')
   revalidatePath('/accounts', 'layout')
-  revalidateTag(transactionsTag(orgId))
-  revalidateTag(recentTransactionsTag(orgId, 6))
-  revalidateTag(recentTransactionsTag(orgId, 24))
-  revalidateTag(accountsTag(orgId))
+  invalidateTag(transactionsTag(orgId))
+  invalidateTag(recentTransactionsTag(orgId, 6))
+  invalidateTag(recentTransactionsTag(orgId, 24))
+  invalidateTag(accountsTag(orgId))
 
   return { imported, skipped }
 }
