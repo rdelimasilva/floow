@@ -11,6 +11,7 @@ import {
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { SimulationScenario } from '@floow/db'
 import { ScenarioManager } from './scenario-manager'
+import { SimulationResults } from './simulation-results'
 import dynamic from 'next/dynamic'
 
 const RetirementSimulationChart = dynamic(() => import('@/components/planning/retirement-simulation-chart').then(m => ({ default: m.RetirementSimulationChart })), {
@@ -215,48 +216,18 @@ export function SimulationForm({
         </CardContent>
       </Card>
 
-      {/* Result card */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardContent className="pt-6">
-          {mode === 'contribution' ? (
-            <div>
-              <p className="text-sm text-blue-700 mb-1">Renda passiva estimada na aposentadoria</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-xs text-red-600 font-medium">Conservador</p>
-                  <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.conservative)}/mes</p>
-                </div>
-                <div>
-                  <p className="text-xs text-blue-600 font-medium">Base</p>
-                  <p className="text-xl font-bold text-blue-900">{formatBRL(computedResult.base)}/mes</p>
-                </div>
-                <div>
-                  <p className="text-xs text-green-600 font-medium">Arrojado</p>
-                  <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.aggressive)}/mes</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-blue-700 mb-1">Aporte mensal necessario</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-xs text-red-600 font-medium">Conservador</p>
-                  <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.conservative)}/mes</p>
-                </div>
-                <div>
-                  <p className="text-xs text-blue-600 font-medium">Base</p>
-                  <p className="text-xl font-bold text-blue-900">{formatBRL(computedResult.base)}/mes</p>
-                </div>
-                <div>
-                  <p className="text-xs text-green-600 font-medium">Arrojado</p>
-                  <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.aggressive)}/mes</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Results: 3 scenarios + FI progress + depletion */}
+      <SimulationResults
+        mode={mode}
+        computedResult={computedResult}
+        projections={projections}
+        portfolioCents={Math.round(portfolioBRL * 100)}
+        monthlyContributionCents={Math.round(monthlyContributionBRL * 100)}
+        desiredMonthlyIncomeCents={Math.round(desiredMonthlyIncomeBRL * 100)}
+        currentAge={currentAge}
+        retirementAge={retirementAge}
+        baseReturnRate={baseReturnRate}
+      />
 
       {/* Chart */}
       <Card>

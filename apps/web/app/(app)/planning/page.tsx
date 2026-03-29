@@ -6,7 +6,7 @@ import { getPlanningDashboardData, getPlanningPortfolioSummary } from '@/lib/pla
 import { calculateFI, SCENARIO_PRESETS } from '@floow/core-finance'
 import { PlanningSummaryRow } from '@/components/planning/planning-summary-row'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BarChart3, Target, Wallet, Users } from 'lucide-react'
+import { BarChart3, Users } from 'lucide-react'
 
 // -- Async sub-component for Suspense streaming --------------------------------
 
@@ -65,42 +65,8 @@ async function PlanningHubContent({ orgId }: { orgId: string }) {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-600">
-                Veja como seu patrimonio evolui em 3 cenarios (conservador, base e arrojado) e
-                descubra quando atingira a independencia financeira.
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/planning/fi-calculator" className="block">
-          <Card className="hover:border-blue-300 transition-colors cursor-pointer h-full">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Target className="h-5 w-5 text-green-600" />
-                Calculadora de Independencia Financeira
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600">
-                Calcule o patrimonio necessario para viver de renda passiva e veja seu progresso
-                em relacao ao Numero FI.
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/planning/withdrawal" className="block">
-          <Card className="hover:border-blue-300 transition-colors cursor-pointer h-full">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Wallet className="h-5 w-5 text-orange-600" />
-                Estrategia de Retirada
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600">
-                Defina como vai usar seu patrimonio na aposentadoria: valor fixo mensal ou
-                percentual do portfolio (regra dos 4%).
+                Simule aportes ou renda desejada em 3 cenarios, acompanhe o progresso
+                ate a independencia financeira, e veja quando o patrimonio se esgota.
               </p>
             </CardContent>
           </Card>
