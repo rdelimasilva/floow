@@ -40,7 +40,7 @@ export function PlanningSummaryRow({
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-gray-900">
-              {formatBRL(currentPassiveIncomeCents / 100)}
+              {formatBRL(currentPassiveIncomeCents)}
             </p>
             <p className="text-xs text-gray-500 mt-1">/mes (media dos ultimos 12 meses)</p>
           </CardContent>

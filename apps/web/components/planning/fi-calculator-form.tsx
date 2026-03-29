@@ -21,9 +21,9 @@ interface FICalculatorPlanDefaults {
 // ── Local schema ───────────────────────────────────────────────────────────────
 
 const fiFormSchema = z.object({
-  targetMonthlyPassiveIncomeCents: z.number().int().min(0),
-  currentPortfolioCents: z.number().int().min(0),
-  monthlyContributionCents: z.number().int().min(0),
+  targetMonthlyPassiveIncomeCents: z.number().min(0),
+  currentPortfolioCents: z.number().min(0),
+  monthlyContributionCents: z.number().min(0),
   annualRealReturnRate: z.number().min(0).max(0.5),
   currentAge: z.number().int().min(18).max(100),
 })
@@ -51,9 +51,9 @@ export function FICalculatorForm({
     resolver: zodResolver(fiFormSchema),
     defaultValues: {
       targetMonthlyPassiveIncomeCents:
-        savedPlan?.desiredMonthlyIncomeCents ?? currentPassiveIncomeCents,
-      currentPortfolioCents,
-      monthlyContributionCents: savedPlan?.monthlyContributionCents ?? 0,
+        (savedPlan?.desiredMonthlyIncomeCents ?? currentPassiveIncomeCents) / 100,
+      currentPortfolioCents: currentPortfolioCents / 100,
+      monthlyContributionCents: (savedPlan?.monthlyContributionCents ?? 0) / 100,
       annualRealReturnRate: savedPlan?.baseReturnRate != null
         ? Number(savedPlan.baseReturnRate)
         : SCENARIO_PRESETS.base.annualRealReturnRate,
@@ -76,16 +76,16 @@ export function FICalculatorForm({
     if (!targetMonthlyPassiveIncomeCents || !annualRealReturnRate) return null
 
     return calculateFI({
-      currentPortfolioCents: Number(portfolio) || 0,
-      monthlyContributionCents: Number(monthlyContributionCents) || 0,
-      targetMonthlyPassiveIncomeCents: Number(targetMonthlyPassiveIncomeCents),
+      currentPortfolioCents: Math.round((Number(portfolio) || 0) * 100),
+      monthlyContributionCents: Math.round((Number(monthlyContributionCents) || 0) * 100),
+      targetMonthlyPassiveIncomeCents: Math.round(Number(targetMonthlyPassiveIncomeCents) * 100),
       annualRealReturnRate: Number(annualRealReturnRate),
       currentAge: Number(currentAge) || 35,
     })
   }, [watched])
 
   const progressPercent = result
-    ? Math.min(100, Math.round((Number(watched.currentPortfolioCents) / result.fiNumberCents) * 100))
+    ? Math.min(100, Math.round(((Number(watched.currentPortfolioCents) * 100) / result.fiNumberCents) * 100))
     : 0
 
   return (
@@ -100,7 +100,7 @@ export function FICalculatorForm({
             <div>
               <p className="text-sm text-blue-700">Patrimonio necessario para independencia financeira</p>
               <p className="text-3xl font-bold text-blue-900">
-                {formatBRL(result.fiNumberCents / 100)}
+                {formatBRL(result.fiNumberCents)}
               </p>
             </div>
 
@@ -136,7 +136,7 @@ export function FICalculatorForm({
                 />
               </div>
               <p className="text-xs text-blue-600 mt-1">
-                {formatBRL(Number(watched.currentPortfolioCents) / 100)} de {formatBRL(result.fiNumberCents / 100)}
+                {formatBRL(Math.round(Number(watched.currentPortfolioCents) * 100))} de {formatBRL(result.fiNumberCents)}
               </p>
             </div>
           </CardContent>
@@ -152,17 +152,18 @@ export function FICalculatorForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="targetMonthlyPassiveIncomeCents">
-                Renda Passiva Mensal Desejada (centavos)
+                Renda Passiva Mensal Desejada (R$)
               </Label>
               <Input
                 id="targetMonthlyPassiveIncomeCents"
                 type="number"
-                placeholder="ex: 1000000 = R$10.000/mes"
+                step="0.01"
+                placeholder="ex: 10000"
                 {...register('targetMonthlyPassiveIncomeCents', { valueAsNumber: true })}
               />
               {currentPassiveIncomeCents > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents / 100)}/mes
+                  Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents)}/mes
                 </p>
               )}
               {errors.targetMonthlyPassiveIncomeCents && (
@@ -173,7 +174,7 @@ export function FICalculatorForm({
             </div>
 
             <div>
-              <Label htmlFor="currentPortfolioCents">Portfolio Atual (centavos)</Label>
+              <Label htmlFor="currentPortfolioCents">Portfolio Atual (R$)</Label>
               <Input
                 id="currentPortfolioCents"
                 type="number"
@@ -188,11 +189,12 @@ export function FICalculatorForm({
             </div>
 
             <div>
-              <Label htmlFor="monthlyContributionCents">Aporte Mensal (centavos)</Label>
+              <Label htmlFor="monthlyContributionCents">Aporte Mensal (R$)</Label>
               <Input
                 id="monthlyContributionCents"
                 type="number"
-                placeholder="ex: 200000 = R$2.000"
+                step="0.01"
+                placeholder="ex: 2000"
                 {...register('monthlyContributionCents', { valueAsNumber: true })}
               />
               {errors.monthlyContributionCents && (

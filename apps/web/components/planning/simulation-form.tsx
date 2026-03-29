@@ -97,8 +97,8 @@ export function SimulationForm({
       currentAge: formDefaults.currentAge ?? 35,
       retirementAge: formDefaults.retirementAge ?? 60,
       lifeExpectancy: formDefaults.lifeExpectancy ?? 85,
-      monthlyContributionCents: formDefaults.monthlyContributionCents ?? 0,
-      desiredMonthlyIncomeCents: formDefaults.desiredMonthlyIncomeCents ?? currentPassiveIncomeCents,
+      monthlyContributionCents: (formDefaults.monthlyContributionCents ?? 0) / 100,
+      desiredMonthlyIncomeCents: (formDefaults.desiredMonthlyIncomeCents ?? currentPassiveIncomeCents) / 100,
       inflationRate: formDefaults.inflationRate ?? 0.04,
       conservativeReturnRate: formDefaults.conservativeReturnRate,
       baseReturnRate: formDefaults.baseReturnRate,
@@ -128,11 +128,11 @@ export function SimulationForm({
 
     const baseParams = {
       currentPortfolioCents,
-      monthlyContributionCents: Number(monthlyContributionCents) || 0,
+      monthlyContributionCents: Math.round((Number(monthlyContributionCents) || 0) * 100),
       currentAge: Number(currentAge),
       retirementAge: Number(retirementAge),
       lifeExpectancy: Number(lifeExpectancy),
-      desiredMonthlyIncomeCents: Number(desiredMonthlyIncomeCents) || 0,
+      desiredMonthlyIncomeCents: Math.round((Number(desiredMonthlyIncomeCents) || 0) * 100),
     }
 
     const conservativePreset = SCENARIO_PRESETS.conservative
@@ -171,8 +171,8 @@ export function SimulationForm({
 
     const fiResult = calculateFI({
       currentPortfolioCents,
-      monthlyContributionCents: Number(monthlyContributionCents) || 0,
-      targetMonthlyPassiveIncomeCents: Number(desiredMonthlyIncomeCents) || 0,
+      monthlyContributionCents: Math.round((Number(monthlyContributionCents) || 0) * 100),
+      targetMonthlyPassiveIncomeCents: Math.round((Number(desiredMonthlyIncomeCents) || 0) * 100),
       annualRealReturnRate: baseReturnRate != null
         ? Number(baseReturnRate)
         : basePreset.annualRealReturnRate,
@@ -187,7 +187,11 @@ export function SimulationForm({
     setSaveError(null)
     setSaveSuccess(false)
     try {
-      await saveRetirementPlan(data)
+      await saveRetirementPlan({
+        ...data,
+        monthlyContributionCents: Math.round(data.monthlyContributionCents * 100),
+        desiredMonthlyIncomeCents: Math.round(data.desiredMonthlyIncomeCents * 100),
+      })
       setSaveSuccess(true)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Erro ao salvar plano')
@@ -252,7 +256,7 @@ export function SimulationForm({
           <CardContent className="pt-4">
             <p className="text-sm text-gray-700">
               <span className="font-medium">Numero FI (cenario base): </span>
-              {formatBRL(projections.fi.fiNumberCents / 100)}
+              {formatBRL(projections.fi.fiNumberCents)}
             </p>
             <p className="text-sm text-gray-700 mt-1">
               {projections.fi.fiYear != null ? (
@@ -281,7 +285,7 @@ export function SimulationForm({
             <div>
               <Label>Portfolio Atual</Label>
               <p className="text-sm font-medium text-gray-900 mt-1">
-                {formatBRL(currentPortfolioCents / 100)}
+                {formatBRL(currentPortfolioCents)}
                 <span className="text-xs text-gray-500 ml-2">
                   (preenchido automaticamente do seu portfolio de investimentos)
                 </span>
@@ -326,11 +330,12 @@ export function SimulationForm({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="monthlyContributionCents">Aporte Mensal (centavos)</Label>
+                <Label htmlFor="monthlyContributionCents">Aporte Mensal (R$)</Label>
                 <Input
                   id="monthlyContributionCents"
                   type="number"
-                  placeholder="ex: 200000 = R$2.000"
+                  step="0.01"
+                  placeholder="ex: 2000"
                   {...register('monthlyContributionCents', { valueAsNumber: true })}
                 />
                 {errors.monthlyContributionCents && (
@@ -339,17 +344,18 @@ export function SimulationForm({
               </div>
               <div>
                 <Label htmlFor="desiredMonthlyIncomeCents">
-                  Renda Mensal Desejada na Aposentadoria (centavos)
+                  Renda Mensal Desejada na Aposentadoria (R$)
                 </Label>
                 <Input
                   id="desiredMonthlyIncomeCents"
                   type="number"
-                  placeholder="ex: 1000000 = R$10.000"
+                  step="0.01"
+                  placeholder="ex: 10000"
                   {...register('desiredMonthlyIncomeCents', { valueAsNumber: true })}
                 />
                 {currentPassiveIncomeCents > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents / 100)}/mes
+                    Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents)}/mes
                   </p>
                 )}
                 {errors.desiredMonthlyIncomeCents && (

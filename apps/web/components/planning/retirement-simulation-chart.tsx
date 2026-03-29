@@ -107,7 +107,7 @@ export function RetirementSimulationChart({
         <ChartTooltip
           content={
             <ChartTooltipContent
-              formatter={(value) => formatBRL((value as number) / 100)}
+              formatter={(value) => formatBRL(value as number)}
               labelFormatter={(label) => `Idade ${label}`}
             />
           }
