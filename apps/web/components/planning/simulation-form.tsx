@@ -2,14 +2,11 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { HelpTooltip } from '@/components/ui/help-tooltip'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { retirementPlanSchema, type RetirementPlanInput } from '@floow/shared'
 import {
   simulateRetirementScenario,
-  calculateFI,
+  calculateProjectedIncome,
+  calculateRequiredContribution,
   SCENARIO_PRESETS,
-  type RetirementYearPoint,
 } from '@floow/core-finance/src/simulation'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { saveRetirementPlan } from '@/lib/planning/actions'
@@ -23,6 +20,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+type SimulationMode = 'contribution' | 'income'
 
 interface SimulationPlanDefaults {
   currentAge: number
@@ -41,163 +40,130 @@ interface SimulationFormProps {
   defaultValues: SimulationPlanDefaults | null
   currentPortfolioCents: number
   currentPassiveIncomeCents: number
-  savedPortfolioCents?: number | null
 }
 
-// Convert DB row (numeric fields stored as strings) to form number values
-function planToFormDefaults(plan: SimulationPlanDefaults | null): Partial<RetirementPlanInput> {
-  if (!plan) return {}
-  return {
-    currentAge: plan.currentAge,
-    retirementAge: plan.retirementAge,
-    lifeExpectancy: plan.lifeExpectancy,
-    monthlyContributionCents: plan.monthlyContributionCents,
-    desiredMonthlyIncomeCents: plan.desiredMonthlyIncomeCents,
-    inflationRate: plan.inflationRate != null ? Number(plan.inflationRate) : 0.04,
-    conservativeReturnRate: plan.conservativeReturnRate != null
-      ? Number(plan.conservativeReturnRate)
-      : undefined,
-    baseReturnRate: plan.baseReturnRate != null ? Number(plan.baseReturnRate) : undefined,
-    aggressiveReturnRate: plan.aggressiveReturnRate != null
-      ? Number(plan.aggressiveReturnRate)
-      : undefined,
-    contributionGrowthRate: plan.contributionGrowthRate != null
-      ? Number(plan.contributionGrowthRate)
-      : undefined,
-  }
-}
-
-/**
- * SimulationForm — interactive retirement simulation with real-time chart updates.
- *
- * Computes 3-scenario projections client-side using simulateRetirementScenario.
- * Saves plan to DB via saveRetirementPlan server action.
- * Supports nominal/real toggle and advanced rate overrides.
- */
 export function SimulationForm({
   defaultValues: savedPlan,
   currentPortfolioCents,
   currentPassiveIncomeCents,
-  savedPortfolioCents,
 }: SimulationFormProps) {
+  const [mode, setMode] = useState<SimulationMode>('contribution')
   const [showNominal, setShowNominal] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
-  const [portfolioBRL, setPortfolioBRL] = useState(
-    (savedPortfolioCents != null ? savedPortfolioCents : currentPortfolioCents) / 100
+
+  // Form state (all in R$, not cents)
+  const [portfolioBRL, setPortfolioBRL] = useState(currentPortfolioCents / 100)
+  const [currentAge, setCurrentAge] = useState(savedPlan?.currentAge ?? 35)
+  const [retirementAge, setRetirementAge] = useState(savedPlan?.retirementAge ?? 60)
+  const [lifeExpectancy, setLifeExpectancy] = useState(savedPlan?.lifeExpectancy ?? 85)
+  const [monthlyContributionBRL, setMonthlyContributionBRL] = useState(
+    (savedPlan?.monthlyContributionCents ?? 0) / 100
+  )
+  const [desiredMonthlyIncomeBRL, setDesiredMonthlyIncomeBRL] = useState(
+    (savedPlan?.desiredMonthlyIncomeCents ?? currentPassiveIncomeCents) / 100
+  )
+  const [inflationRate, setInflationRate] = useState(
+    savedPlan?.inflationRate != null ? Number(savedPlan.inflationRate) : 0.04
+  )
+  const [baseReturnRate, setBaseReturnRate] = useState(
+    savedPlan?.baseReturnRate != null ? Number(savedPlan.baseReturnRate) : undefined as number | undefined
+  )
+  const [conservativeReturnRate, setConservativeReturnRate] = useState(
+    savedPlan?.conservativeReturnRate != null ? Number(savedPlan.conservativeReturnRate) : undefined as number | undefined
+  )
+  const [aggressiveReturnRate, setAggressiveReturnRate] = useState(
+    savedPlan?.aggressiveReturnRate != null ? Number(savedPlan.aggressiveReturnRate) : undefined as number | undefined
+  )
+  const [contributionGrowthRate, setContributionGrowthRate] = useState(
+    savedPlan?.contributionGrowthRate != null ? Number(savedPlan.contributionGrowthRate) : undefined as number | undefined
   )
 
-  const formDefaults = planToFormDefaults(savedPlan)
+  const yearsToRetirement = Math.max(1, retirementAge - currentAge)
+  const baseRate = baseReturnRate ?? SCENARIO_PRESETS.base.annualRealReturnRate
+  const consRate = conservativeReturnRate ?? SCENARIO_PRESETS.conservative.annualRealReturnRate
+  const aggrRate = aggressiveReturnRate ?? SCENARIO_PRESETS.aggressive.annualRealReturnRate
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<RetirementPlanInput>({
-    resolver: zodResolver(retirementPlanSchema),
-    defaultValues: {
-      currentAge: formDefaults.currentAge ?? 35,
-      retirementAge: formDefaults.retirementAge ?? 60,
-      lifeExpectancy: formDefaults.lifeExpectancy ?? 85,
-      monthlyContributionCents: (formDefaults.monthlyContributionCents ?? 0) / 100,
-      desiredMonthlyIncomeCents: (formDefaults.desiredMonthlyIncomeCents ?? currentPassiveIncomeCents) / 100,
-      inflationRate: formDefaults.inflationRate ?? 0.04,
-      conservativeReturnRate: formDefaults.conservativeReturnRate,
-      baseReturnRate: formDefaults.baseReturnRate,
-      aggressiveReturnRate: formDefaults.aggressiveReturnRate,
-      contributionGrowthRate: formDefaults.contributionGrowthRate,
-    },
-    mode: 'onChange',
-  })
+  // Mode-specific computed result
+  const computedResult = useMemo(() => {
+    const portfolioCents = Math.round(portfolioBRL * 100)
 
-  const watched = watch()
+    if (mode === 'contribution') {
+      // Given contribution → projected income per scenario
+      const contributionCents = Math.round(monthlyContributionBRL * 100)
+      return {
+        conservative: calculateProjectedIncome({ currentPortfolioCents: portfolioCents, monthlyContributionCents: contributionCents, annualRealReturnRate: consRate, yearsToRetirement }),
+        base: calculateProjectedIncome({ currentPortfolioCents: portfolioCents, monthlyContributionCents: contributionCents, annualRealReturnRate: baseRate, yearsToRetirement }),
+        aggressive: calculateProjectedIncome({ currentPortfolioCents: portfolioCents, monthlyContributionCents: contributionCents, annualRealReturnRate: aggrRate, yearsToRetirement }),
+      }
+    } else {
+      // Given income → required contribution per scenario
+      const incomeCents = Math.round(desiredMonthlyIncomeBRL * 100)
+      return {
+        conservative: calculateRequiredContribution({ currentPortfolioCents: portfolioCents, targetMonthlyIncomeCents: incomeCents, annualRealReturnRate: consRate, yearsToRetirement }).requiredMonthlyContributionCents,
+        base: calculateRequiredContribution({ currentPortfolioCents: portfolioCents, targetMonthlyIncomeCents: incomeCents, annualRealReturnRate: baseRate, yearsToRetirement }).requiredMonthlyContributionCents,
+        aggressive: calculateRequiredContribution({ currentPortfolioCents: portfolioCents, targetMonthlyIncomeCents: incomeCents, annualRealReturnRate: aggrRate, yearsToRetirement }).requiredMonthlyContributionCents,
+      }
+    }
+  }, [mode, portfolioBRL, monthlyContributionBRL, desiredMonthlyIncomeBRL, currentAge, retirementAge, consRate, baseRate, aggrRate, yearsToRetirement])
 
-  // Re-compute projections whenever form values change
+  // Chart projections (always use contribution for the chart)
   const projections = useMemo(() => {
-    const {
-      currentAge,
-      retirementAge,
-      lifeExpectancy,
-      monthlyContributionCents,
-      desiredMonthlyIncomeCents,
-      conservativeReturnRate,
-      baseReturnRate,
-      aggressiveReturnRate,
-      contributionGrowthRate,
-    } = watched
-
     if (!currentAge || !retirementAge || !lifeExpectancy) return null
 
-    const portfolioCents = Math.round((portfolioBRL || 0) * 100)
+    const portfolioCents = Math.round(portfolioBRL * 100)
+    const contributionCents = mode === 'contribution'
+      ? Math.round(monthlyContributionBRL * 100)
+      : computedResult.base // in income mode, use computed base contribution
+    const incomeCents = mode === 'income'
+      ? Math.round(desiredMonthlyIncomeBRL * 100)
+      : computedResult.base // in contribution mode, use projected base income
 
     const baseParams = {
       currentPortfolioCents: portfolioCents,
-      monthlyContributionCents: Math.round((Number(monthlyContributionCents) || 0) * 100),
-      currentAge: Number(currentAge),
-      retirementAge: Number(retirementAge),
-      lifeExpectancy: Number(lifeExpectancy),
-      desiredMonthlyIncomeCents: Math.round((Number(desiredMonthlyIncomeCents) || 0) * 100),
+      monthlyContributionCents: contributionCents,
+      currentAge,
+      retirementAge,
+      lifeExpectancy,
+      desiredMonthlyIncomeCents: incomeCents,
     }
 
-    const conservativePreset = SCENARIO_PRESETS.conservative
-    const basePreset = SCENARIO_PRESETS.base
-    const aggressivePreset = SCENARIO_PRESETS.aggressive
+    const consGrowth = contributionGrowthRate ?? SCENARIO_PRESETS.conservative.annualContributionGrowthRate
+    const baseGrowth = contributionGrowthRate ?? SCENARIO_PRESETS.base.annualContributionGrowthRate
+    const aggrGrowth = contributionGrowthRate ?? SCENARIO_PRESETS.aggressive.annualContributionGrowthRate
 
-    const conservativePoints = simulateRetirementScenario({
-      ...baseParams,
-      annualRealReturnRate: conservativeReturnRate != null
-        ? Number(conservativeReturnRate)
-        : conservativePreset.annualRealReturnRate,
-      annualContributionGrowthRate: contributionGrowthRate != null
-        ? Number(contributionGrowthRate)
-        : conservativePreset.annualContributionGrowthRate,
-    })
+    return {
+      conservative: simulateRetirementScenario({ ...baseParams, annualRealReturnRate: consRate, annualContributionGrowthRate: consGrowth }),
+      base: simulateRetirementScenario({ ...baseParams, annualRealReturnRate: baseRate, annualContributionGrowthRate: baseGrowth }),
+      aggressive: simulateRetirementScenario({ ...baseParams, annualRealReturnRate: aggrRate, annualContributionGrowthRate: aggrGrowth }),
+    }
+  }, [mode, portfolioBRL, monthlyContributionBRL, desiredMonthlyIncomeBRL, currentAge, retirementAge, lifeExpectancy, consRate, baseRate, aggrRate, contributionGrowthRate, computedResult.base])
 
-    const basePoints = simulateRetirementScenario({
-      ...baseParams,
-      annualRealReturnRate: baseReturnRate != null
-        ? Number(baseReturnRate)
-        : basePreset.annualRealReturnRate,
-      annualContributionGrowthRate: contributionGrowthRate != null
-        ? Number(contributionGrowthRate)
-        : basePreset.annualContributionGrowthRate,
-    })
-
-    const aggressivePoints = simulateRetirementScenario({
-      ...baseParams,
-      annualRealReturnRate: aggressiveReturnRate != null
-        ? Number(aggressiveReturnRate)
-        : aggressivePreset.annualRealReturnRate,
-      annualContributionGrowthRate: contributionGrowthRate != null
-        ? Number(contributionGrowthRate)
-        : aggressivePreset.annualContributionGrowthRate,
-    })
-
-    const fiResult = calculateFI({
-      currentPortfolioCents: portfolioCents,
-      monthlyContributionCents: Math.round((Number(monthlyContributionCents) || 0) * 100),
-      targetMonthlyPassiveIncomeCents: Math.round((Number(desiredMonthlyIncomeCents) || 0) * 100),
-      annualRealReturnRate: baseReturnRate != null
-        ? Number(baseReturnRate)
-        : basePreset.annualRealReturnRate,
-      currentAge: Number(currentAge),
-    })
-
-    return { conservative: conservativePoints, base: basePoints, aggressive: aggressivePoints, fi: fiResult }
-  }, [watched, portfolioBRL])
-
-  const onSubmit = useCallback(async (data: RetirementPlanInput) => {
+  const handleSave = useCallback(async () => {
     setIsSaving(true)
     setSaveError(null)
     setSaveSuccess(false)
     try {
+      const contributionCents = mode === 'contribution'
+        ? Math.round(monthlyContributionBRL * 100)
+        : computedResult.base
+      const incomeCents = mode === 'income'
+        ? Math.round(desiredMonthlyIncomeBRL * 100)
+        : computedResult.base
+
       await saveRetirementPlan({
-        ...data,
-        monthlyContributionCents: Math.round(data.monthlyContributionCents * 100),
-        desiredMonthlyIncomeCents: Math.round(data.desiredMonthlyIncomeCents * 100),
+        currentAge,
+        retirementAge,
+        lifeExpectancy,
+        monthlyContributionCents: contributionCents,
+        desiredMonthlyIncomeCents: incomeCents,
+        inflationRate,
+        conservativeReturnRate,
+        baseReturnRate,
+        aggressiveReturnRate,
+        contributionGrowthRate,
       })
       setSaveSuccess(true)
     } catch (err) {
@@ -205,14 +171,85 @@ export function SimulationForm({
     } finally {
       setIsSaving(false)
     }
-  }, [])
-
-  const inflationRate = Number(watched.inflationRate) || 0.04
-  const currentAge = Number(watched.currentAge) || 35
-  const retirementAge = Number(watched.retirementAge) || 60
+  }, [mode, portfolioBRL, monthlyContributionBRL, desiredMonthlyIncomeBRL, currentAge, retirementAge, lifeExpectancy, inflationRate, conservativeReturnRate, baseReturnRate, aggressiveReturnRate, contributionGrowthRate, computedResult.base])
 
   return (
     <div className="space-y-6">
+      {/* Mode toggle */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => setMode('contribution')}
+              className={`flex-1 rounded-lg border-2 p-4 text-left transition-colors ${
+                mode === 'contribution' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <p className="font-medium text-sm">Tenho um aporte mensal</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Descubra a renda passiva que voce tera na aposentadoria
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('income')}
+              className={`flex-1 rounded-lg border-2 p-4 text-left transition-colors ${
+                mode === 'income' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <p className="font-medium text-sm">Quero uma renda mensal</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Descubra quanto precisa aportar por mes para atingir seu objetivo
+              </p>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Result card */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="pt-6">
+          {mode === 'contribution' ? (
+            <div>
+              <p className="text-sm text-blue-700 mb-1">Renda passiva estimada na aposentadoria</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-red-600 font-medium">Conservador</p>
+                  <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.conservative)}/mes</p>
+                </div>
+                <div>
+                  <p className="text-xs text-blue-600 font-medium">Base</p>
+                  <p className="text-xl font-bold text-blue-900">{formatBRL(computedResult.base)}/mes</p>
+                </div>
+                <div>
+                  <p className="text-xs text-green-600 font-medium">Arrojado</p>
+                  <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.aggressive)}/mes</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm text-blue-700 mb-1">Aporte mensal necessario</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-red-600 font-medium">Conservador</p>
+                  <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.conservative)}/mes</p>
+                </div>
+                <div>
+                  <p className="text-xs text-blue-600 font-medium">Base</p>
+                  <p className="text-xl font-bold text-blue-900">{formatBRL(computedResult.base)}/mes</p>
+                </div>
+                <div>
+                  <p className="text-xs text-green-600 font-medium">Arrojado</p>
+                  <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.aggressive)}/mes</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Chart */}
       <Card>
         <CardHeader>
@@ -257,237 +294,147 @@ export function SimulationForm({
         </CardContent>
       </Card>
 
-      {/* FI Result */}
-      {projections?.fi && (
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-gray-700">
-              <span className="font-medium">Numero FI (cenario base): </span>
-              {formatBRL(projections.fi.fiNumberCents)}
-            </p>
-            <p className="text-sm text-gray-700 mt-1">
-              {projections.fi.fiYear != null ? (
-                <>
-                  <span className="font-medium">Independencia financeira em: </span>
-                  {projections.fi.fiYear} ({projections.fi.yearsToFI} anos)
-                </>
-              ) : (
-                <span className="text-orange-600">
-                  Independencia financeira nao atingivel em 60 anos com os parametros atuais.
-                </span>
-              )}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Parameters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Parametros</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Portfolio */}
+          <div>
+            <Label htmlFor="portfolioBRL">Portfolio Inicial (R$)</Label>
+            <Input
+              id="portfolioBRL"
+              type="number"
+              step="0.01"
+              value={portfolioBRL}
+              onChange={(e) => setPortfolioBRL(Number(e.target.value) || 0)}
+            />
+            {currentPortfolioCents > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Seu portfolio atual: {formatBRL(currentPortfolioCents)}.{' '}
+                <button type="button" onClick={() => setPortfolioBRL(currentPortfolioCents / 100)} className="text-blue-600 hover:underline">
+                  Usar valor atual
+                </button>
+              </p>
+            )}
+          </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Parametros da Simulacao</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Portfolio — editable, defaults to real portfolio */}
+          {/* Ages */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="portfolioBRL">Portfolio Inicial (R$)</Label>
+              <Label htmlFor="currentAge">Idade Atual</Label>
+              <Input id="currentAge" type="number" value={currentAge} onChange={(e) => setCurrentAge(Number(e.target.value) || 35)} />
+            </div>
+            <div>
+              <Label htmlFor="retirementAge">Idade de Aposentadoria</Label>
+              <Input id="retirementAge" type="number" value={retirementAge} onChange={(e) => setRetirementAge(Number(e.target.value) || 60)} />
+            </div>
+            <div>
+              <Label htmlFor="lifeExpectancy">Expectativa de Vida</Label>
+              <Input id="lifeExpectancy" type="number" value={lifeExpectancy} onChange={(e) => setLifeExpectancy(Number(e.target.value) || 85)} />
+            </div>
+          </div>
+
+          {/* Mode-specific input */}
+          {mode === 'contribution' ? (
+            <div>
+              <Label htmlFor="monthlyContribution">Aporte Mensal (R$)</Label>
               <Input
-                id="portfolioBRL"
+                id="monthlyContribution"
                 type="number"
                 step="0.01"
-                value={portfolioBRL}
-                onChange={(e) => setPortfolioBRL(Number(e.target.value) || 0)}
+                placeholder="ex: 2000"
+                value={monthlyContributionBRL}
+                onChange={(e) => setMonthlyContributionBRL(Number(e.target.value) || 0)}
               />
-              {currentPortfolioCents > 0 && (
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="desiredIncome">Renda Mensal Desejada (R$)</Label>
+              <Input
+                id="desiredIncome"
+                type="number"
+                step="0.01"
+                placeholder="ex: 10000"
+                value={desiredMonthlyIncomeBRL}
+                onChange={(e) => setDesiredMonthlyIncomeBRL(Number(e.target.value) || 0)}
+              />
+              {currentPassiveIncomeCents > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Seu portfolio atual: {formatBRL(currentPortfolioCents)}.{' '}
-                  <button
-                    type="button"
-                    onClick={() => setPortfolioBRL(currentPortfolioCents / 100)}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Usar valor atual
-                  </button>
+                  Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents)}/mes
                 </p>
               )}
             </div>
+          )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="currentAge">Idade Atual</Label>
-                <Input
-                  id="currentAge"
-                  type="number"
-                  {...register('currentAge', { valueAsNumber: true })}
-                />
-                {errors.currentAge && (
-                  <p className="text-xs text-red-600 mt-1">{errors.currentAge.message}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="retirementAge">Idade de Aposentadoria</Label>
-                <Input
-                  id="retirementAge"
-                  type="number"
-                  {...register('retirementAge', { valueAsNumber: true })}
-                />
-                {errors.retirementAge && (
-                  <p className="text-xs text-red-600 mt-1">{errors.retirementAge.message}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="lifeExpectancy">Expectativa de Vida</Label>
-                <Input
-                  id="lifeExpectancy"
-                  type="number"
-                  {...register('lifeExpectancy', { valueAsNumber: true })}
-                />
-                {errors.lifeExpectancy && (
-                  <p className="text-xs text-red-600 mt-1">{errors.lifeExpectancy.message}</p>
-                )}
-              </div>
-            </div>
+          <div>
+            <Label htmlFor="inflationRate" className="flex items-center gap-1">
+              Taxa de Inflacao Anual (ex: 0.04 = 4%)
+              <HelpTooltip text="Taxa anual de perda de poder de compra. O IPCA medio no Brasil e de 4-5% ao ano." />
+            </Label>
+            <Input id="inflationRate" type="number" step="0.01" value={inflationRate} onChange={(e) => setInflationRate(Number(e.target.value) || 0.04)} />
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="monthlyContributionCents">Aporte Mensal (R$)</Label>
-                <Input
-                  id="monthlyContributionCents"
-                  type="number"
-                  step="0.01"
-                  placeholder="ex: 2000"
-                  {...register('monthlyContributionCents', { valueAsNumber: true })}
-                />
-                {errors.monthlyContributionCents && (
-                  <p className="text-xs text-red-600 mt-1">{errors.monthlyContributionCents.message}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="desiredMonthlyIncomeCents">
-                  Renda Mensal Desejada na Aposentadoria (R$)
-                </Label>
-                <Input
-                  id="desiredMonthlyIncomeCents"
-                  type="number"
-                  step="0.01"
-                  placeholder="ex: 10000"
-                  {...register('desiredMonthlyIncomeCents', { valueAsNumber: true })}
-                />
-                {currentPassiveIncomeCents > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents)}/mes
-                  </p>
-                )}
-                {errors.desiredMonthlyIncomeCents && (
-                  <p className="text-xs text-red-600 mt-1">{errors.desiredMonthlyIncomeCents.message}</p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="inflationRate" className="flex items-center gap-1">
-                Taxa de Inflação Anual (ex: 0.04 = 4%)
-                <HelpTooltip text="Taxa anual de perda de poder de compra. É usada para converter valores futuros em valores de hoje, permitindo comparações realistas. O IPCA médio no Brasil é de 4-5% ao ano." />
-              </Label>
-              <Input
-                id="inflationRate"
-                type="number"
-                step="0.01"
-                {...register('inflationRate', { valueAsNumber: true })}
-              />
-              {errors.inflationRate && (
-                <p className="text-xs text-red-600 mt-1">{errors.inflationRate.message}</p>
-              )}
-            </div>
-
-            {/* Advanced section */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowAdvanced((v) => !v)}
-                className="text-sm text-blue-600 hover:underline"
-              >
-                {showAdvanced ? 'Ocultar configuracoes avancadas' : 'Configuracoes avancadas'}
-              </button>
-
-              {showAdvanced && (
-                <div className="mt-4 space-y-4 border-t pt-4">
-                  <p className="text-xs text-gray-500">
-                    Deixe em branco para usar os presets do sistema (conservador: 4%, base: 6%, arrojado: 9% real ao ano).
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="conservativeReturnRate" className="flex items-center gap-1">
-                        Retorno Conservador (ex: 0.04)
-                        <HelpTooltip text="Cenário pessimista: rendimento real baixo, típico de renda fixa pura (Tesouro IPCA+, CDBs)." />
-                      </Label>
-                      <Input
-                        id="conservativeReturnRate"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.04"
-                        {...register('conservativeReturnRate', { valueAsNumber: true })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="baseReturnRate" className="flex items-center gap-1">
-                        Retorno Base (ex: 0.06)
-                        <HelpTooltip text="Cenário moderado: carteira diversificada entre renda fixa e variável. É a estimativa mais provável." />
-                      </Label>
-                      <Input
-                        id="baseReturnRate"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.06"
-                        {...register('baseReturnRate', { valueAsNumber: true })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="aggressiveReturnRate" className="flex items-center gap-1">
-                        Retorno Arrojado (ex: 0.09)
-                        <HelpTooltip text="Cenário otimista: carteira com maior exposição a renda variável e ativos de risco. Maior retorno potencial, mas com maior volatilidade." />
-                      </Label>
-                      <Input
-                        id="aggressiveReturnRate"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.09"
-                        {...register('aggressiveReturnRate', { valueAsNumber: true })}
-                      />
-                    </div>
+          {/* Advanced */}
+          <div>
+            <button type="button" onClick={() => setShowAdvanced((v) => !v)} className="text-sm text-blue-600 hover:underline">
+              {showAdvanced ? 'Ocultar configuracoes avancadas' : 'Configuracoes avancadas'}
+            </button>
+            {showAdvanced && (
+              <div className="mt-4 space-y-4 border-t pt-4">
+                <p className="text-xs text-gray-500">
+                  Deixe em branco para usar os presets (conservador: 4%, base: 6%, arrojado: 9% real ao ano).
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="consRate" className="flex items-center gap-1">
+                      Retorno Conservador
+                      <HelpTooltip text="Cenario pessimista: renda fixa pura." />
+                    </Label>
+                    <Input id="consRate" type="number" step="0.01" placeholder="0.04" value={conservativeReturnRate ?? ''} onChange={(e) => setConservativeReturnRate(e.target.value ? Number(e.target.value) : undefined)} />
                   </div>
                   <div>
-                    <Label htmlFor="contributionGrowthRate" className="flex items-center gap-1">
-                      Crescimento Anual dos Aportes (ex: 0.03 = 3%)
-                      <HelpTooltip text="Percentual de aumento anual nos seus aportes. Simula aumentos de salário ou renda ao longo do tempo. Ex: 3% significa que seus aportes crescem 3% a cada ano." />
+                    <Label htmlFor="baseRate" className="flex items-center gap-1">
+                      Retorno Base
+                      <HelpTooltip text="Cenario moderado: carteira diversificada." />
                     </Label>
-                    <Input
-                      id="contributionGrowthRate"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.03"
-                      {...register('contributionGrowthRate', { valueAsNumber: true })}
-                    />
+                    <Input id="baseRate" type="number" step="0.01" placeholder="0.06" value={baseReturnRate ?? ''} onChange={(e) => setBaseReturnRate(e.target.value ? Number(e.target.value) : undefined)} />
+                  </div>
+                  <div>
+                    <Label htmlFor="aggrRate" className="flex items-center gap-1">
+                      Retorno Arrojado
+                      <HelpTooltip text="Cenario otimista: maior exposicao a renda variavel." />
+                    </Label>
+                    <Input id="aggrRate" type="number" step="0.01" placeholder="0.09" value={aggressiveReturnRate ?? ''} onChange={(e) => setAggressiveReturnRate(e.target.value ? Number(e.target.value) : undefined)} />
                   </div>
                 </div>
-              )}
-            </div>
+                <div>
+                  <Label htmlFor="contribGrowth" className="flex items-center gap-1">
+                    Crescimento Anual dos Aportes (ex: 0.03 = 3%)
+                    <HelpTooltip text="Simula aumentos de salario ao longo do tempo." />
+                  </Label>
+                  <Input id="contribGrowth" type="number" step="0.01" placeholder="0.03" value={contributionGrowthRate ?? ''} onChange={(e) => setContributionGrowthRate(e.target.value ? Number(e.target.value) : undefined)} />
+                </div>
+              </div>
+            )}
+          </div>
 
-            {/* Save button */}
-            <div className="flex items-center gap-3 pt-2">
-              <Button type="submit" variant="primary" disabled={isSaving}>
-                {isSaving ? 'Salvando...' : 'Salvar Plano'}
-              </Button>
-              {saveSuccess && (
-                <span className="text-sm text-green-600">Plano salvo com sucesso!</span>
-              )}
-              {saveError && (
-                <span className="text-sm text-red-600">{saveError}</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </form>
+          {/* Save */}
+          <div className="flex items-center gap-3 pt-2">
+            <Button type="button" variant="primary" disabled={isSaving} onClick={handleSave}>
+              {isSaving ? 'Salvando...' : 'Salvar Plano'}
+            </Button>
+            {saveSuccess && <span className="text-sm text-green-600">Plano salvo com sucesso!</span>}
+            {saveError && <span className="text-sm text-red-600">{saveError}</span>}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Disclaimer */}
+      <p className="text-xs text-gray-400">
+        Valores em termos reais (descontada inflacao). Projecoes sao estimativas — consulte um profissional para decisoes financeiras.
+      </p>
     </div>
   )
 }

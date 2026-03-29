@@ -132,6 +132,83 @@ export function calculateFI(params: FIParams): FIResult {
 }
 
 // ---------------------------------------------------------------------------
+// Required Monthly Contribution (inverse calculation)
+// ---------------------------------------------------------------------------
+
+export interface RequiredContributionParams {
+  currentPortfolioCents: number
+  targetMonthlyIncomeCents: number
+  annualRealReturnRate: number
+  yearsToRetirement: number
+}
+
+export interface RequiredContributionResult {
+  fiNumberCents: number
+  requiredMonthlyContributionCents: number
+  portfolioAtRetirementCents: number
+}
+
+/**
+ * Given a desired passive income, calculates the required monthly contribution.
+ *
+ * Uses the FI number (annual income / rate) as the target portfolio,
+ * then solves for the monthly contribution via Future Value of Annuity.
+ */
+export function calculateRequiredContribution(
+  params: RequiredContributionParams
+): RequiredContributionResult {
+  const { currentPortfolioCents, targetMonthlyIncomeCents, annualRealReturnRate, yearsToRetirement } = params
+
+  const rate = annualRealReturnRate > 0 ? annualRealReturnRate : 0.04
+  const fiNumberCents = Math.round((targetMonthlyIncomeCents * 12) / rate)
+
+  const futurePortfolio = Math.round(currentPortfolioCents * Math.pow(1 + rate, yearsToRetirement))
+  const gap = fiNumberCents - futurePortfolio
+
+  if (gap <= 0) {
+    return { fiNumberCents, requiredMonthlyContributionCents: 0, portfolioAtRetirementCents: futurePortfolio }
+  }
+
+  // Future Value of Annuity: FVA = ((1+r)^n - 1) / r
+  const fva = (Math.pow(1 + rate, yearsToRetirement) - 1) / rate
+  const requiredAnnual = gap / fva
+  const requiredMonthly = Math.round(requiredAnnual / 12)
+
+  return { fiNumberCents, requiredMonthlyContributionCents: requiredMonthly, portfolioAtRetirementCents: fiNumberCents }
+}
+
+// ---------------------------------------------------------------------------
+// Projected Income at Retirement
+// ---------------------------------------------------------------------------
+
+export interface ProjectedIncomeParams {
+  currentPortfolioCents: number
+  monthlyContributionCents: number
+  annualRealReturnRate: number
+  yearsToRetirement: number
+}
+
+/**
+ * Given a monthly contribution, calculates the projected passive income at retirement.
+ *
+ * Projects portfolio growth, then applies safe withdrawal rate to find sustainable income.
+ */
+export function calculateProjectedIncome(params: ProjectedIncomeParams): number {
+  const { currentPortfolioCents, monthlyContributionCents, annualRealReturnRate, yearsToRetirement } = params
+
+  const rate = annualRealReturnRate > 0 ? annualRealReturnRate : 0.04
+  let portfolioCents = currentPortfolioCents
+  const annualContribution = monthlyContributionCents * 12
+
+  for (let i = 0; i < yearsToRetirement; i++) {
+    portfolioCents = Math.round(portfolioCents * (1 + rate) + annualContribution)
+  }
+
+  // Monthly income = portfolio * rate / 12 (sustainable withdrawal)
+  return Math.round((portfolioCents * rate) / 12)
+}
+
+// ---------------------------------------------------------------------------
 // Scenario Presets
 // Based on Brazilian market context — see 04-RESEARCH.md for rationale
 // ---------------------------------------------------------------------------
