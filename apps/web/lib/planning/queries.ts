@@ -6,8 +6,9 @@ import {
   withdrawalStrategies,
   successionPlans,
   heirs,
+  simulationScenarios,
 } from '@floow/db'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, desc } from 'drizzle-orm'
 import {
   incomeEventsTag,
   investmentsTag,
@@ -235,3 +236,13 @@ export const getPlanningPortfolioSummary = cache(async function getPlanningPortf
     },
   )()
 })
+
+/** All saved simulation scenarios for an org, newest first. */
+export async function getSimulationScenarios(orgId: string) {
+  const db = getDb()
+  return db
+    .select()
+    .from(simulationScenarios)
+    .where(eq(simulationScenarios.orgId, orgId))
+    .orderBy(desc(simulationScenarios.updatedAt))
+}

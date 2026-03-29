@@ -102,6 +102,38 @@ export const heirs = pgTable(
 )
 
 // ---------------------------------------------------------------------------
+// Simulation Scenarios (named saved presets)
+// ---------------------------------------------------------------------------
+
+export const simulationScenarios = pgTable(
+  'simulation_scenarios',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    mode: text('mode').notNull().$type<'contribution' | 'income'>(),
+    portfolioCents: integer('portfolio_cents').notNull().default(0),
+    currentAge: integer('current_age').notNull(),
+    retirementAge: integer('retirement_age').notNull(),
+    lifeExpectancy: integer('life_expectancy').notNull().default(85),
+    monthlyContributionCents: integer('monthly_contribution_cents').notNull().default(0),
+    desiredMonthlyIncomeCents: integer('desired_monthly_income_cents').notNull().default(0),
+    inflationRate: numeric('inflation_rate', { precision: 5, scale: 4 }).notNull().default('0.04'),
+    conservativeReturnRate: numeric('conservative_return_rate', { precision: 5, scale: 4 }),
+    baseReturnRate: numeric('base_return_rate', { precision: 5, scale: 4 }),
+    aggressiveReturnRate: numeric('aggressive_return_rate', { precision: 5, scale: 4 }),
+    contributionGrowthRate: numeric('contribution_growth_rate', { precision: 5, scale: 4 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    idxSimulationScenariosOrg: index('idx_simulation_scenarios_org').on(table.orgId, table.updatedAt),
+  })
+)
+
+// ---------------------------------------------------------------------------
 // Inferred TypeScript types
 // ---------------------------------------------------------------------------
 
@@ -116,3 +148,6 @@ export type NewSuccessionPlan = typeof successionPlans.$inferInsert
 
 export type Heir = typeof heirs.$inferSelect
 export type NewHeir = typeof heirs.$inferInsert
+
+export type SimulationScenario = typeof simulationScenarios.$inferSelect
+export type NewSimulationScenario = typeof simulationScenarios.$inferInsert

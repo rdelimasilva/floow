@@ -7,8 +7,9 @@ import {
   withdrawalStrategies,
   successionPlans,
   heirs,
+  simulationScenarios,
 } from '@floow/db'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
 import {
   retirementPlanSchema,
@@ -194,4 +195,63 @@ export async function saveSuccessionPlan(input: {
   revalidatePath('/planning')
   revalidatePath('/planning/succession')
   invalidateTag(planningTag(orgId))
+}
+
+// ---------------------------------------------------------------------------
+// Simulation Scenarios
+// ---------------------------------------------------------------------------
+
+export interface SaveScenarioInput {
+  name: string
+  mode: 'contribution' | 'income'
+  portfolioCents: number
+  currentAge: number
+  retirementAge: number
+  lifeExpectancy: number
+  monthlyContributionCents: number
+  desiredMonthlyIncomeCents: number
+  inflationRate: number
+  conservativeReturnRate?: number
+  baseReturnRate?: number
+  aggressiveReturnRate?: number
+  contributionGrowthRate?: number
+}
+
+export async function saveSimulationScenario(input: SaveScenarioInput) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const [row] = await db
+    .insert(simulationScenarios)
+    .values({
+      orgId,
+      name: input.name,
+      mode: input.mode,
+      portfolioCents: input.portfolioCents,
+      currentAge: input.currentAge,
+      retirementAge: input.retirementAge,
+      lifeExpectancy: input.lifeExpectancy,
+      monthlyContributionCents: input.monthlyContributionCents,
+      desiredMonthlyIncomeCents: input.desiredMonthlyIncomeCents,
+      inflationRate: String(input.inflationRate),
+      conservativeReturnRate: input.conservativeReturnRate != null ? String(input.conservativeReturnRate) : null,
+      baseReturnRate: input.baseReturnRate != null ? String(input.baseReturnRate) : null,
+      aggressiveReturnRate: input.aggressiveReturnRate != null ? String(input.aggressiveReturnRate) : null,
+      contributionGrowthRate: input.contributionGrowthRate != null ? String(input.contributionGrowthRate) : null,
+    })
+    .returning()
+
+  revalidatePath('/planning/simulation')
+  return row
+}
+
+export async function deleteSimulationScenario(id: string) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  await db
+    .delete(simulationScenarios)
+    .where(and(eq(simulationScenarios.id, id), eq(simulationScenarios.orgId, orgId)))
+
+  revalidatePath('/planning/simulation')
 }

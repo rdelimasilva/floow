@@ -10,6 +10,8 @@ import {
 } from '@floow/core-finance/src/simulation'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { saveRetirementPlan } from '@/lib/planning/actions'
+import type { SimulationScenario } from '@floow/db'
+import { ScenarioManager } from './scenario-manager'
 import dynamic from 'next/dynamic'
 
 const RetirementSimulationChart = dynamic(() => import('@/components/planning/retirement-simulation-chart').then(m => ({ default: m.RetirementSimulationChart })), {
@@ -40,12 +42,14 @@ interface SimulationFormProps {
   defaultValues: SimulationPlanDefaults | null
   currentPortfolioCents: number
   currentPassiveIncomeCents: number
+  savedScenarios?: SimulationScenario[]
 }
 
 export function SimulationForm({
   defaultValues: savedPlan,
   currentPortfolioCents,
   currentPassiveIncomeCents,
+  savedScenarios = [],
 }: SimulationFormProps) {
   const [mode, setMode] = useState<SimulationMode>('contribution')
   const [showNominal, setShowNominal] = useState(false)
@@ -173,6 +177,38 @@ export function SimulationForm({
     }
   }, [mode, portfolioBRL, monthlyContributionBRL, desiredMonthlyIncomeBRL, currentAge, retirementAge, lifeExpectancy, inflationRate, conservativeReturnRate, baseReturnRate, aggressiveReturnRate, contributionGrowthRate, computedResult.base])
 
+  function loadScenario(s: SimulationScenario) {
+    setMode(s.mode as SimulationMode)
+    setPortfolioBRL(s.portfolioCents / 100)
+    setCurrentAge(s.currentAge)
+    setRetirementAge(s.retirementAge)
+    setLifeExpectancy(s.lifeExpectancy)
+    setMonthlyContributionBRL(s.monthlyContributionCents / 100)
+    setDesiredMonthlyIncomeBRL(s.desiredMonthlyIncomeCents / 100)
+    setInflationRate(s.inflationRate != null ? Number(s.inflationRate) : 0.04)
+    setConservativeReturnRate(s.conservativeReturnRate != null ? Number(s.conservativeReturnRate) : undefined)
+    setBaseReturnRate(s.baseReturnRate != null ? Number(s.baseReturnRate) : undefined)
+    setAggressiveReturnRate(s.aggressiveReturnRate != null ? Number(s.aggressiveReturnRate) : undefined)
+    setContributionGrowthRate(s.contributionGrowthRate != null ? Number(s.contributionGrowthRate) : undefined)
+  }
+
+  function getCurrentParams() {
+    return {
+      mode,
+      portfolioCents: Math.round(portfolioBRL * 100),
+      currentAge,
+      retirementAge,
+      lifeExpectancy,
+      monthlyContributionCents: Math.round(monthlyContributionBRL * 100),
+      desiredMonthlyIncomeCents: Math.round(desiredMonthlyIncomeBRL * 100),
+      inflationRate,
+      conservativeReturnRate,
+      baseReturnRate,
+      aggressiveReturnRate,
+      contributionGrowthRate,
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Mode toggle */}
@@ -206,6 +242,13 @@ export function SimulationForm({
           </div>
         </CardContent>
       </Card>
+
+      {/* Saved scenarios */}
+      <ScenarioManager
+        initialScenarios={savedScenarios}
+        getCurrentParams={getCurrentParams}
+        onLoad={loadScenario}
+      />
 
       {/* Result card */}
       <Card className="border-blue-200 bg-blue-50">

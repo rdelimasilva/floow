@@ -1,15 +1,16 @@
 import { Suspense } from 'react'
 import { getOrgId } from '@/lib/finance/queries'
 import { PageHeader } from '@/components/ui/page-header'
-import { getPlanningPortfolioSummary, getRetirementPlan } from '@/lib/planning/queries'
+import { getPlanningPortfolioSummary, getRetirementPlan, getSimulationScenarios } from '@/lib/planning/queries'
 import { SimulationForm } from '@/components/planning/simulation-form'
 
 // -- Async sub-component for Suspense streaming --------------------------------
 
 async function SimulationContent({ orgId }: { orgId: string }) {
-  const [retirementPlan, summary] = await Promise.all([
+  const [retirementPlan, summary, scenarios] = await Promise.all([
     getRetirementPlan(orgId),
     getPlanningPortfolioSummary(orgId),
+    getSimulationScenarios(orgId),
   ])
 
   return (
@@ -36,6 +37,7 @@ async function SimulationContent({ orgId }: { orgId: string }) {
       } : null}
       currentPortfolioCents={summary.currentPortfolioCents}
       currentPassiveIncomeCents={summary.currentPassiveIncomeCents}
+      savedScenarios={scenarios}
     />
   )
 }
