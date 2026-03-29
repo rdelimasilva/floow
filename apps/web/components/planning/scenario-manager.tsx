@@ -93,11 +93,13 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
         {scenarios.length > 0 ? (
           <div className="space-y-2">
             {scenarios.map((s) => (
-              <button
+              <div
                 key={s.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => { onLoad(s); toast(`Cenario "${s.name}" carregado`) }}
-                className="flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                onKeyDown={(e) => { if (e.key === 'Enter') { onLoad(s); toast(`Cenario "${s.name}" carregado`) } }}
+                className="flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate">{s.name}</p>
@@ -122,7 +124,7 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
-              </button>
+              </div>
             ))}
           </div>
         ) : !showSaveInput ? (
