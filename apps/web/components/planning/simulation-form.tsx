@@ -69,23 +69,30 @@ export function SimulationForm({
   const [desiredMonthlyIncomeBRL, setDesiredMonthlyIncomeBRL] = useState(
     (savedPlan?.desiredMonthlyIncomeCents ?? currentPassiveIncomeCents) / 100
   )
-  const [inflationRate, setInflationRate] = useState(
-    savedPlan?.inflationRate != null ? Number(savedPlan.inflationRate) : 0.04
+  // Rates stored as % (e.g. 6 = 6%), converted to decimal (0.06) for calculations and save
+  const [inflationPct, setInflationPct] = useState(
+    savedPlan?.inflationRate != null ? Number(savedPlan.inflationRate) * 100 : 4
   )
-  const [baseReturnRate, setBaseReturnRate] = useState(
-    savedPlan?.baseReturnRate != null ? Number(savedPlan.baseReturnRate) : undefined as number | undefined
+  const [baseReturnPct, setBaseReturnPct] = useState(
+    savedPlan?.baseReturnRate != null ? Number(savedPlan.baseReturnRate) * 100 : undefined as number | undefined
   )
-  const [conservativeReturnRate, setConservativeReturnRate] = useState(
-    savedPlan?.conservativeReturnRate != null ? Number(savedPlan.conservativeReturnRate) : undefined as number | undefined
+  const [conservativeReturnPct, setConservativeReturnPct] = useState(
+    savedPlan?.conservativeReturnRate != null ? Number(savedPlan.conservativeReturnRate) * 100 : undefined as number | undefined
   )
-  const [aggressiveReturnRate, setAggressiveReturnRate] = useState(
-    savedPlan?.aggressiveReturnRate != null ? Number(savedPlan.aggressiveReturnRate) : undefined as number | undefined
+  const [aggressiveReturnPct, setAggressiveReturnPct] = useState(
+    savedPlan?.aggressiveReturnRate != null ? Number(savedPlan.aggressiveReturnRate) * 100 : undefined as number | undefined
   )
-  const [contributionGrowthRate, setContributionGrowthRate] = useState(
-    savedPlan?.contributionGrowthRate != null ? Number(savedPlan.contributionGrowthRate) : undefined as number | undefined
+  const [contributionGrowthPct, setContributionGrowthPct] = useState(
+    savedPlan?.contributionGrowthRate != null ? Number(savedPlan.contributionGrowthRate) * 100 : undefined as number | undefined
   )
 
   const yearsToRetirement = Math.max(1, retirementAge - currentAge)
+  // Convert % to decimal for calculations
+  const inflationRate = inflationPct / 100
+  const baseReturnRate = baseReturnPct != null ? baseReturnPct / 100 : undefined
+  const conservativeReturnRate = conservativeReturnPct != null ? conservativeReturnPct / 100 : undefined
+  const aggressiveReturnRate = aggressiveReturnPct != null ? aggressiveReturnPct / 100 : undefined
+  const contributionGrowthRate = contributionGrowthPct != null ? contributionGrowthPct / 100 : undefined
   const baseRate = baseReturnRate ?? SCENARIO_PRESETS.base.annualRealReturnRate
   const consRate = conservativeReturnRate ?? SCENARIO_PRESETS.conservative.annualRealReturnRate
   const aggrRate = aggressiveReturnRate ?? SCENARIO_PRESETS.aggressive.annualRealReturnRate
@@ -175,7 +182,7 @@ export function SimulationForm({
     } finally {
       setIsSaving(false)
     }
-  }, [mode, portfolioBRL, monthlyContributionBRL, desiredMonthlyIncomeBRL, currentAge, retirementAge, lifeExpectancy, inflationRate, conservativeReturnRate, baseReturnRate, aggressiveReturnRate, contributionGrowthRate, computedResult.base])
+  }, [mode, portfolioBRL, monthlyContributionBRL, desiredMonthlyIncomeBRL, currentAge, retirementAge, lifeExpectancy, inflationRate, conservativeReturnRate, baseReturnRate, aggressiveReturnRate, contributionGrowthRate, computedResult.base]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function loadScenario(s: SimulationScenario) {
     setMode(s.mode as SimulationMode)
@@ -185,11 +192,11 @@ export function SimulationForm({
     setLifeExpectancy(s.lifeExpectancy)
     setMonthlyContributionBRL(s.monthlyContributionCents / 100)
     setDesiredMonthlyIncomeBRL(s.desiredMonthlyIncomeCents / 100)
-    setInflationRate(s.inflationRate != null ? Number(s.inflationRate) : 0.04)
-    setConservativeReturnRate(s.conservativeReturnRate != null ? Number(s.conservativeReturnRate) : undefined)
-    setBaseReturnRate(s.baseReturnRate != null ? Number(s.baseReturnRate) : undefined)
-    setAggressiveReturnRate(s.aggressiveReturnRate != null ? Number(s.aggressiveReturnRate) : undefined)
-    setContributionGrowthRate(s.contributionGrowthRate != null ? Number(s.contributionGrowthRate) : undefined)
+    setInflationPct(s.inflationRate != null ? Number(s.inflationRate) * 100 : 4)
+    setConservativeReturnPct(s.conservativeReturnRate != null ? Number(s.conservativeReturnRate) * 100 : undefined)
+    setBaseReturnPct(s.baseReturnRate != null ? Number(s.baseReturnRate) * 100 : undefined)
+    setAggressiveReturnPct(s.aggressiveReturnRate != null ? Number(s.aggressiveReturnRate) * 100 : undefined)
+    setContributionGrowthPct(s.contributionGrowthRate != null ? Number(s.contributionGrowthRate) * 100 : undefined)
   }
 
   function getCurrentParams() {
@@ -412,11 +419,11 @@ export function SimulationForm({
           )}
 
           <div>
-            <Label htmlFor="inflationRate" className="flex items-center gap-1">
-              Taxa de Inflacao Anual (ex: 0.04 = 4%)
+            <Label htmlFor="inflationPct" className="flex items-center gap-1">
+              Inflacao Anual (% ao ano)
               <HelpTooltip text="Taxa anual de perda de poder de compra. O IPCA medio no Brasil e de 4-5% ao ano." />
             </Label>
-            <Input id="inflationRate" type="number" step="0.01" value={inflationRate} onChange={(e) => setInflationRate(Number(e.target.value) || 0.04)} />
+            <Input id="inflationPct" type="number" step="0.1" value={inflationPct} onChange={(e) => setInflationPct(Number(e.target.value) || 4)} />
           </div>
 
           {/* Advanced */}
@@ -432,32 +439,32 @@ export function SimulationForm({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="consRate" className="flex items-center gap-1">
-                      Retorno Conservador
+                      Retorno Conservador (% a.a.)
                       <HelpTooltip text="Cenario pessimista: renda fixa pura." />
                     </Label>
-                    <Input id="consRate" type="number" step="0.01" placeholder="0.04" value={conservativeReturnRate ?? ''} onChange={(e) => setConservativeReturnRate(e.target.value ? Number(e.target.value) : undefined)} />
+                    <Input id="consRate" type="number" step="0.1" placeholder="4" value={conservativeReturnPct ?? ''} onChange={(e) => setConservativeReturnPct(e.target.value ? Number(e.target.value) : undefined)} />
                   </div>
                   <div>
                     <Label htmlFor="baseRate" className="flex items-center gap-1">
-                      Retorno Base
+                      Retorno Base (% a.a.)
                       <HelpTooltip text="Cenario moderado: carteira diversificada." />
                     </Label>
-                    <Input id="baseRate" type="number" step="0.01" placeholder="0.06" value={baseReturnRate ?? ''} onChange={(e) => setBaseReturnRate(e.target.value ? Number(e.target.value) : undefined)} />
+                    <Input id="baseRate" type="number" step="0.1" placeholder="6" value={baseReturnPct ?? ''} onChange={(e) => setBaseReturnPct(e.target.value ? Number(e.target.value) : undefined)} />
                   </div>
                   <div>
                     <Label htmlFor="aggrRate" className="flex items-center gap-1">
-                      Retorno Arrojado
+                      Retorno Arrojado (% a.a.)
                       <HelpTooltip text="Cenario otimista: maior exposicao a renda variavel." />
                     </Label>
-                    <Input id="aggrRate" type="number" step="0.01" placeholder="0.09" value={aggressiveReturnRate ?? ''} onChange={(e) => setAggressiveReturnRate(e.target.value ? Number(e.target.value) : undefined)} />
+                    <Input id="aggrRate" type="number" step="0.1" placeholder="9" value={aggressiveReturnPct ?? ''} onChange={(e) => setAggressiveReturnPct(e.target.value ? Number(e.target.value) : undefined)} />
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="contribGrowth" className="flex items-center gap-1">
-                    Crescimento Anual dos Aportes (ex: 0.03 = 3%)
+                    Crescimento Anual dos Aportes (% a.a.)
                     <HelpTooltip text="Simula aumentos de salario ao longo do tempo." />
                   </Label>
-                  <Input id="contribGrowth" type="number" step="0.01" placeholder="0.03" value={contributionGrowthRate ?? ''} onChange={(e) => setContributionGrowthRate(e.target.value ? Number(e.target.value) : undefined)} />
+                  <Input id="contribGrowth" type="number" step="0.1" placeholder="3" value={contributionGrowthPct ?? ''} onChange={(e) => setContributionGrowthPct(e.target.value ? Number(e.target.value) : undefined)} />
                 </div>
               </div>
             )}
