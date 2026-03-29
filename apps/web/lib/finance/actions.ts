@@ -51,7 +51,7 @@ function revalidateInvestmentData(orgId: string) {
  * Throws if the account does not exist or belongs to a different org.
  * Accepts either a db instance or a transaction client (both share the same query API).
  */
-async function assertAccountOwnership(db: Db, accountId: string, orgId: string): Promise<void> {
+export async function assertAccountOwnership(db: Db, accountId: string, orgId: string): Promise<void> {
   const [row] = await db
     .select({ id: accounts.id })
     .from(accounts)
