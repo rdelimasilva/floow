@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Sidebar } from '@/components/layout/sidebar'
+import { AppShell } from '@/components/layout/app-shell'
 import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/providers/toast-provider'
@@ -37,7 +37,7 @@ export default async function AppLayout({
         <ReconcileProvider>
           <div className="min-h-screen bg-gray-50">
             <CommandPalette />
-            <Sidebar
+            <AppShell
               userEmail={user.email ?? ''}
               userName={meta.full_name ?? meta.name ?? null}
               avatarUrl={meta.avatar_url ?? meta.picture ?? null}

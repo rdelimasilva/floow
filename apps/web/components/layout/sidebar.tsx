@@ -1,24 +1,19 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Wallet,
   ArrowLeftRight,
   TrendingUp,
   Tags,
-  LogOut,
-  Menu,
   X,
   Target,
-  CreditCard,
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronUp,
-  Settings,
   Building2,
   BarChart3,
   PiggyBank,
@@ -27,7 +22,6 @@ import {
   Bot,
   RefreshCw,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { useSidebar } from './sidebar-context'
 
@@ -155,218 +149,25 @@ function NavLink({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Avatar with initials fallback
-// ---------------------------------------------------------------------------
-
-function UserAvatar({
-  name,
-  avatarUrl,
-  size = 'md',
-}: {
-  name: string | null
-  avatarUrl: string | null
-  size?: 'sm' | 'md'
-}) {
-  const initials = (name ?? '?')
-    .split(' ')
-    .filter(Boolean)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-
-  const dims = size === 'sm' ? 'h-8 w-8 text-xs' : 'h-9 w-9 text-sm'
-
-  if (avatarUrl) {
-    return (
-      <Image
-        src={avatarUrl}
-        alt={name ?? 'Avatar'}
-        width={size === 'sm' ? 32 : 36}
-        height={size === 'sm' ? 32 : 36}
-        className={cn('shrink-0 rounded-full object-cover', dims)}
-      />
-    )
-  }
-
-  return (
-    <div
-      className={cn(
-        'shrink-0 flex items-center justify-center rounded-full bg-primary/10 font-semibold text-primary',
-        dims,
-      )}
-    >
-      {initials}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// User menu dropdown
-// ---------------------------------------------------------------------------
-
-function UserMenu({
-  userName,
-  userEmail,
-  avatarUrl,
-  collapsed,
-  onSignOut,
-  onNavigate,
-}: {
-  userName: string | null
-  userEmail: string
-  avatarUrl: string | null
-  collapsed: boolean
-  onSignOut: () => void
-  onNavigate: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const pathname = usePathname()
-  const isBillingActive = pathname === '/billing' || pathname.startsWith('/billing/')
-  const isSettingsActive = pathname === '/settings' || pathname.startsWith('/settings/')
-
-  // Close on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    if (open) document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
-
-  // Close on Escape
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    if (open) document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [open])
-
-  // Close on route change
-  useEffect(() => {
-    setOpen(false)
-  }, [pathname])
-
-  function handleLinkClick() {
-    setOpen(false)
-    onNavigate()
-  }
-
-  const displayName = userName ?? userEmail.split('@')[0]
-
-  return (
-    <div ref={ref} className="relative">
-      {/* Dropdown popover — positioned above the trigger */}
-      {open && (
-        <div
-          className={cn(
-            'absolute bottom-full mb-2 rounded-lg border bg-popover p-1 shadow-lg z-[60] animate-in fade-in slide-in-from-bottom-2 duration-150',
-            collapsed ? 'left-0 w-48' : 'left-0 right-0',
-          )}
-        >
-          <div className="px-3 py-2.5 border-b mb-1">
-            <p className="text-sm font-medium truncate">{displayName}</p>
-            <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-          </div>
-
-          <Link
-            href="/billing"
-            onClick={handleLinkClick}
-            className={cn(
-              'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
-              isBillingActive
-                ? 'bg-gray-100 text-foreground'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            )}
-          >
-            <CreditCard className="h-4 w-4" />
-            Plano
-          </Link>
-
-          <Link
-            href="/settings"
-            onClick={handleLinkClick}
-            className={cn(
-              'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
-              isSettingsActive
-                ? 'bg-gray-100 text-foreground'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            )}
-          >
-            <Settings className="h-4 w-4" />
-            Configurações
-          </Link>
-
-          <div className="border-t mt-1 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false)
-                onSignOut()
-              }}
-              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              Sair
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Trigger button */}
-      <button
-        type="button"
-        onClick={() => setOpen((p) => !p)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className={cn(
-          'flex w-full items-center rounded-lg transition-colors hover:bg-accent',
-          collapsed ? 'gap-3 px-3 py-2.5 lg:justify-center lg:p-2' : 'gap-3 px-3 py-2.5',
-        )}
-      >
-        <UserAvatar name={userName} avatarUrl={avatarUrl} size={collapsed ? 'sm' : 'md'} />
-
-        <div className={cn('flex-1 min-w-0 text-left', collapsed && 'lg:hidden')}>
-          <p className="text-sm font-medium truncate">{displayName}</p>
-        </div>
-        <ChevronUp
-          className={cn(
-            'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
-            collapsed && 'lg:hidden',
-            open && 'rotate-180',
-          )}
-        />
-      </button>
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Sidebar component
 // ---------------------------------------------------------------------------
 
 interface SidebarProps {
-  userEmail: string
-  userName: string | null
-  avatarUrl: string | null
   cfoBadgeCount?: number
+  mobileOpen: boolean
+  onMobileClose: () => void
 }
 
-export function Sidebar({ userEmail, userName, avatarUrl, cfoBadgeCount }: SidebarProps) {
+export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const { collapsed, toggle } = useSidebar()
-  const [mobileOpen, setMobileOpen] = useState(false)
 
   // Auto-close mobile sidebar on route change
   useEffect(() => {
-    setMobileOpen(false)
-  }, [pathname])
+    onMobileClose()
+  }, [pathname, onMobileClose])
 
   // Lock body scroll when mobile sidebar is open
   useEffect(() => {
@@ -376,39 +177,19 @@ export function Sidebar({ userEmail, userName, avatarUrl, cfoBadgeCount }: Sideb
     }
   }, [mobileOpen])
 
-  const handleSignOut = useCallback(async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.replace('/auth')
-  }, [router])
-
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
-  function closeMobile() {
-    setMobileOpen(false)
-  }
-
   return (
     <>
-      {/* Mobile hamburger — safe area aware */}
-      <button
-        type="button"
-        onClick={() => setMobileOpen(true)}
-        aria-label="Abrir menu"
-        className="fixed top-4 left-4 z-40 rounded-lg bg-white p-2 shadow-md active:scale-95 transition-transform lg:hidden"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-
       {/* Mobile backdrop with fade transition */}
       <div
         className={cn(
           'fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 lg:hidden',
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
-        onClick={closeMobile}
+        onClick={onMobileClose}
         aria-hidden="true"
       />
 
@@ -441,7 +222,7 @@ export function Sidebar({ userEmail, userName, avatarUrl, cfoBadgeCount }: Sideb
 
           <button
             type="button"
-            onClick={closeMobile}
+            onClick={onMobileClose}
             aria-label="Fechar menu"
             className="rounded p-1 text-muted-foreground hover:text-foreground lg:hidden"
           >
@@ -456,7 +237,7 @@ export function Sidebar({ userEmail, userName, avatarUrl, cfoBadgeCount }: Sideb
         )}>
           <Link
             href="/dashboard"
-            onClick={closeMobile}
+            onClick={onMobileClose}
             className="flex items-center justify-center rounded-xl bg-white border border-gray-100 p-4"
           >
             <Image
@@ -490,7 +271,7 @@ export function Sidebar({ userEmail, userName, avatarUrl, cfoBadgeCount }: Sideb
                     item={item}
                     isActive={isActive(item.href)}
                     collapsed={collapsed}
-                    onClick={closeMobile}
+                    onClick={onMobileClose}
                     cfoBadgeCount={cfoBadgeCount}
                   />
                 ))}
@@ -499,23 +280,6 @@ export function Sidebar({ userEmail, userName, avatarUrl, cfoBadgeCount }: Sideb
           ))}
         </nav>
 
-        {/* Version + User footer */}
-        <div className="px-2 py-3">
-          <p className={cn(
-            'mb-2 text-center text-[10px] text-muted-foreground/50',
-            collapsed && 'lg:hidden',
-          )}>
-            v{process.env.NEXT_PUBLIC_APP_VERSION}
-          </p>
-          <UserMenu
-            userName={userName}
-            userEmail={userEmail}
-            avatarUrl={avatarUrl}
-            collapsed={collapsed}
-            onSignOut={handleSignOut}
-            onNavigate={closeMobile}
-          />
-        </div>
       </aside>
     </>
   )

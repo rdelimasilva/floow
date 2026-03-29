@@ -10,8 +10,8 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     <main
       className={cn(
         'transition-[padding-left] duration-200 ease-in-out',
-        // Mobile: no left padding (sidebar is overlay), add top padding for hamburger
-        'pt-16 lg:pt-0',
+        // Top padding for topbar (h-14 = 3.5rem)
+        'pt-14',
         // Desktop: left padding matches sidebar width
         collapsed ? 'lg:pl-[68px]' : 'lg:pl-56',
       )}
