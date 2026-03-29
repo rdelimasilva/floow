@@ -23,8 +23,9 @@ CREATE INDEX idx_simulation_scenarios_org ON public.simulation_scenarios(org_id,
 
 ALTER TABLE public.simulation_scenarios ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own org scenarios"
+CREATE POLICY "simulation_scenarios: members can manage"
   ON public.simulation_scenarios
   FOR ALL
-  USING (org_id IN (SELECT unnest(((auth.jwt()->'app_metadata'->>'org_ids')::jsonb)::uuid[])))
-  WITH CHECK (org_id IN (SELECT unnest(((auth.jwt()->'app_metadata'->>'org_ids')::jsonb)::uuid[])));
+  TO authenticated
+  USING (org_id IN (SELECT public.get_user_org_ids()))
+  WITH CHECK (org_id IN (SELECT public.get_user_org_ids()));
