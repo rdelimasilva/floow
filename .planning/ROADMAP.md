@@ -23,7 +23,7 @@
 
 - [x] **Phase 5: Automation Foundation** - DB schema migrations, pure functions, and unit tests for both automation features (completed 2026-03-19)
 - [x] **Phase 6: Categorization Rules** - Complete CRUD, auto-apply on import and manual creation, rule-from-transaction shortcut, and retroactive application with preview (completed 2026-03-19)
-- [ ] **Phase 7: Recurring Transactions** - Complete CRUD, upcoming-due list, manual generation, and pause/reactivation
+- [x] **Phase 7: Recurring Transactions** - Complete CRUD, upcoming-due list, manual generation, and pause/reactivation (completed 2026-03-29)
 
 ## Phase Details
 
@@ -72,7 +72,7 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md — Drizzle schema for recurringTemplates, recurringTemplateId on transactions, CRUD server actions, generateRecurringTransaction with atomic balance update + dedup + auto-categorize, toggleRecurringActive, recurring queries
-- [ ] 07-02-PLAN.md — UI: /transactions/recurring page with template list, upcoming-due section, create/edit dialog, generate/pause actions, sidebar nav item
+- [x] 07-02-PLAN.md — UI: /transactions/recurring page with template list, upcoming-due section, create/edit dialog, generate/pause actions, sidebar nav item
 
 ## Progress
 
@@ -84,4 +84,4 @@ Plans:
 | 4. Planning Engine | v1.0 | 3/3 | Complete | 2026-03-18 |
 | 5. Automation Foundation | v1.1 | 1/1 | Complete | 2026-03-19 |
 | 6. Categorization Rules | 2/2 | Complete   | 2026-03-19 | - |
-| 7. Recurring Transactions | v1.1 | 1/2 | In Progress|  |
+| 7. Recurring Transactions | v1.1 | 2/2 | Complete   | 2026-03-29 |
