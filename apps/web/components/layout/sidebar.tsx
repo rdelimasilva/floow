@@ -499,8 +499,14 @@ export function Sidebar({ userEmail, userName, avatarUrl, cfoBadgeCount }: Sideb
           ))}
         </nav>
 
-        {/* User footer */}
+        {/* Version + User footer */}
         <div className="px-2 py-3">
+          <p className={cn(
+            'mb-2 text-center text-[10px] text-muted-foreground/50',
+            collapsed && 'lg:hidden',
+          )}>
+            v{process.env.NEXT_PUBLIC_APP_VERSION}
+          </p>
           <UserMenu
             userName={userName}
             userEmail={userEmail}
