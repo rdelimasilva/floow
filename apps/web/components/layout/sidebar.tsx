@@ -53,6 +53,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/cash-flow', label: 'Fluxo de Caixa', icon: BarChart3 },
       { href: '/transactions', label: 'Transações', icon: ArrowLeftRight },
+      { href: '/transactions/recurring', label: 'Recorrentes', icon: RefreshCw },
     ],
   },
   {
@@ -86,7 +87,6 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/accounts', label: 'Contas', icon: Wallet },
       { href: '/categories', label: 'Categorias', icon: Tags },
-      { href: '/transactions/recurring', label: 'Recorrentes', icon: RefreshCw },
     ],
   },
   {
