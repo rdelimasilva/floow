@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Automação
-status: in_progress
-stopped_at: Phase 7 planned — ready for execution
-last_updated: "2026-03-19T15:00:00.000Z"
-last_activity: "2026-03-19 — Phase 7 plans created: 07-01 (server) and 07-02 (UI)"
+status: executing
+stopped_at: Completed 07-recurring-transactions 07-01-PLAN.md
+last_updated: "2026-03-29T10:17:26.440Z"
+last_activity: 2026-03-29
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
   percent: 100
 ---
 
@@ -21,20 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** O investidor experiente consegue ver seu patrimônio consolidado — finanças, investimentos e projeções futuras — tudo num único lugar.
-**Current focus:** Phase 7 — Recurring Transactions (v1.1)
+**Current focus:** Phase 07 — recurring-transactions
 
 ## Current Position
 
-Phase: 7 of 7 (Recurring Transactions)
-Plan: 0 of 2 in current phase (PLANNED — ready for execution)
-Status: Phase 7 planned
-Last activity: 2026-03-19 — Phase 7 plans created: 07-01 (server) and 07-02 (UI)
+Phase: 07 (recurring-transactions) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-03-29
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity (v1.0 reference):**
+
 - Total plans completed: 16 (v1.0)
 - Average duration: ~30 min/plan (estimated)
 - Total execution time: ~8 hours (v1.0)
@@ -51,6 +52,7 @@ Progress: [██████████] 100%
 | Phase 06-categorization-rules P01 | 3 | 2 tasks | 7 files |
 | Phase 06-categorization-rules P02 | 3 min | 2 tasks | 6 files |
 | Phase 06-categorization-rules P02 | 3 | 3 tasks | 6 files |
+| Phase 07-recurring-transactions P01 | 8 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -58,6 +60,7 @@ Progress: [██████████] 100%
 
 Decisions logged in PROJECT.md Key Decisions table.
 Key decisions for v1.1 (from research):
+
 - Category rules apply only when `category_id IS NULL` — never overwrite manual categories
 - Recurring generation is user-triggered in v1.1 (cron deferred to v2)
 - `(recurring_template_id, due_date)` unique constraint prevents duplicate generation
@@ -70,6 +73,9 @@ Key decisions for v1.1 (from research):
 - [Phase 06-categorization-rules]: createRule assigns maxPriority + 10 when no explicit priority given (gap-of-10 strategy)
 - [Phase 06-categorization-rules]: Aplicar button appears in both rule-row (RuleList) and edit modal (CreateRuleDialog) per locked decision
 - [Phase 06-categorization-rules]: isAutoCategorized added to getTransactions explicit select — was missing despite being in schema
+- [Phase 07-recurring-transactions]: recurring-actions.ts created as separate file — CLAUDE.md 500-line limit blocks adding to actions.ts (1420 lines)
+- [Phase 07-recurring-transactions]: generateRecurringTransaction stores signed amountCents (income positive, expense negative) to match createTransaction pattern
+- [Phase 07-recurring-transactions]: assertAccountOwnership exported from actions.ts for reuse in recurring-actions.ts
 
 ### Pending Todos
 
@@ -82,6 +88,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T13:13:48.555Z
-Stopped at: Completed 06-categorization-rules 06-02-PLAN.md (user verified)
+Last session: 2026-03-29T10:17:26.437Z
+Stopped at: Completed 07-recurring-transactions 07-01-PLAN.md
 Resume file: None

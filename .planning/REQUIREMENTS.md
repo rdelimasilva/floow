@@ -18,11 +18,11 @@ Requirements for milestone v1.1 Automação. Each maps to roadmap phases.
 
 ### Transações Recorrentes
 
-- [ ] **REC-01**: User can create a recurring template with account, category, type, amount, description, frequency (daily/weekly/biweekly/monthly/quarterly/yearly), and start date
-- [ ] **REC-02**: User can edit and delete recurring templates
-- [ ] **REC-03**: User can manually trigger "Gerar agora" to create the transaction from a template and advance nextDueDate
-- [ ] **REC-04**: User can view a list of upcoming recurring transactions due in the next 30 days
-- [ ] **REC-05**: User can pause and reactivate a recurring template without losing generated transaction history
+- [x] **REC-01**: User can create a recurring template with account, category, type, amount, description, frequency (daily/weekly/biweekly/monthly/quarterly/yearly), and start date
+- [x] **REC-02**: User can edit and delete recurring templates
+- [x] **REC-03**: User can manually trigger "Gerar agora" to create the transaction from a template and advance nextDueDate
+- [x] **REC-04**: User can view a list of upcoming recurring transactions due in the next 30 days
+- [x] **REC-05**: User can pause and reactivate a recurring template without losing generated transaction history
 
 ## Future Requirements
 
@@ -58,11 +58,11 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | CAT-04 | Phase 6 | Complete |
 | CAT-05 | Phase 6 | Complete |
 | CAT-06 | Phase 6 | Complete |
-| REC-01 | Phase 7 | Pending |
-| REC-02 | Phase 7 | Pending |
-| REC-03 | Phase 7 | Pending |
-| REC-04 | Phase 7 | Pending |
-| REC-05 | Phase 7 | Pending |
+| REC-01 | Phase 7 | Complete |
+| REC-02 | Phase 7 | Complete |
+| REC-03 | Phase 7 | Complete |
+| REC-04 | Phase 7 | Complete |
+| REC-05 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 11 total

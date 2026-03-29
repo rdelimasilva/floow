@@ -71,7 +71,7 @@ Plans:
 **Plans**: 0/2 planned
 
 Plans:
-- [ ] 07-01-PLAN.md — Drizzle schema for recurringTemplates, recurringTemplateId on transactions, CRUD server actions, generateRecurringTransaction with atomic balance update + dedup + auto-categorize, toggleRecurringActive, recurring queries
+- [x] 07-01-PLAN.md — Drizzle schema for recurringTemplates, recurringTemplateId on transactions, CRUD server actions, generateRecurringTransaction with atomic balance update + dedup + auto-categorize, toggleRecurringActive, recurring queries
 - [ ] 07-02-PLAN.md — UI: /transactions/recurring page with template list, upcoming-due section, create/edit dialog, generate/pause actions, sidebar nav item
 
 ## Progress
@@ -84,4 +84,4 @@ Plans:
 | 4. Planning Engine | v1.0 | 3/3 | Complete | 2026-03-18 |
 | 5. Automation Foundation | v1.1 | 1/1 | Complete | 2026-03-19 |
 | 6. Categorization Rules | 2/2 | Complete   | 2026-03-19 | - |
-| 7. Recurring Transactions | v1.1 | 0/2 | Planned | - |
+| 7. Recurring Transactions | v1.1 | 1/2 | In Progress|  |
