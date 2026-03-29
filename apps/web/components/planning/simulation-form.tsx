@@ -41,6 +41,7 @@ interface SimulationFormProps {
   defaultValues: SimulationPlanDefaults | null
   currentPortfolioCents: number
   currentPassiveIncomeCents: number
+  savedPortfolioCents?: number | null
 }
 
 // Convert DB row (numeric fields stored as strings) to form number values
@@ -77,12 +78,16 @@ export function SimulationForm({
   defaultValues: savedPlan,
   currentPortfolioCents,
   currentPassiveIncomeCents,
+  savedPortfolioCents,
 }: SimulationFormProps) {
   const [showNominal, setShowNominal] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [portfolioBRL, setPortfolioBRL] = useState(
+    (savedPortfolioCents != null ? savedPortfolioCents : currentPortfolioCents) / 100
+  )
 
   const formDefaults = planToFormDefaults(savedPlan)
 
@@ -126,8 +131,10 @@ export function SimulationForm({
 
     if (!currentAge || !retirementAge || !lifeExpectancy) return null
 
+    const portfolioCents = Math.round((portfolioBRL || 0) * 100)
+
     const baseParams = {
-      currentPortfolioCents,
+      currentPortfolioCents: portfolioCents,
       monthlyContributionCents: Math.round((Number(monthlyContributionCents) || 0) * 100),
       currentAge: Number(currentAge),
       retirementAge: Number(retirementAge),
@@ -170,7 +177,7 @@ export function SimulationForm({
     })
 
     const fiResult = calculateFI({
-      currentPortfolioCents,
+      currentPortfolioCents: portfolioCents,
       monthlyContributionCents: Math.round((Number(monthlyContributionCents) || 0) * 100),
       targetMonthlyPassiveIncomeCents: Math.round((Number(desiredMonthlyIncomeCents) || 0) * 100),
       annualRealReturnRate: baseReturnRate != null
@@ -180,7 +187,7 @@ export function SimulationForm({
     })
 
     return { conservative: conservativePoints, base: basePoints, aggressive: aggressivePoints, fi: fiResult }
-  }, [watched, currentPortfolioCents])
+  }, [watched, portfolioBRL])
 
   const onSubmit = useCallback(async (data: RetirementPlanInput) => {
     setIsSaving(true)
@@ -281,15 +288,28 @@ export function SimulationForm({
             <CardTitle>Parametros da Simulacao</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Portfolio auto-filled */}
+            {/* Portfolio — editable, defaults to real portfolio */}
             <div>
-              <Label>Portfolio Atual</Label>
-              <p className="text-sm font-medium text-gray-900 mt-1">
-                {formatBRL(currentPortfolioCents)}
-                <span className="text-xs text-gray-500 ml-2">
-                  (preenchido automaticamente do seu portfolio de investimentos)
-                </span>
-              </p>
+              <Label htmlFor="portfolioBRL">Portfolio Inicial (R$)</Label>
+              <Input
+                id="portfolioBRL"
+                type="number"
+                step="0.01"
+                value={portfolioBRL}
+                onChange={(e) => setPortfolioBRL(Number(e.target.value) || 0)}
+              />
+              {currentPortfolioCents > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Seu portfolio atual: {formatBRL(currentPortfolioCents)}.{' '}
+                  <button
+                    type="button"
+                    onClick={() => setPortfolioBRL(currentPortfolioCents / 100)}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Usar valor atual
+                  </button>
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
