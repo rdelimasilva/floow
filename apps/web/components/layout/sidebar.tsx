@@ -77,7 +77,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Planejamento',
+    title: 'Futuro',
     items: [
       { href: '/planning', label: 'Planejamento', icon: Target },
     ],
