@@ -215,13 +215,6 @@ export function SimulationForm({
         </CardContent>
       </Card>
 
-      {/* Saved scenarios */}
-      <ScenarioManager
-        initialScenarios={savedScenarios}
-        getCurrentParams={getCurrentParams}
-        onLoad={loadScenario}
-      />
-
       {/* Result card */}
       <Card className="border-blue-200 bg-blue-50">
         <CardContent className="pt-6">
@@ -440,6 +433,13 @@ export function SimulationForm({
 
         </CardContent>
       </Card>
+
+      {/* Saved scenarios — after parameters */}
+      <ScenarioManager
+        initialScenarios={savedScenarios}
+        getCurrentParams={getCurrentParams}
+        onLoad={loadScenario}
+      />
 
       {/* Disclaimer */}
       <p className="text-xs text-gray-400">
