@@ -67,8 +67,14 @@ export const recurringTemplates = pgTable(
   },
   (table) => ({
     idxRecurringTemplatesOrgId: index('idx_recurring_templates_org_id').on(table.orgId),
+    idxRecurringTemplatesNextDueDate: index('idx_recurring_templates_next_due_date').on(
+      table.nextDueDate
+    ),
   })
 )
 
 export type RecurringTemplate = typeof recurringTemplates.$inferSelect
 export type NewRecurringTemplate = typeof recurringTemplates.$inferInsert
+// Aliases expected by plan consumers (07-01 must_haves)
+export type RecurringTemplateRow = RecurringTemplate
+export type NewRecurringTemplateRow = NewRecurringTemplate
