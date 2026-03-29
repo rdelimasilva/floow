@@ -159,10 +159,21 @@ export function calculateRequiredContribution(
 ): RequiredContributionResult {
   const { currentPortfolioCents, targetMonthlyIncomeCents, annualRealReturnRate, yearsToRetirement } = params
 
-  const rate = annualRealReturnRate > 0 ? annualRealReturnRate : 0.04
-  const fiNumberCents = Math.round((targetMonthlyIncomeCents * 12) / rate)
+  // With zero return, sustainable withdrawal is impossible — use 4% fallback for FI number
+  const swr = annualRealReturnRate > 0 ? annualRealReturnRate : 0.04
+  const fiNumberCents = Math.round((targetMonthlyIncomeCents * 12) / swr)
 
-  const futurePortfolio = Math.round(currentPortfolioCents * Math.pow(1 + rate, yearsToRetirement))
+  if (annualRealReturnRate <= 0) {
+    // No growth: simply accumulate linearly
+    const gap = fiNumberCents - currentPortfolioCents
+    if (gap <= 0) {
+      return { fiNumberCents, requiredMonthlyContributionCents: 0, portfolioAtRetirementCents: currentPortfolioCents }
+    }
+    const requiredMonthly = Math.round(gap / (yearsToRetirement * 12))
+    return { fiNumberCents, requiredMonthlyContributionCents: requiredMonthly, portfolioAtRetirementCents: fiNumberCents }
+  }
+
+  const futurePortfolio = Math.round(currentPortfolioCents * Math.pow(1 + annualRealReturnRate, yearsToRetirement))
   const gap = fiNumberCents - futurePortfolio
 
   if (gap <= 0) {
@@ -170,7 +181,7 @@ export function calculateRequiredContribution(
   }
 
   // Future Value of Annuity: FVA = ((1+r)^n - 1) / r
-  const fva = (Math.pow(1 + rate, yearsToRetirement) - 1) / rate
+  const fva = (Math.pow(1 + annualRealReturnRate, yearsToRetirement) - 1) / annualRealReturnRate
   const requiredAnnual = gap / fva
   const requiredMonthly = Math.round(requiredAnnual / 12)
 
@@ -196,16 +207,21 @@ export interface ProjectedIncomeParams {
 export function calculateProjectedIncome(params: ProjectedIncomeParams): number {
   const { currentPortfolioCents, monthlyContributionCents, annualRealReturnRate, yearsToRetirement } = params
 
-  const rate = annualRealReturnRate > 0 ? annualRealReturnRate : 0.04
   let portfolioCents = currentPortfolioCents
   const annualContribution = monthlyContributionCents * 12
 
+  if (annualRealReturnRate <= 0) {
+    // No growth: linear accumulation, use 4% SWR for income estimate
+    portfolioCents += annualContribution * yearsToRetirement
+    return Math.round((portfolioCents * 0.04) / 12)
+  }
+
   for (let i = 0; i < yearsToRetirement; i++) {
-    portfolioCents = Math.round(portfolioCents * (1 + rate) + annualContribution)
+    portfolioCents = Math.round(portfolioCents * (1 + annualRealReturnRate) + annualContribution)
   }
 
   // Monthly income = portfolio * rate / 12 (sustainable withdrawal)
-  return Math.round((portfolioCents * rate) / 12)
+  return Math.round((portfolioCents * annualRealReturnRate) / 12)
 }
 
 // ---------------------------------------------------------------------------

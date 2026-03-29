@@ -305,13 +305,16 @@ export function SimulationForm({
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle>Projecao de Patrimonio (3 Cenarios)</CardTitle>
-            <button
-              type="button"
-              onClick={() => setShowNominal((v) => !v)}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              {showNominal ? 'Valores Nominais' : 'Valores Reais (hoje)'}
-            </button>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{showNominal ? 'Nominal (futuro)' : 'Real (hoje)'}</span>
+              <button
+                type="button"
+                onClick={() => setShowNominal((v) => !v)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${showNominal ? 'bg-blue-600' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${showNominal ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
