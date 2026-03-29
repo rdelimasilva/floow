@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { HelpTooltip } from '@/components/ui/help-tooltip'
 import {
   simulateRetirementScenario,
@@ -9,7 +9,6 @@ import {
   SCENARIO_PRESETS,
 } from '@floow/core-finance/src/simulation'
 import { formatBRL } from '@floow/core-finance/src/balance'
-import { saveRetirementPlan } from '@/lib/planning/actions'
 import type { SimulationScenario } from '@floow/db'
 import { ScenarioManager } from './scenario-manager'
 import dynamic from 'next/dynamic'
@@ -54,9 +53,6 @@ export function SimulationForm({
   const [mode, setMode] = useState<SimulationMode>('contribution')
   const [showNominal, setShowNominal] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
   // Form state (all in R$, not cents)
   const [portfolioBRL, setPortfolioBRL] = useState(currentPortfolioCents / 100)
@@ -152,37 +148,6 @@ export function SimulationForm({
     }
   }, [mode, portfolioBRL, monthlyContributionBRL, desiredMonthlyIncomeBRL, currentAge, retirementAge, lifeExpectancy, consRate, baseRate, aggrRate, contributionGrowthRate, computedResult.base])
 
-  const handleSave = useCallback(async () => {
-    setIsSaving(true)
-    setSaveError(null)
-    setSaveSuccess(false)
-    try {
-      const contributionCents = mode === 'contribution'
-        ? Math.round(monthlyContributionBRL * 100)
-        : computedResult.base
-      const incomeCents = mode === 'income'
-        ? Math.round(desiredMonthlyIncomeBRL * 100)
-        : computedResult.base
-
-      await saveRetirementPlan({
-        currentAge,
-        retirementAge,
-        lifeExpectancy,
-        monthlyContributionCents: contributionCents,
-        desiredMonthlyIncomeCents: incomeCents,
-        inflationRate,
-        conservativeReturnRate,
-        baseReturnRate,
-        aggressiveReturnRate,
-        contributionGrowthRate,
-      })
-      setSaveSuccess(true)
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Erro ao salvar plano')
-    } finally {
-      setIsSaving(false)
-    }
-  }, [mode, portfolioBRL, monthlyContributionBRL, desiredMonthlyIncomeBRL, currentAge, retirementAge, lifeExpectancy, inflationRate, conservativeReturnRate, baseReturnRate, aggressiveReturnRate, contributionGrowthRate, computedResult.base]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function loadScenario(s: SimulationScenario) {
     setMode(s.mode as SimulationMode)
@@ -473,14 +438,6 @@ export function SimulationForm({
             )}
           </div>
 
-          {/* Save */}
-          <div className="flex items-center gap-3 pt-2">
-            <Button type="button" variant="primary" disabled={isSaving} onClick={handleSave}>
-              {isSaving ? 'Salvando...' : 'Salvar Plano'}
-            </Button>
-            {saveSuccess && <span className="text-sm text-green-600">Plano salvo com sucesso!</span>}
-            {saveError && <span className="text-sm text-red-600">{saveError}</span>}
-          </div>
         </CardContent>
       </Card>
 
