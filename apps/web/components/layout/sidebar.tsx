@@ -25,6 +25,7 @@ import {
   Landmark,
   HelpCircle,
   Bot,
+  RefreshCw,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -91,6 +92,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/accounts', label: 'Contas', icon: Wallet },
       { href: '/categories', label: 'Categorias', icon: Tags },
+      { href: '/transactions/recurring', label: 'Recorrentes', icon: RefreshCw },
     ],
   },
   {
