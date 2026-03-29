@@ -260,7 +260,7 @@ export const getAdjustmentTotalsForGoals = cache(async function getAdjustmentTot
 ): Promise<Map<string, number>> {
   if (goalIds.length === 0) return new Map()
 
-  return unstable_cache(
+  const entries = await unstable_cache(
     async () => {
       const db = getDb()
       const rows = await db
@@ -278,9 +278,10 @@ export const getAdjustmentTotalsForGoals = cache(async function getAdjustmentTot
         )
         .groupBy(budgetAdjustments.budgetGoalId)
 
-      return new Map(rows.map((row) => [row.goalId, Number(row.total)]))
+      return rows.map((row) => [row.goalId, Number(row.total)] as [string, number])
     },
     ['budget-adjustment-totals', orgId, ...goalIds.sort(), start.toISOString(), end.toISOString()],
     { tags: [budgetInvestingTag(orgId)], revalidate: 300 },
   )()
+  return new Map(entries)
 })
