@@ -49,7 +49,6 @@ async function PlanningHubContent({ orgId }: { orgId: string }) {
         currentPassiveIncomeCents={currentPassiveIncomeCents}
         fiProgressPercent={fiProgressPercent}
         retirementReadiness={retirementReadiness}
-        hasWithdrawalStrategy={withdrawalStrategy != null}
         hasSuccessionPlan={successionPlan != null}
       />
 
