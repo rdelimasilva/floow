@@ -19,6 +19,79 @@ type Db = ReturnType<typeof getDb>
 const VALID_FREQUENCIES = ['daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'] as const
 
 // ---------------------------------------------------------------------------
+// Internal: generate overdue transactions for a template (not a server action)
+// ---------------------------------------------------------------------------
+
+async function generateForTemplate(templateId: string, orgId: string): Promise<number> {
+  const db = getDb()
+
+  const [template] = await db
+    .select()
+    .from(recurringTemplates)
+    .where(and(eq(recurringTemplates.id, templateId), eq(recurringTemplates.orgId, orgId)))
+    .limit(1)
+
+  if (!template || !template.isActive) return 0
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const overdueDates = getOverdueDates(template.nextDueDate, template.frequency as any, today)
+  if (overdueDates.length === 0) return 0
+
+  let resolvedCategoryId = template.categoryId
+  let isAutoCategorized = false
+  if (!resolvedCategoryId && template.description) {
+    const rules = await getCategoryRules(orgId)
+    const enabledRules = rules.filter((r: any) => r.isEnabled)
+    const matched = matchCategory(template.description, enabledRules)
+    if (matched) {
+      resolvedCategoryId = matched
+      isAutoCategorized = true
+    }
+  }
+
+  const signedAmount = template.type === 'income' ? template.amountCents : -template.amountCents
+  let generated = 0
+
+  await db.transaction(async (tx) => {
+    for (const dueDate of overdueDates) {
+      const result = await tx
+        .insert(transactions)
+        .values({
+          orgId,
+          accountId: template.accountId,
+          categoryId: resolvedCategoryId,
+          type: template.type as any,
+          amountCents: signedAmount,
+          description: template.description,
+          date: dueDate,
+          recurringTemplateId: template.id,
+          isAutoCategorized,
+        })
+        .onConflictDoNothing()
+        .returning({ id: transactions.id })
+
+      if (result.length > 0) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
+          .where(eq(accounts.id, template.accountId))
+        generated++
+      }
+    }
+
+    const lastDate = overdueDates[overdueDates.length - 1]
+    const newNextDueDate = advanceByFrequency(lastDate, template.frequency as any)
+    await tx
+      .update(recurringTemplates)
+      .set({ nextDueDate: newNextDueDate, updatedAt: new Date() })
+      .where(eq(recurringTemplates.id, template.id))
+  })
+
+  return generated
+}
+
+// ---------------------------------------------------------------------------
 // REC-01: Create recurring template
 // ---------------------------------------------------------------------------
 
@@ -74,9 +147,7 @@ export async function createRecurringTemplate(formData: FormData) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   if (nextDueDate <= today) {
-    const fd = new FormData()
-    fd.set('templateId', template.id)
-    await generateRecurringTransaction(fd)
+    await generateForTemplate(template.id, orgId)
   }
 
   revalidatePath('/transactions/recurring')
@@ -225,92 +296,10 @@ export async function toggleRecurringActive(formData: FormData) {
  */
 export async function generateRecurringTransaction(formData: FormData) {
   const orgId = await getOrgId()
-  const db = getDb()
-
   const templateId = formData.get('templateId') as string
   if (!templateId) throw new Error('templateId required')
 
-  // 1. Fetch template (verify ownership + active)
-  const [template] = await db
-    .select()
-    .from(recurringTemplates)
-    .where(and(eq(recurringTemplates.id, templateId), eq(recurringTemplates.orgId, orgId)))
-    .limit(1)
-
-  if (!template) throw new Error('Template not found')
-  if (!template.isActive) throw new Error('Template is paused')
-
-  // 2. Compute overdue dates using Phase 5 pure function
-  // Normalize to local midnight to avoid UTC-3 drift
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const overdueDates = getOverdueDates(
-    template.nextDueDate,
-    template.frequency as any,
-    today
-  )
-
-  if (overdueDates.length === 0) return { generated: 0 }
-
-  // 3. Auto-categorize if template has no category
-  // CRITICAL: must be called OUTSIDE db.transaction() to avoid connection pool exhaustion
-  let resolvedCategoryId = template.categoryId
-  let isAutoCategorized = false
-  if (!resolvedCategoryId && template.description) {
-    const rules = await getCategoryRules(orgId)
-    const enabledRules = rules.filter((r: any) => r.isEnabled)
-    const matched = matchCategory(template.description, enabledRules)
-    if (matched) {
-      resolvedCategoryId = matched
-      isAutoCategorized = true
-    }
-  }
-
-  // 4. Generate all overdue transactions atomically
-  // RULE 1 FIX: store signed amount (income positive, expense negative) to match
-  // the existing createTransaction / createRecurringTransactions pattern
-  const signedAmount =
-    template.type === 'income' ? template.amountCents : -template.amountCents
-  let generated = 0
-
-  await db.transaction(async (tx) => {
-    for (const dueDate of overdueDates) {
-      // Insert with dedup guard — unique index uq_generated_transactions (recurring_template_id, date)
-      const result = await tx
-        .insert(transactions)
-        .values({
-          orgId,
-          accountId: template.accountId,
-          categoryId: resolvedCategoryId,
-          type: template.type as any,
-          amountCents: signedAmount,
-          description: template.description,
-          date: dueDate,
-          recurringTemplateId: template.id,
-          isAutoCategorized,
-        })
-        .onConflictDoNothing()
-        .returning({ id: transactions.id })
-
-      if (result.length > 0) {
-        // Update account balance only for actually inserted transactions
-        await tx
-          .update(accounts)
-          .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
-          .where(eq(accounts.id, template.accountId))
-        generated++
-      }
-    }
-
-    // 5. Advance nextDueDate past the last generated date
-    const lastDate = overdueDates[overdueDates.length - 1]
-    const newNextDueDate = advanceByFrequency(lastDate, template.frequency as any)
-    await tx
-      .update(recurringTemplates)
-      .set({ nextDueDate: newNextDueDate, updatedAt: new Date() })
-      .where(eq(recurringTemplates.id, template.id))
-  })
+  const generated = await generateForTemplate(templateId, orgId)
 
   revalidatePath('/transactions')
   revalidatePath('/transactions/recurring')
