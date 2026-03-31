@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** Floow v1.1 — Automatic Categorization + Recurring Transactions
-**Domain:** Financial automation layer on top of a shipped Next.js / Supabase SaaS
-**Researched:** 2026-03-18
-**Confidence:** HIGH
+**Project:** Floow v2.0 — Open Finance & Asset Price Automation
+**Domain:** Brazilian personal finance SaaS adding automated data ingestion to a manual-first system
+**Researched:** 2026-03-29
+**Confidence:** HIGH (stack, architecture, pitfalls), MEDIUM (Pluggy production pricing)
 
 ## Executive Summary
 
-Floow v1.1 adds two well-understood automation features — rule-based transaction categorization and recurring transaction templates — onto an already-shipped v1.0 foundation. Both features are firmly in established territory: every major personal finance app (YNAB, Monarch Money, PocketSmith) uses the same underlying patterns, and the Floow codebase already has all the primitives needed (categories, transactions, import pipeline, Drizzle ORM, Supabase). The net new infrastructure is minimal: two new database tables, one new library (`date-fns`), and a handful of pure functions with UI wrappers. No new services, no new deployment targets, no new authentication concerns.
+The core risk for Floow v2.0 is not technical — it is trust. Users who have managed their data manually for months have an established mental model: "I import, I review, I approve." When automation runs silently and changes data — reconciling a transaction, updating a category, adding a price — users experience it as the system messing with their data. Every automated action must be auditable, every background change surfaced in a "what changed" UI, and no manual entry should ever be deleted or replaced by an automated process. This trust preservation requirement cuts across all four phases and must be designed in from the start, not retrofitted.
 
-The recommended approach is a pure-function-first build order: implement the rule-matching and date-arithmetic engines in `core-finance` as pure TypeScript functions, then wire them into server actions, then build UI. This matches the existing codebase architecture exactly and makes the logic trivially testable before any UI exists. Categorization rules apply only when `category_id IS NULL` (never overwriting user intent), and recurring generation is user-triggered in v1.1 (Supabase cron deferred to v2). The single new dependency is `date-fns@^4.1.0` added to `@floow/core-finance`.
+The recommended technical approach is straightforward: Pluggy as the Open Finance aggregator (BACEN-authorized ITP, 70+ Brazilian institutions, R$2,500/month production), brapi.dev for B3 equities (Startup plan, ~R$50-60/month — verify exact price before purchasing), and CoinGecko Demo (free) for crypto. All scheduling follows the existing `cfo-daily.mts` Netlify Scheduled Function pattern with in-code `Config.schedule`. New work is organized into four build phases with a clear dependency order: Prices first (fully independent, immediate portfolio value), then Bank Connection, then Sync Pipeline, then Auto-Categorization (nearly free once Phase 3 is built).
 
-The dominant risks are data-integrity issues that are easy to prevent at schema time but expensive to fix after users have data: (1) auto-categorization silently overwriting manually set categories, (2) duplicate recurring transactions from retry/overlap, and (3) non-deterministic rule conflict when two rules match the same description. All three are solved by schema decisions made before the first line of application code: `category_id IS NULL` guard in rule queries, `(recurring_template_id, due_date)` unique constraint with `ON CONFLICT DO NOTHING`, and a `priority` column on rules with deterministic `ORDER BY`. Build these in from day one — retrofitting them after user data exists is costly.
+The heaviest concentration of risk sits in Phase 2 (Bank Connection). Seven of the ten critical pitfalls land here: OFX/API duplicate overlap when a user first connects, Pluggy transaction ID instability on bank amendments, silent consent revocation, BCB per-CPF monthly rate limits, insecure credential storage, webhook replay attacks, and batch-import balance recalculation storms. Building Phase 2 carefully — with webhook signature verification, daily-only sync schedules, Supabase Vault for tokens, and a batched import path — prevents the most damaging failure modes. Phase 1 (Prices) should be built first precisely because it has none of this complexity.
 
 ---
 
@@ -19,133 +19,135 @@ The dominant risks are data-integrity issues that are easy to prevent at schema 
 
 ### Recommended Stack
 
-The v1.0 stack is fully locked and does not change. The only meaningful addition for v1.1 is `date-fns@^4.1.0` (ESM-first, zero dependencies, 34M weekly downloads) for recurring date arithmetic in `@floow/core-finance`. Every other capability — rule matching, scheduling, schema evolution — is satisfied by existing stack components.
+The existing stack (Next.js 16, TypeScript, Tailwind, shadcn/ui, Drizzle ORM, Supabase, Netlify, Turborepo monorepo) requires only three net-new external dependencies: `pluggy-sdk` (server-side, Netlify Functions only — Node.js, not Deno-compatible), `pluggy-connect-sdk` (browser-only widget), and `fastest-levenshtein` (300-byte string-distance utility for reconciliation). All price APIs (brapi.dev, CoinGecko, BCB dados abertos) are plain REST with native `fetch()` — no library required.
 
-Supabase `pg_cron` is the correct scheduler for recurring auto-generation when that feature is promoted to v2, because it lives entirely within the existing Supabase project, keeps the `service_role` key in the Vault, and requires no new service. For v1.1, generation is user-triggered and no cron infrastructure is needed at all.
+**Core technologies (additions only):**
+- `pluggy-sdk` + Pluggy account: Open Finance aggregator — BACEN-authorized, 70+ BR institutions, TypeScript-native, R$2,500/month production
+- `pluggy-connect-sdk`: Browser widget for bank OAuth — aggregator handles full consent flow; app never sees bank credentials
+- brapi.dev Startup plan: B3/FII/ETF/BDR prices — ~R$50-60/month, 150k req/month, 15-min delay (verify price before purchase — STACK.md vs FEATURES.md discrepancy noted)
+- CoinGecko Demo API: Crypto prices in BRL — free tier (10k/month) sufficient for launch; no library
+- BCB dados abertos API: CDI/SELIC rates for fixed income valuation — free, no auth, no library
+- `fastest-levenshtein@^1.0.16`: Levenshtein distance for fuzzy reconciliation matching — 300 bytes, zero deps
+- Netlify Scheduled Functions: All cron jobs follow existing `cfo-daily.mts` pattern with in-code `Config.schedule`
 
-**Core technologies:**
-- `date-fns@^4.1.0`: recurring date arithmetic (`addDays`, `addWeeks`, `addMonths`, `addYears`) — only new install; already the ecosystem standard
-- `Drizzle ORM` (existing): two new tables (`category_rules`, `recurring_templates`) with `jsonb` for extensible rule conditions
-- `Supabase pg_cron` (existing, built-in): daily recurring generation job when promoted to v2
-- `Native TypeScript string/RegExp` (no new library): rule pattern matching — 30 lines, fully testable
+**Scheduling decision (resolved):** Use Netlify Scheduled Functions as the default. FEATURES.md mentions Supabase pg_cron + Edge Functions, but the codebase already has `cfo-daily.mts` establishing the Netlify pattern and all Pluggy operations require Node.js (Netlify), making pg_cron a redundant extra hop. Exception: if Netlify's `*/15` cron syntax fails in staging (Pitfall 14), fall back to pg_cron for the 15-minute queue drain job only.
 
-See `.planning/research/STACK.md` for schema DDL, pure function signatures, and installation command.
+See `.planning/research/STACK.md` for full provider comparison, runtime compatibility matrix, and installation commands.
 
 ### Expected Features
 
-Both feature areas have a clear MVP line. All P1 items are LOW-to-MEDIUM complexity and build directly on existing server action patterns.
+The v2.0 feature set wires existing v1.0 foundations to live external data sources. Most critical plumbing already exists: `externalId` unique index for dedup, `matchCategory()` rule engine, `estimateAssetValue()` for fixed income, OFX reconciliation preview UI.
 
-**Must have (table stakes):**
-- Rule CRUD in Settings (create, reorder by priority, enable/disable, delete) — users of any finance app expect this
-- "Create rule from this transaction" shortcut in transaction row actions — reduces friction to near-zero
-- Rule applied automatically on import (`importSelectedTransactions`) — core value prop of auto-categorization
-- Rule applied on manual transaction creation (`createTransaction`) — ensures consistency across entry paths
-- Recurring template CRUD (amount, description, account, category, frequency, start date) — prerequisite for all recurring functionality
-- Manual "Generate Now" action per template — equivalent to YNAB's "Enter Now"
-- Upcoming recurring list (next 30 days) — necessary for cash flow planning
+**Must have (table stakes for launch):**
+- Bank connection via Pluggy widget with consent management UI (grant/revoke/renew/status badges)
+- Daily auto-sync of bank transactions with webhook-driven triggering
+- Connection health monitoring: error alerts, stale detection, reconnect prompts
+- Exact + fuzzy duplicate detection in sync preview (reuse existing reconciliation preview UI)
+- Apply existing category rules (`matchCategory()`) on all imported transactions
+- Daily close prices for B3 equities, FIIs, ETFs, BDRs (brapi.dev)
+- Daily crypto prices in BRL (CoinGecko)
+- CDI/SELIC rates for fixed income valuation (BCB API)
+- "Last updated" timestamps and manual price override for uncovered assets
 
 **Should have (competitive differentiators):**
-- Retroactive rule application with impact preview (show count before applying) — saves hours of manual cleanup after large imports; must have confirmation guard
-- Amount range condition on rules — prevents false matches on generic Brazilian bank descriptions ("TED", "PIX")
-- Auto-suggest rule creation when user manually sets a category (Quicken/Moneydance pattern)
-- Import-time summary: "12 transactions auto-categorized" — builds user trust in the automation
+- Investment event detection: cross-match dividend payments from bank sync to `portfolioEvents`
+- Historical price backfill on first brapi.dev connection (12 months via Startup plan)
+- Price staleness alerts when prices exceed 2 trading days old
+- Connection quality score (% of syncs that succeeded in last 30 days)
+- Per-asset price source display (brapi/CoinGecko/BCB/manual)
 
-**Defer (v2+):**
-- Automatic cron-based generation (Supabase Edge Function + pg_cron) — no background job infrastructure needed in v1.1
-- AI/ML categorization suggestions — opaque, costly, wrong for the persona
-- Automatic subscription detection from transaction patterns — requires statistical analysis, false positives destroy trust
-- Cash flow chart projection of future recurring transactions — depends on stable recurring data volume
+**Defer to v3+:**
+- ML/AI-based categorization (rule engine achieves 80-90% accuracy; cold-start problem makes ML not viable yet)
+- Open Finance investment sync via BCB Phase 4 (inconsistent brokerage compliance)
+- PIX payment initiation (separate regulated service, different product scope)
+- Real-time sub-5-minute B3 prices (requires exchange license; not available via affordable brapi tiers)
 
-See `.planning/research/FEATURES.md` for full competitor analysis and prioritization matrix.
+See `.planning/research/FEATURES.md` for full competitor analysis and feature dependency graph.
 
 ### Architecture Approach
 
-The architecture follows the established Floow pattern precisely: pure functions in `@floow/core-finance`, thin DB wrappers in `lib/finance/` server actions, RSC pages that call query functions. Two new server action files (`categorization-actions.ts`, `recurring-actions.ts`) keep the existing `actions.ts` from growing further — the same rationale used to create `import-actions.ts`. Rule management lives under `/categories` (a new tab, no new top-level route). Recurring template management gets its own route at `/transactions/recurring`. Both new tables follow the existing RLS pattern (`org_id IN (SELECT get_user_org_ids())`).
+All new code follows established codebase patterns without exception. Scheduled jobs follow `cfo-daily.mts`: Netlify Function calls an internal Next.js API route authenticated with the service-role key. Webhooks follow the Stripe webhook pattern: verify header, write raw payload to queue table, return 202 immediately, drain queue via cron. User mutations use Server Actions. Money values use integer cents converted at the API boundary with `Math.round(Number(price.toFixed(2)) * 100)`.
 
 **Major components:**
-1. `packages/core-finance/src/categorization.ts` — `matchCategory()` pure function; takes description string + sorted rules array; returns categoryId or null; zero DB dependencies
-2. `packages/core-finance/src/recurring.ts` — `getOverdueDates()` and `advanceByFrequency()` pure functions; all date arithmetic; uses `date-fns`
-3. `apps/web/lib/finance/categorization-actions.ts` — CRUD for `category_rules` table; bulk re-categorize server action
-4. `apps/web/lib/finance/recurring-actions.ts` — CRUD for `recurring_templates`; `generateDueTransactions()` which reuses `createTransaction` balance update logic
-5. `supabase/migrations/00006_automation.sql` — DDL for both new tables + RLS policies; all schema guards (unique constraints, indexes) defined here
+1. `global_asset_prices` table — global, no orgId; one row per (ticker, date); brapi + CoinGecko upsert here; prevents thundering-herd API waste
+2. `bank_connections` + `sync_jobs` tables — per-org bank connection state and job audit trail; `sync_jobs` provides "what changed" visibility
+3. `packages/core-finance/src/import/reconcile.ts` — extracted pure function from existing `import-actions.ts` lines 128-183; unchanged algorithm, relocated for reuse
+4. `lib/open-finance/sync-pipeline.ts` — `runSyncJob(jobId)` orchestrating Pluggy fetch → normalize → reconcile → categorize → batch insert → single balance update
+5. `lib/prices/` — brapi client, CoinGecko client, orchestration; all plain `fetch()`, no libraries
+6. Netlify crons: `price-update.mts` (daily 19:00 UTC weekdays) + `process-sync-queue.mts` (every 15 min); both call internal API routes
 
-See `.planning/research/ARCHITECTURE.md` for full file map, data flow diagrams, and build order.
+**Three required migrations:**
+- `00021_open_finance.sql`: `bank_connections`, `sync_jobs`, RLS policies
+- `00022_global_asset_prices.sql`: `global_asset_prices` (no RLS, service-role writes, all-auth reads)
+- `00023_assets_coingecko_id.sql`: `ALTER TABLE assets ADD COLUMN coingecko_id text`
+
+See `.planning/research/ARCHITECTURE.md` for full data flow diagrams, file map, and open questions.
 
 ### Critical Pitfalls
 
-1. **Auto-categorization overwrites manual categories** — Rule engine must check `category_id IS NULL` before applying; never overwrite a non-null value. This is a guard in the SQL/Drizzle query, not UI logic. Missing it means users lose manual corrections on every import. Recovery cost: HIGH (no automated fix, users must re-categorize manually).
+1. **OFX/API duplicate overlap on first connect (Pitfall 1)** — Require user to set a "connection start date" during the wizard; never backfill into the manual-import period; always show review preview on initial sync
+2. **Pluggy transaction ID instability (Pitfall 2)** — Store `provider_transaction_id` (bank's `providerCode`) separately from Pluggy's hash ID; handle `transactions/deleted` webhooks with soft-delete + user alert, not hard delete
+3. **PIX same-amount false reconciliation matches (Pitfall 3)** — Use a 3-tier hierarchy: providerCode exact match (high confidence) → date+amount (medium, require review) → anything else (no auto-match); never auto-confirm ambiguous matches
+4. **Thundering herd on price APIs (Pitfall 6)** — `global_asset_prices` table enforces one API call per unique ticker regardless of how many orgs hold it; CoinGecko batches up to 250 coins per request
+5. **Fixed income treated as market-quoted (Pitfall 7)** — Add `pricing_type` enum (`market_quoted` vs `accrual_based`) to assets schema; route CDB/LCI/LCA/Tesouro to `computeAccrualPrice()`, never to brapi.dev
+6. **Automation eroding user trust (meta-pitfall)** — Every automated action tagged with `last_modified_by` source; "what changed" summary shown after each sync; no manual entry ever auto-deleted
 
-2. **Duplicate recurring transactions on retry or scheduler overlap** — Add `(recurring_template_id, due_date)` unique constraint to `transactions` and use `ON CONFLICT DO NOTHING` in the generation action. Identical to the import deduplication pattern already in the codebase. Recovery cost: MEDIUM (balance must be corrected).
-
-3. **Non-deterministic rule conflict** — `category_rules` must have a `priority integer NOT NULL DEFAULT 0` column from day one; the match query must `ORDER BY priority DESC`. Without this, two overlapping rules produce different winners depending on insertion order. Recovery cost: MEDIUM (retroactive priority assignment is confusing for users with existing rules).
-
-4. **Category type mismatch on transfer transactions** — Rule matching must include `AND t.type = c.type` (or exclude `type = 'transfer'` entirely). A transfer matched to an expense category breaks cash flow aggregation silently.
-
-5. **ILIKE full table scan at scale** — Add `pg_trgm` GIN index on `transactions.description` in the same migration as the categorization tables. `ILIKE '%pattern%'` without this index triggers sequential scans; breaks at ~5,000 transactions per org.
-
-See `.planning/research/PITFALLS.md` for SQL examples, warning signs, and a full verification checklist.
+See `.planning/research/PITFALLS.md` for all 18 pitfalls with detection queries and phase-specific warnings.
 
 ---
 
 ## Implications for Roadmap
 
-Based on the dependency graph in ARCHITECTURE.md (DB schema is foundational, pure functions have no external deps, server actions depend on both, UI depends on actions), and the pitfall-to-phase mapping in PITFALLS.md, a three-phase structure maps cleanly to the two feature domains with a shared foundation phase.
+### Phase 1: Asset Price Updates
 
-### Phase 1: DB Schema + Pure Functions (Shared Foundation)
+**Rationale:** Fully independent of bank connections — no consent complexity, no webhook infrastructure. Delivers immediate visible value (live portfolio prices) and establishes the `global_asset_prices` architecture that Phase 3 depends on. Lowest risk, fastest win.
+**Delivers:** Live B3/FII/ETF/BDR prices, crypto prices in BRL, CDI/SELIC for fixed income; portfolio views show market prices instead of manual entries
+**Addresses:** All asset price table-stakes features; `global_asset_prices` table; `pricing_type` enum on assets
+**Avoids:** Thundering herd (Pitfall 6), renda fixa mispricing (Pitfall 7), float-to-cents errors (Pitfall 8), CoinGecko ID mismatch (Pitfall 16), Netlify scheduler drift (Pitfall 14 — schedule 19:00 UTC with 90-min buffer after market close)
+**Schema prerequisites:** Migrations 00022 + 00023 before any code
+**Research flag:** Standard patterns — skip `/gsd:research-phase`
 
-**Rationale:** Everything else depends on the two new tables and the pure functions. This phase has no UI and no external dependencies — it can be built and fully tested before any server action or component is written. Doing this first also locks in all schema-level safety guards (unique constraints, priority column, GIN index, RLS policies) before any application code can create bad data.
+### Phase 2: Bank Connection & Consent Lifecycle
 
-**Delivers:** `category_rules` table, `recurring_templates` table, migration `00006_automation.sql`, `matchCategory()` function with unit tests, `getOverdueDates()` + `advanceByFrequency()` functions with unit tests, updated `packages/core-finance/src/index.ts` exports.
+**Rationale:** Highest-risk phase — 7 of 10 critical pitfalls land here. Must be built before Phase 3 (sync pipeline depends on bank connections existing). Pluggy production pricing is unconfirmed; webhook signature format needs staging verification; consent lifecycle behavior needs validation.
+**Delivers:** Pluggy widget integration, connect/disconnect/reconnect UI, connection health dashboard, webhook receiver (enqueue only — returns 202, does not process), consent expiry alerts, connection status badges
+**Addresses:** All Open Finance connection table-stakes features from FEATURES.md
+**Avoids:** Credential storage (Pitfall 12 — Supabase Vault, not plain column), webhook replay (Pitfall 13 — signature verification from day one), stale connection (Pitfall 4 — webhook status updates + staleness check + email notification), batch balance storm (Pitfall 15 — batch import path designed before first sync), BCB rate limit (Pitfall 5 — daily sync only, not hourly)
+**Schema prerequisites:** Migration 00021 before any code
+**Research flag:** Needs `/gsd:research-phase` — Pluggy production pricing (not publicly listed), webhook signature header name, `consentExpiresAt` field availability on item object, coingecko_id seed strategy for top 20 coins
 
-**Addresses:** Rule CRUD prerequisite, recurring template prerequisite, all schema-level table stakes.
+### Phase 3: Sync Pipeline & Reconciliation
 
-**Avoids:** Non-deterministic rule conflict (priority column + ORDER BY from day one), duplicate recurring transactions (unique constraint from day one), ILIKE performance regression (GIN index from day one), category type mismatch (type guard in match function from day one).
+**Rationale:** Depends on Phase 2 (bank connections must exist). The algorithmically complex phase — reconciliation matching, fuzzy dedup, batch import, atomic balance update.
+**Delivers:** Daily auto-sync, transaction dedup (exact via externalId + fuzzy via providerCode + 3-tier matching), reconciliation preview (MATCHED/DUPLICATE/NEW), connection start-date enforcement, sync job audit trail, `runSyncJob()` orchestration
+**Addresses:** Reconciliation table-stakes features; `reconcileTransactions()` pure function extraction; `process-sync-queue` API route + Netlify cron
+**Avoids:** OFX/API overlap (Pitfall 1 — connection start date), Pluggy ID instability (Pitfall 2 — store providerCode), PIX false matches (Pitfall 3 — 3-tier matching), salary/dividend confusion (Pitfall 9 — direction-aware matcher), boleto date offset (Pitfall 10 — ±2 day window for boleto type), TED fee tolerance (Pitfall 17)
+**Research flag:** Standard patterns for reconciliation algorithm — skip `/gsd:research-phase`. Matching thresholds (0.7 similarity, ±2 day window) should be validated with real transaction data in staging.
 
-### Phase 2: Categorization Rules — Server Actions + UI
+### Phase 4: Auto-Categorization & Audit Trail
 
-**Rationale:** Categorization is the simpler of the two features (no date arithmetic, no generation logic) and is independently deliverable. Once the pure function exists from Phase 1, wiring it into actions and UI is a contained task. This phase should be validated by users before recurring is built, because categorization rules are a prerequisite for meaningful recurring template categorization.
-
-**Delivers:** `categorization-actions.ts` (createRule, updateRule, deleteRule, bulkRecategorize), `getCategoryRules()` query function, modified `importSelectedTransactions` with rule application, modified `createTransaction` with rule application, `CategoryRuleList` and `CategoryRuleForm` components, rules tab on `/categories` page, "Create rule from this transaction" shortcut.
-
-**Uses:** `matchCategory()` from Phase 1, existing `getOrgId()` + `getDb()` pattern, existing `revalidatePath` cache invalidation.
-
-**Avoids:** Auto-categorization overwriting manual categories (`category_id IS NULL` guard in every rule application path), RLS bypass (org_id filter on all rule queries), service_role exposure.
-
-### Phase 3: Recurring Transactions — Server Actions + UI
-
-**Rationale:** Recurring depends on the same DB foundation as categorization (Phase 1) but is a fully independent feature stream from Phase 2. It carries more complexity (date arithmetic, account validation, idempotency, BRL timezone handling) and benefits from the categorization feature being stable first — recurring templates reference categories, and users are more likely to configure rules before templates.
-
-**Delivers:** `recurring-actions.ts` (createRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate, generateDueTransactions), `getRecurringTemplates()` query function, `RecurringTemplateList` and `RecurringTemplateForm` components, `/transactions/recurring` page with overdue banner and "Generate Now" action.
-
-**Uses:** `getOverdueDates()` + `advanceByFrequency()` from Phase 1, `date-fns@^4.1.0`, existing `createTransaction` balance update pattern (inlined, not called directly — server actions are not composable).
-
-**Avoids:** Duplicate generation (`ON CONFLICT DO NOTHING` with explicit target), generation against inactive accounts (join `accounts` WHERE `is_active = true` in generation query), BRL timezone off-by-one (anchor all date comparisons to `America/Sao_Paulo`), RLS bypass via service_role (`assertAccountOwnership` before every write).
-
-### Phase 4: Differentiators (Post-Validation)
-
-**Rationale:** These features add polish and competitive advantage but are not required for the core value proposition. They should only be built after Phase 2 and Phase 3 are validated with real users and the edge cases are understood.
-
-**Delivers:** Retroactive rule application with impact preview, amount range condition on rules, import summary ("N transactions auto-categorized"), `category_source` field for auto vs. manual distinction.
-
-**Avoids:** Silent bulk mutation (retroactive application must show affected count before applying — this is the single most dangerous feature if built carelessly).
+**Rationale:** Nearly free — `matchCategory()` already exists and is called inside Phase 3's sync pipeline. The primary work is the `category_source` guard and the audit trail / "what changed" UI that makes all prior automation trustworthy to users.
+**Delivers:** Auto-categorization on sync with `category_source` guard, "what changed" sync summary dashboard, `last_modified_by` audit column, uncategorized filter prominence post-sync
+**Addresses:** Auto-categorization table-stakes features; meta-pitfall trust preservation
+**Avoids:** Scheduled sync overwriting manual categories (Pitfall 11 — `category_source` guard is a prerequisite before any scheduled sync goes live)
+**Research flag:** Standard patterns — skip `/gsd:research-phase`
 
 ### Phase Ordering Rationale
 
-- Phase 1 before everything: DB schema and pure functions are zero-dependency; building them first enables parallel work on Phases 2 and 3
-- Phase 2 before Phase 3: Categorization is simpler, delivers user value independently, and validates the rule engine before it is depended upon by recurring template generation
-- Phase 3 after Phase 1: Recurring can proceed immediately after schema exists; it does not depend on Phase 2 being complete (phases 2 and 3 are parallelizable after Phase 1)
-- Phase 4 after validation: Retroactive application is the highest-risk UX feature; it should only be built after Phase 2 rules are confirmed working in production
+- Phase 1 before Phase 2: Price updates deliver standalone value with zero consent/webhook risk. Validates the Netlify cron pattern and pricing architecture before the higher-complexity phases.
+- Phase 2 before Phase 3: Sync pipeline requires bank connections to exist. Phase 2's webhook receiver creates the `sync_jobs` queue that Phase 3 drains.
+- Phase 3 before Phase 4: Auto-categorization runs inside the sync pipeline. Phase 4 adds the `category_source` guard as an extension of Phase 3, not a separate system. The guard must be in place before scheduled syncs go live.
+- Phase 1 and Phases 2-3 are parallelizable by different team members if capacity allows — they share no code dependencies.
 
 ### Research Flags
 
-Phases with well-documented patterns (skip research-phase — standard implementation):
-- **Phase 1:** Pure function TDD + Drizzle schema additions follow exact existing patterns; migration DDL is straightforward
-- **Phase 2:** Rule CRUD and import hook follow existing `import-actions.ts` pattern exactly; no novel architecture
+Needs `/gsd:research-phase` during planning:
+- **Phase 2 (Bank Connection):** Pluggy production pricing not publicly listed; webhook signature header name needs staging verification; `consentExpiresAt` field availability on item object; coingecko_id seed mapping strategy for top 20 coins
 
-Phases that may benefit from deeper research during planning:
-- **Phase 3:** BRL timezone handling in date comparisons needs an explicit implementation decision before coding begins; `America/Sao_Paulo` DST transitions (Brazil suspended DST in 2019, but verifying no edge cases in date-fns is warranted)
-- **Phase 3:** `generateDueTransactions` must replicate the balance update logic from `createTransaction` without calling the server action — the right extraction point (shared DB helper vs. inlined) needs a decision before implementation
-- **Phase 4:** Retroactive application with preview requires careful transaction design (count query before mutation, single server action that does both steps atomically) — worth a focused planning spike
+Standard patterns, skip research:
+- **Phase 1 (Prices):** brapi.dev and CoinGecko REST APIs are well-documented; Netlify cron pattern established by existing `cfo-daily.mts`
+- **Phase 3 (Sync Pipeline):** Pluggy transaction API well-documented; reconciliation is ~60 lines TypeScript extending existing code
+- **Phase 4 (Auto-Categorization):** `matchCategory()` already exists; audit trail is additive schema work
 
 ---
 
@@ -153,44 +155,43 @@ Phases that may benefit from deeper research during planning:
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All additions are zero-surprise: one new library (date-fns, widely validated), existing Supabase/Drizzle/TypeScript stack unchanged. Official docs confirmed. |
-| Features | HIGH | Rule-based categorization patterns verified across PocketSmith, Monarch Money, YNAB. Recurring template pattern (nextDueDate + lazy generation) is industry standard. MVP scope is conservative and well-bounded. |
-| Architecture | HIGH | Based on direct codebase analysis. Every new component follows an existing pattern in the codebase. No speculative design. |
-| Pitfalls | HIGH (core) / MEDIUM (scheduling) | Core pitfalls (overwrite guard, duplicate generation, priority ordering) derived from direct code inspection and established patterns. Scheduling nuances (timezone, pg_cron overlap) from web research — well-sourced but not verified against live Supabase behavior. |
+| Stack | HIGH | All provider choices verified against official docs; SDK compatibility confirmed; one gap: pluggy-sdk npm version (verify at install — npm page returned 403 during research) |
+| Features | HIGH | Table stakes verified against Pluggy/Belvo docs and BR competitor evidence (Mobills, Organizze, Kinvo); MVP scope is conservative and appropriate |
+| Architecture | HIGH | Based on direct codebase analysis + verified external API docs; all patterns are extensions of established codebase patterns |
+| Pitfalls | HIGH (structural), MEDIUM (BR-specific limits) | BCB per-CPF rate limit confirmed via secondary source only; Netlify timing drift is community-reported, not officially documented |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Balance update extraction:** `createTransaction` contains atomic balance update logic that `generateDueTransactions` must also perform. The right approach — extract to a shared `@floow/db` helper function vs. inline the same logic — is an implementation decision deferred to Phase 3 planning. Either is acceptable; what matters is that the decision is made explicitly before coding to avoid two diverging implementations.
-
-- **`category_source` column:** PITFALLS.md recommends a `category_source: 'auto' | 'manual'` field on transactions to distinguish auto-categorized rows. This is not in the current `transactions` schema. If this is desired for Phase 4 (audit trail, post-import summary), an additional migration will be needed. Should be decided before Phase 2 implementation begins to avoid a schema migration mid-feature.
-
-- **BRL timezone in date-fns:** `date-fns` `addMonths` and similar functions are timezone-agnostic (operate on JS `Date` objects). The BRL timezone guard must be applied at the comparison layer (when checking `nextDueDate <= today`), not inside the pure date arithmetic functions. This needs an explicit test case.
+- **brapi.dev Startup plan price:** STACK.md says R$59.99/month, FEATURES.md says R$49.99/month. Verify on brapi.dev/pricing before purchasing. Both files sourced from brapi.dev but on different dates — price may have changed.
+- **Pluggy production pricing:** R$2,500/month Basic confirmed; Growth/enterprise tiers not publicly listed. Confirm with Pluggy sales before committing to launch timeline.
+- **`*/15` cron syntax on Netlify:** Only `@hourly` is explicitly documented minimum. Test in staging for `process-sync-queue.mts`; fall back to `@hourly` if it fails (queue drains hourly — acceptable for v2.0 launch).
+- **`consentExpiresAt` field availability:** Whether Pluggy surfaces this on the item object or requires app-side computation. Verify in Pluggy sandbox before building consent renewal UI.
+- **coingecko_id seed mapping:** Migration 00023 adds the column; a seed mapping for top 20 coins (BTC→bitcoin, ETH→ethereum, SOL→solana, USDC→usd-coin, etc.) is needed before crypto price updates work. Decide before Phase 1 coding: seed via migration or asset-creation UI.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Supabase Cron docs — https://supabase.com/docs/guides/cron — scheduling, pg_cron behavior
-- Supabase Edge Function scheduling — https://supabase.com/docs/guides/functions/schedule-functions — Edge Function + pg_cron pattern
-- date-fns CHANGELOG v4.1.0 — https://github.com/date-fns/date-fns/blob/main/CHANGELOG.md — version compatibility
-- Drizzle ORM custom types — https://orm.drizzle.team/docs/custom-types — jsonb typing pattern
-- pg_trgm documentation — https://www.postgresql.org/docs/current/pgtrgm.html — GIN index for ILIKE
-- Direct codebase analysis: `packages/db/src/schema/finance.ts`, `apps/web/lib/finance/actions.ts`, `apps/web/lib/finance/import-actions.ts`, `supabase/migrations/00002_finance.sql`
+- https://docs.pluggy.ai — webhooks, transactions, authentication, item lifecycle, consent lifecycle
+- https://www.pluggy.ai/pricing — R$2,500/month Basic plan confirmed
+- https://brapi.dev/docs + https://brapi.dev/pricing — endpoints, bearer auth, plan tiers
+- https://www.coingecko.com/en/api/pricing + CoinGecko support docs — Demo plan limits, BRL support confirmed
+- https://docs.netlify.com/build/functions/scheduled-functions/ — 30-second limit, `Config.schedule` pattern confirmed
+- https://dadosabertos.bcb.gov.br — CDI series 12, SELIC series 11; free, no auth
+- Codebase: `netlify/functions/cfo-daily.mts`, `/api/webhooks/stripe/route.ts`, `lib/finance/import-actions.ts`, `packages/db/src/schema/`
 
 ### Secondary (MEDIUM confidence)
-- PocketSmith category rules UX — https://learn.pocketsmith.com/article/156-using-category-rules-to-automatically-categorize-transactions — rule priority and keyword matching UX patterns
-- Monarch Money transaction rules — https://help.monarch.com/hc/en-us/articles/360048393372-Creating-Transaction-Rules — conditions + actions model
-- YNAB Scheduled Transactions — https://support.ynab.com/en_us/scheduled-transactions-a-guide-BygrAIFA9 — "Enter Now" UX, register-based upcoming view
-- GeeksforGeeks: Recurring Payments System Design — https://www.geeksforgeeks.org/system-design-pattern-for-recurring-payments/ — nextDueDate advancement pattern
-- Idempotency and Reconciliation in Payment Software — https://www.ijraset.com/research-paper/idempotency-and-reconciliation-in-payment-software — ON CONFLICT DO NOTHING rationale
+- https://belvo.com/plans-and-pricing/ — Belvo pricing cross-reference for provider comparison
+- https://developers.belvo.com/products/aggregation_brazil/aggregation-brazil-data-retrieval-limits — BCB per-CPF rate limit (page rendered CSS-only; confirmed via search)
+- https://answers.netlify.com/t/netlify-scheduled-functions-cron-executing-at-31-29-31-29-intervals — timing drift community report
+- https://www.npmjs.com/package/pluggy-sdk — SDK version (npm page returned 403; verify at install)
 
-### Tertiary (informational, not load-bearing)
-- Plaid AI-enhanced categorization — https://plaid.com/blog/ai-enhanced-transaction-categorization/ — confirms ML adds ~10-20% accuracy lift; not worth building for v1.1
-- Recurring Calendar Events DB Design — https://medium.com/@aureliadotlim/recurring-calendar-events-database-design-dc872fb4f2b5 — confirms lazy generation pattern over eager pre-creation
+### Tertiary (LOW confidence, informational only)
+- https://www.index.dev/skill-vs-skill/api-integration-plaid-vs-belvo-vs-pluggy-latam — provider comparison cross-reference only
 
 ---
-*Research completed: 2026-03-18*
+*Research completed: 2026-03-29*
 *Ready for roadmap: yes*

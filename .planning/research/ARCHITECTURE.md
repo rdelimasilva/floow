@@ -1,383 +1,275 @@
-# Architecture Research
+# Architecture: Open Finance & Data Automation Integration
 
-**Domain:** Financial automation — automatic transaction categorization and recurring transactions
-**Researched:** 2026-03-18
-**Confidence:** HIGH (based on direct codebase analysis)
+**Domain:** Financial SaaS — Open Finance bank sync, asset price updates, auto-reconciliation, auto-categorization
+**Researched:** 2026-03-29
+**Confidence:** HIGH (codebase analysis + verified external API docs)
 
-## Standard Architecture
+---
 
-### System Overview
+## Existing Architecture Anchors (Non-Negotiable)
 
+| Pattern | Source | New Code Must Follow |
+|---------|--------|----------------------|
+| Cron → internal API route (service role key) | `cfo-daily.mts` → `/api/cfo/run-daily` | YES — all new crons |
+| Webhook → raw body + header verify → 200 fast | `/api/webhooks/stripe/route.ts` | YES — Open Finance webhook |
+| Server actions for user mutations | `lib/finance/import-actions.ts` | YES — no new user-facing API routes |
+| ON CONFLICT DO NOTHING + externalId dedup | `uq_transactions_external_account` index | YES — auto-import reuses unchanged |
+| Integer cents for money | Throughout | YES — convert external decimals × 100 at boundary |
+| Service role key for background writes | Stripe webhook, CFO cron | YES — all background jobs |
+| orgId scoping on every table | All existing tables | YES — new tables same pattern |
+| Pure function + thin DB wrapper | `core-finance` package | YES — computation pure, DB thin |
+
+---
+
+## New Tables
+
+### `global_asset_prices`
+```sql
+CREATE TABLE global_asset_prices (
+  ticker      text    NOT NULL,
+  price_date  date    NOT NULL,
+  price_cents integer NOT NULL,
+  source      text    NOT NULL,  -- 'brapi' | 'coingecko'
+  updated_at  timestamp NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (ticker, price_date)
+);
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                    Next.js App Router (RSC)                     │
-├──────────────────────────────┬─────────────────────────────────┤
-│  /transactions (existing)    │  /transactions/recurring (new)  │
-│  /categories (existing)      │                                 │
-├──────────────────────────────┴─────────────────────────────────┤
-│                     Server Actions (lib/finance/)               │
-│  actions.ts (existing)    +  categorization-actions.ts (new)   │
-│                            +  recurring-actions.ts (new)        │
-├──────────────────────────────────────────────────────────────────┤
-│                    core-finance package (pure functions)         │
-│  matchCategory() (new)    +  generateOccurrences() (new)        │
-│  applyRules() (new)                                             │
-├────────────────┬──────────────────────┬────────────────────────┤
-│  @floow/db     │  packages/db/schema  │  Drizzle ORM           │
-│  finance.ts    │  + category_rules    │  + recurring_templates │
-│  (existing)    │    (new table)       │    (new table)         │
-├────────────────┴──────────────────────┴────────────────────────┤
-│              Supabase PostgreSQL + RLS                          │
-│  transactions (existing)   categories (existing)               │
-│  category_rules (new)      recurring_templates (new)           │
-└────────────────────────────────────────────────────────────────┘
-```
+Global (no orgId) — avoids N-duplicate writes per org for the same ticker. Existing `asset_prices` (per-org) remains for manual overrides. No RLS; service role writes, all authenticated can SELECT. Upsert: ON CONFLICT (ticker, price_date) DO UPDATE.
 
-### Component Responsibilities
-
-| Component | Responsibility | Existing or New |
-|-----------|----------------|-----------------|
-| `category_rules` table | Stores per-org pattern → category mappings | NEW |
-| `recurring_templates` table | Stores recurring transaction definitions with frequency/schedule | NEW |
-| `matchCategory()` pure fn | Applies rules to a description string, returns best category match | NEW in core-finance |
-| `applyRulesToTransaction()` pure fn | Wraps matchCategory for single transaction input | NEW in core-finance |
-| `generateOccurrences()` pure fn | Given a template + date range, returns due transaction dates | NEW in core-finance |
-| `categorization-actions.ts` | Server actions: CRUD for category_rules, bulk re-categorize | NEW in lib/finance/ |
-| `recurring-actions.ts` | Server actions: CRUD for templates, generate due transactions | NEW in lib/finance/ |
-| `queries.ts` | Add: getCategoryRules(), getRecurringTemplates() | MODIFIED |
-| `finance.ts` (db schema) | Add Drizzle table definitions for new tables | MODIFIED |
-| `00006_automation.sql` | Migration for new tables + RLS policies | NEW in supabase/migrations/ |
-| `TransactionForm` | Hook into categorization: auto-suggest category on description blur | MODIFIED (optional enhancement) |
-| `RecurringTemplateList` | UI for managing recurring templates | NEW component |
-| `CategoryRuleList` | UI for managing auto-categorization rules | NEW component |
-
-## Recommended Project Structure
-
-New files only — existing structure unchanged:
-
-```
-packages/
-├── db/
-│   └── src/schema/
-│       └── finance.ts            # ADD: categoryRules + recurringTemplates tables
-├── core-finance/
-│   └── src/
-│       ├── categorization.ts     # NEW: matchCategory, applyRules (pure fns)
-│       ├── recurring.ts          # NEW: generateOccurrences, nextOccurrence (pure fns)
-│       └── index.ts              # ADD: export from new files
-
-apps/web/
-├── lib/finance/
-│   ├── categorization-actions.ts  # NEW: createRule, updateRule, deleteRule, bulkRecategorize
-│   ├── recurring-actions.ts       # NEW: createTemplate, updateTemplate, deleteTemplate, generateDue
-│   └── queries.ts                 # ADD: getCategoryRules, getRecurringTemplates
-├── components/finance/
-│   ├── category-rule-list.tsx     # NEW: table of rules with inline edit/delete
-│   ├── category-rule-form.tsx     # NEW: pattern + category selector form
-│   ├── recurring-template-list.tsx # NEW: table of templates with status
-│   └── recurring-template-form.tsx # NEW: template creation/edit form
-└── app/(app)/
-    ├── categories/
-    │   └── page.tsx               # MODIFY: add rules tab/section
-    └── transactions/
-        └── recurring/
-            └── page.tsx           # NEW: recurring templates management page
-
-supabase/migrations/
-└── 00006_automation.sql           # NEW: category_rules + recurring_templates + RLS
+### `bank_connections`
+```sql
+bank_connections
+  id                uuid  PK
+  org_id            uuid  NOT NULL REFERENCES orgs(id) ON DELETE CASCADE
+  account_id        uuid  NOT NULL REFERENCES accounts(id) ON DELETE CASCADE
+  provider          text  NOT NULL DEFAULT 'pluggy'
+  pluggy_item_id    text  NOT NULL   -- widget onSuccess value
+  pluggy_account_id text             -- resolved after first sync
+  status            text  NOT NULL   -- 'active'|'error'|'waiting_user_input'|'outdated'
+  last_sync_at      timestamp
+  consent_expires_at timestamp       -- Open Finance Brasil: 12-month window
+  error_message     text
+  created_at / updated_at  timestamp NOT NULL DEFAULT NOW()
+  UNIQUE (org_id, pluggy_item_id)
 ```
 
-### Structure Rationale
-
-- **`categorization.ts` in core-finance:** Rule matching is pure computation (no DB). Lives alongside import parsing as another transaction processing step. Reusable by Edge Functions if needed.
-- **`recurring.ts` in core-finance:** Date arithmetic for occurrence generation is pure. TDD-friendly. Mirrors how `computeSnapshot` and `simulateRetirement` are isolated.
-- **`categorization-actions.ts` separate from `actions.ts`:** Avoids bloating the existing `actions.ts` (already 500 LOC). Domain-scoped separation matches existing `import-actions.ts` pattern.
-- **`categories/` page gets the rules section:** Category rules are semantically part of category management, not transactions. No new top-level route needed.
-- **`transactions/recurring/` as new route:** Recurring templates are distinct from regular transactions and need their own management surface.
-
-## Architectural Patterns
-
-### Pattern 1: Rule-Based Categorization (description matching)
-
-**What:** An ordered list of per-org rules, each with a `pattern` (substring or regex) and a `categoryId`. When a transaction is created or imported, rules are evaluated in priority order; first match wins.
-
-**When to use:** Applied in three contexts:
-1. On manual transaction creation (suggestion, not forced)
-2. On import (applied automatically, user can override)
-3. On bulk re-categorize action (retroactive, user-triggered)
-
-**Trade-offs:** Simple substring matching covers 90% of real-world needs. Regex adds power but complicates UI. Recommend substring + optional case-insensitive flag as v1.
-
-**Example:**
-```typescript
-// packages/core-finance/src/categorization.ts
-
-export interface CategoryRule {
-  id: string
-  pattern: string        // substring to match in description
-  categoryId: string
-  priority: number       // lower = higher priority
-  isRegex: boolean
-}
-
-export function matchCategory(
-  description: string,
-  rules: CategoryRule[]
-): string | null {
-  const sorted = [...rules].sort((a, b) => a.priority - b.priority)
-  for (const rule of sorted) {
-    const matches = rule.isRegex
-      ? new RegExp(rule.pattern, 'i').test(description)
-      : description.toLowerCase().includes(rule.pattern.toLowerCase())
-    if (matches) return rule.categoryId
-  }
-  return null
-}
+### `sync_jobs`
+```sql
+sync_jobs
+  id                    uuid  PK
+  connection_id         uuid  NOT NULL REFERENCES bank_connections(id) ON DELETE CASCADE
+  org_id                uuid  NOT NULL  -- denormalized for query perf
+  trigger               text  NOT NULL  -- 'webhook'|'manual'|'cron'
+  status                text  NOT NULL  -- 'pending'|'running'|'completed'|'failed'
+  started_at / completed_at  timestamp
+  transactions_found / imported / skipped  integer DEFAULT 0
+  error_message         text
+  created_at            timestamp NOT NULL DEFAULT NOW()
+  INDEX (connection_id, created_at DESC)
+  INDEX (org_id, status, created_at DESC)
 ```
 
-### Pattern 2: Recurring Template + On-Demand Generation
+### `assets` column addition
+Migration 00023 adds `coingecko_id text` to `assets`. CoinGecko uses full names (bitcoin, ethereum) not tickers — required for crypto price lookups.
 
-**What:** A `recurring_templates` table stores the definition (amount, description, category, account, frequency, next_due_date, end_date). Transactions are generated on-demand when the user visits the recurring page or via a scheduled process, not automatically in the background.
+---
 
-**When to use:** User explicitly triggers "Generate due transactions" or the page shows a banner "3 transactions due" with a one-click generate button.
+## New Netlify Crons
 
-**Trade-offs:** On-demand generation is simpler to implement and avoids background job infrastructure. The downside is transactions don't appear until the user takes action — acceptable for v1.1 since Supabase Edge Functions (cron) would be needed for fully automatic generation.
+| File | Schedule | Route | Purpose |
+|------|----------|-------|---------|
+| `netlify/functions/price-update.mts` | `0 19 * * 1-5` | `/api/prices/update-daily` | B3+crypto prices 1h after market close |
+| `netlify/functions/process-sync-queue.mts` | `*/15 * * * *` | `/api/open-finance/process-sync-queue` | Drain pending sync jobs |
 
-**Example:**
-```typescript
-// packages/core-finance/src/recurring.ts
+Both follow `cfo-daily.mts` exactly: call internal route with `Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}`.
 
-export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
+**Limits:** Max 30s execution. `process-sync-queue` processes LIMIT 3 per run — each job makes multiple Pluggy API calls (5-10s each); 10 jobs sequential would blow the 30s budget. Queue drains across runs. `*/15` is valid cron syntax but only `@hourly` is explicitly documented by Netlify — test in staging, fall back to `@hourly` if needed.
 
-export interface RecurringTemplate {
-  id: string
-  frequency: Frequency
-  nextDueDate: Date
-  endDate: Date | null
-  amountCents: number
-  description: string
-  categoryId: string | null
-  accountId: string
-}
+---
 
-export function getOverdueDates(
-  template: RecurringTemplate,
-  asOf: Date
-): Date[] {
-  const dates: Date[] = []
-  let cursor = new Date(template.nextDueDate)
-  while (cursor <= asOf && (!template.endDate || cursor <= template.endDate)) {
-    dates.push(new Date(cursor))
-    cursor = advanceByFrequency(cursor, template.frequency)
-  }
-  return dates
-}
+## New API Routes
+
+| Route | Auth | Caller |
+|-------|------|--------|
+| `POST /api/open-finance/connect-token` | User session | Client widget init |
+| `POST /api/webhooks/open-finance` | `X-Pluggy-Secret` header | Pluggy platform |
+| `POST /api/open-finance/process-sync-queue` | Service role key | Netlify cron |
+| `POST /api/prices/update-daily` | Service role key | Netlify cron |
+
+---
+
+## External API Specs
+
+**brapi.dev (B3 stocks, FIIs, ETFs):**
+- `GET https://brapi.dev/api/quote/{tickers}?token={TOKEN}` — comma-batched tickers
+- Free: 15k req/month, ~30min delay. Startup: 150k/month.
+- Response: `results[].regularMarketPrice` (decimal BRL) → `Math.round(price * 100)`
+- Production token required even on free plan (free without token: 4 tickers only)
+- Confidence: HIGH (verified brapi.dev/docs + brapi.dev/pricing)
+
+**CoinGecko (crypto):**
+- `GET https://api.coingecko.com/api/v3/simple/price?ids={coingecko_ids}&vs_currencies=brl`
+- Free Demo: 30 calls/min, 10k calls/month — sufficient for daily cron
+- Confidence: HIGH (verified CoinGecko support docs)
+
+**Pluggy (Open Finance aggregator):**
+- Covers 90% of Brazilian bank accounts, follows Open Finance Brasil regulated standard
+- `CLIENT_ID` + `CLIENT_SECRET` → API key (2h TTL), server-only
+- Server creates `connectToken` (30min TTL) for client-side widget
+- Webhook retry: up to 9 attempts (3 immediate, 3 after 1h, 3 after 2h). Must respond 2XX within 5s.
+- Transaction fields: `id` (UUID → externalId), `date` (ISO8601 UTC), `amount` (decimal → ×100), `type` (DEBIT/CREDIT), `status` (POSTED/PENDING — import POSTED only), `description`
+- Confidence: HIGH (verified docs.pluggy.ai)
+
+---
+
+## Data Flows
+
+### Price Update
+```
+[Cron 19:00 UTC weekdays] → POST /api/prices/update-daily
+  → SELECT DISTINCT ticker, asset_class, coingecko_id FROM assets
+  → brapi.dev (B3/FII/ETF batch) + CoinGecko (crypto by coingecko_id)
+  → UPSERT global_asset_prices (ticker, today, cents)
+  → recalculate assetPositionSnapshots for affected orgs
 ```
 
-### Pattern 3: Import-Time Auto-Categorization
-
-**What:** When `importSelectedTransactions` or `importTransactions` is called, the server action fetches the org's category rules once, then applies `matchCategory()` to each transaction before insert.
-
-**When to use:** Every import. Zero user interaction required — improves UX by pre-filling categories that the user would have to assign manually.
-
-**Trade-offs:** Requires one extra DB query per import (fetch rules). Since import is a rare, user-triggered action this is acceptable. Rules query should use `getDb()` directly (not React `cache()`) since it's inside a server action.
-
-**Example (modification to existing import-actions.ts):**
-```typescript
-// Inside importSelectedTransactions — MODIFIED section
-const rules = await db.select().from(categoryRules)
-  .where(eq(categoryRules.orgId, orgId))
-  .orderBy(categoryRules.priority)
-
-const rows = selected.map((tx) => ({
-  ...existingFields,
-  categoryId: matchCategory(tx.description, rules) ?? null,
-}))
+### Bank Connection OAuth
+```
+[User: Connect Bank] → POST /api/open-finance/connect-token
+  → server: CLIENT_SECRET → Pluggy API key → connectToken
+  → <PluggyConnect widget> → bank OAuth → onSuccess(itemId)
+  → Server Action: saveConnection(itemId, accountId)
+  → INSERT bank_connections
+  → [Pluggy fires item/created webhook]
 ```
 
-## Data Flow
-
-### Auto-Categorization on Import
-
+### Open Finance Sync (Webhook-Triggered)
 ```
-User uploads file
-    ↓
-previewImport (existing) — no change
-    ↓
-importSelectedTransactions (MODIFIED)
-    ↓
-fetch org's category_rules (NEW query)
-    ↓
-matchCategory(description, rules) → categoryId | null   [pure fn]
-    ↓
-insert transactions with categoryId pre-filled
-    ↓
-revalidatePath('/transactions')
-```
+[Pluggy webhook] → POST /api/webhooks/open-finance
+  verify X-Pluggy-Secret → INSERT sync_jobs {status:'pending'} → return 200
 
-### Recurring Template Generation
-
-```
-User visits /transactions/recurring
-    ↓
-RSC: getRecurringTemplates(orgId) — fetch templates
-    ↓
-RSC: compute overdue count via getOverdueDates() [pure fn]
-    ↓
-Render: show "N transactions due" banner
-    ↓
-User clicks "Generate"
-    ↓
-generateDueTransactions() server action
-    ↓
-For each overdue template:
-  - createTransaction() (reuse existing action)
-  - update template.nextDueDate
-    ↓
-revalidatePath('/transactions')
-revalidatePath('/transactions/recurring')
+[Cron, up to 3 jobs per run] → POST /api/open-finance/process-sync-queue
+  SELECT sync_jobs WHERE status='pending' LIMIT 3
+  for each job:
+    GET Pluggy /items/{id} → resolve pluggy_account_id
+    GET Pluggy /transactions (paginated, POSTED only, since last_sync_at)
+    normalize: ISO date → Date, decimal → cents, DEBIT → negative, id → externalId
+    reconcileTransactions() [pure fn] → 'new'|'duplicate'|'possible_match'
+    matchCategory(description, rules) [pure fn]
+    INSERT transactions ON CONFLICT DO NOTHING
+    UPDATE account balance atomically: sql`balance_cents + ${delta}`
+    invalidateTag(transactionsTag, accountsTag, recentTransactionsTag)
+    UPDATE bank_connections SET last_sync_at = NOW()
+    UPDATE sync_jobs SET status='completed', counts
 ```
 
-### Rule Management
+---
 
-```
-User opens /categories (existing page, new tab)
-    ↓
-RSC: getCategories() + getCategoryRules() [new query]
-    ↓
-CategoryRuleList component (new)
-    ↓
-User creates/edits/deletes rule
-    ↓
-createRule / updateRule / deleteRule server actions (new)
-    ↓
-revalidatePath('/categories')
-```
+## Modified Files
 
-### Key Data Flows
+| File | Change |
+|------|--------|
+| `packages/core-finance/src/import/reconcile.ts` | NEW — extract `reconcileTransactions()` from `import-actions.ts` lines 128-183 |
+| `packages/core-finance/src/index.ts` | ADD export for reconcile.ts |
+| `packages/db/src/schema/investments.ts` | ADD `globalAssetPrices` table |
+| `packages/db/src/schema/open-finance.ts` | NEW — `bankConnections`, `syncJobs` tables |
+| `packages/db/src/index.ts` | ADD exports for new tables |
+| `apps/web/lib/finance/import-actions.ts` | MODIFY to call extracted `reconcileTransactions()` |
+| `apps/web/lib/investments/queries.ts` | MODIFY to join `global_asset_prices` |
 
-1. **Rule application is always synchronous:** `matchCategory()` is called in-process within the server action. No async. No queue.
-2. **Recurring generation reuses `createTransaction()`:** The existing atomic balance update + transaction insert is reused by wrapping it inside `generateDueTransactions`. No duplicated balance logic.
-3. **Template `nextDueDate` advances after generation:** After inserting transactions, the template's `nextDueDate` is updated to `advanceByFrequency(latestGeneratedDate, frequency)`. This is the only state that persists between generation runs.
-
-## Scaling Considerations
-
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 0-1k users | On-demand generation is fine. Rules evaluated in-process. |
-| 1k-100k users | Add `pg_cron` or Supabase Edge Function cron for background recurring generation. Add index on `category_rules(org_id, priority)`. |
-| 100k+ users | Cache rules in Redis/Upstash per org (TTL ~5min). Background job queue for bulk re-categorization. |
-
-### Scaling Priorities
-
-1. **First bottleneck:** Rule matching on large imports (500+ transactions). Mitigate: fetch rules once per import, not per transaction. Already covered by pattern above.
-2. **Second bottleneck:** Recurring generation for orgs with 100+ templates. Mitigate: batch insert instead of loop. Address in v2 if needed.
-
-## Anti-Patterns
-
-### Anti-Pattern 1: Auto-apply categorization without user override
-
-**What people do:** Silently overwrite a user-assigned category when running bulk re-categorize, or force a category during import that the user cannot override.
-
-**Why it's wrong:** Users who manually set a category will lose their work. Destroys trust in the system.
-
-**Do this instead:** During import, auto-fill only if `categoryId IS NULL`. During bulk re-categorize, add a "skip already categorized" checkbox defaulted to ON.
-
-### Anti-Pattern 2: Background auto-generation of recurring transactions
-
-**What people do:** Use a cron job to insert recurring transactions automatically without user confirmation.
-
-**Why it's wrong:** Transactions may be inserted for wrong amounts or on wrong accounts. User finds surprise transactions they didn't expect. Hard to debug.
-
-**Do this instead:** Show a "N transactions due" notice and require user confirmation to generate. Keep generation fully user-triggered for v1.1.
-
-### Anti-Pattern 3: Storing regex patterns from user input without sanitization
-
-**What people do:** Accept arbitrary regex from users, run `new RegExp(input)` directly in the matching loop.
-
-**Why it's wrong:** ReDoS (regex denial of service) — a malicious or malformed pattern can hang the Node.js process.
-
-**Do this instead:** For v1.1, support substring matching only. If regex is needed, validate with a timeout wrapper or a safe-regex library before saving the rule.
-
-### Anti-Pattern 4: Implementing a separate "apply rules" service layer
-
-**What people do:** Add a `CategorizationService` class that wraps the DB query and pure function call.
-
-**Why it's wrong:** The existing codebase uses the pure function + thin DB wrapper pattern deliberately. Adding service layers for two small features breaks the established architecture with no benefit.
-
-**Do this instead:** Follow the existing pattern: pure function in `core-finance`, DB call inline in the server action.
-
-## Integration Points
-
-### Existing Code Modified
-
-| File | Change | Why |
-|------|--------|-----|
-| `packages/db/src/schema/finance.ts` | Add `categoryRules` and `recurringTemplates` table definitions + exported types | New tables need Drizzle schema |
-| `packages/db/src/index.ts` | Auto-exports new tables via `export * from './schema/finance'` | No change needed (wildcard export already in place) |
-| `apps/web/lib/finance/queries.ts` | Add `getCategoryRules()` and `getRecurringTemplates()` | New query functions |
-| `apps/web/lib/finance/import-actions.ts` | Apply rules inside `importTransactions` and `importSelectedTransactions` | Auto-categorize on import |
-| `packages/core-finance/src/index.ts` | Add `export * from './categorization'` and `export * from './recurring'` | Expose new pure functions |
-
-### New Code Added
-
+### New Lib Modules
 | File | Purpose |
 |------|---------|
-| `packages/core-finance/src/categorization.ts` | `matchCategory()`, `CategoryRule` type |
-| `packages/core-finance/src/recurring.ts` | `getOverdueDates()`, `advanceByFrequency()`, `RecurringTemplate` type, `Frequency` enum |
-| `apps/web/lib/finance/categorization-actions.ts` | `createRule`, `updateRule`, `deleteRule`, `bulkRecategorize` |
-| `apps/web/lib/finance/recurring-actions.ts` | `createRecurringTemplate`, `updateRecurringTemplate`, `deleteRecurringTemplate`, `generateDueTransactions` |
-| `apps/web/components/finance/category-rule-list.tsx` | Rules table UI |
-| `apps/web/components/finance/category-rule-form.tsx` | Rule creation/edit form |
-| `apps/web/components/finance/recurring-template-list.tsx` | Templates table with overdue badge |
-| `apps/web/components/finance/recurring-template-form.tsx` | Template form with frequency selector |
-| `apps/web/app/(app)/transactions/recurring/page.tsx` | Recurring management page (RSC) |
-| `supabase/migrations/00006_automation.sql` | DDL for new tables + RLS policies |
+| `lib/open-finance/pluggy-client.ts` | Server-only Pluggy API wrapper (API key refresh, typed) |
+| `lib/open-finance/connection-actions.ts` | Server actions: saveConnection, disconnect, triggerManualSync |
+| `lib/open-finance/sync-pipeline.ts` | `runSyncJob(jobId)` — full sync pipeline |
+| `lib/prices/brapi-client.ts` | brapi.dev wrapper (batched) |
+| `lib/prices/coingecko-client.ts` | CoinGecko wrapper |
+| `lib/prices/update-daily.ts` | Orchestrates fetch → normalize → upsert |
 
-### Internal Boundaries
+### New UI
+| Route | Purpose |
+|-------|---------|
+| `app/(app)/settings/connected-accounts/page.tsx` | Connect/disconnect UI + sync job history (shows possible_match counts per job for user review) |
 
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| `core-finance` ↔ `lib/finance/` | Direct import of pure functions | Same as existing pattern (computeSnapshot, parseOFXFile, etc.) |
-| `lib/finance/` ↔ `@floow/db` | Direct Drizzle queries via `getDb()` | Same as existing pattern |
-| `categorization-actions.ts` ↔ `actions.ts` | No direct coupling — both call `getOrgId()` independently | Rules CRUD is fully separate from transaction CRUD |
-| `recurring-actions.ts` ↔ `actions.ts` | `generateDueTransactions` calls the same DB insert pattern as `createTransaction` but inlined (not calling the server action directly — server actions are not composable) | Atomic balance update must be duplicated or extracted to a shared helper |
+---
 
-### RLS Considerations
+## Migrations
 
-Both new tables follow the established RLS pattern exactly:
+| Migration | Contents |
+|-----------|---------|
+| `00021_open_finance.sql` | `bank_connections`, `sync_jobs` + RLS policies |
+| `00022_global_asset_prices.sql` | `global_asset_prices` (no RLS) |
+| `00023_assets_coingecko_id.sql` | `ALTER TABLE assets ADD COLUMN coingecko_id text` |
 
-```sql
--- category_rules: members can select/insert/update/delete their org's rules
-CREATE POLICY "category_rules: members can select"
-  ON public.category_rules FOR SELECT TO authenticated
-  USING (org_id IN (SELECT public.get_user_org_ids()));
+---
+
+## Reconciliation Pure Function
+
+The matching logic in `import-actions.ts` lines 128-183 becomes:
+
+```typescript
+// packages/core-finance/src/import/reconcile.ts
+export interface ReconcileResult {
+  tx: NormalizedTransaction
+  status: 'new' | 'duplicate' | 'possible_match'
+  matchedTransactionId?: string
+}
+export function reconcileTransactions(
+  parsed: NormalizedTransaction[],
+  existing: ExistingTransaction[]  // { id, date, amountCents, externalId }
+): ReconcileResult[]
 ```
 
-The `recurring_templates` table similarly: all rows scoped by `org_id`, same `get_user_org_ids()` function used by all other tables.
+Extraction only — algorithm unchanged. Existing server action tests remain the validation gate.
+
+---
 
 ## Build Order
 
-This order respects dependencies — each step can be built and tested independently before the next:
+**Phase 1 — Price Updates** (independent, immediate value):
+global_asset_prices table → coingecko_id migration → brapi/coingecko clients → `/api/prices/update-daily` → `price-update.mts` → investments queries read from global table
 
-1. **DB schema + migration** (`finance.ts` additions + `00006_automation.sql`) — foundation everything else depends on
-2. **Pure functions** (`categorization.ts` + `recurring.ts` + tests) — no external dependencies, TDD first
-3. **Query functions** (`getCategoryRules`, `getRecurringTemplates` in `queries.ts`) — depend on step 1
-4. **Categorization server actions** (`categorization-actions.ts`) — depend on steps 1-3
-5. **Import integration** (modify `import-actions.ts` to apply rules) — depends on step 4
-6. **Categorization UI** (`category-rule-list`, `category-rule-form`, categories page update) — depends on step 4
-7. **Recurring server actions** (`recurring-actions.ts`) — depends on steps 1-3
-8. **Recurring UI** (`recurring-template-*` components + new page) — depends on step 7
+**Phase 2 — Bank Connection OAuth** (independent of sync):
+bank_connections table → pluggy-client → connect-token route → connection-actions → connected-accounts UI
 
-Steps 4-6 and steps 7-8 are independent streams once the DB and pure functions exist (steps 1-3). They can be built in parallel.
+**Phase 3 — Webhook + Sync Pipeline** (depends on Phase 2):
+sync_jobs table → extract reconcileTransactions() → webhook route → sync-pipeline → process-sync-queue route → cron
+
+**Phase 4 — Auto-Categorization** (free — already handled in Phase 3 via matchCategory()):
+Optional: add sync history table to connected-accounts page showing possible_match counts
+
+Phase 1 is fully independent and can be built in parallel with Phases 2-3.
+
+---
+
+## Security
+
+| Concern | Mitigation |
+|---------|-----------|
+| Pluggy CLIENT_SECRET | Server-only env var, never logged, never sent to client |
+| Webhook authenticity | `PLUGGY_WEBHOOK_SECRET` verified in `X-Pluggy-Secret` header before any processing |
+| Background job auth | Service role key in Authorization header |
+| RLS bypass | Use service role Supabase client for all background jobs (no user session) |
+| Consent expiry | `consent_expires_at` on bank_connections; UI prompts re-consent |
+| Duplicate delivery | sync_jobs idempotency + ON CONFLICT DO NOTHING on transactions |
+
+---
+
+## Open Questions
+
+1. **`*/15` cron on Netlify:** Test in staging — only `@hourly` is documented minimum. Fall back to `@hourly` if needed. (MEDIUM confidence)
+2. **Pluggy production pricing:** Not publicly listed. Verify before production launch. (LOW confidence)
+3. **Pluggy `consentExpiresAt`:** Does Pluggy surface this field on the item object, or must app compute from connection date? (MEDIUM confidence)
+4. **coingecko_id population:** Migration adds the column; a seed mapping for top 20 coins or a user-fill UI is needed. (HIGH confidence — required for crypto price updates)
+5. **brapi.dev token:** Register before shipping — free tier without token only covers 4 tickers. (HIGH confidence)
+
+---
 
 ## Sources
 
-- Direct codebase analysis: `packages/db/src/schema/finance.ts`, `apps/web/lib/finance/actions.ts`, `apps/web/lib/finance/import-actions.ts`, `apps/web/lib/finance/queries.ts`
-- Established patterns observed: pure function + thin DB wrapper, server actions over API routes, `getOrgId()` + `getDb()` in every action, `revalidatePath` for cache invalidation
-- RLS pattern from `supabase/migrations/00002_finance.sql`
-- Project constraints from `.planning/PROJECT.md`
-
----
-*Architecture research for: Floow v1.1 — automatic categorization + recurring transactions*
-*Researched: 2026-03-18*
+- Pluggy: https://docs.pluggy.ai/docs/webhooks, /docs/transactions, /docs/authentication, /docs/setup-two-way-sync-with-webhooks
+- brapi.dev: https://brapi.dev/docs, https://brapi.dev/pricing
+- CoinGecko: https://support.coingecko.com/hc/en-us/articles/4538771776153
+- Netlify: https://docs.netlify.com/build/functions/scheduled-functions/
+- Codebase: `netlify/functions/cfo-daily.mts`, `/api/webhooks/stripe/route.ts`, `lib/finance/import-actions.ts`, `packages/db/src/schema/`

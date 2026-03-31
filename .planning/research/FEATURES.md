@@ -1,202 +1,265 @@
-# Feature Research
+# Feature Landscape: Open Finance & Auto-Pricing
 
-**Domain:** Automatic transaction categorization + recurring transactions in a personal finance SaaS
-**Researched:** 2026-03-18
-**Confidence:** HIGH (rule-based categorization), MEDIUM (recurring transaction UX edge cases)
+**Domain:** Open Finance bank connections, automatic asset price updates, auto-reconciliation, auto-categorization of imported transactions in a BR personal finance SaaS
+**Researched:** 2026-03-29
+**Confidence:** HIGH (BR Open Finance table stakes based on Pluggy/Belvo docs + BR competitor evidence), MEDIUM (reconciliation patterns, scheduling), LOW (ML-based categorization for v2+)
 
 ---
 
 ## Context: What Already Exists
 
-This is a subsequent milestone on a shipped v1.0 app. The following are already in production and must not be rebuilt:
+This is Floow v2.0 — a subsequent milestone on a shipped v1.0 app. The following foundations must NOT be rebuilt:
 
-- `categories` table with `orgId` (nullable = system), `name`, `type`, `color`, `icon`, `isSystem`
-- `transactions.categoryId` FK (nullable, `onDelete: set null`)
-- Full CRUD for categories via `createCategory`, `updateCategory`, `deleteCategory` server actions
-- Full CRUD for transactions including `description` field used for matching
-- OFX/CSV import pipeline (`importTransactions`, `importSelectedTransactions`) — no category assignment during import yet
-- Filters, pagination, search by `ilike(description)` on transactions list
+- `transactions` table with `externalId`, `importedAt`, `isAutoCategorized`, `isIgnored` fields
+- `uq_transactions_external_account` unique index on `(externalId, accountId)` — deduplication via ON CONFLICT
+- `categorization_rules` with `matchType` (contains/exact), `matchValue`, `categoryId`, `priority`, `isEnabled`
+- `matchCategory()` pure function in `core-finance/src/categorization.ts`
+- OFX/CSV import pipeline with existing reconciliation and preview flow
+- `assets` table with `ticker`, `assetClass` (br_equity, fii, etf, crypto, fixed_income, international)
+- `asset-valuation.ts` — `estimateAssetValue()` for rate-based fixed income estimation
+- `portfolioEvents` table — buy/sell/dividend/interest/split/amortization events
 
-The new milestone adds automation on top of this existing foundation.
+The new milestone wires these foundations to live external data sources.
 
 ---
 
 ## Feature Landscape
 
-### Table Stakes (Users Expect These)
+### Table Stakes — Open Finance Bank Connection
 
-Features users assume exist in any personal finance app that claims "automatic categorization" or "recurring transactions." Missing these = product feels incomplete or broken.
+Features BR users expect when they hear "connect your bank." Missing any of these makes the feature feel incomplete or untrustworthy.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Rule creation from existing transaction | Users expect "categorize all transactions like this one" as a one-click workflow from the transaction list | LOW | Most apps offer this; creates rule pre-populated from current description |
-| Description contains / exact match | Core match criterion — transaction descriptions from OFX/CSV are raw strings | LOW | "SUPERMERCADO PAO DE ACUCAR" contains "PAO DE ACUCAR" |
-| Apply rule to new transactions (prospective) | Rules must fire on import and on manual creation | MEDIUM | Hook into `importSelectedTransactions` and `createTransaction` |
-| Rule priority ordering | When two rules match the same transaction, the most specific wins | MEDIUM | Sequential priority list, first match wins (PocketSmith/Monarch pattern) |
-| Recurring transaction template | User defines account, category, amount, description, frequency — system generates future transactions | MEDIUM | Template + next_due_date pattern |
-| Frequency options: weekly, monthly, yearly | Standard set covering rent, subscriptions, utilities, salaries | LOW | Monthly is by far the most common; daily is rarely needed |
-| Manual "generate now" action | Users need to trigger generation on demand, not only on schedule | LOW | Equivalent to YNAB's "Enter Now" |
-| List of upcoming recurring transactions | Dashboard or dedicated view showing what's due in the next N days | MEDIUM | Calendar or list view; needed for cash flow planning |
-| Pause / stop recurring | User must be able to halt a recurring series without deleting all past transactions | LOW | `isActive` flag on template; past transactions are real rows |
+| Bank connection via hosted widget | Users expect a native bank-side login flow, not entering credentials in a third-party app — BCB-regulated consent flow is the only compliant path | MEDIUM | Pluggy Connect widget or Belvo hosted widget; iframe/redirect into bank's own consent UI |
+| Multi-bank support (Nubank, Itaú, Bradesco, Santander, BB, XP, etc.) | Users have accounts at multiple institutions; single-bank tools feel incomplete | MEDIUM | Aggregators (Pluggy 70+ institutions, Belvo) handle this; app just selects which aggregator connector |
+| Consent grant and confirmation UI | BCB regulation mandates user-visible consent scoping (data types, duration) — cannot be hidden | MEDIUM | Aggregator widget handles regulatory flow; app must display what data types were consented and expiry |
+| Consent status dashboard (active / expired / revoked) | Users need to see which bank connections are live and manage them; Mobills and Organizze both show this | MEDIUM | Per-connection status badge: active, expired, error, revoked; with "reconnect" CTA |
+| Revoke consent from app | BCB mandates users can revoke at any time; app must provide this pathway | LOW | Call aggregator DELETE /item or mark as revoked; does not delete existing transactions |
+| Consent renewal when expired | Open Finance BR consents last up to 365 days (BCB limit); some institutions default to 12 months; Inter PJ defaults to 1 year — users must re-consent periodically | MEDIUM | Detect `consentExpiresAt` approaching; show renewal prompt; PATCH /item to restart consent flow |
+| Daily auto-sync of transactions | Users expect accounts to update automatically without re-importing OFX files — Mobills charges extra for this; Organizze includes it | HIGH | Requires scheduled background job (Supabase pg_cron → Edge Function); Pluggy auto-syncs every 8–24h depending on plan |
+| Connection health / error alerts | Users need to know when a sync failed (bank changed password requirements, consent expired, API error) | MEDIUM | Error state on connection card; email/in-app notification on repeated failures |
+| Last synced timestamp per account | Users need to know when data was last pulled — prevents "why is this missing?" support requests | LOW | Store `lastSyncedAt` on connection record; display on account card |
+| Import preview before confirming synced transactions | Already established UX pattern from OFX import — users expect to review before committing | MEDIUM | Reuse existing reconciliation preview UI; apply to Open Finance fetched transactions |
 
-### Differentiators (Competitive Advantage)
+### Table Stakes — Auto-Categorization on Import
 
-Features that go beyond the baseline. Given Floow's positioning as a tool for experienced investors who care about data quality:
+Features users expect when new transactions arrive via Open Finance.
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Apply existing category rules to synced transactions | Users already configured rules in v1.1; they expect them to fire on all transactions, not just manual imports | LOW | `matchCategory()` already exists; call it in the sync pipeline with active rules |
+| "Uncategorized" filter for review | After auto-sync, users need to find transactions rules didn't match and categorize manually | LOW | Filter already exists in transaction list; needs to surface prominently after a sync |
+| Create rule from transaction shortcut | Users encountering an unmatched Open Finance transaction expect one-click rule creation — already exists in v1.1 | LOW | ALREADY BUILT; verify it still works on Open-Finance-sourced transactions |
+| Auto-categorize flag on transaction | Transparency: user needs to see if a category was auto-assigned vs manually set — `isAutoCategorized` column already exists | LOW | ALREADY EXISTS in schema; ensure flag is set correctly in sync pipeline |
+
+### Table Stakes — Asset Price Updates (B3 + Crypto)
+
+Features experienced investors expect from an investment tracker.
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Daily close price for B3 equities (ações, FIIs, ETFs, BDRs) | PnL and portfolio value require a current price; manual entry is not acceptable for frequent traders | MEDIUM | brapi.dev covers B3, FIIs, ETFs, BDRs — 400+ tickers; free tier has 30-min delay; Startup plan (R$49.99/mo) gives 15-min delay |
+| Daily price for cryptocurrencies | Crypto users check daily; stale prices undermine trust | MEDIUM | CoinGecko Demo API — 30 calls/min, 10k calls/month free; prices in BRL available |
+| CDI / SELIC rate for fixed income valuation | Fixed income positions (CDB, LCI, LCA, Tesouro) are priced relative to CDI/SELIC; users expect displayed value to reflect current rate | MEDIUM | BCB dados abertos API — free, no auth required; series code 12 (CDI), 11 (SELIC); `estimateAssetValue()` already exists and can consume these rates |
+| "Last updated" timestamp on prices | Users need to know if prices are real-time, delayed, or stale — especially during volatile markets | LOW | Store `priceUpdatedAt` on asset or asset_prices table; display in portfolio view |
+| Manual price override | When API doesn't cover an asset (e.g., private equity, niche FI), user must be able to enter price manually | LOW | ALREADY PARTIALLY EXISTS via `current_value_cents` on assets; needs explicit "manual price" flag |
+
+### Table Stakes — Reconciliation (Open Finance vs Existing)
+
+Features users expect to avoid double-counting when they have both manual and synced transaction sources.
+
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Duplicate detection between synced and existing transactions | When a user has both an OFX import AND Open Finance sync for the same account, they expect no duplicates | HIGH | `externalId` unique index provides exact dedup for subsequent Open Finance syncs; cross-source (OFX vs OpenFinance) requires fuzzy matching on (date, amount, description) |
+| Match suggestion for near-duplicates | Users manually entered some transactions before connecting their bank; they expect the app to detect and merge these | HIGH | Fuzzy match: exact amount + date within 2 days + description similarity; show match candidate with accept/reject UI |
+| "Already exists" indication in import preview | When reviewing synced transactions, users need to see which ones already exist as manual entries | MEDIUM | Extend existing import reconciliation preview to show `MATCHED` / `DUPLICATE` / `NEW` states |
+| Skip matched transactions on confirm | When user accepts a match, synced transaction is discarded; existing manual transaction gets `externalId` linked | MEDIUM | Updates existing transaction row rather than inserting new one |
+
+---
+
+## Differentiators — Competitive Advantage
+
+Features that go beyond baseline BR PFM expectations. Given Floow's positioning for experienced investors:
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Apply rule retroactively to past transactions | Re-categorizes matching historical transactions in bulk; saves hours of manual cleanup after import | MEDIUM | Opt-in with preview of how many transactions will be affected — critical UX guard |
-| Rule created automatically from categorization action | When user manually sets a category on a transaction, offer "always categorize X as Y" — Quicken/Moneydance pattern | LOW | Reduces rule management friction to near-zero |
-| Import-time rule application | Rules run during `importSelectedTransactions` so imported transactions arrive already categorized | MEDIUM | Requires fetching active rules in import server action and matching descriptions before insert |
-| Amount range condition on rules | Add amount filtering (e.g., "expenses > R$500") to avoid false matches on generic descriptions | MEDIUM | Monarch Money supports this; important for descriptions like "TED" or "PIX" |
-| Recurring transaction linked to rule | When a recurring template is created, auto-generate a matching categorization rule | LOW | Convenience, not essential |
-| Next-occurrence preview on cash flow | Show projected recurring transactions on the cash flow dashboard in a distinct visual state ("expected") | HIGH | Depends on recurring template table and dashboard integration |
+| Investment event detection from bank transactions | When Open Finance syncs a dividend payment from a brokerage account, auto-match it to the corresponding `portfolioEvent` — eliminates double-counting in cash flow | HIGH | Match on (date ± 3 days, amount ±1%, account) between synced transactions and dividend/interest portfolio events; backlog item exists |
+| Historical price backfill on first connect | When user connects brapi and they have assets with no price history, backfill last 12 months of EOD prices | HIGH | brapi Pro gives 10+ years; Startup gives 1 year; useful for accurate historical PnL chart |
+| Rule learning from user corrections | When user changes a category on a synced transaction, offer "always apply this rule" — reduces future uncategorized count over time | LOW | Already built as "Create rule from transaction" in v1.1; just needs to surface more prominently after sync |
+| Price staleness alerts | When prices are older than 2 trading days, surface a warning on the portfolio dashboard | LOW | Compare `priceUpdatedAt` to business-day-adjusted current date; simple banner |
+| Per-asset price update source tracking | Show which source (brapi, CoinGecko, BCB, manual) provided each price — builds trust and aids debugging | LOW | `priceSource` enum column on prices table |
+| Connection quality score | Show each bank connection's sync reliability (% of scheduled syncs that succeeded last 30 days) — differentiates from apps that silently fail | MEDIUM | Track sync attempt + success in `sync_logs` table; compute score in UI |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+---
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| AI/ML-based categorization | "Smart" auto-categorization sounds impressive | Requires training data per org, model serving infrastructure, opaque results that users can't debug. Floow has no LLM budget or ML infrastructure in v1.1. Rule-based systems achieve 80-90% accuracy for regular users. | Rule-based keyword matching — transparent, deterministic, auditable |
-| Automatic subscription detection from patterns | Monarch-style detection without user input | Needs statistical analysis of transaction history, false positives frustrate users, requires significant transaction volume. Wrong detections undermine trust in a financial tool. | User explicitly marks a transaction as recurring; optionally surface suggestions |
-| Full RRULE/iCalendar recurrence (e.g., "every 2nd Tuesday of month") | Covers edge cases like variable paydays | Extreme implementation complexity, confusing UI, covers <1% of use cases. Rent, salary, subscriptions are always fixed-day-of-month or weekly. | Fixed set: daily, weekly, biweekly, monthly, quarterly, yearly — covers 99% of cases |
-| Retroactive application without preview | "Apply to all past transactions automatically" on rule save | Silent bulk mutation is a critical UX failure for financial data — users cannot undo easily, may regret mass re-categorization | Show count preview + confirmation dialog before applying retroactively |
-| Split transactions during auto-categorization | Allocate one transaction to multiple categories automatically | Adds a new data model dimension (transaction splits) that doesn't exist yet and complicates balance calculations | Out of scope for v1.1; rules apply one category per transaction |
+## Anti-Features — Explicitly Avoid
+
+| Anti-Feature | Why Requested | Why Avoid | Alternative |
+|--------------|--------------|-----------|-------------|
+| Direct bank credential scraping | Cheaper than Open Finance aggregator, no consent flow needed | Illegal under BCB LGPD/PCI-DSS; aggregators are the only compliant path for BR; credential storage creates catastrophic liability | Use Pluggy or Belvo exclusively |
+| Direct BCB Open Finance certification | Full regulatory compliance without aggregator fees | Requires being a registered "Iniciador de Serviços de Pagamento" — BCB application process, legal team, ongoing compliance audits; completely out of scope for a startup SaaS | Aggregator as regulated intermediary; aggregator holds the certification |
+| Real-time streaming prices (sub-1-minute) | "I want live prices during market hours" | B3 real-time requires an exchange license (not available via brapi free/affordable tiers); latency <5min adds no value for daily portfolio management | 5–30 min delayed prices from brapi — sufficient for daily review |
+| Full ML/AI auto-categorization pipeline | "Smart" categorization without user-defined rules | Requires per-org training data (cold start problem), model serving infra, opaque results. Rule-based achieves 80-90% accuracy for regular users with zero infra cost. | Extend existing `matchCategory()` rule system; add NLP fuzzy matching only if rule accuracy drops below acceptable |
+| Open Finance for investment sync (phase 3 of BCB rollout) | Auto-sync investment portfolio from XP/BTG via Open Finance | BCB Phase 4 investment data sharing is available but coverage is inconsistent; brokerages have irregular compliance; high implementation complexity for low reliability | brapi for price data; user manually reconciles portfolio events; Kinvo pattern |
+| Automatic split detection of bank transactions | "Grocery store trip = food + household items" | Requires LLM or trained merchant taxonomy; split transactions add a new data model dimension (not in schema); maintenance burden is high | Single category per transaction; user splits manually if needed |
+| PIX payment initiation | "Pay directly from Floow" | Payment initiation is a separate regulated service; Pluggy has this as a premium feature but it's a different product scope | Out of scope; this is a personal finance tracker, not a payments app |
 
 ---
 
 ## Feature Dependencies
 
 ```
-[Categorization Rules]
-    └──requires──> [categories table + CRUD]      ✓ ALREADY EXISTS
-    └──requires──> [transactions.description]      ✓ ALREADY EXISTS
-    └──enhances──> [Import pipeline]               hooks into importSelectedTransactions
-    └──enhances──> [Manual transaction creation]   hooks into createTransaction
+[Open Finance Bank Connection]
+    └──requires──> [Pluggy or Belvo aggregator account + API keys]    NEW external dependency
+    └──requires──> [bank_connections table]                           NEW schema
+    └──requires──> [Supabase pg_cron + Edge Function for daily sync]  NEW infrastructure
+    └──builds-on──> [accounts table]                                  ✓ ALREADY EXISTS
+    └──builds-on──> [import preview reconciliation UI]                ✓ ALREADY EXISTS
 
-[Recurring Transactions]
-    └──requires──> [accounts table]                ✓ ALREADY EXISTS
-    └──requires──> [categories table]              ✓ ALREADY EXISTS
-    └──requires──> [createTransaction server action] reuse for generation
-    └──enhances──> [Cash flow dashboard]           projected transactions view
+[Auto-Sync Transaction Pipeline]
+    └──requires──> [Open Finance Bank Connection]                     above
+    └──requires──> [sync_logs table for health tracking]              NEW schema
+    └──builds-on──> [transactions.externalId + uq index]             ✓ ALREADY EXISTS
+    └──builds-on──> [importSelectedTransactions action]               ✓ ALREADY EXISTS (reuse or adapt)
 
-[Retroactive Rule Application]
-    └──requires──> [Categorization Rules]          rules must exist first
-    └──requires──> [transactions table with description] ✓ ALREADY EXISTS
-    └──conflicts──> [Retroactive without preview]  must show impact before applying
+[Auto-Categorization on Sync]
+    └──requires──> [Auto-Sync Transaction Pipeline]                   above
+    └──builds-on──> [matchCategory() + CategoryRule]                 ✓ ALREADY EXISTS
+    └──builds-on──> [transactions.isAutoCategorized]                 ✓ ALREADY EXISTS
 
-[Import-time Rule Application]
-    └──requires──> [Categorization Rules]          rules must exist first
-    └──requires──> [importSelectedTransactions action] inject rule lookup here
+[Reconciliation / Duplicate Detection]
+    └──requires──> [Auto-Sync Transaction Pipeline]                   above
+    └──builds-on──> [uq_transactions_external_account unique index]  ✓ ALREADY EXISTS (exact dedup)
+    └──requires──> [fuzzy match function (date+amount+desc)]          NEW pure function in core-finance
+    └──builds-on──> [import reconciliation preview UI]               ✓ ALREADY EXISTS
+
+[Asset Price Updates — B3 / FIIs / ETFs]
+    └──requires──> [brapi.dev API account + key]                     NEW external dependency
+    └──requires──> [asset_prices table or priceUpdatedAt on assets]  NEW schema (or extend existing)
+    └──requires──> [Supabase pg_cron → Edge Function daily job]      NEW infrastructure (shared with sync)
+    └──builds-on──> [assets table with ticker + assetClass]          ✓ ALREADY EXISTS
+    └──builds-on──> [portfolio PnL computation (uses price input)]   ✓ ALREADY EXISTS
+
+[Asset Price Updates — Crypto]
+    └──requires──> [CoinGecko Demo API key (free)]                   NEW external dependency
+    └──builds-on──> [Asset Price Updates infrastructure]             above
+    └──builds-on──> [assets.assetClass = 'crypto']                  ✓ ALREADY EXISTS
+
+[CDI / SELIC for Fixed Income]
+    └──requires──> [BCB dados abertos API (free, no auth)]           NEW external dependency (no key needed)
+    └──builds-on──> [estimateAssetValue() in asset-valuation.ts]     ✓ ALREADY EXISTS
+    └──builds-on──> [assets.assetClass = 'fixed_income']            ✓ ALREADY EXISTS
 ```
 
-### Dependency Notes
+### Critical Infrastructure Dependency
 
-- **Rules require categories to exist:** Categories are already live. Rules reference `categories.id` as their output action. No new dependency to satisfy.
-- **Recurring templates require createTransaction:** Generated recurring transactions should reuse the existing `createTransaction` logic (balance update, org ownership) — do not duplicate it.
-- **Retroactive application conflicts with silent mutation:** The retroactive feature is a differentiator only if it has a preview guard. Without it, it becomes the most dangerous anti-feature.
-- **Import-time application depends on rules:** Must load org's active rules inside `importSelectedTransactions` before inserting rows.
+All "automatic" features in v2.0 require a **scheduled background job** mechanism. The project runs on Supabase (PostgreSQL) + Netlify (web). Options:
 
----
+- **Supabase pg_cron** (HIGH confidence, confirmed available) — runs SQL or calls Edge Functions on cron schedule directly in Postgres; monitored via `cron.job_run_details` table; simplest path for this stack
+- **Supabase Cron Module** — hosted UI wrapper over pg_cron; GA as of late 2024; recommended
 
-## MVP Definition
-
-### Launch With (v1.1 — this milestone)
-
-These features constitute the minimum that makes both "automatic categorization" and "recurring transactions" feel real and useful:
-
-- [ ] `categorization_rules` table: `orgId`, `name`, `matchType` (contains/exact), `matchValue`, `categoryId`, `priority`, `isActive`
-- [ ] Rule CRUD UI in Settings (create, reorder, enable/disable, delete)
-- [ ] "Create rule from this transaction" shortcut in transaction row actions
-- [ ] Rule application hook in `importSelectedTransactions` (prospective, on import)
-- [ ] Rule application hook in `createTransaction` (prospective, on manual entry)
-- [ ] `recurring_templates` table: `orgId`, `accountId`, `categoryId`, `type`, `amountCents`, `description`, `frequency` (enum), `startDate`, `nextDueDate`, `isActive`
-- [ ] Recurring template CRUD UI
-- [ ] Manual "generate now" action that creates the transaction and advances `nextDueDate`
-- [ ] Upcoming recurring list (next 30 days) on a dedicated page or sidebar widget
-
-### Add After Validation (v1.x)
-
-- [ ] Retroactive rule application — add after users have rules running and ask for history cleanup
-- [ ] Amount range condition on rules — add when users report false positives on generic descriptions
-- [ ] Next-occurrence projection on cash flow chart — add when recurring templates have stable data
-
-### Future Consideration (v2+)
-
-- [ ] Automatic generation via cron (Supabase Edge Function scheduled job) — defer until user base justifies server-side scheduling infrastructure
-- [ ] AI-assisted rule suggestions based on description patterns — defer until LLM integration is justified
-- [ ] Automatic subscription detection from transaction history
+This is the single new infrastructure piece that unlocks daily sync, daily price updates, and consent renewal checks. Both the bank sync job and price update job can share this mechanism.
 
 ---
 
-## Feature Prioritization Matrix
+## MVP Definition for v2.0
 
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Rule CRUD + description match | HIGH | LOW | P1 |
-| Rule applied on import | HIGH | LOW | P1 |
-| Rule applied on manual create | HIGH | LOW | P1 |
-| "Create rule from transaction" shortcut | HIGH | LOW | P1 |
-| Recurring template CRUD | HIGH | MEDIUM | P1 |
-| Manual "generate now" | HIGH | LOW | P1 |
-| Upcoming recurring list | HIGH | LOW | P1 |
-| Retroactive rule application | MEDIUM | MEDIUM | P2 |
-| Amount range condition on rules | MEDIUM | LOW | P2 |
-| Cash flow projection for recurring | MEDIUM | HIGH | P3 |
-| Auto-generation via cron job | LOW | HIGH | P3 |
+### Launch With
+
+These constitute the minimum that makes "Open Finance" and "live prices" feel real and useful:
+
+**Open Finance (required for launch):**
+- [ ] `bank_connections` table: `orgId`, `accountId`, `aggregatorItemId`, `institutionName`, `status` (active/expired/error/revoked), `consentExpiresAt`, `lastSyncedAt`
+- [ ] Pluggy Connect widget integration (or Belvo hosted widget) — aggregator handles BCB consent flow
+- [ ] Bank connections management UI: list connected accounts, status badges, disconnect, reconnect
+- [ ] Webhook receiver for Pluggy events (transaction updates, consent expiry)
+- [ ] Daily sync Edge Function (pg_cron → Edge Function → Pluggy API → insert transactions with ON CONFLICT DO NOTHING)
+- [ ] Apply `matchCategory()` rules during sync pipeline (reuse existing rule system)
+- [ ] Duplicate / match detection in sync preview (exact dedup via `externalId`, fuzzy suggestion for manual-vs-synced conflicts)
+- [ ] Consent expiry notification (in-app banner when `consentExpiresAt` < 14 days)
+
+**Asset Price Updates (required for launch):**
+
+> **Paid API dependency:** brapi.dev free tier covers only 4 hardcoded tickers (PETR4, VALE3, MGLU3, ITUB4). Production use with user-defined portfolios requires the Startup plan at R$49.99/month. This is a recurring cost alongside the aggregator (Pluggy/Belvo). Budget for both before launch.
+
+- [ ] `asset_prices` table: `assetId`, `priceCents`, `source` (brapi/coingecko/bcb/manual), `priceDate`, `updatedAt`
+- [ ] brapi.dev Startup plan integration for B3 equities, FIIs, ETFs, BDRs (daily EOD batch, 15-min delay, 150k req/mo)
+- [ ] CoinGecko integration for crypto assets (daily batch)
+- [ ] BCB dados abertos API for CDI/SELIC rates (daily or weekly batch)
+- [ ] Daily price update Edge Function (pg_cron → Edge Function → price APIs → upsert asset_prices)
+- [ ] Portfolio views updated to use latest `asset_prices` row instead of manually entered price
+
+### Add After Validation
+
+- [ ] Investment event detection from bank transactions (dividend cross-matching) — high complexity, validate demand first
+- [ ] Historical price backfill — useful but adds API cost; gated on paid plan
+- [ ] Connection quality score dashboard
+- [ ] Per-asset price source display
+
+### Future Consideration (v3+)
+
+- [ ] ML-based categorization improvements on top of rule engine
+- [ ] Open Finance investment sync (BCB Phase 4) — coverage too inconsistent currently
+- [ ] PIX payment initiation via Pluggy
 
 ---
 
-## Competitor Feature Analysis
+## Competitor Feature Analysis (BR Market)
 
-| Feature | YNAB | Monarch Money | PocketSmith | Our Approach |
-|---------|------|---------------|-------------|--------------|
-| Rule conditions | None (manual only) | Merchant, amount, category | Merchant keyword only | Description contains/exact + amount range (v1.2) |
-| Rule actions | N/A | Rename, recategorize, tag, hide | Assign category | Assign category (primary action for Floow) |
-| Retroactive application | No | Yes (optional on rule save) | Yes (batch re-run) | Yes, opt-in with impact preview |
-| Recurring transactions | Scheduled transactions with "Enter Now" | Detection from history + manual | Manual templates | Manual templates with "Generate Now" |
-| Recurrence frequencies | 13 options including "twice a month" | Detected from history | Weekly/monthly/yearly | daily, weekly, biweekly, monthly, quarterly, yearly |
-| Auto-generation | Yes (appears in register) | Synced from bank | Manual only | Manual for v1.1; cron for v2 |
-| Upcoming view | Register view shows scheduled | Calendar + list view | Monthly calendar | List view (next 30 days) for v1.1 |
+| Feature | Mobills | Organizze | Kinvo | Floow v2.0 target |
+|---------|---------|-----------|-------|-------------------|
+| Open Finance bank sync | Yes (paid plan) | Yes (included) | No (investment-focused) | Yes (included in paid plan) |
+| Multiple banks | Yes | Yes | N/A | Yes |
+| Consent management UI | Basic | Basic | N/A | Full (grant/revoke/renew/status) |
+| Auto-categorization on sync | Yes | Yes | N/A | Yes (existing rule engine) |
+| Daily price updates (B3) | No | No | Yes (real-time B3 live) | Yes (delayed via brapi) |
+| Crypto prices | No | No | Yes | Yes (CoinGecko) |
+| Fixed income CDI valuation | No | No | Yes | Yes (BCB API + estimateAssetValue) |
+| Duplicate detection | Basic | Basic | N/A | Exact + fuzzy match |
+| Reconciliation preview | No | No | N/A | Yes (reuse OFX preview) |
+
+**Key insight:** Kinvo (investment-focused competitor) shows that B3 live prices and fixed income CDI valuation are expected by investment-tracking users, even without Open Finance bank sync. Mobills/Organizze show that bank sync is monetized as a premium feature in BR market — validates Floow's freemium gate.
 
 ---
 
-## Key Design Decisions for Implementation
+## Complexity Notes for Phase Planning
 
-### Categorization Rules
-
-**Rule match priority:** Sequential priority list, first match wins. User can reorder via drag-and-drop or up/down buttons. Most specific rules at top (exact match > contains match).
-
-**Rule trigger points:** Two insertion paths must both apply rules:
-1. `importSelectedTransactions` — fetch active rules once, apply to all rows before insert
-2. `createTransaction` — apply rules after Zod validation, before DB insert (only if no categoryId was provided by user)
-
-**Rule should NOT override explicit user choice:** If the user picks a category in the form, the rule engine is bypassed. Rules apply only when `categoryId` is null/unset.
-
-### Recurring Transactions
-
-**Schema pattern:** `recurring_templates` table stores the template. Each generation creates a real row in `transactions` and advances `nextDueDate`. This keeps the transaction ledger clean and queryable with no special cases.
-
-**nextDueDate advancement logic:** Pure function in `core-finance` package. Input: current `nextDueDate` + `frequency` enum. Output: next date. Handles month-end edge cases (e.g., monthly from Jan 31 → Feb 28, not Feb 31).
-
-**No auto-generation in v1.1:** Generation is user-triggered ("Generate Now" button). Supabase cron is v2. This avoids background job infrastructure and keeps v1.1 scope contained.
-
-**Deletion behavior:** Deleting a template stops future generation. Already-generated transactions are real `transactions` rows and are unaffected — consistent with Sage Intacct and QuickBooks patterns.
+| Feature Area | Complexity Driver | Approach |
+|-------------|------------------|----------|
+| Open Finance connection | Aggregator widget integration, consent lifecycle, webhook receiver | MEDIUM — aggregator does the heavy lifting; app provides connection management UI |
+| Daily bank sync job | pg_cron scheduling, Pluggy API pagination, error handling, retry | HIGH — new infrastructure pattern; needs monitoring and failure recovery |
+| Transaction dedup (exact) | Already solved via `externalId` unique index + ON CONFLICT | LOW — existing schema handles it |
+| Transaction dedup (fuzzy) | New pure function in core-finance: date ± N days + exact amount + description similarity | MEDIUM — needs careful threshold tuning to avoid false positives |
+| Auto-categorization on sync | Existing `matchCategory()` called in sync pipeline | LOW — mostly plumbing |
+| B3 price updates | brapi.dev REST API, daily batch, upsert pattern | MEDIUM — straightforward but needs rate limit awareness; Startup plan required for all tickers |
+| Crypto price updates | CoinGecko Demo API, free tier sufficient for daily | LOW — simple REST call, BRL prices available directly |
+| CDI/SELIC rate fetch | BCB dados abertos — free, no auth, simple JSON series | LOW — one endpoint, no rate limits documented |
+| Portfolio view with live prices | Change data source from manual to `asset_prices` table | MEDIUM — requires query changes, fallback to manual price if no data |
 
 ---
 
 ## Sources
 
-- [PocketSmith: Using Category Rules](https://learn.pocketsmith.com/article/156-using-category-rules-to-automatically-categorize-transactions) — rule priority and keyword matching patterns
-- [Monarch Money: Creating Transaction Rules](https://help.monarch.com/hc/en-us/articles/360048393372-Creating-Transaction-Rules) — conditions (merchant, amount), actions (rename, recategorize, tag, hide)
-- [Monarch Money: Tracking Recurring Expenses](https://www.monarch.com/blog/track-recurring-bills-and-subscriptions) — detection model and calendar view
-- [Thoughtbot: Recurring Events in PostgreSQL](https://thoughtbot.com/blog/recurring-events-and-postgresql) — interval-based schema and recursive CTE generation
-- [Copilot: Editing Recurrings](https://help.copilot.money/en/articles/3783837-editing-recurrings) — "apply to future only vs. include past" UX pattern
-- [GeeksforGeeks: System Design for Recurring Payments](https://www.geeksforgeeks.org/system-design-pattern-for-recurring-payments/) — nextDueDate advancement pattern
-- [YNAB Scheduled Transactions](https://support.ynab.com/en_us/scheduled-transactions-a-guide-BygrAIFA9) — "Enter Now" UX, register-based upcoming view
-- [Plaid: AI-enhanced transaction categorization](https://plaid.com/blog/ai-enhanced-transaction-categorization/) — industry accuracy benchmarks (10-20% improvement with ML — not worth building for v1.1)
-- [Quicken community: Retroactive categorization](https://community.quicken.com/discussion/7897879/automatically-categorize-past-future-transactions) — Find & Replace pattern as alternative to rule retroactivity
+- [Pluggy Open Finance Connectors](https://docs.pluggy.ai/docs/open-finance-regulated) — data types, institution coverage, premium feature flag
+- [Pluggy Transactions API](https://docs.pluggy.ai/docs/transactions) — transaction fields, 12-month history, pagination
+- [Pluggy Consents Documentation](https://docs.pluggy.ai/docs/consents) — consent expiration, renewal via PATCH /item, default no expiry / Inter PJ 1 year
+- [Belvo Banking Aggregation Brazil](https://developers.belvo.com/products/aggregation_brazil/aggregation-brazil-introduction) — alternative aggregator, consent-based links, data types
+- [Belvo Mobills Case Study](https://belvo.com/customer-stories/mobills/) — how Mobills integrated Open Finance via Belvo; confirmed sync pattern
+- [Mobills Open Finance Integration Help](https://mobills.zendesk.com/hc/pt-br/articles/17287679665563) — competitor UX pattern reference
+- [Organizze Open Finance](https://www.organizze.com.br/blog/gestao-financeira/melhor-app-conectar-contas-bancarias) — competitor feature confirmation
+- [Kinvo B3 Live](https://bossainvest.com/kinvo-lanca-acompanhamento-da-b3-ao-vivo-no-app/) — investment-focused competitor; confirmed live B3 price feature
+- [brapi.dev Pricing](https://brapi.dev/) — R$0 (4 test tickers), Startup R$49.99/mo (150k req, 15min delay), Pro R$49.99/mo (500k req, 5min delay); 400+ assets: stocks, FIIs, ETFs, BDRs
+- [BCB Dados Abertos — SELIC API](https://dadosabertos.bcb.gov.br/dataset/11-taxa-de-juros---selic) — free, series code 11 (SELIC), 12 (CDI)
+- [CoinGecko API Pricing](https://www.coingecko.com/en/api/pricing) — Demo plan: 30 calls/min, 10k/month free; BRL prices supported
+- [Supabase pg_cron](https://supabase.com/docs/guides/database/extensions/pg_cron) — scheduling extension; runs SQL or triggers Edge Functions; monitored via cron.job_run_details
+- [Supabase Cron Module](https://supabase.com/modules/cron) — hosted UI for scheduling; GA in Supabase platform
+- [Supabase Scheduled Edge Functions](https://supabase.com/docs/guides/functions/schedule-functions) — pg_cron → Edge Function invocation pattern
+- [Fuzzy Matching in Bank Reconciliation](https://optimus.tech/blog/fuzzy-matching-algorithms-in-bank-reconciliation-when-exact-match-fails) — Levenshtein distance for transaction description matching; tiered confidence (95-100% = auto, 85-94% = flag, <85% = manual)
+- [Open Finance Brazil — 91M active authorizations](https://www.biia.com/open-finance-enables-brazilian-consumers-by-reshaping-how-they-leverage-financial-data-bcb-insights/) — BCB 2025 adoption stats
+- [BCB Open Finance consent max 365 days](https://developers.belvo.com/docs/brazil-open-finance-network-limits) — regulatory consent duration limit
 
 ---
 
-*Feature research for: Floow v1.1 — Automatic Categorization + Recurring Transactions*
-*Researched: 2026-03-18*
+*Feature research for: Floow v2.0 — Open Finance & Automação de Dados*
+*Researched: 2026-03-29*

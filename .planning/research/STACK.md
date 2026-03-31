@@ -1,227 +1,244 @@
-# Stack Research
+# Technology Stack
 
-**Domain:** Automatic transaction categorization + recurring transactions in a Next.js / Supabase financial SaaS
-**Researched:** 2026-03-18
-**Confidence:** HIGH
-
----
-
-## Context: What Already Exists
-
-The v1.0 stack is fully validated and must not change. This file covers only the additions required for v1.1 features:
-
-| Feature | What it needs that does not exist yet |
-|---------|---------------------------------------|
-| Automatic categorization | A `category_rules` table + pure function engine to match transaction descriptions against stored rules |
-| Recurring transactions | A `recurring_transactions` table + a scheduled job that materializes due transactions daily |
+**Project:** Floow v2.0 — Open Finance & Asset Price Automation
+**Researched:** 2026-03-29
+**Overall confidence:** HIGH (providers), MEDIUM (pluggy-sdk exact version — verify at install)
 
 ---
 
-## Recommended Stack Additions
+## Context: What Already Exists (Do Not Re-Research)
 
-### Core: No New Libraries Required
+Validated, unchanging stack: Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Hook Form, Zod, TanStack Query, Recharts, Drizzle ORM, Supabase (PostgreSQL, Auth, RLS, Vault), Stripe, Netlify, pnpm + Turborepo, `core-finance` pure functions package, `date-fns@^4.1.0`, category_rules engine (v1.1).
 
-The categorization engine and recurring-transaction logic can be implemented with zero new runtime dependencies — using only what already exists in the monorepo (Drizzle ORM, Zod, plain TypeScript).
+This file covers only additions required for v2.0 features:
+- Open Finance bank connection (import automático de extratos)
+- Automatic asset price updates (B3, crypto)
+- Auto-reconciliation of imported transactions
+- Auto-categorization applied to imported statements
+
+---
+
+## Open Finance Provider Recommendation
+
+**Recommended: Pluggy**
+
+Use Pluggy over Belvo for this project. Rationale below.
+
+### Provider Comparison
+
+| Criterion | Pluggy | Belvo |
+|-----------|--------|-------|
+| Market focus | Brazil-first | LATAM (Mexico, Brazil, Colombia) |
+| Brazilian bank coverage | 70+ institutions via regulated Open Finance connectors; all major banks (Itaú, Bradesco, Santander, BB, Nubank, Inter, XP, BTG) | Broader LATAM; Brazil covered but not primary focus |
+| Regulatory status | BACEN-authorized ITP (Payment Transaction Initiator) since June 2024; CNPJ 37.943.755/0001-30 | Brazil covered via Open Finance; LATAM-distributed attention |
+| Pricing entry point | R$2,500/month (Basic plan, production); 14-day free trial for development | ~$1,000/month (Launch tier) ≈ R$5,000+ at current exchange |
+| Free trial | 14 days, no credit card, full API access, up to 20 accounts | Up to 25 live data links |
+| Webhook support | YES — full event model: `item/created`, `item/updated`, `transactions/created`, `transactions/updated`, `transactions/deleted`. Up to 9 retry attempts. HTTPS-only; custom headers supported | YES |
+| Node.js SDK | `pluggy-sdk` on npm — TypeScript typings built-in | Python, Node.js, Ruby SDKs |
+| Auto-sync frequency | Every 24h (Basic), 12h, or 8h (higher tiers) — webhook-driven | Comparable |
+| API response time | 150–300ms average | 200–400ms average |
+| Investments data | Accounts, transactions, investments, brokerage notes, identity | Comparable |
+| Documentation | Developer-first, Portuguese + English, comprehensive webhook docs | Good English docs |
+
+**Why Pluggy wins for Floow:**
+1. Brazil-only focus maps to the product's audience (investidores BR)
+2. 70+ Brazilian institutions via regulated Open Finance (BACEN-authorized) — covers virtually every user's bank
+3. `pluggy-sdk` is Node.js/TypeScript native — integrates cleanly with existing Netlify Functions pattern
+4. R$2,500/month vs Belvo's ~R$5,000/month equivalent — significantly cheaper for a BR-only product
+5. Investment account data (XP, BTG, brokerage notes) aligns with Floow's investment portfolio features
+
+**Business constraint:** R$2,500/month is a fixed cost from day one in production — before any paying users. The 14-day free trial is for development only and does not apply to production. Factor this into go-live pricing decisions.
+
+**Choose Belvo only if:** Floow expands to Mexico or Colombia before Open Finance in Brazil proves out.
+
+---
+
+## New Stack Additions
+
+### Open Finance SDK
+
+| Technology | Version | Purpose | Integration Point |
+|------------|---------|---------|-------------------|
+| `pluggy-sdk` | latest (verify at install — `^0.74.0` per search snippet; confirm on npm) | Server-side Pluggy API calls: create connect tokens, fetch items/accounts/transactions, manage webhooks | `netlify/functions/` only (Node.js) |
+| `pluggy-connect-sdk` | latest | Client-side Pluggy Connect Widget initialization | `apps/web` — browser only, submodule import to avoid SSR bundling |
+
+**Runtime constraint:** `pluggy-sdk` is Node.js-only. It cannot run in Supabase Edge Functions (Deno). All Pluggy API calls must go through Netlify Functions. Pluggy also exposes a plain REST API — if you want to avoid the SDK, `fetch()` calls work from any runtime, but the SDK provides TypeScript typings and handles credential management.
+
+### Asset Price APIs
+
+| Technology | Purpose | Plan | Cost | Rate Limit |
+|------------|---------|------|------|------------|
+| **brapi.dev** | B3 stocks, FIIs, ETFs, BDRs — all Brazilian equities | Startup plan | R$59.99/month | 150k req/month; ~15min data delay |
+| **CoinGecko API** | Crypto prices (BTC, ETH, and all coins users hold) | Demo (free) to start; Basic if needed | Free (10k/month, 30/min) → $35/month (100k/month) | 30 req/min free |
+
+**brapi.dev** covers all Brazilian B3 instruments in one REST API (`GET /api/quote/{tickers}`) with bearer token auth, historical data, fundamentals, and dividends. The Startup plan (R$59.99/month) gives 150k requests/month with ~15-minute delay — more than sufficient for a scheduled price sync.
+
+**Key design:** The scheduled price sync must collect all unique tickers across all orgs first, then batch-fetch each ticker once. Not per-user calls. This keeps API usage O(unique tickers), not O(users), and stays well within rate limits even at scale.
+
+**CoinGecko Demo** (free) is sufficient for launch: 10k calls/month, 30/min. At one update per hour per unique crypto ticker, free tier supports ~13 distinct crypto symbols updating continuously. Upgrade to Basic ($35/month = 100k calls) when users exceed ~130 active crypto positions across the platform. No library needed — plain `fetch()` to `https://api.coingecko.com/api/v3/`.
+
+**International stocks (USD):** Not in v2.0 scope per PROJECT.md. When multi-currency ships, add `yahoo-finance2` or Alpha Vantage.
+
+### No New Libraries for Reconciliation and Categorization
 
 | Capability | Implementation | Why |
 |------------|----------------|-----|
-| Rule matching engine | Pure function in `core-finance` | Fits the established "pure function + thin DB wrapper" pattern; 100% testable with Vitest |
-| Description pattern matching | `String.prototype.includes()` (case-insensitive) + optional `RegExp` | Native; no library needed for keyword/substring rules; regex is available when rules need it |
-| Date arithmetic for recurrence | `date-fns` v4.1.0 (`addDays`, `addWeeks`, `addMonths`, `addYears`) | Already the ecosystem standard; tree-shakable ESM; pure functions; handles month-end edge cases correctly |
-| Scheduled job trigger | Supabase pg_cron (built into hosted Supabase) | Already in the stack infrastructure — zero additional cost or service |
-| Rule/template schema columns | Drizzle `jsonb().$type<T>()` | Already using Drizzle; jsonb lets rule conditions evolve without migrations |
+| Transaction reconciliation algorithm | Pure function in `core-finance` | Fits established pattern; zero new deps; fully testable with Vitest |
+| Description fuzzy matching | `fastest-levenshtein@^1.0.16` (300-byte, zero-dep, npm) | Single function needed for Levenshtein distance; no full library |
+| Auto-categorization on import | Call existing `applyCategorizationRules()` from v1.1 | Already built and tested — zero new code needed |
 
-### Supporting Libraries
+**Reconciliation logic:** Match imported transaction to existing by `(amount_cents exact) AND (date within ±3 days) AND (description similarity > 0.7)`. Amount+date filtering reduces the candidate set to near-zero in most cases; description similarity is a tiebreaker. `fastest-levenshtein` provides the distance function in ~300 bytes with no transitive dependencies.
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| `date-fns` | ^4.1.0 | `addDays`, `addWeeks`, `addMonths`, `addYears` for computing next-due dates from frequency + last-run date | Required by recurring transactions. Add to `@floow/core-finance` (not to the web app directly) |
+**Do not add Fuse.js or similar.** Full fuzzy-search libraries are overkill for a 1–5 candidate comparison.
 
-date-fns v4 is ESM-first, has zero dependencies, and 34M+ weekly downloads. v4.1.0 is the latest stable (released 2024-09-17). It is not currently in the monorepo — this is the one new install.
+---
 
-### Scheduled Job: Supabase pg_cron (No New Service)
+## Scheduling Architecture
 
-The recurring-transaction materializer must run daily without user interaction. Two options exist within the current stack:
+Two scheduled jobs in v2.0:
 
-**Option A — Supabase pg_cron + Edge Function (recommended)**
+| Job | Frequency | Execution time | What it does |
+|-----|-----------|----------------|-------------|
+| `sync-prices` | Every 15–60 min (market hours) | Under 30 seconds | Fetch latest prices for all unique tickers, update `asset_prices` table |
+| `pluggy-daily-sync` | Daily at 05:00 BRT fallback + webhook-triggered | Under 30 seconds (or 15 min if long-running) | Drain `pluggy_webhook_events` queue; process transactions |
 
-pg_cron is already enabled on every hosted Supabase project (version 1.6.4). No provisioning required. A daily cron job calls a Supabase Edge Function (Deno/TypeScript) via HTTP:
+### Use Netlify Scheduled Functions (same pattern as existing `cfo-daily.mts`)
 
-```sql
--- Enable once (already available on hosted Supabase)
-select cron.schedule(
-  'generate-recurring-transactions',
-  '0 6 * * *',  -- daily at 06:00 UTC
-  $$
-  select net.http_post(
-    url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/generate-recurring',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key')
-    ),
-    body := '{}'
-  )
-  $$
-);
+The existing `cfo-daily.mts` establishes the pattern: in-code `Config` export with `schedule`, no `netlify.toml` blocks required.
+
+```typescript
+// netlify/functions/sync-prices.mts
+import type { Config } from '@netlify/functions'
+
+export default async () => {
+  // 1. Fetch all unique tickers across all orgs from DB (service-role)
+  // 2. Batch-call brapi.dev for BR equities
+  // 3. Batch-call CoinGecko for crypto
+  // 4. Upsert asset_prices table (Math.round(parseFloat(price.toFixed(2)) * 100) for cents)
+  return new Response('OK', { status: 200 })
+}
+
+export const config: Config = {
+  schedule: '*/15 13-21 * * 1-5',  // every 15min, Mon–Fri, 13:00–21:00 UTC (10:00–18:00 BRT)
+}
 ```
 
-The Edge Function queries all `recurring_transactions` where `next_due_date <= today`, inserts the materialized transaction rows (calling existing `createTransaction` logic), and advances `next_due_date`.
+**Netlify scheduled functions have a 30-second execution limit.** This is sufficient for price sync (HTTP calls to brapi.dev + CoinGecko, then a DB upsert). If the daily Pluggy sync ever exceeds 30 seconds (large transaction volume), follow the existing `cfo-daily.mts` pattern: the scheduled function calls an internal Next.js API route (e.g., `/api/open-finance/run-sync`) which processes asynchronously. Do not try to attach a `schedule` to a background function — they are separate Netlify primitives.
 
-**Option B — Netlify Scheduled Function (fallback)**
+---
 
-Netlify Scheduled Functions are available on all plans and support standard cron syntax in `netlify.toml`. They have a 30-second execution limit (background functions extend this to 15 minutes). However, they introduce an HTTP round-trip to Supabase and require service-role key exposure in Netlify env vars. Use only if Supabase Edge Functions are unavailable.
+## Webhook Architecture
 
-```toml
-# netlify.toml
-[functions."generate-recurring-background"]
-schedule = "0 6 * * *"
+Pluggy pushes `transactions/created` and `item/updated` events to a webhook URL. Server Actions cannot receive external webhooks (no stable inbound URL, CSRF protection). **The webhook endpoint must be a Netlify Function.**
+
+```
+netlify/functions/pluggy-webhook.mts   ← receives Pluggy events
 ```
 
-**Recommendation: Option A.** pg_cron + Edge Function keeps all scheduling inside Supabase, avoids an extra service dependency, and keeps the service-role key within the Supabase Vault.
+Flow:
+1. Pluggy POSTs to `https://app.floow.com/.netlify/functions/pluggy-webhook`
+2. Function validates custom `Authorization` header (Bearer token stored as Netlify env var)
+3. Function writes raw event payload to `pluggy_webhook_events` table in Supabase (service-role key)
+4. Returns `202 Accepted` immediately
+5. Daily scheduled function (or triggered async via internal API route) drains the queue and processes transactions
 
-### Development Tools
+**Why enqueue instead of processing inline:** Pluggy requires a 2xx response within 5 seconds or it retries (up to 9 attempts). Reconciliation + categorization inline risks timeout. Enqueue + return 202 is the safe pattern.
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| Vitest (already installed) | Unit test the rule-matching engine and next-date computation | Pure functions make this trivial — no mocking needed |
-| Supabase Dashboard > Integrations > Cron | Visual management and manual "run now" of cron jobs | Use for dev/QA testing before relying on the daily schedule |
+**Service-role key:** Webhook handler has no user session. It uses `SUPABASE_SERVICE_ROLE_KEY` from Netlify env vars to write to the queue table. The queue table has RLS disabled for the service-role write path; the processing step re-applies org-scoped RLS when writing final transactions.
+
+---
+
+## Token and Credential Storage
+
+| Secret | Where Stored | How Accessed |
+|--------|-------------|-------------|
+| Pluggy `clientId` + `clientSecret` | Netlify env vars | `process.env` in Netlify Functions |
+| brapi.dev API token | Netlify env vars | `process.env` in Netlify Functions |
+| CoinGecko API key | Netlify env vars (optional — Demo tier needs no key) | `process.env` in Netlify Functions |
+| Pluggy `itemId` (per-user bank connection) | Supabase `pluggy_items` table | Fetched via service-role in scheduled function; never exposed client-side |
+| Supabase service-role key | Netlify env vars (already set) | `process.env.SUPABASE_SERVICE_ROLE_KEY` |
+
+**Pluggy access tokens:** Pluggy manages credentials in its own vault. The application stores only the `itemId` (opaque reference). The `item.status` field signals when re-authentication is needed (e.g., bank password changed). On `item/error` webhook event, surface a reconnect UI to the user.
+
+---
+
+## Pluggy Integration Flow
+
+```
+Browser                    Next.js (Server Action)     Netlify Function          Pluggy API
+  |                               |                           |                       |
+  |-- Connect bank button ------->|                           |                       |
+  |                               |-- POST /.netlify/functions/pluggy-create-token -->|
+  |                               |                           |-- createConnectToken->|
+  |                               |                           |<-- { token } ---------|
+  |                               |<-- { connectToken } ------|                       |
+  |<-- render Pluggy Widget ------|                           |                       |
+  |-- user selects bank + auth ---------------------------------------->|            |
+  |                               |                           |<-- webhook item/created|
+  |                               |                           |-- enqueue to DB        |
+  |                               |                           |-- 202 OK ------------>|
+```
+
+The Pluggy Widget (`pluggy-connect-sdk`, browser) handles bank OAuth/credential flow entirely inside Pluggy's infrastructure. Floow never sees bank credentials.
+
+---
+
+## New Schema Tables Required
+
+| Table | Purpose | Notes |
+|-------|---------|-------|
+| `pluggy_items` | One row per bank connection per org. Stores Pluggy `itemId`, `connectorId`, institution name, status, `lastSyncAt` | `itemId` is the external key; Pluggy never exposes credentials so no encryption needed |
+| `asset_prices` | Latest price per ticker. One row per `ticker` (global or per-org — evaluate upsert strategy). `priceCents INTEGER` | Existing `assets` table may have `currentPriceCents` — consolidate or upsert here |
+| `price_history` | Optional append-only price snapshots for charting | Defer to v2.1 unless PnL charts already need it |
+| `pluggy_webhook_events` | Raw inbound webhook payloads queue, with `status: pending / processed / failed` | RLS bypassed by service-role writes; drained by scheduled function |
+
+---
+
+## Integer Cents at Price API Boundary
+
+brapi.dev and CoinGecko return decimal float prices (e.g., `"regularMarketPrice": 38.45`). Convert to integer cents at the ingestion boundary using the safe pattern — never `price * 100` directly (floating-point error):
+
+```typescript
+// Safe: avoids 38.45 * 100 = 3844.9999...
+function toCents(price: number): number {
+  return Math.round(parseFloat(price.toFixed(2)) * 100)
+}
+```
+
+Apply `toCents()` in the Netlify function before any DB write. Never store floats.
 
 ---
 
 ## Installation
 
 ```bash
-# Add date-fns to core-finance package only (not to web app)
-pnpm --filter @floow/core-finance add date-fns@^4.1.0
+# In web app (client-side Pluggy widget — browser only)
+pnpm --filter @floow/web add pluggy-connect-sdk
+
+# In netlify/functions (Node.js runtime — server-side Pluggy operations)
+# Add to root or netlify/functions package.json depending on monorepo setup
+pnpm add pluggy-sdk
+
+# Optionally: if reconciliation needs string distance function
+pnpm --filter @floow/core-finance add fastest-levenshtein@^1.0.16
 ```
 
-No other new packages.
-
----
-
-## Schema Additions Required
-
-These are the two new Drizzle tables needed. No changes to existing tables.
-
-### `category_rules` table
-
-```typescript
-// packages/db/src/schema/finance.ts (additions)
-
-export const matchTypeEnum = pgEnum('match_type', ['contains', 'starts_with', 'ends_with', 'regex'])
-
-export const categoryRules = pgTable(
-  'category_rules',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
-    categoryId: uuid('category_id').notNull().references(() => categories.id, { onDelete: 'cascade' }),
-    pattern: text('pattern').notNull(),            // the string to match against description
-    matchType: matchTypeEnum('match_type').notNull().default('contains'),
-    caseSensitive: boolean('case_sensitive').notNull().default(false),
-    priority: integer('priority').notNull().default(0),  // higher = applied first
-    isActive: boolean('is_active').notNull().default(true),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    idxCategoryRulesOrgId: index('idx_category_rules_org_id').on(table.orgId),
-    idxCategoryRulesPriority: index('idx_category_rules_priority').on(table.orgId, table.priority),
-  })
-)
-```
-
-Rules are evaluated in descending `priority` order. First match wins. This mirrors how PocketSmith, Copilot Money, and other personal finance tools implement categorization rules.
-
-### `recurring_transactions` table
-
-```typescript
-export const recurringFrequencyEnum = pgEnum('recurring_frequency', [
-  'daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'
-])
-
-export const recurringTransactions = pgTable(
-  'recurring_transactions',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
-    accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
-    categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
-    type: transactionTypeEnum('type').notNull(),
-    amountCents: integer('amount_cents').notNull(),
-    description: text('description').notNull(),
-    frequency: recurringFrequencyEnum('frequency').notNull(),
-    startDate: date('start_date', { mode: 'date' }).notNull(),
-    endDate: date('end_date', { mode: 'date' }),           // null = no end
-    nextDueDate: date('next_due_date', { mode: 'date' }).notNull(),
-    isActive: boolean('is_active').notNull().default(true),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    idxRecurringOrgId: index('idx_recurring_transactions_org_id').on(table.orgId),
-    idxRecurringNextDue: index('idx_recurring_transactions_next_due').on(table.nextDueDate, table.isActive),
-  })
-)
-```
-
-The `nextDueDate` + `isActive` composite index lets the daily cron fetch only due rows efficiently across all orgs.
-
----
-
-## Pure Function Signatures (core-finance additions)
-
-### Categorization engine
-
-```typescript
-// packages/core-finance/src/categorization.ts
-
-export interface CategoryRule {
-  id: string
-  categoryId: string
-  pattern: string
-  matchType: 'contains' | 'starts_with' | 'ends_with' | 'regex'
-  caseSensitive: boolean
-  priority: number
-}
-
-/**
- * Returns the categoryId of the first matching rule, or null if none match.
- * Rules must be pre-sorted descending by priority before calling.
- */
-export function applyCategorizationRules(
-  description: string,
-  rules: CategoryRule[]
-): string | null
-```
-
-### Recurring date computation
-
-```typescript
-// packages/core-finance/src/recurring.ts
-
-import { addDays, addWeeks, addMonths, addYears } from 'date-fns'
-
-export type RecurringFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly'
-
-/**
- * Returns the next due date after `from` for the given frequency.
- * Pure function — no side effects.
- */
-export function computeNextDueDate(from: Date, frequency: RecurringFrequency): Date
-```
+No other new packages. brapi.dev and CoinGecko are plain REST APIs — native `fetch()` only.
 
 ---
 
 ## Alternatives Considered
 
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| Native string/regex matching in pure function | External rules-engine library (e.g., `json-rules-engine`) | Overkill for keyword matching; adds a dependency; harder to test in isolation |
-| Supabase pg_cron + Edge Function | Netlify Scheduled Function | pg_cron keeps scheduling inside Supabase; no extra env vars; service-role key stays in Vault |
-| Supabase pg_cron + Edge Function | Vercel Cron / GitHub Actions | Project is on Netlify, not Vercel; GitHub Actions adds a new service for a 5-line cron |
-| date-fns v4 for date arithmetic | Temporal API (native) | Temporal is Stage 3 but not yet available in Node.js 22 LTS without polyfill; date-fns is stable and tree-shakable |
-| date-fns v4 for date arithmetic | `luxon` | date-fns is tree-shakable and functional; luxon uses OOP with larger bundle; date-fns already the community standard |
-| Manual `category_rules` table | ML/AI categorization (e.g., OpenAI API) | Over-engineered for v1.1; user-defined rules are more transparent, offline, cheaper, and sufficient for the target persona (experienced investor who knows their own transactions) |
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Open Finance provider | Pluggy | Belvo | Pluggy is Brazil-first with BACEN ITP authorization; R$2,500/month vs ~R$5,000/month Belvo equivalent; TypeScript-native SDK |
+| Open Finance provider | Pluggy | Direct BACEN Open Finance API | Requires BACEN authorization (months of compliance), bank-by-bank implementations — not viable for a startup |
+| B3 price API | brapi.dev | Official B3 API | Official B3 API requires formal institutional agreement and is expensive; brapi.dev is the standard developer choice for BR fintech |
+| B3 price API | brapi.dev | StatusInvest scraping | Web scraping is fragile; ToS violation risk |
+| Crypto price API | CoinGecko | CoinMarketCap | CoinGecko free tier (10k/month) is more generous; better developer reputation |
+| Reconciliation | Custom pure function in `core-finance` | External reconciliation library | No such library exists for the BR market; reconciliation logic is ~60 lines TypeScript |
+| Webhook processing | Netlify Function + queue table | Supabase Edge Function | Pluggy SDK is Node.js-only; all Pluggy operations must be in Netlify Functions; consistent to handle webhooks there too |
+| Scheduled price sync | Netlify Scheduled Function | Supabase pg_cron | pg_cron would call a Netlify Function (which calls brapi.dev) — unnecessary double-hop; Netlify Scheduled Function is the direct path consistent with existing `cfo-daily.mts` pattern |
 
 ---
 
@@ -229,51 +246,48 @@ export function computeNextDueDate(from: Date, frequency: RecurringFrequency): D
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `json-rules-engine` / `nrules` / any rules-engine library | Adds a dependency for a problem solvable with 30 lines of native TypeScript | Pure function with `String.includes()` + `RegExp` |
-| OpenAI / Claude API for categorization | Latency, cost, privacy exposure of financial data, non-deterministic results | Rule-based matching is transparent and user-controllable |
-| `node-cron` or `cron` npm package | Cannot run in a serverless/edge environment; requires a persistent process | Supabase pg_cron (or Netlify Scheduled Function) |
-| New dedicated microservice for scheduling | Over-engineering; violates current "serverless" constraint | pg_cron inside existing Supabase project |
-| `prisma` or additional ORM | Project is committed to Drizzle; mixing ORMs creates schema drift | Continue with Drizzle |
-| `dayjs` or `moment` | date-fns is already the recommendation; adding another date lib creates inconsistency | `date-fns` v4 |
+| `axios` | Redundant — `fetch()` is native in Node.js 18+ | Native `fetch()` |
+| Fuse.js or any fuzzy-search library | Reconciliation only needs Levenshtein distance on a 1–5 candidate pre-filtered set | `fastest-levenshtein` (300 bytes) or inline |
+| OpenAI / LLM for categorization | Already solved by rule-based engine in v1.1; adds cost, latency, privacy exposure of financial data | Existing `applyCategorizationRules()` |
+| Real-time WebSocket price feeds | B3 closes 17:00 BRT; polling every 15 min is architecturally simpler and sufficient for a portfolio tracker | Scheduled cron with brapi.dev polling |
+| `bull` / `bullmq` / Redis queue | Over-engineering; the webhook queue is a simple Postgres table with a status column | `pluggy_webhook_events` table + cron drain |
+| `node-schedule` or `cron` npm | Requires persistent process; incompatible with serverless | Netlify Scheduled Functions (in-code `Config.schedule`) |
+| Background function with `schedule` | Netlify scheduled functions and background functions are separate primitives — cannot combine `schedule` config with background function naming | Regular scheduled function; call internal API route for long-running work |
 
 ---
 
-## Version Compatibility
+## Runtime Compatibility Matrix
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| `date-fns@^4.1.0` | Node.js 18+, TypeScript 5+, ESM and CJS | v4 is ESM-first; CJS still supported. No breaking changes from v3 for the functions used (`addDays`, `addWeeks`, `addMonths`, `addYears`) |
-| `date-fns@^4.1.0` | `drizzle-orm@^0.40.0` | No interaction; they operate in separate layers |
-| pg_cron 1.6.4 | Supabase hosted platform | Already enabled on hosted Supabase projects; no action needed to enable |
+| Technology | Netlify Function (Node 20) | Supabase Edge Function (Deno) | Next.js Server Action |
+|------------|---------------------------|-------------------------------|----------------------|
+| `pluggy-sdk` | YES | NO (Node.js only) | NO — use Netlify Function |
+| `pluggy-connect-sdk` | N/A (browser only) | N/A | N/A |
+| `fetch()` to brapi.dev | YES | YES | YES |
+| `fetch()` to CoinGecko | YES | YES | YES |
+| `fastest-levenshtein` | YES | YES (npm: specifier in Deno 2) | YES |
+| `drizzle-orm` (via db package) | YES | PARTIAL (Node adapter) | YES |
 
----
-
-## Integration Points
-
-### Where categorization hooks in
-
-- **On transaction create** (`lib/finance/actions.ts > createTransaction`): after insert, call `applyCategorizationRules(description, orgRules)` and set `categoryId` if a match is found.
-- **On OFX/CSV import** (`lib/finance/import-actions.ts`): apply rules during the preview step so imported transactions arrive pre-categorized.
-- **Bulk re-categorize action**: server action that re-runs rules against all uncategorized transactions for the org.
-
-### Where recurring generation hooks in
-
-- **Supabase Edge Function** (`supabase/functions/generate-recurring/index.ts`): queries `recurring_transactions WHERE next_due_date <= CURRENT_DATE AND is_active = true`, inserts materialized rows (reusing the balance-update pattern from `createTransaction`), updates `next_due_date` via `computeNextDueDate`.
-- **Manual "generate now" action**: server action callable from the UI for testing and catch-up generation.
+**Key rule:** Any code touching `pluggy-sdk` lives in `netlify/functions/`. Price fetch code can live anywhere — put it in Netlify functions for consistency with the existing scheduled function pattern.
 
 ---
 
 ## Sources
 
-- Supabase Cron docs — https://supabase.com/docs/guides/cron — HIGH confidence (official docs, verified 2026-03-18)
-- Supabase Cron announcement — https://supabase.com/blog/supabase-cron — HIGH confidence
-- Supabase scheduling Edge Functions — https://supabase.com/docs/guides/functions/schedule-functions — HIGH confidence
-- Netlify Scheduled Functions — https://docs.netlify.com/build/functions/scheduled-functions/ — HIGH confidence (official docs)
-- date-fns CHANGELOG v4.1.0 — https://github.com/date-fns/date-fns/blob/main/CHANGELOG.md — HIGH confidence
-- Drizzle ORM custom types — https://orm.drizzle.team/docs/custom-types — HIGH confidence (official docs)
-- PocketSmith category rules UX — https://learn.pocketsmith.com/article/156-using-category-rules-to-automatically-categorize-transactions — MEDIUM confidence (product reference)
+- Pluggy pricing — https://www.pluggy.ai/pricing — MEDIUM confidence (R$2,500 Basic confirmed; enterprise custom pricing)
+- Pluggy developer docs — https://docs.pluggy.ai — HIGH confidence (official)
+- Pluggy webhook docs — https://docs.pluggy.ai/docs/webhooks — HIGH confidence (event types, retry policy, 5-second window verified)
+- Pluggy Open Finance connectors — https://docs.pluggy.ai/docs/open-finance-regulated — HIGH confidence (70+ institutions, major banks list confirmed)
+- Pluggy BACEN ITP authorization — https://www.pluggy.ai/open-finance + Finsiders Brasil article — HIGH confidence (June 2024 confirmed)
+- `pluggy-sdk` npm — https://www.npmjs.com/package/pluggy-sdk — MEDIUM confidence (version cited from search snippet; npm page returned 403; verify at install)
+- Belvo pricing — https://belvo.com/plans-and-pricing/ — HIGH confidence ($1,000/month Launch tier verified)
+- brapi.dev pricing — https://brapi.dev/pricing — HIGH confidence (R$0/R$59.99/R$99.99 tiers verified)
+- brapi.dev API docs — https://brapi.dev/docs/acoes — HIGH confidence (endpoints, asset types, bearer auth confirmed)
+- CoinGecko API pricing — https://www.coingecko.com/en/api/pricing — HIGH confidence (10k/month Demo free, $35/month Basic confirmed)
+- Netlify Scheduled Functions docs — https://docs.netlify.com/build/functions/scheduled-functions/ — HIGH confidence (30-second limit confirmed)
+- Netlify Background Functions docs — https://docs.netlify.com/build/functions/background-functions/ — HIGH confidence (15-minute limit; HTTP-triggered, not schedule-triggered)
+- Provider comparison (index.dev) — https://www.index.dev/skill-vs-skill/api-integration-plaid-vs-belvo-vs-pluggy-latam — MEDIUM confidence (third-party; cross-referenced with official sources)
 
 ---
 
-*Stack research for: Floow v1.1 — automatic categorization + recurring transactions*
-*Researched: 2026-03-18*
+*Stack research for: Floow v2.0 — Open Finance & Asset Price Automation*
+*Researched: 2026-03-29*
