@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Automação
-status: complete
-stopped_at: Milestone v1.1 Automacao complete — all 3 phases delivered
+milestone: v2.0
+milestone_name: Open Finance & Automação de Dados
+status: active
+stopped_at: Defining requirements
 last_updated: "2026-03-31T22:28:01.577Z"
 last_activity: 2026-03-31
 progress:
@@ -21,13 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** O investidor experiente consegue ver seu patrimônio consolidado — finanças, investimentos e projeções futuras — tudo num único lugar.
-**Current focus:** Milestone v1.1 complete
+**Current focus:** Milestone v2.0 — Open Finance & Automação de Dados
 
 ## Current Position
 
-Milestone: v1.1 Automacao — COMPLETE
-Phases: 05, 06, 07 — all delivered
-Status: Ready for next milestone
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-31 — Milestone v2.0 started
 Last activity: 2026-03-31
 
 Progress: [██████████] 100%

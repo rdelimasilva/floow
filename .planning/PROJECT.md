@@ -41,16 +41,16 @@ O investidor experiente consegue ver seu patrimônio consolidado — finanças d
 
 ### Active
 
-<!-- Current milestone v1.1 scope -->
-- [ ] Categorização automática de transações
-- [ ] Transações recorrentes
+<!-- Current milestone v2.0 scope -->
+- [ ] Integração Open Finance para import automático de extratos bancários
+- [ ] Atualização automática de preços de ativos (B3, CoinGecko)
+- [ ] Reconciliação automática de transações importadas com existentes
+- [ ] Categorização automática aplicada aos extratos importados
 
 ### Backlog
 
 - [ ] Mobile app (Expo/React Native) — scaffolded but no screens
 - [ ] Vinculação de portfolio event a transaction existente (skip cash flow quando extrato já importado)
-- [ ] Atualização automática de preços via API
-- [ ] Import de corretora (Pluggy/Belvo)
 - [ ] Benchmark comparison (CDI, IBOV, S&P500)
 - [ ] Rebalanceamento de carteira
 - [ ] Multi-currency (BRL + USD)
@@ -61,7 +61,6 @@ O investidor experiente consegue ver seu patrimônio consolidado — finanças d
 
 - Módulo PJ (pessoa jurídica) — fork futuro após PF estabilizar
 - Real-time chat/suporte — não é core
-- Open Finance integration (Pluggy/Belvo/Klavi) — v2+, complexidade regulatória
 - Offline mode — real-time sync é core value
 
 ## Context
@@ -111,13 +110,32 @@ O `core-finance` package é reutilizável entre web, mobile e functions. Funçõ
 | Submodule imports in client | Prevent webpack bundling Node-only deps | ✓ Good — solved ofx-js browser bundling issue |
 | RSC + Suspense streaming | Server-side data loading with loading states | ✓ Good — clean separation, fast initial loads |
 
-## Current Milestone: v1.1 Automação
+## Current Milestone: v2.0 Open Finance & Automação de Dados
 
-**Goal:** Automatizar tarefas repetitivas — categorização inteligente de transações e transações recorrentes programadas.
+**Goal:** Conectar contas bancárias via Open Finance para importar extratos automaticamente, atualizar cotações de ativos em tempo real, e reconciliar/categorizar tudo sem intervenção manual.
 
 **Target features:**
-- Categorização automática de transações (regras baseadas em padrões de descrição)
-- Transações recorrentes (templates com frequência, geração automática)
+- Integração Open Finance (provedor a definir pela pesquisa) para conexão de contas e import automático de extratos
+- Atualização automática de preços de ativos (B3, CoinGecko, etc)
+- Reconciliação automática de transações importadas com existentes
+- Categorização automática aplicada aos extratos importados (usando regras do v1.1)
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
 
 ---
-*Last updated: 2026-03-18 after v1.1 milestone start*
+*Last updated: 2026-03-31 after v2.0 milestone start*
