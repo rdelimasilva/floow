@@ -70,6 +70,15 @@ export async function createRecurringTemplate(formData: FormData) {
     })
     .returning()
 
+  // Auto-generate transactions if start date is today or in the past
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  if (nextDueDate <= today) {
+    const fd = new FormData()
+    fd.set('templateId', template.id)
+    await generateRecurringTransaction(fd)
+  }
+
   revalidatePath('/transactions/recurring')
 
   return template
