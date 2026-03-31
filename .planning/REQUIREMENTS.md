@@ -90,23 +90,23 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | REC-03 | Phase 7 | Complete |
 | REC-04 | Phase 7 | Complete |
 | REC-05 | Phase 7 | Complete |
-| PRICE-01 | — | Pending |
-| PRICE-02 | — | Pending |
-| PRICE-03 | — | Pending |
-| PRICE-04 | — | Pending |
-| OF-01 | — | Pending |
-| OF-02 | — | Pending |
-| OF-03 | — | Pending |
-| OF-04 | — | Pending |
-| RECON-01 | — | Pending |
-| RECON-02 | — | Pending |
-| RECON-03 | — | Pending |
-| ICAT-01 | — | Pending |
+| PRICE-01 | Phase 8 | Pending |
+| PRICE-02 | Phase 8 | Pending |
+| PRICE-03 | Phase 8 | Pending |
+| PRICE-04 | Phase 8 | Pending |
+| OF-01 | Phase 9 | Pending |
+| OF-03 | Phase 9 | Pending |
+| OF-04 | Phase 9 | Pending |
+| OF-02 | Phase 10 | Pending |
+| RECON-01 | Phase 10 | Pending |
+| RECON-02 | Phase 10 | Pending |
+| RECON-03 | Phase 10 | Pending |
+| ICAT-01 | Phase 10 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 11 total, 11 complete ✓
-- v2.0 requirements: 12 total, 0 mapped (pending roadmap)
+- v2.0 requirements: 12 total, 12 mapped ✓ (0 complete, pending execution)
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-31 after v2.0 requirements definition*
+*Last updated: 2026-03-31 after v2.0 roadmap creation*

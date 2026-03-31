@@ -3,7 +3,8 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-03-18)
-- 🚧 **v1.1 Automação** — Phases 5-7 (in progress)
+- ✅ **v1.1 Automação** — Phases 5-7 (completed 2026-03-31)
+- 🚧 **v2.0 Open Finance & Automação de Dados** — Phases 8-10 (in progress)
 
 ## Phases
 
@@ -17,13 +18,22 @@
 
 </details>
 
-### 🚧 v1.1 Automação (In Progress)
-
-**Milestone Goal:** Automatizar tarefas repetitivas — categorização inteligente de transações por regras e transações recorrentes programadas com geração sob demanda.
+<details>
+<summary>✅ v1.1 Automação (Phases 5-7) — COMPLETED 2026-03-31</summary>
 
 - [x] **Phase 5: Automation Foundation** - DB schema migrations, pure functions, and unit tests for both automation features (completed 2026-03-19)
 - [x] **Phase 6: Categorization Rules** - Complete CRUD, auto-apply on import and manual creation, rule-from-transaction shortcut, and retroactive application with preview (completed 2026-03-19)
 - [x] **Phase 7: Recurring Transactions** - Complete CRUD, upcoming-due list, manual generation, and pause/reactivation (completed 2026-03-29)
+
+</details>
+
+### 🚧 v2.0 Open Finance & Automação de Dados (In Progress)
+
+**Milestone Goal:** Conectar contas bancárias via Open Finance para importar extratos automaticamente, atualizar cotações de ativos em tempo real, e reconciliar/categorizar tudo sem intervenção manual.
+
+- [ ] **Phase 8: Asset Price Updates** - Cron jobs that pull daily closing prices from B3, CoinGecko, and BCB so portfolio views show live market values without any user action
+- [ ] **Phase 9: Open Finance Connection** - Polp widget integration with consent lifecycle management and a connections management screen
+- [ ] **Phase 10: Sync Pipeline & Reconciliation** - Auto-import of bank transactions with exact dedup, fuzzy match reconciliation preview, and auto-categorization via existing rules
 
 ## Phase Details
 
@@ -55,8 +65,8 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 06-01-PLAN.md — Drizzle schema for category_rules, isAutoCategorized migration, CRUD server actions, auto-categorize hooks in createTransaction and import, retroactive bulk-categorize
-- [ ] 06-02-PLAN.md — UI: Regras tab on /categories with rules table, create/edit dialog, transaction row shortcut, auto badge
+- [x] 06-01-PLAN.md — Drizzle schema for category_rules, isAutoCategorized migration, CRUD server actions, auto-categorize hooks in createTransaction and import, retroactive bulk-categorize
+- [x] 06-02-PLAN.md — UI: Regras tab on /categories with rules table, create/edit dialog, transaction row shortcut, auto badge
 
 ### Phase 7: Recurring Transactions
 **Goal**: Users can define recurring transaction templates and generate transactions on demand, eliminating repetitive manual entry for predictable expenses and income
@@ -68,11 +78,47 @@ Plans:
   3. User can click "Gerar agora" on a template, which creates the transaction and advances the next due date — clicking twice does not create a duplicate
   4. User can view a list of all recurring transactions due in the next 30 days from the /transactions/recurring page
   5. User can pause a recurring template and reactivate it later without losing previously generated transaction history
-**Plans**: 0/2 planned
+**Plans**: 2/2 plans complete
 
 Plans:
 - [x] 07-01-PLAN.md — Drizzle schema for recurringTemplates, recurringTemplateId on transactions, CRUD server actions, generateRecurringTransaction with atomic balance update + dedup + auto-categorize, toggleRecurringActive, recurring queries
 - [x] 07-02-PLAN.md — UI: /transactions/recurring page with template list, upcoming-due section, create/edit dialog, generate/pause actions, sidebar nav item
+
+### Phase 8: Asset Price Updates
+**Goal**: Portfolio views show live market prices for all asset classes without any manual action from the user
+**Depends on**: Phase 7 (v1.1 complete)
+**Requirements**: PRICE-01, PRICE-02, PRICE-03, PRICE-04
+**Success Criteria** (what must be TRUE):
+  1. User opens the investments portfolio and sees today's closing prices for B3 equities, FIIs, ETFs, and BDRs — no manual entry required
+  2. User's crypto holdings display prices updated from CoinGecko in BRL without any action
+  3. Fixed income assets (CDB, LCI, LCA, Tesouro) display valuations based on current CDI/SELIC rates fetched from the BCB API
+  4. Portfolio PnL and net worth totals reflect current prices and update automatically each trading day
+**Plans**: TBD
+
+### Phase 9: Open Finance Connection
+**Goal**: Users can securely connect their bank accounts via the Polp widget and manage connection health from a dedicated screen
+**Depends on**: Phase 8
+**Requirements**: OF-01, OF-03, OF-04
+**Success Criteria** (what must be TRUE):
+  1. User can connect a bank account by clicking "Conectar conta" which opens the Polp widget — the bank credential is never seen by Floow
+  2. User can set a connection start date during the wizard to prevent overlap with previously imported OFX/CSV data
+  3. User can view all connected accounts on the connections page with status badges (active, expiring, error)
+  4. User can reconnect an expired/revoked connection or disconnect a bank account from the connections page
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 10: Sync Pipeline & Reconciliation
+**Goal**: Bank transactions are imported automatically each day and users can review matches against existing manual entries before confirming
+**Depends on**: Phase 9
+**Requirements**: OF-02, RECON-01, RECON-02, RECON-03, ICAT-01
+**Success Criteria** (what must be TRUE):
+  1. Transactions already in Floow are not duplicated when the same bank transaction is imported again — exact external ID dedup prevents silent re-imports
+  2. User sees a reconciliation preview listing NEW, MATCHED, and DUPLICATE transactions before any sync is committed
+  3. Transactions flagged as MATCHED show the corresponding manual entry so the user can approve or reject the match
+  4. Imported transactions that pass review are automatically assigned categories by the existing categorization rules without the user having to re-categorize
+  5. User can see a "last synced" timestamp and a summary of what changed after each automatic sync
+**Plans**: TBD
+**UI hint**: yes
 
 ## Progress
 
@@ -83,5 +129,8 @@ Plans:
 | 3. Investments Engine | v1.0 | 4/4 | Complete | 2026-03-17 |
 | 4. Planning Engine | v1.0 | 3/3 | Complete | 2026-03-18 |
 | 5. Automation Foundation | v1.1 | 1/1 | Complete | 2026-03-19 |
-| 6. Categorization Rules | 2/2 | Complete   | 2026-03-19 | - |
+| 6. Categorization Rules | v1.1 | 2/2 | Complete | 2026-03-19 |
 | 7. Recurring Transactions | v1.1 | 2/2 | Complete | 2026-03-31 |
+| 8. Asset Price Updates | v2.0 | 0/? | Not started | - |
+| 9. Open Finance Connection | v2.0 | 0/? | Not started | - |
+| 10. Sync Pipeline & Reconciliation | v2.0 | 0/? | Not started | - |
