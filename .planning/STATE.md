@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Automação
-status: verifying
-stopped_at: Completed 07-recurring-transactions 07-02-PLAN.md — awaiting human-verify checkpoint
+status: complete
+stopped_at: Milestone v1.1 Automacao complete — all 3 phases delivered
 last_updated: "2026-03-31T22:28:01.577Z"
 last_activity: 2026-03-31
 progress:
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** O investidor experiente consegue ver seu patrimônio consolidado — finanças, investimentos e projeções futuras — tudo num único lugar.
-**Current focus:** Phase 07 — recurring-transactions
+**Current focus:** Milestone v1.1 complete
 
 ## Current Position
 
-Phase: 07
-Plan: Not started
-Status: Phase complete — ready for verification
+Milestone: v1.1 Automacao — COMPLETE
+Phases: 05, 06, 07 — all delivered
+Status: Ready for next milestone
 Last activity: 2026-03-31
 
 Progress: [██████████] 100%

@@ -84,4 +84,4 @@ Plans:
 | 4. Planning Engine | v1.0 | 3/3 | Complete | 2026-03-18 |
 | 5. Automation Foundation | v1.1 | 1/1 | Complete | 2026-03-19 |
 | 6. Categorization Rules | 2/2 | Complete   | 2026-03-19 | - |
-| 7. Recurring Transactions | v1.1 | 2/2 | Complete   | 2026-03-29 |
+| 7. Recurring Transactions | v1.1 | 2/2 | Complete | 2026-03-31 |
