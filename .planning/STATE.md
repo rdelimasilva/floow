@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Open Finance & Automação de Dados
-status: active
-stopped_at: Roadmap created, ready for Phase 8 planning
-last_updated: "2026-03-31T00:00:00.000Z"
-last_activity: 2026-03-31
+status: executing
+stopped_at: "v2.0 roadmap created (Phases 8-10) — ready for `/gsd:plan-phase 8`"
+last_updated: "2026-04-01T20:18:50.197Z"
+last_activity: 2026-04-01 -- Phase 08 execution started
 progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 6
+  completed_phases: 3
+  total_plans: 8
+  completed_plans: 5
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** O investidor experiente consegue ver seu patrimônio consolidado — finanças, investimentos e projeções futuras — tudo num único lugar.
-**Current focus:** Milestone v2.0 — Open Finance & Automação de Dados
+**Current focus:** Phase 08 — asset-price-updates
 
 ## Current Position
 
-Phase: Phase 8 — Asset Price Updates (not started)
-Plan: —
-Status: Roadmap created, awaiting Phase 8 planning
-Last activity: 2026-03-31 — v2.0 roadmap defined (Phases 8-10)
+Phase: 08 (asset-price-updates) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 08
+Last activity: 2026-04-01 -- Phase 08 execution started
 
 Progress: [----------] 0%
 
@@ -51,6 +51,7 @@ Progress: [----------] 0%
 Decisions logged in PROJECT.md Key Decisions table.
 
 **v2.0 provider choices (from research + user input):**
+
 - Open Finance aggregator: Polp (polp.com.br) — NOT Pluggy. User explicitly chose Polp.
 - B3/FII/ETF/BDR prices: brapi.dev (Startup plan — verify exact price at brapi.dev/pricing before purchase)
 - Crypto prices: CoinGecko Demo API (free, 10k req/month, no library needed)
@@ -58,6 +59,7 @@ Decisions logged in PROJECT.md Key Decisions table.
 - String distance for fuzzy matching: `fastest-levenshtein@^1.0.16` (300 bytes, zero deps)
 
 **v2.0 architecture decisions (from research):**
+
 - `global_asset_prices` table is global (no orgId) — one row per (ticker, date); prevents thundering-herd API waste
 - Scheduling follows existing `cfo-daily.mts` pattern: Netlify Scheduled Function calls internal Next.js API route authenticated with service-role key
 - Price cron scheduled at 19:00 UTC weekdays (90-min buffer after B3 market close at 17:30 BRT)
@@ -70,6 +72,7 @@ Decisions logged in PROJECT.md Key Decisions table.
 - Every automated action tagged with `last_modified_by` source; "what changed" summary shown after each sync
 
 **v1.1 decisions (archived for reference):**
+
 - Category rules apply only when `category_id IS NULL` — never overwrite manual categories
 - Recurring generation is user-triggered in v1.1 (cron deferred to v2 as REC-06)
 - `(recurring_template_id, due_date)` unique constraint prevents duplicate generation
