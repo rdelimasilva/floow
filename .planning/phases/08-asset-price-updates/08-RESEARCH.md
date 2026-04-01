@@ -44,7 +44,7 @@
 |----|-------------|------------------|
 | PRICE-01 | System auto-updates EOD prices for B3 equities, FIIs, ETFs, BDRs via daily cron | brapi.dev `GET /api/quote/{tickers}` returns `regularMarketPrice`; Netlify cron at 19:00 UTC weekdays; existing `cfo-daily.mts` pattern |
 | PRICE-02 | System auto-updates crypto prices daily via CoinGecko | CoinGecko `GET /simple/price?ids={coingecko_ids}&vs_currencies=brl`; requires `coingecko_id` column on assets; Demo free tier sufficient |
-| PRICE-03 | System fetches CDI/SELIC economic indicators from BCB daily for fixed income calculation | BCB API series 12 (CDI), 11 (SELIC), 433 (IPCA); `computeAccrualPrice()` uses stored rate + `estimateAssetValue()` already in core-finance |
+| PRICE-03 | System fetches CDI/SELIC economic indicators from BCB daily for fixed income calculation | BCB API series 12 (CDI), 11 (SELIC), 433 (IPCA); new `computeAccrualPrice()` uses 252-business-day convention (NOT `estimateAssetValue()` which uses wrong calendar-day formula); rates stored in `economic_indicators` table |
 | PRICE-04 | Investment portfolio shows updated values with today's prices without user action | Requires wiring `global_asset_prices` into `getLatestPrices()` and `recomputeOrgPositionSnapshots()`; existing `assetPositionSnapshots` table handles display |
 </phase_requirements>
 
@@ -71,7 +71,8 @@ The existing `assetPositionSnapshots` table and `recomputeOrgPositionSnapshots()
 
 **Correct numbers for Phase 8:**
 - `00024_global_asset_prices.sql` — `global_asset_prices` table (no RLS; service-role writes, authenticated reads)
-- `00025_assets_pricing_metadata.sql` — `ALTER TABLE assets ADD COLUMN pricing_type text NOT NULL DEFAULT 'market_quoted'` + `ADD COLUMN coingecko_id text`
+- `00025_assets_pricing_metadata.sql` — `ALTER TABLE assets ADD COLUMN pricing_type text` + `ADD COLUMN coingecko_id text`
+- `00026_economic_indicators.sql` — `economic_indicators` table for CDI/SELIC/IPCA rates (no RLS; service-role writes)
 
 Combining `pricing_type` and `coingecko_id` in one migration is cleaner than splitting them.
 
@@ -283,17 +284,45 @@ export async function runDailyPriceUpdate() {
 }
 ```
 
-### Pattern 4: BCB Rate Storage — Synthetic Tickers in global_asset_prices
+### Pattern 4: BCB Rate Storage — Dedicated `economic_indicators` Table
 
-Store CDI/SELIC/IPCA in `global_asset_prices` using synthetic tickers. This avoids a new table and keeps the "latest indicator" query identical to the "latest price" query:
+**Decision: Use a separate `economic_indicators` table. Do NOT store rates in `global_asset_prices`.**
 
-| Synthetic ticker | BCB series | Unit |
-|-----------------|------------|------|
-| `CDI` | 12 | % per day (e.g., `0.054266` → store as `5` with 4 decimal precision, or store raw × 10000 in `price_cents` as basis points) |
-| `SELIC` | 11 | % per day |
-| `IPCA` | 433 | % monthly |
+Storing rates in `price_cents` (an integer column named "cents") would require a non-obvious encoding convention that every future developer must know. The semantic mismatch between market price and daily rate is confusing enough to warrant a dedicated table. This is a firm architectural decision, not a preference.
 
-**Cents representation for rates:** Since `price_cents` is an integer, store rates as basis points × 1000 (i.e., 0.054266% per day → 54266 in `price_cents` with a special convention). Alternatively, use a `rate_bps` column in a dedicated table. Given the type mismatch, **a separate `economic_indicators` table is cleaner** than misusing `price_cents` for rates. See Open Questions below.
+Add migration **00026_economic_indicators.sql**:
+
+```sql
+CREATE TABLE public.economic_indicators (
+  indicator   text    NOT NULL,   -- 'CDI' | 'SELIC' | 'IPCA'
+  ref_date    date    NOT NULL,
+  rate_bps    integer NOT NULL,   -- rate in basis points * 10000
+                                  -- e.g., CDI 0.054266%/day stored as 54266
+  source      text    NOT NULL DEFAULT 'bcb',
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (indicator, ref_date)
+);
+
+ALTER TABLE public.economic_indicators ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "economic_indicators: authenticated can read"
+  ON public.economic_indicators FOR SELECT
+  TO authenticated
+  USING (true);
+-- Service role bypasses RLS for INSERT/UPDATE
+```
+
+**Rate encoding:** `rate_bps = round(daily_rate_percent * 1_000_000)`. CDI at 0.054266%/day → 54266. This convention is documented in the DDL, not buried in application arithmetic.
+
+**Latest rate query:**
+```sql
+SELECT DISTINCT ON (indicator) indicator, rate_bps, ref_date
+FROM economic_indicators
+WHERE indicator = 'CDI'
+ORDER BY indicator, ref_date DESC
+```
+
+**Updated migration count for Phase 8:** 00024 (global_asset_prices), 00025 (assets pricing columns), 00026 (economic_indicators).
 
 ### Pattern 5: Fixed Income Accrual Valuation (PRICE-03)
 
@@ -302,15 +331,38 @@ For `accrual_based` assets (CDB, LCI, LCA, Tesouro Direto), current value is com
 2. Rate (from stored CDI/SELIC rate + spread defined on the asset)
 3. Days elapsed since purchase
 
-The existing `estimateAssetValue()` in `core-finance/asset-valuation.ts` handles compound growth. For CDI-linked products, a new pure function `computeAccrualPrice(purchasePriceCents, annualizedRate, purchaseDate, referenceDate)` should wrap `estimateAssetValue()` with the CDI annualization step:
+`estimateAssetValue()` in `core-finance/asset-valuation.ts` uses calendar-day compounding (`daysElapsed / 365`). **This is wrong for CDI.** Brazilian CDI compounds over 252 business days per year, not 365 calendar days. Using `estimateAssetValue()` directly for CDI-linked products will produce systematically low valuations.
+
+A new pure function `computeAccrualPrice()` must implement the correct 252-day convention:
 
 ```typescript
-// Daily CDI rate from BCB is already per day, multiply by 252 trading days for annual
-// Example: CDI = 0.054266% / day → annual ≈ 0.054266 * 252 / 100 ≈ 0.1368 = 13.68% p.a.
-// Then call estimateAssetValue(purchasePriceCents, purchaseDate, annualRate, today)
+// packages/core-finance/src/accrual.ts
+// CDI convention: compound over 252 business days, NOT 365 calendar days
+// BCB daily rate: 0.054266% per day  
+// Formula: FV = PV * (1 + dailyRate/100) ^ businessDays
+// where businessDays = count of non-weekend days between purchaseDate and today
+// (simplified: use calendar days * 252/365 as approximation, or exact business day count)
+
+export function computeAccrualPrice(
+  purchasePriceCents: number,
+  dailyRateBps: number,      // from economic_indicators.rate_bps
+  spread: number,            // 1.0 for 100% CDI, 0.9 for 90% CDI
+  purchaseDate: Date,
+  referenceDate: Date = new Date(),
+): number {
+  const dailyRate = (dailyRateBps / 1_000_000) * spread  // e.g., 54266 / 1_000_000 = 0.054266% / 100 = 0.00054266
+  const msPerDay = 86_400_000
+  const calendarDays = (referenceDate.getTime() - purchaseDate.getTime()) / msPerDay
+  // Use 252/365 ratio to approximate business days from calendar days
+  const businessDays = Math.round(calendarDays * 252 / 365)
+  if (businessDays <= 0) return purchasePriceCents
+  return Math.round(purchasePriceCents * Math.pow(1 + dailyRate / 100, businessDays))
+}
 ```
 
-This pure function lives in `packages/core-finance/src/` and is testable with Vitest.
+**CRITICAL:** Do NOT use `estimateAssetValue()` for CDI-linked products. That function uses calendar-day compounding (daysElapsed / 365) which produces incorrect results for Brazilian fixed income. `computeAccrualPrice()` is a new function with the 252-day convention.
+
+This pure function lives in `packages/core-finance/src/accrual.ts` and is testable with Vitest.
 
 ---
 
@@ -379,6 +431,12 @@ This pure function lives in `packages/core-finance/src/` and is testable with Vi
 **What goes wrong:** CoinGecko Demo tier allows 30 req/min. With large coingecko_id lists, a single call batching 250+ ids might exceed the response size limit or trigger rate limiting.
 **Why it happens:** CoinGecko `simple/price` accepts comma-separated `ids` — no documented per-call limit, but very long URLs can fail.
 **How to avoid:** Batch in chunks of 50 coingecko_ids per request. At one daily run, 50 cryptos × 1 call = well within 10k/month limit.
+
+### Pitfall 10: Using Calendar-Day Compounding for CDI (Wrong Formula)
+**What goes wrong:** Fixed income valuations drift progressively lower than actual balance. A CDB purchased at R$10,000 tracking 100% CDI shows R$11,200 after 2 years when the real value is R$11,380.
+**Why it happens:** `estimateAssetValue()` uses `daysElapsed / 365` (calendar-day compounding). Brazilian CDI compounds over 252 business days per year. Using the wrong day-count convention understates accrual by ~(365/252 - 1) ≈ 45% of the excess return.
+**How to avoid:** Use `computeAccrualPrice()` from `core-finance/accrual.ts` (new function in this phase) with the 252 business-day convention. Never call `estimateAssetValue()` for CDI/SELIC-linked products.
+**Warning signs:** Fixed income positions show values slightly below what the bank/broker's statement shows.
 
 ---
 
@@ -459,7 +517,7 @@ CREATE POLICY "global_asset_prices: authenticated can read"
 -- Service role bypasses RLS for writes (no INSERT policy needed)
 ```
 
-**Note on BCB indicators:** Store CDI/SELIC/IPCA in `global_asset_prices` with synthetic tickers (`CDI`, `SELIC`, `IPCA`). The `price_cents` column stores the rate in basis-points × 1000 (e.g., CDI 0.054266% per day → `price_cents = 54266`). This is a deliberate semantic stretch but avoids a second table. Alternative: use a separate `economic_indicators` table if the semantic mismatch causes confusion for future developers. Either choice is acceptable — document the convention clearly in code comments.
+**BCB indicators are stored in the separate `economic_indicators` table (migration 00026), NOT in `global_asset_prices`.** See Pattern 4 for the table definition and rate encoding convention.
 
 ### Migration 00025: `assets` Metadata Columns
 
@@ -469,7 +527,11 @@ ALTER TABLE public.assets
   ADD COLUMN pricing_type text NOT NULL DEFAULT 'market_quoted',
   ADD COLUMN coingecko_id  text;
 
--- Add a check constraint for the enum
+-- Using text + CHECK rather than pgEnum to match migration simplicity.
+-- Note: The existing schema uses pgEnum for asset_class and event_type.
+-- If consistency with existing enums is preferred, define a
+-- CREATE TYPE pricing_type AS ENUM ('market_quoted', 'accrual_based')
+-- and change the column type. Either approach is correct.
 ALTER TABLE public.assets
   ADD CONSTRAINT assets_pricing_type_check
     CHECK (pricing_type IN ('market_quoted', 'accrual_based'));
@@ -656,22 +718,17 @@ export async function POST(request: Request) {
 
 ## Open Questions
 
-1. **BCB indicator storage format**
-   - What we know: `price_cents` is `integer NOT NULL`. BCB rates are decimals (0.054266% per day). Storing as basis-points × 1,000,000 (= 54266 for CDI) works but is semantically unusual.
-   - What's unclear: Will future code consuming these rates need to understand the conversion convention?
-   - Recommendation: Add a code comment in the BCB client and `global_asset_prices` schema explaining the convention. If it becomes confusing, add a `value_type` column (`price` | `rate_bps`) to the table.
-
-2. **coingecko_id seed strategy**
+1. **coingecko_id seed strategy**
    - What we know: Migration 00025 adds `coingecko_id text` to `assets`. Existing crypto assets have `assetClass = 'crypto'` but no `coingecko_id`. The cron skips null `coingecko_id`.
    - What's unclear: Should we seed the top 20 mappings in the migration, or add a UI field to the asset edit form?
    - Recommendation: Both. Add the top 20 seed mappings as a commented reference in the migration documentation, but populate via the asset edit form UI (one new text field on the existing edit page). The migration should NOT auto-update existing rows because ticker names alone don't unambiguously identify CoinGecko IDs.
 
-3. **brapi.dev `regularMarketTime` on non-trading days**
+2. **brapi.dev `regularMarketTime` on non-trading days**
    - What we know: The cron fires at 19:00 UTC weekdays. brapi returns the last available price even when queried after market close.
    - What's unclear: What `regularMarketTime` value does brapi return on a Monday after a Brazilian holiday? Does it correctly return Thursday's date?
    - Recommendation: Use `regularMarketTime` as `price_date`. This is correct behavior — if the market was closed Monday, the price stored is Friday's close with Friday's date. Verify this behavior manually with the Startup plan before shipping.
 
-4. **`recomputeOrgPositionSnapshots` performance at scale**
+3. **`recomputeOrgPositionSnapshots` performance at scale**
    - What we know: Currently recomputes all snapshots for an entire org in one transaction. Fine for small portfolios.
    - What's unclear: If an org has 100 assets and prices update for 50 of them, recomputing all 100 is redundant work.
    - Recommendation: Not a concern for v2.0 scale. The current implementation is correct and already tested. Optimize only if performance becomes an issue.
@@ -709,15 +766,15 @@ Phase 8 has external API dependencies. Local dev does not need them to be availa
 
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|--------------|
-| PRICE-01 | brapi price → correct cents conversion | unit | `pnpm --filter @floow/core-finance test -- brapi` | ❌ Wave 0 |
-| PRICE-01 | null price gracefully skipped | unit | `pnpm --filter @floow/core-finance test -- brapi` | ❌ Wave 0 |
-| PRICE-02 | coingecko response → correct cents in BRL | unit | `pnpm --filter @floow/core-finance test -- coingecko` | ❌ Wave 0 |
-| PRICE-02 | missing coingecko_id gracefully skipped | unit | `pnpm --filter @floow/core-finance test -- coingecko` | ❌ Wave 0 |
-| PRICE-03 | BCB rate parsed from DD/MM/YYYY format | unit | `pnpm --filter @floow/core-finance test -- bcb` | ❌ Wave 0 |
-| PRICE-03 | `computeAccrualPrice()` compound growth | unit | `pnpm --filter @floow/core-finance test -- accrual` | ❌ Wave 0 |
+| PRICE-01 | brapi price → correct cents conversion | unit | `pnpm --filter @floow/web test -- brapi` | ❌ Wave 0 |
+| PRICE-01 | null price gracefully skipped | unit | `pnpm --filter @floow/web test -- brapi` | ❌ Wave 0 |
+| PRICE-02 | coingecko response → correct cents in BRL | unit | `pnpm --filter @floow/web test -- coingecko` | ❌ Wave 0 |
+| PRICE-02 | missing coingecko_id gracefully skipped | unit | `pnpm --filter @floow/web test -- coingecko` | ❌ Wave 0 |
+| PRICE-03 | BCB rate parsed from DD/MM/YYYY format | unit | `pnpm --filter @floow/web test -- bcb` | ❌ Wave 0 |
+| PRICE-03 | `computeAccrualPrice()` 252-day compound growth | unit | `pnpm --filter @floow/core-finance test -- accrual` | ❌ Wave 0 |
 | PRICE-04 | portfolio page snapshot uses global price over manual | integration | manual smoke test via /investments | manual only |
 
-**Note:** API client tests (PRICE-01, PRICE-02, PRICE-03) are pure function tests — they test the price transformation logic with mock API responses, not live HTTP calls. Test files belong in `packages/core-finance/src/__tests__/`.
+**Note on test file locations:** The price clients live in `apps/web/lib/prices/`. Their transformation logic tests should live there too: `apps/web/lib/prices/__tests__/`. The `computeAccrualPrice()` function lives in `packages/core-finance/src/accrual.ts` and its test lives in `packages/core-finance/src/__tests__/accrual.test.ts`.
 
 ### Sampling Rate
 - **Per task commit:** `pnpm --filter @floow/core-finance test`
@@ -725,8 +782,10 @@ Phase 8 has external API dependencies. Local dev does not need them to be availa
 - **Phase gate:** Full suite green + manual smoke test on investments page before `/gsd:verify-work`
 
 ### Wave 0 Gaps
-- [ ] `packages/core-finance/src/__tests__/price-clients.test.ts` — covers PRICE-01, PRICE-02, PRICE-03 conversion logic
-- [ ] `packages/core-finance/src/__tests__/accrual.test.ts` — covers PRICE-03 `computeAccrualPrice()`
+- [ ] `apps/web/lib/prices/__tests__/brapi-client.test.ts` — covers PRICE-01 conversion logic
+- [ ] `apps/web/lib/prices/__tests__/coingecko-client.test.ts` — covers PRICE-02 conversion logic
+- [ ] `apps/web/lib/prices/__tests__/bcb-client.test.ts` — covers PRICE-03 rate parsing
+- [ ] `packages/core-finance/src/__tests__/accrual.test.ts` — covers PRICE-03 `computeAccrualPrice()` 252-day convention
 
 ---
 
