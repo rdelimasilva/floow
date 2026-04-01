@@ -93,7 +93,12 @@ Plans:
   2. User's crypto holdings display prices updated from CoinGecko in BRL without any action
   3. Fixed income assets (CDB, LCI, LCA, Tesouro) display valuations based on current CDI/SELIC rates fetched from the BCB API
   4. Portfolio PnL and net worth totals reflect current prices and update automatically each trading day
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — DB migrations (global_asset_prices, economic_indicators, pricing_type/coingecko_id on assets) + computeAccrualPrice() pure function with TDD
+- [ ] 08-02-PLAN.md — brapi/CoinGecko/BCB API clients, daily price orchestrator, authenticated API route, Netlify cron at 19:00 UTC weekdays
+- [ ] 08-03-PLAN.md — Wire global_asset_prices into getLatestPrices() and recomputeOrgPositionSnapshots() for live portfolio values
 
 ### Phase 9: Open Finance Connection
 **Goal**: Users can securely connect their bank accounts via the Polp widget and manage connection health from a dedicated screen
@@ -131,6 +136,6 @@ Plans:
 | 5. Automation Foundation | v1.1 | 1/1 | Complete | 2026-03-19 |
 | 6. Categorization Rules | v1.1 | 2/2 | Complete | 2026-03-19 |
 | 7. Recurring Transactions | v1.1 | 2/2 | Complete | 2026-03-31 |
-| 8. Asset Price Updates | v2.0 | 0/? | Not started | - |
+| 8. Asset Price Updates | v2.0 | 0/3 | Not started | - |
 | 9. Open Finance Connection | v2.0 | 0/? | Not started | - |
 | 10. Sync Pipeline & Reconciliation | v2.0 | 0/? | Not started | - |
