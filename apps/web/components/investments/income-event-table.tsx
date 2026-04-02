@@ -14,8 +14,12 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   amortization: 'Amortização',
 }
 
+type SerializedIncomeEvent = Omit<IncomeEventWithAsset, 'eventDate'> & {
+  eventDate: string | Date
+}
+
 interface IncomeEventTableProps {
-  events: IncomeEventWithAsset[]
+  events: SerializedIncomeEvent[]
 }
 
 export function IncomeEventTable({ events }: IncomeEventTableProps) {

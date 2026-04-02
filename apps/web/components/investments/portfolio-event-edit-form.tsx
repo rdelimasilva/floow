@@ -42,8 +42,12 @@ type FormData = z.infer<typeof portfolioEventEditSchema>
 
 type EventType = 'buy' | 'sell' | 'dividend' | 'interest' | 'split' | 'amortization'
 
+type SerializedEvent = Omit<PortfolioEventDetail, 'eventDate'> & {
+  eventDate: string | Date
+}
+
 interface PortfolioEventEditFormProps {
-  event: PortfolioEventDetail
+  event: SerializedEvent
   assets: Asset[]
   accounts: Account[]
 }

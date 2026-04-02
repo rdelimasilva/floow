@@ -28,7 +28,14 @@ export default async function EditPortfolioEventPage({ params }: Props) {
       />
 
       <div className="max-w-xl">
-        <PortfolioEventEditForm event={event} assets={assets} accounts={accounts} />
+        <PortfolioEventEditForm
+          event={{
+            ...event,
+            eventDate: event.eventDate instanceof Date ? event.eventDate.toISOString() : event.eventDate,
+          }}
+          assets={assets}
+          accounts={accounts}
+        />
       </div>
     </div>
   )

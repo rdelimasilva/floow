@@ -74,7 +74,11 @@ async function PortfolioContent({ orgId }: { orgId: string }) {
                 Nenhum snapshot patrimonial disponível. Clique em &quot;Atualizar Patrimônio&quot; no dashboard financeiro para gerar.
               </div>
             ) : (
-              <NetWorthEvolution snapshots={snapshots} />
+              <NetWorthEvolution snapshots={snapshots.map((s) => ({
+                ...s,
+                snapshotDate: s.snapshotDate instanceof Date ? s.snapshotDate.toISOString() : s.snapshotDate,
+                createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : s.createdAt,
+              }))} />
             )}
           </CardContent>
         </Card>

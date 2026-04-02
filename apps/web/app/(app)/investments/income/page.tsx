@@ -83,7 +83,10 @@ export default async function IncomePage() {
                 <CardTitle>Últimos Recebimentos</CardTitle>
               </CardHeader>
               <CardContent>
-                <IncomeEventTable events={recentEvents} />
+                <IncomeEventTable events={recentEvents.map((e) => ({
+                  ...e,
+                  eventDate: e.eventDate instanceof Date ? e.eventDate.toISOString() : e.eventDate,
+                }))} />
               </CardContent>
             </Card>
           </section>

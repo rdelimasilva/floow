@@ -1,8 +1,7 @@
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
-import { getOrgId, getAccounts, getRecentTransactions, getLatestSnapshot, getTransactionsWithCount } from '@/lib/finance/queries'
+import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getLatestSnapshot, getTransactionsWithCount } from '@/lib/finance/queries'
 import { refreshSnapshot } from '@/lib/finance/actions'
-import { aggregateCashFlow } from '@floow/core-finance'
 import { AccountSummaryRow } from '@/components/finance/account-summary-row'
 import { QuickStatsRow } from '@/components/finance/quick-stats-row'
 import { PatrimonySummary } from '@/components/finance/patrimony-summary'
@@ -38,8 +37,7 @@ async function AccountSection({ orgId }: { orgId: string }) {
 }
 
 async function StatsSection({ orgId }: { orgId: string }) {
-  const recentTransactions = await getRecentTransactions(orgId, 6)
-  const cashFlowData = aggregateCashFlow(recentTransactions)
+  const cashFlowData = await getMonthlyCashFlowSummary(orgId, 6)
   const now = new Date()
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const currentMonthData = cashFlowData.find((d) => d.month === currentMonth)
@@ -53,8 +51,7 @@ async function StatsSection({ orgId }: { orgId: string }) {
 }
 
 async function ChartSection({ orgId }: { orgId: string }) {
-  const recentTransactions = await getRecentTransactions(orgId, 6)
-  const cashFlowData = aggregateCashFlow(recentTransactions)
+  const cashFlowData = await getMonthlyCashFlowSummary(orgId, 6)
   return (
     <Card>
       <CardHeader>
@@ -75,9 +72,20 @@ async function ChartSection({ orgId }: { orgId: string }) {
 
 async function PatrimonySection({ orgId }: { orgId: string }) {
   const latestSnapshot = await getLatestSnapshot(orgId)
+  const serialized = latestSnapshot
+    ? {
+        ...latestSnapshot,
+        snapshotDate: latestSnapshot.snapshotDate instanceof Date
+          ? latestSnapshot.snapshotDate.toISOString()
+          : latestSnapshot.snapshotDate,
+        createdAt: latestSnapshot.createdAt instanceof Date
+          ? latestSnapshot.createdAt.toISOString()
+          : latestSnapshot.createdAt,
+      }
+    : null
   return (
     <PatrimonySummary
-      snapshot={latestSnapshot}
+      snapshot={serialized}
       onRefresh={refreshSnapshot}
     />
   )

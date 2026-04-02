@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getOrgId, getTransactionsWithCount, getAccounts, getCategories, getPageStartBalance, getCategoryUsageOrder } from '@/lib/finance/queries'
+import { getOrgId, getTransactionsWithCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
@@ -34,11 +34,10 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const queryOpts = { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }
 
-  const [{ transactions, totalCount }, accounts, categories, startingBalance, categoryOrder] = await Promise.all([
+  const [{ transactions, totalCount, startingBalance }, accounts, categories, categoryOrder] = await Promise.all([
     getTransactionsWithCount(orgId, queryOpts),
     getAccounts(orgId),
     getCategories(orgId),
-    getPageStartBalance(orgId, queryOpts),
     getCategoryUsageOrder(orgId),
   ])
 
@@ -90,7 +89,10 @@ export default async function TransactionsPage({ searchParams }: Props) {
       <TransactionFilters accounts={accountOptions} />
 
       <TransactionListWrapper
-        transactions={transactions}
+        transactions={transactions.map((t) => ({
+          ...t,
+          date: t.date instanceof Date ? t.date.toISOString() : t.date,
+        }))}
         accounts={accountOptions}
         categories={categoryOptions}
         sortBy={filters.sortBy}

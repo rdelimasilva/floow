@@ -11,7 +11,7 @@ interface EventRow {
   id: string
   eventType: string
   eventTypeLabel: string
-  eventDate: Date
+  eventDate: string
   quantity: number | null
   priceCents: number | null
   totalCents: number | null

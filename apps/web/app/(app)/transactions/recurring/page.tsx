@@ -21,8 +21,20 @@ export default async function RecurringPage() {
         description="Gerencie templates de transacoes recorrentes e gere lancamentos automaticamente"
       />
       <RecurringTemplateList
-        templates={templates}
-        upcoming={upcoming}
+        templates={templates.map((t) => ({
+          ...t,
+          nextDueDate: t.nextDueDate instanceof Date ? t.nextDueDate.toISOString() : t.nextDueDate,
+          endDate: t.endDate instanceof Date ? t.endDate.toISOString() : t.endDate,
+          createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+          updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+        }))}
+        upcoming={upcoming.map((t) => ({
+          ...t,
+          nextDueDate: t.nextDueDate instanceof Date ? t.nextDueDate.toISOString() : t.nextDueDate,
+          endDate: t.endDate instanceof Date ? t.endDate.toISOString() : t.endDate,
+          createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+          updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+        }))}
         accounts={accountOptions}
         categories={categoryOptions}
       />

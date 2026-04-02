@@ -19,7 +19,11 @@ export default async function EditAssetPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <PageHeader title="Editar Ativo" />
-      <AssetEditForm asset={asset} />
+      <AssetEditForm asset={{
+        ...asset,
+        createdAt: asset.createdAt instanceof Date ? asset.createdAt.toISOString() : asset.createdAt,
+        updatedAt: asset.updatedAt instanceof Date ? asset.updatedAt.toISOString() : asset.updatedAt,
+      }} />
     </div>
   )
 }

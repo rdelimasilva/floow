@@ -18,8 +18,13 @@ const ASSET_CLASSES = [
   { value: 'international', label: 'Internacional' },
 ] as const
 
+type SerializedAsset = Omit<Asset, 'createdAt' | 'updatedAt'> & {
+  createdAt: string | Date
+  updatedAt: string | Date
+}
+
 interface AssetEditFormProps {
-  asset: Asset
+  asset: SerializedAsset
 }
 
 export function AssetEditForm({ asset }: AssetEditFormProps) {

@@ -47,8 +47,12 @@ const ACTION_ROUTES: Record<string, (params: Record<string, unknown>) => string>
   adjust_budget: (p) => `/budgets/spending${p.category ? `?highlight=${p.category}` : ''}`,
 }
 
+type SerializedInsight = {
+  [K in keyof CfoInsight]: CfoInsight[K] extends Date ? string | Date : CfoInsight[K] extends Date | null ? string | Date | null : CfoInsight[K]
+}
+
 interface InsightCardProps {
-  insight: CfoInsight
+  insight: SerializedInsight
   compact?: boolean
 }
 

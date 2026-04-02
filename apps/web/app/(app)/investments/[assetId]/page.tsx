@@ -43,7 +43,7 @@ export default async function AssetDetailPage({ params }: Props) {
     id: e.id,
     eventType: e.eventType,
     eventTypeLabel: EVENT_TYPE_LABELS[e.eventType] ?? e.eventType,
-    eventDate: e.eventDate instanceof Date ? e.eventDate : new Date(e.eventDate as unknown as string),
+    eventDate: e.eventDate instanceof Date ? e.eventDate.toISOString() : String(e.eventDate),
     quantity: e.quantity,
     priceCents: e.priceCents,
     totalCents: e.totalCents,

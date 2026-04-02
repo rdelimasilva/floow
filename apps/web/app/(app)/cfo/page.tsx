@@ -10,7 +10,27 @@ async function CfoContent({ orgId }: { orgId: string }) {
     getLatestRun(orgId),
   ])
 
-  return <CfoClient insights={insights} latestRun={latestRun} />
+  const toStr = (d: unknown) => d instanceof Date ? d.toISOString() : d
+
+  return (
+    <CfoClient
+      insights={insights.map((i) => ({
+        ...i,
+        generatedAt: toStr(i.generatedAt) as string,
+        expiresAt: toStr(i.expiresAt) as string,
+        dismissedAt: i.dismissedAt ? toStr(i.dismissedAt) as string : null,
+        actedOnAt: i.actedOnAt ? toStr(i.actedOnAt) as string : null,
+        createdAt: toStr(i.createdAt) as string,
+        updatedAt: toStr(i.updatedAt) as string,
+      }))}
+      latestRun={latestRun ? {
+        ...latestRun,
+        startedAt: toStr(latestRun.startedAt) as string,
+        completedAt: latestRun.completedAt ? toStr(latestRun.completedAt) as string : null,
+        createdAt: toStr(latestRun.createdAt) as string,
+      } : null}
+    />
+  )
 }
 
 function CfoSkeleton() {

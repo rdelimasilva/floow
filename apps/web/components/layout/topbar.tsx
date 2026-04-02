@@ -6,7 +6,6 @@ import { Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useSidebar } from './sidebar-context'
 import { UserMenu } from './user-menu'
-import { cn } from '@/lib/utils'
 
 interface TopbarProps {
   userEmail: string
@@ -16,7 +15,7 @@ interface TopbarProps {
 }
 
 export function Topbar({ userEmail, userName, avatarUrl, onMobileMenuOpen }: TopbarProps) {
-  const { collapsed } = useSidebar()
+  const { pinned } = useSidebar()
   const router = useRouter()
 
   const handleSignOut = useCallback(async () => {
@@ -27,11 +26,9 @@ export function Topbar({ userEmail, userName, avatarUrl, onMobileMenuOpen }: Top
 
   return (
     <header
-      className={cn(
-        'fixed top-0 right-0 z-30 flex h-14 items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm px-4 transition-[left] duration-200 ease-in-out',
-        'left-0 lg:left-56',
-        collapsed && 'lg:left-[68px]',
-      )}
+      className={`fixed top-0 right-0 z-30 flex h-14 items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm px-4 left-0 lg:transition-[left] lg:duration-150 lg:ease-out ${
+        pinned ? 'lg:left-56' : 'lg:left-[68px]'
+      }`}
     >
       {/* Left: mobile hamburger */}
       <button

@@ -12,8 +12,13 @@ const chartConfig = {
   },
 }
 
+type SerializedSnapshot = Omit<PatrimonySnapshot, 'snapshotDate' | 'createdAt'> & {
+  snapshotDate: string | Date
+  createdAt: string | Date
+}
+
 interface NetWorthEvolutionProps {
-  snapshots: PatrimonySnapshot[]
+  snapshots: SerializedSnapshot[]
 }
 
 /**

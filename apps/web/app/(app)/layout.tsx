@@ -26,14 +26,12 @@ export default async function AppLayout({
   const user = session.user
   const meta = user.user_metadata ?? {}
 
-  // Read sidebar collapsed state from cookie server-side to avoid client-side
-  // layout flash (prevents hydration mismatch and re-render on mount).
   const cookieStore = await cookies()
-  const sidebarCollapsed = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === 'true'
+  const sidebarPinned = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === 'true'
 
   return (
     <ToastProvider>
-      <SidebarProvider defaultCollapsed={sidebarCollapsed}>
+      <SidebarProvider defaultPinned={sidebarPinned}>
         <ReconcileProvider>
           <div className="min-h-screen bg-gray-50">
             <CommandPalette />

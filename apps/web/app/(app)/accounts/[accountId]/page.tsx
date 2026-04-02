@@ -91,7 +91,10 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
       {/* Transaction list */}
       <TransactionList
-        transactions={transactions}
+        transactions={transactions.map((t) => ({
+          ...t,
+          date: t.date instanceof Date ? t.date.toISOString() : t.date,
+        }))}
         accounts={[{ id: account.id, name: account.name }]}
         categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))}
       />

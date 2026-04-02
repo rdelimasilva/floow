@@ -6,8 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { PatrimonySnapshot } from '@floow/db'
 
+type SerializedSnapshot = Omit<PatrimonySnapshot, 'snapshotDate' | 'createdAt'> & {
+  snapshotDate: string | Date
+  createdAt: string | Date
+}
+
 interface PatrimonySummaryProps {
-  snapshot: PatrimonySnapshot | null
+  snapshot: SerializedSnapshot | null
   onRefresh: () => Promise<unknown>
 }
 

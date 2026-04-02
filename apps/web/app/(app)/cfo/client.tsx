@@ -4,9 +4,13 @@ import { InsightCard } from '@/components/cfo/insight-card'
 import { ChatPanel } from '@/components/cfo/chat-panel'
 import type { CfoInsight, CfoRun } from '@floow/db'
 
+type DateToString<T> = {
+  [K in keyof T]: T[K] extends Date ? string : T[K] extends Date | null ? string | null : T[K]
+}
+
 interface CfoClientProps {
-  insights: CfoInsight[]
-  latestRun: CfoRun | null
+  insights: DateToString<CfoInsight>[]
+  latestRun: DateToString<CfoRun> | null
 }
 
 export function CfoClient({ insights, latestRun }: CfoClientProps) {
@@ -67,7 +71,7 @@ export function CfoClient({ insights, latestRun }: CfoClientProps) {
   )
 }
 
-function InsightSection({ title, insights }: { title: string; insights: CfoInsight[] }) {
+function InsightSection({ title, insights }: { title: string; insights: DateToString<CfoInsight>[] }) {
   return (
     <div>
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
