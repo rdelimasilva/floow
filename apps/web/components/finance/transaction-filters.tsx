@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useTransition } from 'react'
 import { Search, SlidersHorizontal } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
@@ -62,6 +62,7 @@ interface TransactionFiltersProps {
 export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/transactions' }: TransactionFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [, startTransition] = useTransition()
 
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const [accountId, setAccountId] = useState(searchParams.get('accountId') ?? '')
@@ -81,15 +82,19 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     if (values.startDate) params.set('startDate', values.startDate)
     if (values.endDate) params.set('endDate', values.endDate)
     params.set('page', '1')
-    router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
-  }, [router, baseUrl, search, accountId, startDate, endDate])
+    startTransition(() => {
+      router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
+    })
+  }, [router, baseUrl, search, accountId, startDate, endDate, startTransition])
 
   function clearFilters() {
     setSearch('')
     setAccountId('')
     setStartDate('')
     setEndDate('')
-    router.replace(baseUrl, { scroll: false })
+    startTransition(() => {
+      router.replace(baseUrl, { scroll: false })
+    })
   }
 
   const hasFilters = search || accountId || startDate || endDate

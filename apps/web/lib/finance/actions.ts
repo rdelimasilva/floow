@@ -1,6 +1,4 @@
 'use server'
-
-import { revalidatePath } from 'next/cache'
 import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules, recurringTemplates } from '@floow/db'
 import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema, createRecurringTransactionSchema } from '@floow/shared'
 import { computeSnapshot, matchCategory, generateInstallmentDates, advanceByFrequency } from '@floow/core-finance'
@@ -89,7 +87,6 @@ export async function createAccount(formData: FormData) {
     })
     .returning()
 
-  revalidatePath('/accounts')
   revalidateAccountData(orgId)
 
   return account
@@ -206,8 +203,6 @@ export async function createTransaction(formData: FormData) {
       return [sourceTransaction, destTransaction]
     })
 
-    revalidatePath('/transactions')
-    revalidatePath('/accounts')
     revalidateTransactionData(orgId)
     revalidateAccountData(orgId)
     triggerCfoAnalysis(orgId, 'transaction_created', ['cash_flow', 'budget', 'behavior'])
@@ -245,8 +240,6 @@ export async function createTransaction(formData: FormData) {
     return transaction
   })
 
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)
   triggerCfoAnalysis(orgId, 'transaction_created', ['cash_flow', 'budget', 'behavior'])
@@ -466,8 +459,6 @@ export async function createRecurringTransactions(formData: FormData) {
     return template
   })
 
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)
   triggerCfoAnalysis(orgId, 'transaction_created', ['cash_flow', 'budget', 'behavior'])
@@ -521,7 +512,6 @@ export async function refreshSnapshot() {
     .values(snapshot)
     .returning()
 
-  revalidatePath('/dashboard')
   revalidateSnapshotData(orgId)
 
   return saved
@@ -582,9 +572,6 @@ export async function deleteTransaction(formData: FormData) {
     }
   })
 
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
-  revalidatePath('/dashboard')
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)
   revalidateSnapshotData(orgId)
@@ -628,9 +615,6 @@ export async function toggleIgnoreTransaction(formData: FormData) {
       .where(eq(accounts.id, tx.accountId))
   })
 
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
-  revalidatePath('/dashboard')
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)
   revalidateSnapshotData(orgId)
@@ -709,9 +693,6 @@ export async function updateTransaction(formData: FormData) {
       .where(and(eq(transactions.id, input.id), eq(transactions.orgId, orgId)))
   })
 
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
-  revalidatePath('/dashboard')
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)
   revalidateSnapshotData(orgId)
@@ -747,8 +728,6 @@ export async function updateAccount(formData: FormData) {
     .where(and(eq(accounts.id, input.id), eq(accounts.orgId, orgId)))
     .returning()
 
-  revalidatePath('/accounts')
-  revalidatePath('/dashboard')
   revalidateAccountData(orgId)
   revalidateSnapshotData(orgId)
 
@@ -774,9 +753,6 @@ export async function deleteAccount(formData: FormData) {
     .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
     .returning()
 
-  revalidatePath('/accounts')
-  revalidatePath('/dashboard')
-  revalidatePath('/transactions')
   revalidateAccountData(orgId)
   revalidateTransactionData(orgId)
   revalidateSnapshotData(orgId)
@@ -823,8 +799,6 @@ export async function createCategory(formData: FormData) {
     })
     .returning()
 
-  revalidatePath('/categories')
-  revalidatePath('/transactions')
   revalidateCategoryData(orgId)
   revalidateTransactionData(orgId)
 
@@ -883,8 +857,6 @@ export async function updateCategory(formData: FormData) {
     .where(eq(categories.id, id))
     .returning()
 
-  revalidatePath('/categories')
-  revalidatePath('/transactions')
   revalidateCategoryData(orgId)
   revalidateTransactionData(orgId)
 
@@ -915,8 +887,6 @@ export async function deleteCategory(formData: FormData) {
     .delete(categories)
     .where(and(eq(categories.id, id), eq(categories.orgId, orgId)))
 
-  revalidatePath('/categories')
-  revalidatePath('/transactions')
   revalidateCategoryData(orgId)
   revalidateTransactionData(orgId)
 }
@@ -972,7 +942,6 @@ export async function createRule(formData: FormData) {
     })
     .returning()
 
-  revalidatePath('/categories')
   revalidateCategoryData(orgId)
   return rule
 }
@@ -1031,7 +1000,6 @@ export async function updateRule(formData: FormData) {
     .set(setObj)
     .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
 
-  revalidatePath('/categories')
   revalidateCategoryData(orgId)
 }
 
@@ -1050,7 +1018,6 @@ export async function deleteRule(formData: FormData) {
     .delete(categoryRules)
     .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
 
-  revalidatePath('/categories')
   revalidateCategoryData(orgId)
 }
 
@@ -1091,7 +1058,6 @@ export async function reorderRule(formData: FormData) {
       .where(and(eq(categoryRules.id, b.id), eq(categoryRules.orgId, orgId)))
   })
 
-  revalidatePath('/categories')
   revalidateCategoryData(orgId)
 }
 
@@ -1119,7 +1085,6 @@ export async function toggleEnabled(formData: FormData) {
     .set({ isEnabled: !rule.isEnabled, updatedAt: new Date() })
     .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
 
-  revalidatePath('/categories')
   revalidateCategoryData(orgId)
 }
 
@@ -1196,8 +1161,6 @@ export async function bulkRecategorize(formData: FormData): Promise<{ updated: n
     .where(and(eq(transactions.orgId, orgId), isNull(transactions.categoryId), matchCondition))
     .returning({ id: transactions.id })
 
-  revalidatePath('/transactions')
-  revalidatePath('/categories')
   revalidateTransactionData(orgId)
   revalidateCategoryData(orgId)
 
@@ -1246,8 +1209,6 @@ export async function cancelRecurring(formData: FormData) {
       .where(and(eq(recurringTemplates.id, templateId), eq(recurringTemplates.orgId, orgId)))
   })
 
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)
 }
@@ -1394,8 +1355,6 @@ export async function bulkDeleteTransactions(ids: string[]) {
     }
   })
 
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)
   revalidateSnapshotData(orgId)
@@ -1415,6 +1374,5 @@ export async function bulkCategorizeTransactions(ids: string[], categoryId: stri
     .set({ categoryId, isAutoCategorized: false })
     .where(and(inArray(transactions.id, ids), eq(transactions.orgId, orgId)))
 
-  revalidatePath('/transactions')
   revalidateTransactionData(orgId)
 }

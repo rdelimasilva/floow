@@ -5,6 +5,7 @@ import { formatBRL } from '@floow/core-finance'
 import { CashFlowPeriodFilter, getPeriodDates, type PeriodKey } from './cash-flow-period-filter'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
 import dynamic from 'next/dynamic'
+import type { MonthlyCashFlowSummary } from '@/lib/finance/queries'
 
 const CashFlowChart = dynamic(() => import('./cash-flow-chart').then(m => ({ default: m.CashFlowChart })), {
   loading: () => <div className="min-h-[300px] animate-pulse rounded-xl bg-gray-100" />,
@@ -32,13 +33,6 @@ interface AccountOption {
 
 type ViewMode = 'realized' | 'projected' | 'both'
 
-interface MonthlyCashFlow {
-  month: string
-  income: number
-  expense: number
-  net: number
-}
-
 const VIEW_LABELS: Record<ViewMode, string> = {
   realized: 'Realizado',
   projected: 'Projetado',
@@ -48,10 +42,18 @@ const VIEW_LABELS: Record<ViewMode, string> = {
 interface CashFlowClientProps {
   transactions: RawTransaction[]
   futureTransactions: RawTransaction[]
+  monthlyRealized: MonthlyCashFlowSummary[]
+  monthlyProjected: MonthlyCashFlowSummary[]
   accounts: AccountOption[]
 }
 
-export function CashFlowClient({ transactions, futureTransactions, accounts }: CashFlowClientProps) {
+export function CashFlowClient({
+  transactions,
+  futureTransactions,
+  monthlyRealized,
+  monthlyProjected,
+  accounts,
+}: CashFlowClientProps) {
   const [period, setPeriod] = useState<PeriodKey>('last12')
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [viewMode, setViewMode] = useState<ViewMode>('realized')
@@ -101,38 +103,23 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
 
   const deferredActiveTransactions = useDeferredValue(activeTransactions)
 
-  function aggregateByMonth(items: PreparedTransaction[]): MonthlyCashFlow[] {
-    const monthMap = new Map<string, MonthlyCashFlow>()
+  const monthRange = useMemo(() => ({
+    startMonth: startDate.slice(0, 7),
+    endMonth: endDate.slice(0, 7),
+  }), [startDate, endDate])
 
-    for (const transaction of items) {
-      const existing = monthMap.get(transaction.month) ?? {
-        month: transaction.month,
-        income: 0,
-        expense: 0,
-        net: 0,
-      }
-
-      if (transaction.type === 'income') {
-        existing.income += transaction.amountCents
-      } else if (transaction.type === 'expense') {
-        existing.expense += transaction.amountCents
-      }
-
-      existing.net = existing.income + existing.expense
-      monthMap.set(transaction.month, existing)
-    }
-
-    return Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month))
-  }
-
-  const realizedData = useMemo(() =>
-    aggregateByMonth(filteredRealized),
-    [filteredRealized]
+  const realizedData = useMemo(
+    () => monthlyRealized
+      .filter((item) => item.month >= monthRange.startMonth && item.month <= monthRange.endMonth)
+      .sort((a, b) => a.month.localeCompare(b.month)),
+    [monthlyRealized, monthRange.endMonth, monthRange.startMonth],
   )
 
-  const projectedData = useMemo(() =>
-    aggregateByMonth(filteredFuture),
-    [filteredFuture]
+  const projectedData = useMemo(
+    () => monthlyProjected
+      .filter((item) => item.month >= monthRange.startMonth && item.month <= monthRange.endMonth)
+      .sort((a, b) => a.month.localeCompare(b.month)),
+    [monthlyProjected, monthRange.endMonth, monthRange.startMonth],
   )
 
   // Merge realized + projected for "both" mode

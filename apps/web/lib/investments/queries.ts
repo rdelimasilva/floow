@@ -9,8 +9,6 @@ import {
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { eq, and, desc, asc, inArray, gte, sql } from 'drizzle-orm'
-import { computePosition } from '@floow/core-finance'
-import { recomputeOrgPositionSnapshots } from './position-snapshots'
 import {
   incomeEventsTag,
   investmentsTag,
@@ -208,7 +206,7 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
   return unstable_cache(
     async () => {
       const db = getDb()
-      const loadRows = async () => db
+      const rows = await db
         .select({
           assetId: assets.id,
           ticker: assets.ticker,
@@ -228,23 +226,6 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
         .innerJoin(assets, eq(assetPositionSnapshots.assetId, assets.id))
         .where(eq(assetPositionSnapshots.orgId, orgId))
         .orderBy(asc(assets.ticker))
-
-      let rows = await loadRows()
-
-      const [assetCount, trackedAssetCount] = await Promise.all([
-        db.select({ total: sql<number>`count(*)`.as('total') }).from(assets).where(eq(assets.orgId, orgId)),
-        db
-          .select({ total: sql<number>`count(distinct ${portfolioEvents.assetId})`.as('total') })
-          .from(portfolioEvents)
-          .where(eq(portfolioEvents.orgId, orgId)),
-      ])
-
-      const hasAssets = Number(assetCount[0]?.total ?? 0) > 0
-      const expectedSnapshots = Number(trackedAssetCount[0]?.total ?? 0)
-      if (hasAssets && expectedSnapshots > 0 && rows.length !== expectedSnapshots) {
-        await recomputeOrgPositionSnapshots(orgId)
-        rows = await loadRows()
-      }
 
       return rows.map((row) => ({
         assetId: row.assetId,

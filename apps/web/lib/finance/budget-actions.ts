@@ -1,6 +1,4 @@
 'use server'
-
-import { revalidatePath } from 'next/cache'
 import { getDb, budgetGoals, budgetEntries, budgetAdjustments } from '@floow/db'
 import { eq, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
@@ -34,15 +32,6 @@ async function assertGoalOwnership(db: ReturnType<typeof getDb>, goalId: string,
   }
 
   return goal
-}
-
-/**
- * Revalidates all budget-related paths so UI stays in sync.
- */
-function revalidateBudgetPaths() {
-  revalidatePath('/budgets/spending')
-  revalidatePath('/budgets/investing')
-  revalidatePath('/dashboard')
 }
 
 function revalidateBudgetData(orgId: string) {
@@ -106,7 +95,6 @@ export async function upsertBudgetGoal(formData: FormData) {
     })
   }
 
-  revalidateBudgetPaths()
   revalidateBudgetData(orgId)
   triggerCfoAnalysis(orgId, 'budget_changed', ['budget'])
 }
@@ -125,7 +113,6 @@ export async function deleteBudgetGoal(formData: FormData) {
 
   await db.delete(budgetGoals).where(eq(budgetGoals.id, id))
 
-  revalidateBudgetPaths()
   revalidateBudgetData(orgId)
 }
 
@@ -156,7 +143,6 @@ export async function createBudgetEntry(formData: FormData) {
     endMonth,
   })
 
-  revalidateBudgetPaths()
   revalidateBudgetData(orgId)
   triggerCfoAnalysis(orgId, 'budget_changed', ['budget'])
 }
@@ -176,7 +162,6 @@ export async function updateBudgetEntry(formData: FormData) {
     .set({ plannedCents, endMonth })
     .where(and(eq(budgetEntries.id, id), eq(budgetEntries.orgId, orgId)))
 
-  revalidateBudgetPaths()
   revalidateBudgetData(orgId)
   triggerCfoAnalysis(orgId, 'budget_changed', ['budget'])
 }
@@ -189,7 +174,6 @@ export async function deleteBudgetEntry(formData: FormData) {
 
   await db.delete(budgetEntries).where(and(eq(budgetEntries.id, id), eq(budgetEntries.orgId, orgId)))
 
-  revalidateBudgetPaths()
   revalidateBudgetData(orgId)
 }
 
@@ -220,7 +204,6 @@ export async function createAdjustment(formData: FormData) {
     date: new Date(dateStr),
   })
 
-  revalidateBudgetPaths()
   revalidateBudgetData(orgId)
   triggerCfoAnalysis(orgId, 'budget_changed', ['budget'])
 }
@@ -250,6 +233,5 @@ export async function deleteAdjustment(formData: FormData) {
 
   await db.delete(budgetAdjustments).where(eq(budgetAdjustments.id, id))
 
-  revalidateBudgetPaths()
   revalidateBudgetData(orgId)
 }

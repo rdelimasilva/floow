@@ -1,6 +1,4 @@
 'use server'
-
-import { revalidatePath } from 'next/cache'
 import {
   getDb,
   assets,
@@ -127,7 +125,6 @@ export async function createAsset(formData: FormData) {
     })
     .returning()
 
-  revalidatePath('/investments')
   revalidateInvestmentData(orgId)
 
   return asset
@@ -236,14 +233,9 @@ export async function createPortfolioEvent(formData: FormData) {
     await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, input.assetId)
   })
 
-  revalidatePath('/investments')
-  revalidatePath('/investments/dashboard')
-  revalidatePath('/investments/income')
   revalidateInvestmentData(orgId)
 
   if (cashFlowMapping && input.totalCents) {
-    revalidatePath('/dashboard')
-    revalidatePath('/transactions')
     revalidateCrossModuleData(orgId)
   }
 
@@ -281,8 +273,6 @@ export async function updateAssetPrice(formData: FormData) {
     await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, assetId)
   })
 
-  revalidatePath('/investments')
-  revalidatePath('/investments/dashboard')
   revalidateInvestmentData(orgId)
   revalidatePriceData(orgId, assetId)
 }
@@ -335,12 +325,6 @@ export async function deleteAsset(formData: FormData) {
       .where(and(eq(assets.id, assetId), eq(assets.orgId, orgId)))
   })
 
-  revalidatePath('/investments')
-  revalidatePath('/investments/dashboard')
-  revalidatePath('/investments/income')
-  revalidatePath('/dashboard')
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
   revalidateInvestmentData(orgId)
   revalidatePriceData(orgId, assetId)
   revalidateCrossModuleData(orgId)
@@ -378,8 +362,6 @@ export async function updateAsset(formData: FormData) {
     .where(and(eq(assets.id, input.id), eq(assets.orgId, orgId)))
     .returning()
 
-  revalidatePath('/investments')
-  revalidatePath('/investments/dashboard')
   revalidateInvestmentData(orgId)
 
   return updated
@@ -433,12 +415,6 @@ export async function deletePortfolioEvent(formData: FormData) {
     await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, event.assetId)
   })
 
-  revalidatePath('/investments')
-  revalidatePath('/investments/dashboard')
-  revalidatePath('/investments/income')
-  revalidatePath('/dashboard')
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
   revalidateInvestmentData(orgId)
   revalidateCrossModuleData(orgId)
 }
@@ -573,12 +549,6 @@ export async function updatePortfolioEvent(formData: FormData) {
     }
   })
 
-  revalidatePath('/investments')
-  revalidatePath('/investments/dashboard')
-  revalidatePath('/investments/income')
-  revalidatePath('/dashboard')
-  revalidatePath('/transactions')
-  revalidatePath('/accounts')
   revalidateInvestmentData(orgId)
   revalidatePriceData(orgId, input.assetId)
   revalidateCrossModuleData(orgId)

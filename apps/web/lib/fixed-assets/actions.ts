@@ -1,6 +1,4 @@
 'use server'
-
-import { revalidatePath } from 'next/cache'
 import { getDb, fixedAssets, fixedAssetTypes } from '@floow/db'
 import { createFixedAssetSchema, updateFixedAssetSchema, updateAssetValueSchema } from '@floow/shared'
 import { eq, and, or, isNull, ilike } from 'drizzle-orm'
@@ -39,7 +37,6 @@ export async function createFixedAssetType(formData: FormData) {
     .values({ orgId, name: name.trim() })
     .returning()
 
-  revalidatePath('/fixed-assets')
   revalidateFixedAssetTypeData(orgId)
   return type
 }
@@ -66,7 +63,6 @@ export async function updateFixedAssetType(formData: FormData) {
     .set({ name: name.trim() })
     .where(and(eq(fixedAssetTypes.id, id), or(eq(fixedAssetTypes.orgId, orgId), isNull(fixedAssetTypes.orgId))))
 
-  revalidatePath('/fixed-assets')
   revalidateFixedAssetTypeData(orgId)
 }
 
@@ -80,7 +76,6 @@ export async function deleteFixedAssetType(formData: FormData) {
     .delete(fixedAssetTypes)
     .where(and(eq(fixedAssetTypes.id, id), eq(fixedAssetTypes.orgId, orgId)))
 
-  revalidatePath('/fixed-assets')
   revalidateFixedAssetTypeData(orgId)
 }
 
@@ -118,8 +113,6 @@ export async function createFixedAsset(formData: FormData) {
     })
     .returning()
 
-  revalidatePath('/fixed-assets')
-  revalidatePath('/dashboard')
   revalidateFixedAssetData(orgId)
   return asset
 }
@@ -155,8 +148,6 @@ export async function updateFixedAsset(formData: FormData) {
     })
     .where(and(eq(fixedAssets.id, input.id), eq(fixedAssets.orgId, orgId)))
 
-  revalidatePath('/fixed-assets')
-  revalidatePath('/dashboard')
   revalidateFixedAssetData(orgId)
 }
 
@@ -179,8 +170,6 @@ export async function updateAssetValue(formData: FormData) {
     })
     .where(and(eq(fixedAssets.id, input.id), eq(fixedAssets.orgId, orgId)))
 
-  revalidatePath('/fixed-assets')
-  revalidatePath('/dashboard')
   revalidateFixedAssetData(orgId)
 }
 
@@ -195,7 +184,5 @@ export async function deleteFixedAsset(formData: FormData) {
     .set({ isActive: false, updatedAt: new Date() })
     .where(and(eq(fixedAssets.id, id), eq(fixedAssets.orgId, orgId)))
 
-  revalidatePath('/fixed-assets')
-  revalidatePath('/dashboard')
   revalidateFixedAssetData(orgId)
 }

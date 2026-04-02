@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useContext, useMemo } from 'react'
+import { useCallback, useContext, useMemo, useTransition } from 'react'
 import { TransactionList } from './transaction-list'
 import { currencyToCents } from '@floow/core-finance'
 import { InlineFormContext, type InlineCreatedTransaction } from './inline-transaction-form'
@@ -19,6 +19,7 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
   const router = useRouter()
   const searchParams = useSearchParams()
   const inlineForm = useContext(InlineFormContext)
+  const [, startTransition] = useTransition()
 
   const navigate = useCallback((overrides: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -27,8 +28,10 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
       else params.delete(key)
     }
     params.set('page', '1')
-    router.replace(`/transactions?${params.toString()}`, { scroll: false })
-  }, [router, searchParams])
+    startTransition(() => {
+      router.replace(`/transactions?${params.toString()}`, { scroll: false })
+    })
+  }, [router, searchParams, startTransition])
 
   const activeTypes = (searchParams.get('types') ?? '').split(',').filter(Boolean)
   const activeCategoryIds = (searchParams.get('categoryIds') ?? '').split(',').filter(Boolean)
@@ -87,16 +90,21 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
       }
     }
 
-    const merged = [
-      ...createdTransactions.filter(matchesFilters),
-      ...transactions,
-    ]
+    const deduped = new Map<string, Props['transactions'][number]>()
 
-    const deduped = merged.filter((transaction, index, array) =>
-      array.findIndex((candidate) => candidate.id === transaction.id) === index
-    )
+    for (const transaction of createdTransactions) {
+      if (matchesFilters(transaction)) {
+        deduped.set(transaction.id, transaction)
+      }
+    }
 
-    return deduped.sort(compare)
+    for (const transaction of transactions) {
+      if (!deduped.has(transaction.id)) {
+        deduped.set(transaction.id, transaction)
+      }
+    }
+
+    return Array.from(deduped.values()).sort(compare)
   }, [activeCategoryIds, activeTypes, inlineForm?.createdTransactions, searchParams, sortBy, sortDir, transactions])
 
   return (

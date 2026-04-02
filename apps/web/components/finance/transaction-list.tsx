@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance'
 import { deleteTransaction, toggleIgnoreTransaction, cancelRecurring, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -41,6 +41,7 @@ export function TransactionList({
   const { toast } = useToast()
   const toastRef = useRef(toast)
   toastRef.current = toast
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TransactionRowData | null>(null)
@@ -127,6 +128,15 @@ export function TransactionList({
     onCreateRule: handleCreateRule,
     onToggleSelect: toggleSelect,
   }), [handleEdit, handleDelete, handleIgnore, handleCancelRecurring, handleCreateRule, toggleSelect])
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 768px)')
+    const sync = () => setIsDesktop(media.matches)
+
+    sync()
+    media.addEventListener('change', sync)
+    return () => media.removeEventListener('change', sync)
+  }, [])
 
   // Confirm dialog handlers
   async function confirmDelete() {
@@ -227,76 +237,76 @@ export function TransactionList({
         </div>
       )}
 
-      {/* Mobile: card layout */}
-      <div className="md:hidden space-y-2">
-        {transactions.map((tx, idx) => (
-          <TransactionMobileCard
-            key={tx.id}
-            tx={tx}
-            balance={runningBalances[idx] ?? 0}
-            isSelected={selected.has(tx.id)}
-            loading={loading}
-            actions={rowActions}
-          />
-        ))}
-      </div>
-
-      {/* Desktop: table layout */}
-      <div className="hidden md:block overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="w-10 px-4 py-3">
-                <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-gray-300" />
-              </th>
-              <SortableHeader label="Data" sortKey="date" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort} />
-              <SortableHeader label="Descricao" sortKey="description" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort} />
-              <SortableHeader
-                label="Categoria" sortKey="categoryName" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort}
-                hasActiveFilter={activeCategoryIds.length > 0} className="hidden md:table-cell"
-                filterContent={<CategoryFilter categories={categories} selected={activeCategoryIds} onChange={onFilterCategories} />}
-              />
-              <SortableHeader
-                label="Tipo" sortKey="type" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort}
-                hasActiveFilter={activeTypes.length > 0} className="hidden md:table-cell"
-                filterContent={<TypeFilter selected={activeTypes} onChange={onFilterTypes} />}
-              />
-              <SortableHeader
-                label="Valor" sortKey="amountCents" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort}
-                hasActiveFilter={!!activeMinAmount || !!activeMaxAmount} className="text-right"
-                filterContent={<AmountFilter minAmount={activeMinAmount} maxAmount={activeMaxAmount} onApply={onFilterAmount} />}
-              />
-              <th className="hidden lg:table-cell px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Saldo</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Acoes</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {transactions.map((tx, idx) => (
-              editingId === tx.id && !tx.transferGroupId ? (
-                <TransactionEditRow
-                  key={tx.id}
-                  tx={tx}
-                  accounts={accounts}
-                  categories={categories}
-                  balance={runningBalances[idx] ?? 0}
-                  isSelected={selected.has(tx.id)}
-                  onToggleSelect={toggleSelect}
-                  onClose={closeEdit}
+      {isDesktop === false ? (
+        <div className="space-y-2">
+          {transactions.map((tx, idx) => (
+            <TransactionMobileCard
+              key={tx.id}
+              tx={tx}
+              balance={runningBalances[idx] ?? 0}
+              isSelected={selected.has(tx.id)}
+              loading={loading}
+              actions={rowActions}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="w-10 px-4 py-3">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-gray-300" />
+                </th>
+                <SortableHeader label="Data" sortKey="date" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort} />
+                <SortableHeader label="Descricao" sortKey="description" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort} />
+                <SortableHeader
+                  label="Categoria" sortKey="categoryName" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort}
+                  hasActiveFilter={activeCategoryIds.length > 0} className="hidden md:table-cell"
+                  filterContent={<CategoryFilter categories={categories} selected={activeCategoryIds} onChange={onFilterCategories} />}
                 />
-              ) : (
-                <TransactionDesktopRow
-                  key={tx.id}
-                  tx={tx}
-                  balance={runningBalances[idx] ?? 0}
-                  isSelected={selected.has(tx.id)}
-                  loading={loading}
-                  actions={rowActions}
+                <SortableHeader
+                  label="Tipo" sortKey="type" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort}
+                  hasActiveFilter={activeTypes.length > 0} className="hidden md:table-cell"
+                  filterContent={<TypeFilter selected={activeTypes} onChange={onFilterTypes} />}
                 />
-              )
-            ))}
-          </tbody>
-        </table>
-      </div>
+                <SortableHeader
+                  label="Valor" sortKey="amountCents" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort}
+                  hasActiveFilter={!!activeMinAmount || !!activeMaxAmount} className="text-right"
+                  filterContent={<AmountFilter minAmount={activeMinAmount} maxAmount={activeMaxAmount} onApply={onFilterAmount} />}
+                />
+                <th className="hidden lg:table-cell px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Saldo</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Acoes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {transactions.map((tx, idx) => (
+                editingId === tx.id && !tx.transferGroupId ? (
+                  <TransactionEditRow
+                    key={tx.id}
+                    tx={tx}
+                    accounts={accounts}
+                    categories={categories}
+                    balance={runningBalances[idx] ?? 0}
+                    isSelected={selected.has(tx.id)}
+                    onToggleSelect={toggleSelect}
+                    onClose={closeEdit}
+                  />
+                ) : (
+                  <TransactionDesktopRow
+                    key={tx.id}
+                    tx={tx}
+                    balance={runningBalances[idx] ?? 0}
+                    isSelected={selected.has(tx.id)}
+                    loading={loading}
+                    actions={rowActions}
+                  />
+                )
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!deleteTarget}

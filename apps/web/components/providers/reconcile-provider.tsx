@@ -13,19 +13,19 @@ export function ReconcileProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const throttleKey = 'floow.reconcile.lastRunAt'
     const now = Date.now()
-    const lastRunAt = Number(sessionStorage.getItem(throttleKey) ?? '0')
+    const lastRunAt = Number(localStorage.getItem(throttleKey) ?? '0')
 
-    // Avoid hitting the reconcile endpoint on every layout remount/navigation.
-    if (now - lastRunAt < 10 * 60 * 1000) {
+    // Reconciliation is maintenance work. Run it at most once per day per browser.
+    if (now - lastRunAt < 24 * 60 * 60 * 1000) {
       return
     }
 
-    sessionStorage.setItem(throttleKey, String(now))
+    localStorage.setItem(throttleKey, String(now))
 
     // Fire-and-forget: no await, no error surfacing to user
     fetch('/api/reconcile', { method: 'POST' }).catch(() => {
       // Silently ignore — reconciliation will be retried on next page load
-      sessionStorage.removeItem(throttleKey)
+      localStorage.removeItem(throttleKey)
     })
   }, [])
 

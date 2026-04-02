@@ -9,7 +9,58 @@ import {
   futureTransactionsTag,
   recentTransactionsTag,
   snapshotsTag,
+  transactionsTag,
 } from '@/lib/cache-tags'
+
+export interface MonthlyCashFlowSummary {
+  month: string
+  income: number
+  expense: number
+  net: number
+}
+
+async function loadMonthlyCashFlowSummary(
+  orgId: string,
+  months: number,
+  projected: boolean,
+): Promise<MonthlyCashFlowSummary[]> {
+  const db = getDb()
+  const boundaryDate = new Date()
+
+  if (projected) {
+    boundaryDate.setMonth(boundaryDate.getMonth() + months)
+  } else {
+    boundaryDate.setMonth(boundaryDate.getMonth() - months)
+  }
+  const boundaryDateStr = boundaryDate.toISOString().split('T')[0]
+
+  const rows = await db.execute<{
+    month: string
+    income: number
+    expense: number
+  }>(sql`
+    select
+      to_char(date_trunc('month', ${transactions.date}), 'YYYY-MM') as month,
+      coalesce(sum(case when ${transactions.type} = 'income' then ${transactions.amountCents} else 0 end), 0)::int as income,
+      coalesce(sum(case when ${transactions.type} = 'expense' then ${transactions.amountCents} else 0 end), 0)::int as expense
+    from ${transactions}
+    where ${transactions.orgId} = ${orgId}
+      and ${transactions.isIgnored} = false
+      and ${transactions.balanceApplied} = ${!projected}
+      and ${projected
+        ? sql`${transactions.date} <= ${boundaryDateStr}::date`
+        : sql`${transactions.date} >= ${boundaryDateStr}::date`}
+    group by 1
+    order by 1 desc
+  `)
+
+  return rows.map((row) => ({
+    month: row.month,
+    income: Number(row.income),
+    expense: Number(row.expense),
+    net: Number(row.income) + Number(row.expense),
+  }))
+}
 
 /**
  * Extracts the orgId from the authenticated user's JWT app_metadata.
@@ -137,9 +188,11 @@ export async function getTransactionsWithCount(
   const db = getDb()
   const limit = opts?.limit ?? 50
   const offset = opts?.offset ?? 0
+  const sortDir = opts?.sortDir ?? 'desc'
 
   const conditions = buildTransactionConditions(orgId, opts)
   const orderBy = buildTransactionOrder(opts)
+  const orderBySql = [...orderBy]
 
   const rows = await db
     .select({
@@ -161,6 +214,9 @@ export async function getTransactionsWithCount(
       categoryName: categories.name,
       categoryColor: categories.color,
       categoryIcon: categories.icon,
+      totalCount: sql<number>`count(*) over ()`,
+      totalSum: sql<number>`coalesce(sum(${transactions.amountCents}) over (), 0)`,
+      runningSum: sql<number>`coalesce(sum(${transactions.amountCents}) over (order by ${sql.join(orderBySql, sql`, `)}), 0)`,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -169,15 +225,22 @@ export async function getTransactionsWithCount(
     .limit(limit)
     .offset(offset)
 
-  const totalCount = rows.length < limit
-    ? offset + rows.length
-    : await db
-        .select({ total: count() })
-        .from(transactions)
-        .where(and(...conditions))
-        .then((result) => result[0]?.total ?? 0)
+  const totalCount = rows[0]?.totalCount ?? 0
+  const firstRow = rows[0]
+  const sumBeforePage = firstRow
+    ? Number(firstRow.runningSum) - firstRow.amountCents
+    : 0
+  const startingBalance = firstRow
+    ? sortDir === 'desc'
+      ? Number(firstRow.totalSum) - sumBeforePage
+      : sumBeforePage
+    : sortDir === 'desc' ? 0 : 0
 
-  return { transactions: rows, totalCount }
+  return {
+    transactions: rows.map(({ totalCount: _totalCount, totalSum: _totalSum, runningSum: _runningSum, ...row }) => row),
+    totalCount,
+    startingBalance,
+  }
 }
 
 /**
@@ -185,56 +248,30 @@ export async function getTransactionsWithCount(
  * For DESC sort: totalSum - sum of transactions on earlier pages (newer txns).
  * For ASC sort: sum of transactions on earlier pages (older txns).
  */
-export async function getPageStartBalance(
-  orgId: string,
-  opts?: TransactionQueryOpts,
-): Promise<number> {
-  const db = getDb()
-  const offset = opts?.offset ?? 0
-  const sortDir = opts?.sortDir ?? 'desc'
-  const conditions = buildTransactionConditions(orgId, opts)
-
-  const [totalResult] = await db
-    .select({ sum: sql<string>`COALESCE(SUM(${transactions.amountCents}), 0)` })
-    .from(transactions)
-    .where(and(...conditions))
-  const totalSum = Number(totalResult.sum)
-
-  if (offset === 0) {
-    return sortDir === 'desc' ? totalSum : 0
-  }
-
-  const orderBy = buildTransactionOrder(opts)
-  const prevRows = await db
-    .select({ amountCents: transactions.amountCents })
-    .from(transactions)
-    .leftJoin(categories, eq(transactions.categoryId, categories.id))
-    .where(and(...conditions))
-    .orderBy(...orderBy)
-    .limit(offset)
-  const prevSum = prevRows.reduce((acc, r) => acc + r.amountCents, 0)
-
-  return sortDir === 'desc' ? totalSum - prevSum : prevSum
-}
-
 /**
  * Returns category IDs ordered by usage frequency (most used first).
  * Used to sort category dropdowns with most-used at top.
  */
 export async function getCategoryUsageOrder(orgId: string): Promise<string[]> {
-  const db = getDb()
-  const rows = await db
-    .select({
-      categoryId: transactions.categoryId,
-      cnt: count(),
-    })
-    .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), sql`${transactions.categoryId} IS NOT NULL`))
-    .groupBy(transactions.categoryId)
-    .orderBy(desc(count()))
-    .limit(50)
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      const rows = await db
+        .select({
+          categoryId: transactions.categoryId,
+          cnt: count(),
+        })
+        .from(transactions)
+        .where(and(eq(transactions.orgId, orgId), sql`${transactions.categoryId} IS NOT NULL`))
+        .groupBy(transactions.categoryId)
+        .orderBy(desc(count()))
+        .limit(50)
 
-  return rows.map((r) => r.categoryId!)
+      return rows.map((r) => r.categoryId!)
+    },
+    ['finance-category-usage-order', orgId],
+    { tags: [transactionsTag(orgId)], revalidate: 300 },
+  )()
 }
 
 /**
@@ -326,6 +363,28 @@ export const getRecentTransactions = cache(async function getRecentTransactions(
       date: row.date instanceof Date ? row.date : new Date(row.date as unknown as string),
     }))
   )
+})
+
+export const getMonthlyCashFlowSummary = cache(async function getMonthlyCashFlowSummary(
+  orgId: string,
+  months: number = 6,
+): Promise<MonthlyCashFlowSummary[]> {
+  return unstable_cache(
+    async () => loadMonthlyCashFlowSummary(orgId, months, false),
+    ['finance-monthly-cash-flow-summary', orgId, String(months)],
+    { tags: [recentTransactionsTag(orgId, months)], revalidate: 180 },
+  )()
+})
+
+export const getFutureMonthlyCashFlowSummary = cache(async function getFutureMonthlyCashFlowSummary(
+  orgId: string,
+  months: number = 24,
+): Promise<MonthlyCashFlowSummary[]> {
+  return unstable_cache(
+    async () => loadMonthlyCashFlowSummary(orgId, months, true),
+    ['finance-future-monthly-cash-flow-summary', orgId, String(months)],
+    { tags: [futureTransactionsTag(orgId, months)], revalidate: 180 },
+  )()
 })
 
 /**
