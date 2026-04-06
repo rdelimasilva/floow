@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "next build --webpack",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "cd apps/web && next build --webpack",
+  "outputDirectory": "apps/web/.next",
   "regions": ["gru1"],
   "crons": [
     {
