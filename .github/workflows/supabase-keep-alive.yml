@@ -1,0 +1,26 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        run: |
+          set -e
+          URL="${SUPABASE_URL}/rest/v1/provider_config?select=id&limit=1"
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            "$URL")
+          echo "status=${STATUS}"
+          if [ "$STATUS" -ge 400 ]; then
+            echo "::warning::Supabase returned HTTP ${STATUS}"
+          fi
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
