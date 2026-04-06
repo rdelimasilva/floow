@@ -12,7 +12,7 @@ jobs:
       - name: Ping Supabase REST
         run: |
           set -e
-          URL="${SUPABASE_URL}/rest/v1/provider_config?select=id&limit=1"
+          URL="${SUPABASE_URL}/rest/v1/profiles?select=id&limit=1"
           STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
