@@ -6,6 +6,8 @@ const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   },
   transpilePackages: ['@floow/db', '@floow/shared', '@floow/core-finance'],
   images: {
