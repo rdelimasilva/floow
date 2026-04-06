@@ -4,10 +4,13 @@ import { gte } from 'drizzle-orm'
 import { runCfoEngine } from '@/lib/cfo/engine'
 
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const CRON_SECRET = process.env.CRON_SECRET
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${SERVICE_ROLE_KEY}`) {
+  const isServiceRole = authHeader === `Bearer ${SERVICE_ROLE_KEY}`
+  const isCron = CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`
+  if (!isServiceRole && !isCron) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

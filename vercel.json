@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "pnpm build --filter=@floow/web...",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "outputDirectory": "apps/web/.next",
+  "regions": ["gru1"],
+  "crons": [
+    {
+      "path": "/api/cfo/run-daily",
+      "schedule": "0 10 * * *"
+    }
+  ]
+}
