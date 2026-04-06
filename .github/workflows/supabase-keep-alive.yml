@@ -9,14 +9,14 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST
+      - name: Ping Supabase Health
         run: |
           set -e
-          URL="${SUPABASE_URL}/rest/v1/profiles?select=id&limit=1"
+          # Use the PostgREST root endpoint — returns API schema, no table needed
           STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-            "$URL")
+            "${SUPABASE_URL}/rest/v1/")
           echo "status=${STATUS}"
           if [ "$STATUS" -ge 400 ]; then
             echo "::warning::Supabase returned HTTP ${STATUS}"
