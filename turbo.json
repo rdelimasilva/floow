@@ -3,7 +3,13 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "ANTHROPIC_API_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
+      "env": [
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "DATABASE_URL",
+        "ANTHROPIC_API_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY"
+      ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "dev": {
