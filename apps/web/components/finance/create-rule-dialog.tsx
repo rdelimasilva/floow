@@ -99,7 +99,7 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
       formData.append('ruleId', editRule.id)
       const { count } = await previewBulkRecategorize(formData)
       if (count === 0) {
-        toast('Nenhuma transacao sem categoria corresponde a esta regra', 'info')
+        toast('Nenhuma transação sem categoria corresponde a esta regra', 'info')
         return
       }
       setApplyPreview({ count })
@@ -117,7 +117,7 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
       const formData = new FormData()
       formData.append('ruleId', editRule.id)
       const result = await bulkRecategorize(formData)
-      toast(`${result.updated} transacoes categorizadas`)
+      toast(`${result.updated} transações categorizadas`)
       setApplyPreview(null)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao aplicar regra', 'error')
@@ -216,7 +216,7 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
         onClose={() => setApplyPreview(null)}
         onConfirm={handleApplyConfirm}
         title="Aplicar regra retroativamente"
-        description={`${applyPreview?.count ?? 0} transacao(oes) sem categoria serao categorizadas como '${categoryName}'. Deseja continuar?`}
+        description={`${applyPreview?.count ?? 0} transação(ões) sem categoria serão categorizadas como '${categoryName}'. Deseja continuar?`}
         confirmLabel="Aplicar"
         loading={isApplying}
       />

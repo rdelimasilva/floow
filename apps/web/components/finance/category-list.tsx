@@ -187,7 +187,7 @@ export function CategoryList({ categories }: CategoryListProps) {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Remover categoria"
-        description={`Tem certeza que deseja remover "${deleteTarget?.name ?? ''}"? Transacoes com esta categoria ficarao sem categoria.`}
+        description={`Tem certeza que deseja remover "${deleteTarget?.name ?? ''}"? Transações com esta categoria ficarão sem categoria.`}
         confirmLabel="Remover"
         loading={loading}
       />

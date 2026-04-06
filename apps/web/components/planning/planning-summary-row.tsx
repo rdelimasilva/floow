@@ -74,7 +74,7 @@ export function PlanningSummaryRow({
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
               <Users className="h-4 w-4 text-purple-600" />
-              Plano Sucessorio
+              Plano Sucessório
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -85,8 +85,8 @@ export function PlanningSummaryRow({
             )}
             <p className="text-xs text-gray-500 mt-1">
               {hasSuccessionPlan
-                ? 'Plano sucessorio salvo'
-                : 'Herdeiros e distribuicao do patrimonio'}
+                ? 'Plano sucessório salvo'
+                : 'Herdeiros e distribuição do patrimônio'}
             </p>
           </CardContent>
         </Card>

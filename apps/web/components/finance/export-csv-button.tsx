@@ -20,7 +20,7 @@ export function ExportCsvButton() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `transacoes-${new Date().toISOString().split('T')[0]}.csv`
+      a.download = `transações-${new Date().toISOString().split('T')[0]}.csv`
       a.click()
       URL.revokeObjectURL(url)
     } catch {

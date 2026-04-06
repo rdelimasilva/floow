@@ -22,7 +22,7 @@ export default async function CategoriesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Categorias"
-        description="Gerencie categorias e regras de categorizacao automatica"
+        description="Gerencie categorias e regras de categorização automática"
       />
 
       <Tabs defaultValue="categories">

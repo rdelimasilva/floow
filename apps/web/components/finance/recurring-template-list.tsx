@@ -106,12 +106,12 @@ export function RecurringTemplateList({
       formData.append('templateId', template.id)
       const result = await generateRecurringTransaction(formData)
       if (result.generated === 0) {
-        toast('Nenhuma transacao a gerar — proxima data no futuro.', 'info')
+        toast('Nenhuma transação a gerar — próxima data no futuro.', 'info')
       } else {
-        toast(`${result.generated} transacao(oes) gerada(s)`)
+        toast(`${result.generated} transação(ões) gerada(s)`)
       }
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao gerar transacoes', 'error')
+      toast(err instanceof Error ? err.message : 'Erro ao gerar transações', 'error')
     } finally {
       setGenerating(null)
     }
@@ -138,9 +138,9 @@ export function RecurringTemplateList({
       formData.append('id', deleteTarget.id)
       await deleteRecurringTemplate(formData)
       setDeleteTarget(null)
-      toast('Recorrencia removida')
+      toast('Recorrência removida')
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao remover recorrencia', 'error')
+      toast(err instanceof Error ? err.message : 'Erro ao remover recorrência', 'error')
     } finally {
       setDeleting(false)
     }
@@ -150,9 +150,9 @@ export function RecurringTemplateList({
     <div className="space-y-8">
       {/* Upcoming Due Section */}
       <section>
-        <h2 className="text-base font-semibold text-gray-900 mb-3">Proximas a vencer</h2>
+        <h2 className="text-base font-semibold text-gray-900 mb-3">Próximas a vencer</h2>
         {due.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma transacao pendente.</p>
+          <p className="text-sm text-muted-foreground">Nenhuma transação pendente.</p>
         ) : (
           <div className="space-y-2">
             {due.map((t) => (
@@ -188,9 +188,9 @@ export function RecurringTemplateList({
       {/* All Templates Table */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-900">Todas as recorrencias</h2>
+          <h2 className="text-base font-semibold text-gray-900">Todas as recorrências</h2>
           <Button variant="primary" size="sm" onClick={() => setShowCreateDialog(true)}>
-            Nova Recorrencia
+            Nova Recorrência
           </Button>
         </div>
 
@@ -198,7 +198,7 @@ export function RecurringTemplateList({
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <RefreshCw className="h-10 w-10 text-muted-foreground/40 mb-3" />
             <p className="text-sm text-muted-foreground max-w-sm">
-              Nenhuma recorrencia configurada. Crie uma recorrencia para automatizar lancamentos repetitivos.
+              Nenhuma recorrência configurada. Crie uma recorrência para automatizar lançamentos repetitivos.
             </p>
             <Button
               variant="primary"
@@ -206,7 +206,7 @@ export function RecurringTemplateList({
               className="mt-4"
               onClick={() => setShowCreateDialog(true)}
             >
-              Criar Recorrencia
+              Criar Recorrência
             </Button>
           </div>
         ) : (
@@ -214,15 +214,15 @@ export function RecurringTemplateList({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Descricao</TableHead>
+                  <TableHead>Descrição</TableHead>
                   <TableHead>Conta</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Valor</TableHead>
-                  <TableHead>Frequencia</TableHead>
-                  <TableHead>Proxima Data</TableHead>
+                  <TableHead>Frequência</TableHead>
+                  <TableHead>Próxima Data</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-32">Acoes</TableHead>
+                  <TableHead className="w-32">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -329,8 +329,8 @@ export function RecurringTemplateList({
         open={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Excluir recorrencia"
-        description="Tem certeza que deseja excluir esta recorrencia? As transacoes ja geradas serao mantidas."
+        title="Excluir recorrência"
+        description="Tem certeza que deseja excluir esta recorrência? As transações já geradas serão mantidas."
         confirmLabel="Excluir"
         loading={deleting}
       />

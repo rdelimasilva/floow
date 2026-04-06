@@ -59,13 +59,13 @@ async function PlanningHubContent({ orgId }: { orgId: string }) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <BarChart3 className="h-5 w-5 text-blue-600" />
-                Simulacao de Aposentadoria
+                Simulação de Aposentadoria
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-600">
-                Simule aportes ou renda desejada em 3 cenarios, acompanhe o progresso
-                ate a independencia financeira, e veja quando o patrimonio se esgota.
+                Simule aportes ou renda desejada em 3 cenários, acompanhe o progresso
+                até a independência financeira, e veja quando o patrimônio se esgota.
               </p>
             </CardContent>
           </Card>
@@ -76,13 +76,13 @@ async function PlanningHubContent({ orgId }: { orgId: string }) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Users className="h-5 w-5 text-purple-600" />
-                Plano Sucessorio
+                Plano Sucessório
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-600">
-                Organize a distribuicao do seu patrimonio entre herdeiros, estime o ITCMD por
-                estado e identifique gaps de liquidez na sucessao.
+                Organize a distribuição do seu patrimônio entre herdeiros, estime o ITCMD por
+                estado e identifique gaps de liquidez na sucessão.
               </p>
             </CardContent>
           </Card>
@@ -91,9 +91,9 @@ async function PlanningHubContent({ orgId }: { orgId: string }) {
 
       {/* Disclaimer */}
       <p className="text-xs text-gray-400 border-t pt-4">
-        As projecoes sao estimativas baseadas em premissas que podem nao se concretizar.
-        Rentabilidades passadas nao garantem rentabilidades futuras. Consulte um profissional
-        habilitado (planejador financeiro, contador ou advogado) para decisoes financeiras importantes.
+        As projeções são estimativas baseadas em premissas que podem não se concretizar.
+        Rentabilidades passadas não garantem rentabilidades futuras. Consulte um profissional
+        habilitado (planejador financeiro, contador ou advogado) para decisões financeiras importantes.
       </p>
     </>
   )
@@ -112,7 +112,7 @@ export default async function PlanningPage() {
     <div className="space-y-6">
       <PageHeader
         title="Planejamento Financeiro"
-        description="Simulacoes, independencia financeira e planejamento patrimonial"
+        description="Simulações, independência financeira e planejamento patrimonial"
       />
 
       <Suspense

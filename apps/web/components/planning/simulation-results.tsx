@@ -93,11 +93,11 @@ export function SimulationResults({
       {fi && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Independencia Financeira</CardTitle>
+            <CardTitle className="text-sm">Independência Financeira</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Numero FI (cenario base)</span>
+              <span className="text-muted-foreground">Número FI (cenário base)</span>
               <span className="font-medium">{formatBRL(fi.fiNumberCents)}</span>
             </div>
 
@@ -116,11 +116,11 @@ export function SimulationResults({
             </div>
 
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Previsao</span>
+              <span className="text-muted-foreground">Previsão</span>
               <span className="font-medium">
                 {fi.fiYear != null
                   ? `${fi.fiYear} (${fi.yearsToFI} anos)`
-                  : 'Nao atingivel em 60 anos'}
+                  : 'Não atingível em 60 anos'}
               </span>
             </div>
 
@@ -128,7 +128,7 @@ export function SimulationResults({
             {depletionAge && (
               <div className="rounded-lg bg-red-50 border border-red-200 p-3 mt-2">
                 <p className="text-sm text-red-700 font-medium">
-                  Patrimonio se esgota aos {depletionAge} anos (cenario base)
+                  Patrimônio se esgota aos {depletionAge} anos (cenário base)
                 </p>
                 <p className="text-xs text-red-600 mt-1">
                   Considere reduzir a retirada mensal ou aumentar os aportes.
@@ -138,7 +138,7 @@ export function SimulationResults({
 
             {!depletionAge && projections && (
               <p className="text-xs text-green-700">
-                Patrimonio nao se esgota no periodo projetado (cenario base).
+                Patrimônio não se esgota no período projetado (cenário base).
               </p>
             )}
           </CardContent>

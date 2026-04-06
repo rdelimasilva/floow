@@ -35,9 +35,9 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
       setScenarios((prev) => [row, ...prev])
       setScenarioName('')
       setShowSaveInput(false)
-      toast('Cenario salvo com sucesso')
+      toast('Cenário salvo com sucesso')
     } catch {
-      toast('Erro ao salvar cenario', 'error')
+      toast('Erro ao salvar cenário', 'error')
     } finally {
       setSaving(false)
     }
@@ -48,9 +48,9 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
     try {
       await deleteSimulationScenario(id)
       setScenarios((prev) => prev.filter((s) => s.id !== id))
-      toast('Cenario excluido')
+      toast('Cenário excluído')
     } catch {
-      toast('Erro ao excluir cenario', 'error')
+      toast('Erro ao excluir cenário', 'error')
     }
   }
 
@@ -62,10 +62,10 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">Cenarios Salvos</CardTitle>
+          <CardTitle className="text-sm">Cenários Salvos</CardTitle>
           {!showSaveInput && (
             <Button type="button" variant="outline" size="sm" onClick={() => setShowSaveInput(true)}>
-              Salvar cenario atual
+              Salvar cenário atual
             </Button>
           )}
         </div>
@@ -74,7 +74,7 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
         {showSaveInput && (
           <div className="flex gap-2 mb-4">
             <Input
-              placeholder="Nome do cenario (ex: Conservador 2026)"
+              placeholder="Nome do cenário (ex: Conservador 2026)"
               value={scenarioName}
               onChange={(e) => setScenarioName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
@@ -97,8 +97,8 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
                 key={s.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => { onLoad(s); toast(`Cenario "${s.name}" carregado`) }}
-                onKeyDown={(e) => { if (e.key === 'Enter') { onLoad(s); toast(`Cenario "${s.name}" carregado`) } }}
+                onClick={() => { onLoad(s); toast(`Cenário "${s.name}" carregado`) }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { onLoad(s); toast(`Cenário "${s.name}" carregado`) } }}
                 className="flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <div className="min-w-0 flex-1">
@@ -107,8 +107,8 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
                     {s.mode === 'contribution' ? 'Aporte' : 'Renda'}
                     {' · '}
                     {s.mode === 'contribution'
-                      ? `${formatBRL(s.monthlyContributionCents)}/mes`
-                      : `${formatBRL(s.desiredMonthlyIncomeCents)}/mes`
+                      ? `${formatBRL(s.monthlyContributionCents)}/mês`
+                      : `${formatBRL(s.desiredMonthlyIncomeCents)}/mês`
                     }
                     {' · '}
                     {s.currentAge}→{s.retirementAge} anos
@@ -120,7 +120,7 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
                   type="button"
                   onClick={(e) => handleDelete(e, s.id)}
                   className="ml-3 shrink-0 rounded p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                  title="Excluir cenario"
+                  title="Excluir cenário"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -129,7 +129,7 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
           </div>
         ) : !showSaveInput ? (
           <p className="text-sm text-muted-foreground">
-            Nenhum cenario salvo. Configure os parametros e clique em "Salvar cenario atual".
+            Nenhum cenário salvo. Configure os parâmetros e clique em "Salvar cenário atual".
           </p>
         ) : null}
       </CardContent>

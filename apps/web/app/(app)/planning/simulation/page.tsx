@@ -54,8 +54,8 @@ export default async function SimulationPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Simulacao de Aposentadoria"
-        description="Veja como seu patrimonio evolui em 3 cenarios e descubra quando atingira a independencia financeira."
+        title="Simulação de Aposentadoria"
+        description="Veja como seu patrimônio evolui em 3 cenários e descubra quando atingirá a independência financeira."
       />
 
       <Suspense

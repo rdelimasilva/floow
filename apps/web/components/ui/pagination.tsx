@@ -20,7 +20,7 @@ export function Pagination({ currentPage, totalPages, baseUrl, searchParams }: P
   return (
     <div className="flex items-center justify-between">
       <p className="text-sm text-gray-500">
-        Pagina {currentPage} de {totalPages}
+        Página {currentPage} de {totalPages}
       </p>
       <div className="flex gap-2">
         {currentPage > 1 && (
@@ -30,7 +30,7 @@ export function Pagination({ currentPage, totalPages, baseUrl, searchParams }: P
         )}
         {currentPage < totalPages && (
           <Button asChild variant="outline" size="sm">
-            <Link href={buildUrl(currentPage + 1)}>Proxima</Link>
+            <Link href={buildUrl(currentPage + 1)}>Próxima</Link>
           </Button>
         )}
       </div>

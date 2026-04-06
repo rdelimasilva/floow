@@ -122,14 +122,14 @@ export function CreateRecurringDialog({
       if (editTemplate) {
         formData.append('id', editTemplate.id)
         await updateRecurringTemplate(formData)
-        toast('Recorrencia atualizada')
+        toast('Recorrência atualizada')
       } else {
         await createRecurringTemplate(formData)
-        toast('Recorrencia criada')
+        toast('Recorrência criada')
       }
       onClose()
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao salvar recorrencia', 'error')
+      toast(err instanceof Error ? err.message : 'Erro ao salvar recorrência', 'error')
     } finally {
       setLoading(false)
     }
@@ -147,16 +147,16 @@ export function CreateRecurringDialog({
       <form onSubmit={handleSubmit}>
         <div className="w-[520px] p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            {isEdit ? 'Editar Recorrencia' : 'Nova Recorrencia'}
+            {isEdit ? 'Editar Recorrência' : 'Nova Recorrência'}
           </h2>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex: Aluguel, Netflix, Salario..."
+                placeholder="Ex: Aluguel, Netflix, Salário..."
                 required
               />
             </div>
@@ -225,7 +225,7 @@ export function CreateRecurringDialog({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Frequencia</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Frequência</label>
                 <select
                   value={frequency}
                   onChange={(e) => setFrequency(e.target.value)}
@@ -241,7 +241,7 @@ export function CreateRecurringDialog({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isEdit ? 'Proxima data' : 'Data de inicio'}
+                  {isEdit ? 'Próxima data' : 'Data de início'}
                 </label>
                 <Input
                   type="date"
@@ -257,7 +257,7 @@ export function CreateRecurringDialog({
               <Input
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observacoes adicionais..."
+                placeholder="Observações adicionais..."
               />
             </div>
           </div>

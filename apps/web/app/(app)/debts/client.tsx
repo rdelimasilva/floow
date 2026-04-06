@@ -357,7 +357,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                     <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Saldo Devedor</th>
                     <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Prox. Vencimento</th>
                     <th className="min-w-[160px] px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Progresso</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Acoes</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -407,8 +407,8 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
         onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
-        title="Remover divida"
-        description="Tem certeza que deseja remover esta divida? Esta acao nao pode ser desfeita."
+        title="Remover dívida"
+        description="Tem certeza que deseja remover esta dívida? Esta ação não pode ser desfeita."
         confirmLabel="Remover"
         loading={saving}
       />

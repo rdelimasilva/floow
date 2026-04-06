@@ -88,7 +88,7 @@ export function RetirementSimulationChart({
   if (chartData.length === 0) {
     return (
       <div className="min-h-[300px] w-full flex items-center justify-center text-sm text-gray-500">
-        Preencha os dados do formulario para ver a projecao.
+        Preencha os dados do formulário para ver a projeção.
       </div>
     )
   }

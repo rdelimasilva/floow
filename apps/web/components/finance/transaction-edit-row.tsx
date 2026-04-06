@@ -53,8 +53,28 @@ export function TransactionEditRow({
     }
   }, [editDesc, editAmount, editDate, editType, editAccountId, editCategoryId, editDestAccountId])
 
+  const initialStateRef = useRef({
+    desc: tx.description,
+    amount: String(Math.abs(tx.amountCents)),
+    date: toDateInputValue(tx.date),
+    type: tx.type as string,
+    accountId: tx.accountId,
+    categoryId: tx.categoryId ?? '',
+    destAccountId: '',
+  })
+
   const saveEdit = useCallback(async () => {
     const s = editStateRef.current
+    const init = initialStateRef.current
+    const isDirty =
+      s.desc !== init.desc ||
+      s.amount !== init.amount ||
+      s.date !== init.date ||
+      s.type !== init.type ||
+      s.accountId !== init.accountId ||
+      s.categoryId !== init.categoryId ||
+      s.destAccountId !== init.destAccountId
+    if (!isDirty) return
     try {
       const formData = new FormData()
       formData.append('id', tx.id)
@@ -66,13 +86,14 @@ export function TransactionEditRow({
       formData.append('date', s.date)
       if (s.type === 'transfer' && s.destAccountId) formData.append('destAccountId', s.destAccountId)
       await updateTransaction(formData)
+      toastRef.current('Transação salva')
     } catch (e) {
       toastRef.current(
-        e instanceof Error ? e.message : 'Nao foi possivel salvar a edicao. Tente novamente.',
+        e instanceof Error ? e.message : 'Não foi possível salvar a edição. Tente novamente.',
         'error',
       )
     }
-  }, [tx.id])
+  }, [tx.id, tx.description, tx.amountCents, tx.date, tx.type, tx.accountId, tx.categoryId])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -108,7 +129,7 @@ export function TransactionEditRow({
       setShowNewCat(false)
       toast('Categoria criada')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Nao foi possivel criar a categoria. Tente novamente.', 'error')
+      toast(e instanceof Error ? e.message : 'Não foi possível criar a categoria. Tente novamente.', 'error')
     } finally {
       setCreatingCat(false)
     }
@@ -187,7 +208,7 @@ export function TransactionEditRow({
         >
           <option value="income">Receita</option>
           <option value="expense">Despesa</option>
-          <option value="transfer">Transferencia</option>
+          <option value="transfer">Transferência</option>
         </select>
         {editType === 'transfer' && (
           <select

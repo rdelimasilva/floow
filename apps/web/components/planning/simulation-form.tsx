@@ -233,7 +233,7 @@ export function SimulationForm({
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <CardTitle>Projecao de Patrimonio (3 Cenarios)</CardTitle>
+            <CardTitle>Projeção de Patrimônio (3 Cenários)</CardTitle>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">{showNominal ? 'Nominal (futuro)' : 'Real (hoje)'}</span>
               <button
@@ -270,7 +270,7 @@ export function SimulationForm({
             />
           ) : (
             <div className="min-h-[350px] flex items-center justify-center text-sm text-gray-500">
-              Preencha os dados abaixo para ver a projecao.
+              Preencha os dados abaixo para ver a projeção.
             </div>
           )}
         </CardContent>
@@ -361,7 +361,7 @@ export function SimulationForm({
           {/* Advanced */}
           <div>
             <button type="button" onClick={() => setShowAdvanced((v) => !v)} className="text-sm text-blue-600 hover:underline">
-              {showAdvanced ? 'Ocultar configuracoes avancadas' : 'Configuracoes avancadas'}
+              {showAdvanced ? 'Ocultar configurações avançadas' : 'Configurações avançadas'}
             </button>
             {showAdvanced && (
               <div className="mt-4 space-y-4 border-t pt-4">
@@ -372,21 +372,21 @@ export function SimulationForm({
                   <div>
                     <Label htmlFor="consRate" className="flex items-center gap-1">
                       Retorno Conservador (% a.a.)
-                      <HelpTooltip text="Cenario pessimista: renda fixa pura." />
+                      <HelpTooltip text="Cenário pessimista: renda fixa pura." />
                     </Label>
                     <Input id="consRate" type="number" step="0.1" placeholder="4" value={conservativeReturnPct ?? ''} onChange={(e) => setConservativeReturnPct(e.target.value ? Number(e.target.value) : undefined)} />
                   </div>
                   <div>
                     <Label htmlFor="baseRate" className="flex items-center gap-1">
                       Retorno Base (% a.a.)
-                      <HelpTooltip text="Cenario moderado: carteira diversificada." />
+                      <HelpTooltip text="Cenário moderado: carteira diversificada." />
                     </Label>
                     <Input id="baseRate" type="number" step="0.1" placeholder="6" value={baseReturnPct ?? ''} onChange={(e) => setBaseReturnPct(e.target.value ? Number(e.target.value) : undefined)} />
                   </div>
                   <div>
                     <Label htmlFor="aggrRate" className="flex items-center gap-1">
                       Retorno Arrojado (% a.a.)
-                      <HelpTooltip text="Cenario otimista: maior exposicao a renda variavel." />
+                      <HelpTooltip text="Cenário otimista: maior exposição a renda variável." />
                     </Label>
                     <Input id="aggrRate" type="number" step="0.1" placeholder="9" value={aggressiveReturnPct ?? ''} onChange={(e) => setAggressiveReturnPct(e.target.value ? Number(e.target.value) : undefined)} />
                   </div>
@@ -394,7 +394,7 @@ export function SimulationForm({
                 <div>
                   <Label htmlFor="contribGrowth" className="flex items-center gap-1">
                     Crescimento Anual dos Aportes (% a.a.)
-                    <HelpTooltip text="Simula aumentos de salario ao longo do tempo." />
+                    <HelpTooltip text="Simula aumentos de salário ao longo do tempo." />
                   </Label>
                   <Input id="contribGrowth" type="number" step="0.1" placeholder="3" value={contributionGrowthPct ?? ''} onChange={(e) => setContributionGrowthPct(e.target.value ? Number(e.target.value) : undefined)} />
                 </div>
@@ -414,7 +414,7 @@ export function SimulationForm({
 
       {/* Disclaimer */}
       <p className="text-xs text-gray-400">
-        Valores em termos reais (descontada inflacao). Projecoes sao estimativas — consulte um profissional para decisoes financeiras.
+        Valores em termos reais (descontada inflação). Projeções são estimativas — consulte um profissional para decisões financeiras.
       </p>
     </div>
   )

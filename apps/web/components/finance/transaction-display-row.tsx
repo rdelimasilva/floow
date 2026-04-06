@@ -64,7 +64,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
         <span className="text-[10px] text-gray-400 uppercase">{TYPE_LABELS[tx.type]}</span>
         <div className="flex gap-1">
           {tx.recurringTemplateId && (
-            <button type="button" title="Cancelar recorrencia" onClick={() => actions.onCancelRecurring(tx.recurringTemplateId!, tx.description)} className="rounded p-1 text-gray-400 hover:text-orange-600">
+            <button type="button" title="Cancelar recorrência" onClick={() => actions.onCancelRecurring(tx.recurringTemplateId!, tx.description)} className="rounded p-1 text-gray-400 hover:text-orange-600">
               <XCircle className="h-4 w-4" />
             </button>
           )}
@@ -143,7 +143,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
           {tx.recurringTemplateId && (
             <button
               type="button"
-              title="Cancelar recorrencia"
+              title="Cancelar recorrência"
               onClick={() => actions.onCancelRecurring(tx.recurringTemplateId!, tx.description)}
               className="rounded p-1 text-gray-400 hover:bg-orange-50 hover:text-orange-600"
             >
@@ -172,7 +172,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
           {tx.externalId ? (
             <button
               type="button"
-              title={tx.isIgnored ? 'Restaurar transacao' : 'Ignorar transacao'}
+              title={tx.isIgnored ? 'Restaurar transação' : 'Ignorar transação'}
               onClick={() => actions.onIgnore(tx)}
               disabled={loading}
               className={`rounded p-1 ${tx.isIgnored ? 'text-blue-500 hover:bg-blue-50 hover:text-blue-700' : 'text-gray-400 hover:bg-yellow-50 hover:text-yellow-600'}`}

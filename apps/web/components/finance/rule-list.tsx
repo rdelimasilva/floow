@@ -92,7 +92,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
       formData.append('ruleId', rule.id)
       const { count } = await previewBulkRecategorize(formData)
       if (count === 0) {
-        toast('Nenhuma transacao sem categoria corresponde a esta regra', 'info')
+        toast('Nenhuma transação sem categoria corresponde a esta regra', 'info')
         return
       }
       setApplyPreview({ rule, count })
@@ -110,7 +110,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
       const formData = new FormData()
       formData.append('ruleId', applyPreview.rule.id)
       const result = await bulkRecategorize(formData)
-      toast(`${result.updated} transacoes categorizadas`)
+      toast(`${result.updated} transações categorizadas`)
       setApplyPreview(null)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao aplicar regra', 'error')
@@ -126,7 +126,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
         <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <p className="text-gray-600 font-medium">Nenhuma regra configurada.</p>
           <p className="mt-1 text-sm text-gray-400">
-            Crie uma regra para categorizar transacoes automaticamente.
+            Crie uma regra para categorizar transações automaticamente.
           </p>
           <Button variant="primary" className="mt-4" onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-1" />
@@ -161,7 +161,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
                 <TableHead>Valor</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Acoes</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -275,7 +275,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Remover regra"
-        description={`Tem certeza que deseja remover a regra "${deleteTarget?.matchValue ?? ''}"? Esta acao nao pode ser desfeita.`}
+        description={`Tem certeza que deseja remover a regra "${deleteTarget?.matchValue ?? ''}"? Esta ação não pode ser desfeita.`}
         confirmLabel="Remover"
         loading={loading}
       />
@@ -286,7 +286,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
         onClose={() => setApplyPreview(null)}
         onConfirm={handleApplyConfirm}
         title="Aplicar regra retroativamente"
-        description={`${applyPreview?.count ?? 0} transacao(oes) sem categoria serao categorizadas como '${categoryMap.get(applyPreview?.rule.categoryId ?? '') ?? ''}'. Deseja continuar?`}
+        description={`${applyPreview?.count ?? 0} transação(ões) sem categoria serão categorizadas como '${categoryMap.get(applyPreview?.rule.categoryId ?? '') ?? ''}'. Deseja continuar?`}
         confirmLabel="Aplicar"
         loading={loading}
       />

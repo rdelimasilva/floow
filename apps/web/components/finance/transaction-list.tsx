@@ -100,9 +100,9 @@ export function TransactionList({
       const formData = new FormData()
       formData.append('id', tx.id)
       await toggleIgnoreTransaction(formData)
-      toastRef.current(tx.isIgnored ? 'Transacao restaurada' : 'Transacao ignorada')
+      toastRef.current(tx.isIgnored ? 'Transação restaurada' : 'Transação ignorada')
     } catch (e) {
-      toastRef.current(e instanceof Error ? e.message : 'Nao foi possivel alterar a transacao.', 'error')
+      toastRef.current(e instanceof Error ? e.message : 'Não foi possível alterar a transação.', 'error')
     } finally {
       setLoading(false)
     }
@@ -147,9 +147,9 @@ export function TransactionList({
       formData.append('id', deleteTarget.id)
       await deleteTransaction(formData)
       setDeleteTarget(null)
-      toast('Transacao removida com sucesso')
+      toast('Transação removida com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Nao foi possivel remover a transacao.', 'error')
+      toast(e instanceof Error ? e.message : 'Não foi possível remover a transação.', 'error')
     } finally {
       setLoading(false)
     }
@@ -163,9 +163,9 @@ export function TransactionList({
       formData.append('templateId', cancelTarget.templateId)
       await cancelRecurring(formData)
       setCancelTarget(null)
-      toast('Recorrencia cancelada — parcelas futuras removidas')
+      toast('Recorrência cancelada — parcelas futuras removidas')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Nao foi possivel cancelar a recorrencia.', 'error')
+      toast(e instanceof Error ? e.message : 'Não foi possível cancelar a recorrência.', 'error')
     } finally {
       setLoading(false)
     }
@@ -175,11 +175,11 @@ export function TransactionList({
     setBulkLoading(true)
     try {
       await bulkDeleteTransactions(Array.from(selected))
-      toast(`${selected.size} transacoes removidas`)
+      toast(`${selected.size} transações removidas`)
       setSelected(new Set())
       setBulkDeleteOpen(false)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Nao foi possivel remover as transacoes.', 'error')
+      toast(e instanceof Error ? e.message : 'Não foi possível remover as transações.', 'error')
     } finally {
       setBulkLoading(false)
     }
@@ -190,12 +190,12 @@ export function TransactionList({
     setBulkLoading(true)
     try {
       await bulkCategorizeTransactions(Array.from(selected), bulkCatId)
-      toast(`${selected.size} transacoes categorizadas`)
+      toast(`${selected.size} transações categorizadas`)
       setSelected(new Set())
       setShowBulkCat(false)
       setBulkCatId('')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Nao foi possivel categorizar as transacoes.', 'error')
+      toast(e instanceof Error ? e.message : 'Não foi possível categorizar as transações.', 'error')
     } finally {
       setBulkLoading(false)
     }
@@ -204,8 +204,8 @@ export function TransactionList({
   if (transactions.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
-        <p className="text-gray-500">Nenhuma transacao encontrada.</p>
-        <p className="mt-1 text-sm text-gray-400">Registre sua primeira transacao para comecar.</p>
+        <p className="text-gray-500">Nenhuma transação encontrada.</p>
+        <p className="mt-1 text-sm text-gray-400">Registre sua primeira transação para começar.</p>
       </div>
     )
   }
@@ -259,7 +259,7 @@ export function TransactionList({
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-gray-300" />
                 </th>
                 <SortableHeader label="Data" sortKey="date" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort} />
-                <SortableHeader label="Descricao" sortKey="description" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort} />
+                <SortableHeader label="Descrição" sortKey="description" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort} />
                 <SortableHeader
                   label="Categoria" sortKey="categoryName" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort}
                   hasActiveFilter={activeCategoryIds.length > 0} className="hidden md:table-cell"
@@ -276,7 +276,7 @@ export function TransactionList({
                   filterContent={<AmountFilter minAmount={activeMinAmount} maxAmount={activeMaxAmount} onApply={onFilterAmount} />}
                 />
                 <th className="hidden lg:table-cell px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Saldo</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Acoes</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -312,11 +312,11 @@ export function TransactionList({
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-        title="Remover transacao"
+        title="Remover transação"
         description={
           deleteTarget?.transferGroupId
-            ? 'Tem certeza que deseja remover esta transferencia? Ambas as pernas serao removidas e os saldos revertidos.'
-            : `Tem certeza que deseja remover "${deleteTarget?.description ?? ''}"? O saldo da conta sera revertido.`
+            ? 'Tem certeza que deseja remover esta transferência? Ambas as pernas serão removidas e os saldos revertidos.'
+            : `Tem certeza que deseja remover "${deleteTarget?.description ?? ''}"? O saldo da conta será revertido.`
         }
         confirmLabel="Remover"
         loading={loading}
@@ -333,9 +333,9 @@ export function TransactionList({
         open={!!cancelTarget}
         onClose={() => setCancelTarget(null)}
         onConfirm={confirmCancelRecurring}
-        title="Cancelar recorrencia"
-        description={`Tem certeza que deseja cancelar a recorrencia "${cancelTarget?.description ?? ''}"? Todas as parcelas futuras serao removidas. Parcelas ja vencidas permanecem.`}
-        confirmLabel="Cancelar recorrencia"
+        title="Cancelar recorrência"
+        description={`Tem certeza que deseja cancelar a recorrência "${cancelTarget?.description ?? ''}"? Todas as parcelas futuras serão removidas. Parcelas já vencidas permanecem.`}
+        confirmLabel="Cancelar recorrência"
         loading={loading}
       />
 
@@ -343,8 +343,8 @@ export function TransactionList({
         open={bulkDeleteOpen}
         onClose={() => setBulkDeleteOpen(false)}
         onConfirm={handleBulkDelete}
-        title="Remover transacoes em lote"
-        description={`Tem certeza que deseja remover ${selected.size} transacoes? Os saldos das contas serao revertidos. Esta acao nao pode ser desfeita.`}
+        title="Remover transações em lote"
+        description={`Tem certeza que deseja remover ${selected.size} transações? Os saldos das contas serão revertidos. Esta ação não pode ser desfeita.`}
         confirmLabel="Remover todas"
         loading={bulkLoading}
       />
