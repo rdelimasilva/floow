@@ -12,11 +12,10 @@ jobs:
       - name: Ping Supabase Health
         run: |
           set -e
-          # Use the PostgREST root endpoint — returns API schema, no table needed
+          # Auth health endpoint — always available, wakes up the project
           STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
-            "${SUPABASE_URL}/rest/v1/")
+            "${SUPABASE_URL}/auth/v1/health")
           echo "status=${STATUS}"
           if [ "$STATUS" -ge 400 ]; then
             echo "::warning::Supabase returned HTTP ${STATUS}"
