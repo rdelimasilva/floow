@@ -1,0 +1,30 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    - cron: '0 12 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticated REST ping
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          for i in 1 2 3; do
+            if curl -sSf --max-time 30 \
+                 -H "apikey: $SUPABASE_SERVICE_KEY" \
+                 -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+                 "$SUPABASE_URL/rest/v1/" -o /dev/null; then
+              echo "Ping OK (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "All attempts failed"
+          exit 1
