@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules, recurringTemplates } from '@floow/db'
+import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules, recurringTemplates, orgMembers } from '@floow/db'
 import { eq, and, desc, asc, isNull, or, gte, count, ilike, lte, inArray, sql } from 'drizzle-orm'
 import {
   accountsTag,
@@ -17,6 +17,18 @@ export interface MonthlyCashFlowSummary {
   income: number
   expense: number
   net: number
+}
+
+function decodeJwtOrgId(accessToken: string): string | undefined {
+  try {
+    const payload = accessToken.split('.')[1]
+    if (!payload) return undefined
+    const json = Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
+    const claims = JSON.parse(json) as { app_metadata?: { org_ids?: string[] } }
+    return claims.app_metadata?.org_ids?.[0]
+  } catch {
+    return undefined
+  }
 }
 
 async function loadMonthlyCashFlowSummary(
@@ -66,6 +78,10 @@ async function loadMonthlyCashFlowSummary(
  * Extracts the orgId from the authenticated user's JWT app_metadata.
  * Uses getSession() (local cookie read, no network) since middleware already validated JWT.
  * Wrapped in React cache() to deduplicate within a single request.
+ *
+ * Fallback: if the JWT claim is missing (custom_access_token_hook not registered
+ * or returned null for a new user), queries org_members directly so the app
+ * stays functional even when the hook path is broken.
  */
 export const getOrgId = cache(async function getOrgId(): Promise<string> {
   const supabase = await createClient()
@@ -77,12 +93,32 @@ export const getOrgId = cache(async function getOrgId(): Promise<string> {
     throw new Error('Not authenticated')
   }
 
-  const orgId = session.user.app_metadata?.org_ids?.[0]
-  if (!orgId) {
+  // Decode JWT claims directly — supabase-js's session.user.app_metadata reads
+  // from the cached user object (auth.users.raw_app_meta_data), which the
+  // custom_access_token_hook does NOT write to. Hook output only lives in JWT
+  // claims, so we must parse the access_token to read injected org_ids.
+  const claimOrgId = decodeJwtOrgId(session.access_token)
+  if (claimOrgId) {
+    return claimOrgId
+  }
+
+  // JWT claim missing — fall back to DB lookup. Happens when:
+  // 1. custom_access_token_hook not registered in Supabase Dashboard
+  // 2. hook runs as supabase_auth_admin and is blocked by RLS
+  // 3. token was issued before org_members row existed
+  const db = getDb()
+  const [member] = await db
+    .select({ orgId: orgMembers.orgId })
+    .from(orgMembers)
+    .where(eq(orgMembers.userId, session.user.id))
+    .orderBy(asc(orgMembers.createdAt))
+    .limit(1)
+
+  if (!member) {
     throw new Error('No organization found for user')
   }
 
-  return orgId as string
+  return member.orgId
 })
 
 /**
