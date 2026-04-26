@@ -81,11 +81,13 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     if (values.accountId) params.set('accountId', values.accountId)
     if (values.startDate) params.set('startDate', values.startDate)
     if (values.endDate) params.set('endDate', values.endDate)
+    const currentPageSize = searchParams.get('pageSize')
+    if (currentPageSize) params.set('pageSize', currentPageSize)
     params.set('page', '1')
     startTransition(() => {
       router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
     })
-  }, [router, baseUrl, search, accountId, startDate, endDate, startTransition])
+  }, [router, baseUrl, search, accountId, startDate, endDate, searchParams, startTransition])
 
   function clearFilters() {
     setSearch('')

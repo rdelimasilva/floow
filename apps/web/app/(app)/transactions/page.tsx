@@ -1,14 +1,17 @@
 import Link from 'next/link'
+import { cookies } from 'next/headers'
 import { getOrgId, getTransactionsWithCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
 import { ExportCsvButton } from '@/components/finance/export-csv-button'
 import { Pagination } from '@/components/ui/pagination'
+import { PageSizeSelector } from '@/components/ui/page-size-selector'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 
-const PAGE_SIZE = 30
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const
+const DEFAULT_PAGE_SIZE = 30
 
 interface Props {
   searchParams: Promise<Record<string, string | undefined>>
@@ -19,6 +22,12 @@ export default async function TransactionsPage({ searchParams }: Props) {
   const orgId = await getOrgId()
 
   const page = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
+  // Resolution order: URL param → cookie (persisted across sessions) → default
+  const cookiePageSize = (await cookies()).get('tx-page-size')?.value
+  const requestedSize = parseInt(params.pageSize ?? cookiePageSize ?? '', 10)
+  const pageSize = (PAGE_SIZE_OPTIONS as readonly number[]).includes(requestedSize)
+    ? requestedSize
+    : DEFAULT_PAGE_SIZE
   const filters = {
     accountId: params.accountId,
     search: params.search,
@@ -32,7 +41,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
     maxAmount: params.maxAmount ? parseInt(params.maxAmount, 10) : undefined,
   }
 
-  const queryOpts = { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }
+  const queryOpts = { limit: pageSize, offset: (page - 1) * pageSize, ...filters }
 
   const [{ transactions, totalCount, startingBalance }, accounts, categories, categoryOrder] = await Promise.all([
     getTransactionsWithCount(orgId, queryOpts),
@@ -41,7 +50,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
     getCategoryUsageOrder(orgId),
   ])
 
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
+  const totalPages = Math.ceil(totalCount / pageSize)
 
   const paginationParams: Record<string, string> = {}
   if (filters.accountId) paginationParams.accountId = filters.accountId
@@ -54,6 +63,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (params.categoryIds) paginationParams.categoryIds = params.categoryIds
   if (params.minAmount) paginationParams.minAmount = params.minAmount
   if (params.maxAmount) paginationParams.maxAmount = params.maxAmount
+  if (pageSize !== DEFAULT_PAGE_SIZE) paginationParams.pageSize = String(pageSize)
 
   const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }))
   const categoryOrderMap = new Map(categoryOrder.map((id, i) => [id, i]))
@@ -88,6 +98,16 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
       <TransactionFilters accounts={accountOptions} />
 
+      <div className="flex items-center justify-between gap-3">
+        <PageSizeSelector current={pageSize} />
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          baseUrl="/transactions"
+          searchParams={paginationParams}
+        />
+      </div>
+
       <TransactionListWrapper
         transactions={transactions.map((t) => ({
           ...t,
@@ -100,12 +120,15 @@ export default async function TransactionsPage({ searchParams }: Props) {
         startingBalance={startingBalance}
       />
 
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        baseUrl="/transactions"
-        searchParams={paginationParams}
-      />
+      <div className="flex items-center justify-between gap-3">
+        <PageSizeSelector current={pageSize} />
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          baseUrl="/transactions"
+          searchParams={paginationParams}
+        />
+      </div>
     </div>
     </InlineTransactionFormProvider>
   )
