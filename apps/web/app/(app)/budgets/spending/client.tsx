@@ -2,20 +2,23 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
 import { createBudgetEntry, updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
+import { createCategory } from '@/lib/finance/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { formatBRL } from '@floow/core-finance'
+import { RecurringEntriesList } from './recurring-entries-list'
 
 interface CategoryOption {
   id: string
   name: string
+  type: string
   color: string | null
   icon: string | null
 }
@@ -55,7 +58,7 @@ function shiftMonth(monthStr: string, delta: number): string {
 }
 
 export function SpendingClient({
-  categories,
+  categories: initialCategories,
   entriesForMonth,
   allEntries,
   spending,
@@ -76,13 +79,44 @@ export function SpendingClient({
   const [newStartMonth, setNewStartMonth] = useState(selectedMonth)
   const [newEndMonth, setNewEndMonth] = useState('')
 
+  // Inline category creation
+  const [categories, setCategories] = useState(initialCategories)
+  const [showNewCategory, setShowNewCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [creatingCategory, setCreatingCategory] = useState(false)
+
   const spendingMap = new Map(spending.map((s) => [s.categoryId, s.spent]))
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
   const totalSpent = spending.reduce((sum, s) => sum + s.spent, 0)
 
   // Categories that already have an active entry
   const usedCategoryIds = new Set(allEntries.map((e) => e.categoryId))
-  const availableCategories = categories.filter((c) => !usedCategoryIds.has(c.id))
+  // Defensive: only expense categories are valid for spending budgets
+  const availableCategories = categories.filter(
+    (c) => c.type === 'expense' && !usedCategoryIds.has(c.id),
+  )
+
+  async function handleCreateCategory() {
+    if (!newCategoryName.trim()) return
+    setCreatingCategory(true)
+    try {
+      const fd = new FormData()
+      fd.append('name', newCategoryName.charAt(0).toUpperCase() + newCategoryName.slice(1))
+      fd.append('type', 'expense')
+      const created = await createCategory(fd)
+      setCategories((prev) => [
+        ...prev,
+        { id: created.id, name: created.name, type: created.type, color: created.color, icon: created.icon },
+      ])
+      setNewCategoryId(created.id)
+      setNewCategoryName('')
+      setShowNewCategory(false)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao criar categoria. Tente novamente.', 'error')
+    } finally {
+      setCreatingCategory(false)
+    }
+  }
 
   function navigateMonth(delta: number) {
     router.push(`/budgets/spending?month=${shiftMonth(selectedMonth, delta)}`)
@@ -190,9 +224,55 @@ export function SpendingClient({
                   >
                     <option value="">Selecione...</option>
                     {availableCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.icon ?? ''} {c.name}</option>
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
+                  {!showNewCategory ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowNewCategory(true)}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      + Criar nova categoria
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="Nova categoria de despesa"
+                        className="h-8 text-sm flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleCreateCategory()
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        onClick={handleCreateCategory}
+                        disabled={creatingCategory || !newCategoryName.trim()}
+                        className="h-8"
+                      >
+                        {creatingCategory ? '...' : 'Criar'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setShowNewCategory(false)
+                          setNewCategoryName('')
+                        }}
+                        className="h-8"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Valor mensal (R$)</label>
@@ -245,7 +325,7 @@ export function SpendingClient({
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-900">
-                        {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                        {cat?.color && <span className="inline-block h-2 w-2 rounded-full mr-2 align-middle" style={{ backgroundColor: cat.color }} />}
                         {cat?.name ?? '—'}
                       </p>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pct > 100 ? 'bg-red-100 text-red-700' : pct > 80 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
@@ -304,7 +384,7 @@ export function SpendingClient({
                       return (
                         <tr key={entry.categoryId} className="hover:bg-gray-50">
                           <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
-                            {cat?.icon && <span className="mr-1">{cat.icon}</span>}
+                            {cat?.color && <span className="inline-block h-2 w-2 rounded-full mr-2 align-middle" style={{ backgroundColor: cat.color }} />}
                             {cat?.name ?? '—'}
                           </td>
                           <td className="px-4 py-2.5 text-sm text-right text-gray-600">{formatBRL(entry.plannedCents)}</td>
@@ -349,86 +429,21 @@ export function SpendingClient({
       )}
 
       {/* Active recurring entries */}
-      {allEntries.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Lançamentos Recorrentes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {allEntries.map((entry) => {
-                const cat = categories.find((c) => c.id === entry.categoryId)
-                const isEditing = editingId === entry.id
-
-                if (isEditing) {
-                  return (
-                    <div key={entry.id} className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
-                      <span className="text-sm font-medium text-gray-900 w-36 truncate">
-                        {cat?.icon && <span className="mr-1">{cat.icon}</span>}
-                        {cat?.name ?? '—'}
-                      </span>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className="h-7 w-28 text-sm"
-                        placeholder="R$"
-                      />
-                      <span className="text-xs text-gray-500">/mês</span>
-                      <span className="text-xs text-gray-500 ml-1">até:</span>
-                      <Input
-                        type="month"
-                        value={editEndMonth}
-                        onChange={(e) => setEditEndMonth(e.target.value)}
-                        className="h-7 w-36 text-sm"
-                      />
-                      <button type="button" onClick={handleSaveEdit} disabled={saving} className="rounded p-1 text-green-600 hover:bg-green-50">
-                        <Check className="h-4 w-4" />
-                      </button>
-                      <button type="button" onClick={() => setEditingId(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )
-                }
-
-                return (
-                  <div key={entry.id} className="flex items-center justify-between rounded-lg border px-4 py-2.5">
-                    <div>
-                      <span className="text-sm font-medium text-gray-900">
-                        {cat?.icon && <span className="mr-1">{cat.icon}</span>}
-                        {cat?.name ?? '—'}
-                      </span>
-                      <span className="ml-2 text-sm text-gray-600">{formatBRL(entry.plannedCents)}/mês</span>
-                      <span className="ml-2 text-xs text-gray-400">
-                        de {formatMonth(entry.startMonth)}
-                        {entry.endMonth ? ` até ${formatMonth(entry.endMonth)}` : ' em diante'}
-                      </span>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => startEdit(entry)}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteConfirm(entry.id)}
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <RecurringEntriesList
+        allEntries={allEntries}
+        categories={categories}
+        editingId={editingId}
+        editValue={editValue}
+        editEndMonth={editEndMonth}
+        saving={saving}
+        onStartEdit={startEdit}
+        onChangeEditValue={setEditValue}
+        onChangeEditEndMonth={setEditEndMonth}
+        onSaveEdit={handleSaveEdit}
+        onCancelEdit={() => setEditingId(null)}
+        onDelete={(id) => setDeleteConfirm(id)}
+        formatMonth={formatMonth}
+      />
 
       <ConfirmDialog
         open={!!deleteConfirm}

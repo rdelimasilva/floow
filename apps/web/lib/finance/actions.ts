@@ -1,5 +1,5 @@
 'use server'
-import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules, recurringTemplates } from '@floow/db'
+import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules, recurringTemplates, budgetEntries, debts } from '@floow/db'
 import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema, createRecurringTransactionSchema } from '@floow/shared'
 import { computeSnapshot, matchCategory, generateInstallmentDates, advanceByFrequency } from '@floow/core-finance'
 import { eq, sql, and, or, desc, isNull, ilike, count, max, inArray } from 'drizzle-orm'
@@ -864,8 +864,7 @@ export async function updateCategory(formData: FormData) {
 }
 
 /**
- * Server action: delete a category owned by the org.
- * System categories cannot be deleted.
+ * Server action: delete a category visible to the org (org-owned or system).
  * Transactions using this category will have their categoryId set to null (DB onDelete: 'set null').
  */
 export async function deleteCategory(formData: FormData) {
@@ -878,14 +877,114 @@ export async function deleteCategory(formData: FormData) {
   const [existing] = await db
     .select()
     .from(categories)
-    .where(and(eq(categories.id, id), eq(categories.orgId, orgId)))
+    .where(and(
+      eq(categories.id, id),
+      or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+    ))
     .limit(1)
 
-  if (!existing) throw new Error('Category not found or is a system category')
+  if (!existing) throw new Error('Categoria não encontrada')
 
-  await db
-    .delete(categories)
-    .where(and(eq(categories.id, id), eq(categories.orgId, orgId)))
+  await db.delete(categories).where(eq(categories.id, id))
+
+  revalidateCategoryData(orgId)
+  revalidateTransactionData(orgId)
+}
+
+/**
+ * Server action: returns counts of items referencing a category.
+ * Used to warn the user before deletion and require reassignment.
+ */
+export async function getCategoryUsage(categoryId: string) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const [cat] = await db
+    .select()
+    .from(categories)
+    .where(and(
+      eq(categories.id, categoryId),
+      or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+    ))
+    .limit(1)
+  if (!cat) throw new Error('Categoria não encontrada')
+
+  const rows = (await db.execute(sql`
+    SELECT
+      (SELECT count(*)::int FROM transactions WHERE org_id = ${orgId} AND category_id = ${categoryId}) AS transactions,
+      (SELECT count(*)::int FROM recurring_templates WHERE org_id = ${orgId} AND category_id = ${categoryId}) AS recurring,
+      (SELECT count(*)::int FROM budget_entries WHERE org_id = ${orgId} AND category_id = ${categoryId}) AS budgets,
+      (SELECT count(*)::int FROM debts WHERE org_id = ${orgId} AND category_id = ${categoryId}) AS debts,
+      (SELECT count(*)::int FROM category_rules WHERE org_id = ${orgId} AND category_id = ${categoryId}) AS rules
+  `)) as unknown as Array<{
+    transactions: number
+    recurring: number
+    budgets: number
+    debts: number
+    rules: number
+  }>
+  const row = rows[0]
+
+  return {
+    type: cat.type,
+    transactions: row.transactions,
+    recurring: row.recurring,
+    budgets: row.budgets,
+    debts: row.debts,
+    rules: row.rules,
+  }
+}
+
+/**
+ * Server action: reassign all references from old category to new, then delete old.
+ * Both categories must be the same type. New category can be system or org-owned.
+ */
+export async function reassignAndDeleteCategory(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const oldId = formData.get('oldId') as string
+  const newId = formData.get('newId') as string
+  if (!oldId) throw new Error('oldId is required')
+  if (!newId) throw new Error('newId is required')
+  if (oldId === newId) throw new Error('A categoria de destino deve ser diferente')
+
+  const [oldCat] = await db
+    .select()
+    .from(categories)
+    .where(and(
+      eq(categories.id, oldId),
+      or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+    ))
+    .limit(1)
+  if (!oldCat) throw new Error('Categoria não encontrada')
+
+  const [newCat] = await db
+    .select()
+    .from(categories)
+    .where(and(
+      eq(categories.id, newId),
+      or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+    ))
+    .limit(1)
+  if (!newCat) throw new Error('Categoria de destino não encontrada')
+  if (newCat.type !== oldCat.type) throw new Error('A categoria de destino deve ser do mesmo tipo')
+
+  // Reassign all references
+  await Promise.all([
+    db.update(transactions).set({ categoryId: newId })
+      .where(and(eq(transactions.orgId, orgId), eq(transactions.categoryId, oldId))),
+    db.update(recurringTemplates).set({ categoryId: newId })
+      .where(and(eq(recurringTemplates.orgId, orgId), eq(recurringTemplates.categoryId, oldId))),
+    db.update(budgetEntries).set({ categoryId: newId })
+      .where(and(eq(budgetEntries.orgId, orgId), eq(budgetEntries.categoryId, oldId))),
+    db.update(debts).set({ categoryId: newId })
+      .where(and(eq(debts.orgId, orgId), eq(debts.categoryId, oldId))),
+    db.update(categoryRules).set({ categoryId: newId })
+      .where(and(eq(categoryRules.orgId, orgId), eq(categoryRules.categoryId, oldId))),
+  ])
+
+  await db.delete(categories).where(eq(categories.id, oldId))
 
   revalidateCategoryData(orgId)
   revalidateTransactionData(orgId)

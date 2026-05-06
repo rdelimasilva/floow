@@ -59,7 +59,7 @@ interface RecurringTemplateListProps {
 }
 
 const frequencyLabels: Record<string, string> = {
-  daily: 'Diario',
+  daily: 'Diário',
   weekly: 'Semanal',
   biweekly: 'Quinzenal',
   monthly: 'Mensal',

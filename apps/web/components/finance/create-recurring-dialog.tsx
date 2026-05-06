@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createRecurringTemplate, updateRecurringTemplate } from '@/lib/finance/recurring-actions'
+import { createCategory } from '@/lib/finance/actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { currencyToCents } from '@floow/core-finance'
 
 interface AccountOption {
   id: string
@@ -37,13 +39,18 @@ interface CreateRecurringDialogProps {
 }
 
 const FREQUENCY_OPTIONS = [
-  { value: 'daily', label: 'Diario' },
+  { value: 'daily', label: 'Diário' },
   { value: 'weekly', label: 'Semanal' },
   { value: 'biweekly', label: 'Quinzenal' },
   { value: 'monthly', label: 'Mensal' },
   { value: 'quarterly', label: 'Trimestral' },
   { value: 'yearly', label: 'Anual' },
 ]
+
+const TYPE_LABELS: Record<'income' | 'expense', string> = {
+  income: 'Receita',
+  expense: 'Despesa',
+}
 
 function toDateInputValue(date: Date | string | undefined): string {
   if (!date) return ''
@@ -54,11 +61,15 @@ function toDateInputValue(date: Date | string | undefined): string {
   return `${year}-${month}-${day}`
 }
 
+function centsToInput(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',')
+}
+
 export function CreateRecurringDialog({
   open,
   onClose,
   accounts,
-  categories,
+  categories: initialCategories,
   editTemplate,
 }: CreateRecurringDialogProps) {
   const { toast } = useToast()
@@ -72,11 +83,17 @@ export function CreateRecurringDialog({
   const initType = editTemplate?.type === 'income' ? 'income' : 'expense'
   const [type, setType] = useState<'income' | 'expense'>(initType)
   const [amount, setAmount] = useState(
-    editTemplate ? String(editTemplate.amountCents / 100) : '',
+    editTemplate ? centsToInput(editTemplate.amountCents) : '',
   )
   const [frequency, setFrequency] = useState(editTemplate?.frequency ?? 'monthly')
   const [nextDueDate, setNextDueDate] = useState(toDateInputValue(editTemplate?.nextDueDate))
   const [notes, setNotes] = useState(editTemplate?.notes ?? '')
+
+  // Inline category creation
+  const [categories, setCategories] = useState(initialCategories)
+  const [showNewCategory, setShowNewCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [creatingCategory, setCreatingCategory] = useState(false)
 
   // Sync form values when editTemplate prop changes
   useEffect(() => {
@@ -84,11 +101,18 @@ export function CreateRecurringDialog({
     setAccountId(editTemplate?.accountId ?? '')
     setCategoryId(editTemplate?.categoryId ?? '')
     setType(editTemplate?.type === 'income' ? 'income' : 'expense')
-    setAmount(editTemplate ? String(editTemplate.amountCents / 100) : '')
+    setAmount(editTemplate ? centsToInput(editTemplate.amountCents) : '')
     setFrequency(editTemplate?.frequency ?? 'monthly')
     setNextDueDate(toDateInputValue(editTemplate?.nextDueDate))
     setNotes(editTemplate?.notes ?? '')
+    setShowNewCategory(false)
+    setNewCategoryName('')
   }, [editTemplate])
+
+  // Sync categories when prop changes
+  useEffect(() => {
+    setCategories(initialCategories)
+  }, [initialCategories])
 
   // Show/hide the dialog
   useEffect(() => {
@@ -98,17 +122,49 @@ export function CreateRecurringDialog({
     if (!open && el.open) el.close()
   }, [open])
 
+  // Filter categories by type (income categories for income, expense for expense)
+  const filteredCategories = categories.filter((c) => c.type === type)
+
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
     if (e.target === dialogRef.current) {
       onClose()
     }
   }
 
+  function handleTypeChange(t: 'income' | 'expense') {
+    setType(t)
+    // Reset category when switching type since list is filtered
+    setCategoryId('')
+  }
+
+  async function handleCreateCategory() {
+    if (!newCategoryName.trim()) return
+    setCreatingCategory(true)
+    try {
+      const formData = new FormData()
+      formData.append('name', newCategoryName.charAt(0).toUpperCase() + newCategoryName.slice(1))
+      formData.append('type', type)
+      const created = await createCategory(formData)
+      setCategories((prev) => [...prev, created])
+      setCategoryId(created.id)
+      setNewCategoryName('')
+      setShowNewCategory(false)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao criar categoria. Tente novamente.', 'error')
+    } finally {
+      setCreatingCategory(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const amountCents = currencyToCents(amount)
+    if (!amountCents || isNaN(amountCents) || amountCents <= 0) {
+      toast('Informe um valor válido', 'error')
+      return
+    }
     setLoading(true)
     try {
-      const amountCents = Math.round(parseFloat(amount) * 100)
       const formData = new FormData()
       formData.append('description', description)
       formData.append('accountId', accountId)
@@ -151,6 +207,27 @@ export function CreateRecurringDialog({
           </h2>
 
           <div className="space-y-4">
+            {/* Type segmented control */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+              <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
+                {(['income', 'expense'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => handleTypeChange(t)}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      type === t
+                        ? 'bg-white shadow text-gray-900'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {TYPE_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
               <Input
@@ -180,47 +257,77 @@ export function CreateRecurringDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm"
-                >
-                  <option value="">Nenhuma</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as 'income' | 'expense')}
-                  className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm"
-                >
-                  <option value="expense">Despesa</option>
-                  <option value="income">Receita</option>
-                </select>
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
                 <Input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0,00"
+                  placeholder="Ex: 150,75"
                   required
                 />
               </div>
+            </div>
+
+            {/* Category — filtered by type, with inline creation */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm"
+              >
+                <option value="">Selecione a categoria (opcional)</option>
+                {filteredCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {!showNewCategory ? (
+                <button
+                  type="button"
+                  onClick={() => setShowNewCategory(true)}
+                  className="mt-1 text-xs text-blue-600 hover:text-blue-800"
+                >
+                  + Criar nova categoria
+                </button>
+              ) : (
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder={`Nova categoria de ${type === 'income' ? 'receita' : 'despesa'}`}
+                    className="h-8 text-sm flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleCreateCategory()
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    onClick={handleCreateCategory}
+                    disabled={creatingCategory || !newCategoryName.trim()}
+                    className="h-8"
+                  >
+                    {creatingCategory ? '...' : 'Criar'}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setShowNewCategory(false)
+                      setNewCategoryName('')
+                    }}
+                    className="h-8"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

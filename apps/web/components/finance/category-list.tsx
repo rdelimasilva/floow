@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2, Plus } from 'lucide-react'
-import { createCategory, updateCategory, deleteCategory } from '@/lib/finance/actions'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Plus } from 'lucide-react'
+import { createCategory, updateCategory } from '@/lib/finance/actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DeleteCategoryDialog } from './delete-category-dialog'
 
 interface Category {
   id: string
@@ -88,20 +88,8 @@ export function CategoryList({ categories }: CategoryListProps) {
     }
   }
 
-  async function handleDelete() {
-    if (!deleteTarget) return
-    setLoading(true)
-    try {
-      const formData = new FormData()
-      formData.append('id', deleteTarget.id)
-      await deleteCategory(formData)
-      setDeleteTarget(null)
-      toast('Categoria removida com sucesso')
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao remover categoria', 'error')
-    } finally {
-      setLoading(false)
-    }
+  function handleDeleted() {
+    setDeleteTarget(null)
   }
 
   const incomeCategories = categories.filter((c) => c.type === 'income')
@@ -130,11 +118,9 @@ export function CategoryList({ categories }: CategoryListProps) {
                   <button type="button" onClick={() => startEdit(cat)} className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
                     Editar
                   </button>
-                  {!cat.isSystem && cat.orgId && (
-                    <button type="button" onClick={() => setDeleteTarget(cat)} className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">
-                      Excluir
-                    </button>
-                  )}
+                  <button type="button" onClick={() => setDeleteTarget(cat)} className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">
+                    Excluir
+                  </button>
                 </div>
               </div>
             )
@@ -182,14 +168,11 @@ export function CategoryList({ categories }: CategoryListProps) {
         </div>
       </div>
 
-      <ConfirmDialog
-        open={!!deleteTarget}
+      <DeleteCategoryDialog
+        target={deleteTarget}
+        allCategories={categories}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="Remover categoria"
-        description={`Tem certeza que deseja remover "${deleteTarget?.name ?? ''}"? Transações com esta categoria ficarão sem categoria.`}
-        confirmLabel="Remover"
-        loading={loading}
+        onDeleted={handleDeleted}
       />
     </>
   )

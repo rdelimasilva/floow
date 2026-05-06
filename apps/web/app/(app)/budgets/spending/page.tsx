@@ -31,7 +31,7 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
 
   const expenseCategories = categories
     .filter((c) => c.type === 'expense')
-    .map((c) => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))
+    .map((c) => ({ id: c.id, name: c.name, type: c.type, color: c.color, icon: c.icon }))
 
   return (
     <SpendingClient
