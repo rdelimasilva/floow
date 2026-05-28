@@ -1,7 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { useToast } from '@/components/ui/toast'
+import { createCategory } from '@/lib/finance/actions'
 import {
   Table,
   TableBody,
@@ -46,17 +50,35 @@ interface RowState {
   transferToAccountId: string
 }
 
+interface NewCategoryDraft {
+  name: string
+  type: 'income' | 'expense'
+  color: string
+}
+
+const DEFAULT_NEW_CATEGORY_COLOR = '#6b7280'
+
 export function ImportReview({
   items,
   selectedIndices,
   accounts,
   sourceAccountId,
-  categories,
+  categories: initialCategories,
   onConfirm,
   onBack,
   loading,
 }: ImportReviewProps) {
+  const { toast } = useToast()
   const selectedItems = items.filter((item) => selectedIndices.includes(item.index))
+
+  const [categories, setCategories] = useState<CategoryOption[]>(initialCategories)
+  const [expandedRow, setExpandedRow] = useState<number | null>(null)
+  const [newCategory, setNewCategory] = useState<NewCategoryDraft>({
+    name: '',
+    type: 'expense',
+    color: DEFAULT_NEW_CATEGORY_COLOR,
+  })
+  const [creatingCategory, setCreatingCategory] = useState(false)
 
   const [rowStates, setRowStates] = useState<Map<number, RowState>>(() => {
     const map = new Map<number, RowState>()
@@ -77,6 +99,40 @@ export function ImportReview({
       next.set(index, { ...current, ...patch })
       return next
     })
+  }
+
+  function openCreateCategory(rowIndex: number) {
+    const rowType = rowStates.get(rowIndex)?.type
+    const draftType: 'income' | 'expense' = rowType === 'income' ? 'income' : 'expense'
+    setNewCategory({ name: '', type: draftType, color: DEFAULT_NEW_CATEGORY_COLOR })
+    setExpandedRow(rowIndex)
+  }
+
+  function closeCreateCategory() {
+    setExpandedRow(null)
+    setNewCategory({ name: '', type: 'expense', color: DEFAULT_NEW_CATEGORY_COLOR })
+  }
+
+  async function handleCreateCategory(rowIndex: number) {
+    const name = newCategory.name.trim()
+    if (!name) return
+    setCreatingCategory(true)
+    try {
+      const formData = new FormData()
+      formData.append('name', name.charAt(0).toUpperCase() + name.slice(1))
+      formData.append('type', newCategory.type)
+      formData.append('color', newCategory.color)
+      const created = await createCategory(formData)
+      const option: CategoryOption = { id: created.id, name: created.name, type: created.type }
+      setCategories((prev) => [...prev, option])
+      updateRow(rowIndex, { categoryId: created.id })
+      toast('Categoria criada com sucesso')
+      closeCreateCategory()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao criar categoria', 'error')
+    } finally {
+      setCreatingCategory(false)
+    }
   }
 
   function handleConfirm() {
@@ -123,68 +179,148 @@ export function ImportReview({
           <TableBody>
             {selectedItems.map((item) => {
               const state = rowStates.get(item.index)!
+              const isExpanded = expandedRow === item.index
               return (
-                <TableRow key={item.index}>
-                  <TableCell className="whitespace-nowrap text-sm">
-                    {formatDate(item.parsed.date)}
-                  </TableCell>
-                  <TableCell className="max-w-[200px] text-sm">
-                    <div className="truncate">{item.parsed.description || '—'}</div>
-                  </TableCell>
-                  <TableCell className="text-right whitespace-nowrap text-sm">
-                    <span className={item.parsed.amountCents >= 0 ? 'text-green-600' : 'text-red-600'}>
-                      {formatCents(item.parsed.amountCents)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <select
-                      value={state.categoryId}
-                      onChange={(e) => updateRow(item.index, { categoryId: e.target.value })}
-                      className="h-8 w-full min-w-[120px] rounded border border-gray-300 text-xs"
-                    >
-                      <option value="">Sem categoria</option>
-                      {categories
-                        .filter((c) => c.type === state.type || state.type === 'transfer')
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                    {item.isAutoCategorized && state.categoryId === item.suggestedCategoryId && (
-                      <span className="text-[9px] text-blue-500 font-medium uppercase tracking-wider ml-1">auto</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <select
-                      value={state.type}
-                      onChange={(e) => updateRow(item.index, {
-                        type: e.target.value as TxType,
-                        transferToAccountId: '',
-                        categoryId: state.categoryId,
-                      })}
-                      className="h-8 rounded border border-gray-300 text-xs"
-                    >
-                      <option value="income">Receita</option>
-                      <option value="expense">Despesa</option>
-                      <option value="transfer">Transferência</option>
-                    </select>
-                  </TableCell>
-                  <TableCell>
-                    {state.type === 'transfer' ? (
+                <Fragment key={item.index}>
+                  <TableRow>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {formatDate(item.parsed.date)}
+                    </TableCell>
+                    <TableCell className="max-w-[200px] text-sm">
+                      <div className="truncate">{item.parsed.description || '—'}</div>
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap text-sm">
+                      <span className={item.parsed.amountCents >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {formatCents(item.parsed.amountCents)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={state.categoryId}
+                          onChange={(e) => updateRow(item.index, { categoryId: e.target.value })}
+                          className="h-8 w-full min-w-[120px] rounded border border-gray-300 text-xs"
+                        >
+                          <option value="">Sem categoria</option>
+                          {categories
+                            .filter((c) => c.type === state.type || state.type === 'transfer')
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => (isExpanded ? closeCreateCategory() : openCreateCategory(item.index))}
+                          title="Criar nova categoria"
+                          aria-label="Criar nova categoria"
+                          className="shrink-0 h-8 w-8 rounded border border-gray-300 text-gray-500 hover:bg-gray-100 hover:text-gray-700 flex items-center justify-center transition-colors"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {item.isAutoCategorized && state.categoryId === item.suggestedCategoryId && (
+                        <span className="text-[9px] text-blue-500 font-medium uppercase tracking-wider ml-1">auto</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <select
-                        value={state.transferToAccountId}
-                        onChange={(e) => updateRow(item.index, { transferToAccountId: e.target.value })}
-                        className="h-8 w-full min-w-[120px] rounded border border-gray-300 text-xs"
+                        value={state.type}
+                        onChange={(e) => updateRow(item.index, {
+                          type: e.target.value as TxType,
+                          transferToAccountId: '',
+                          categoryId: state.categoryId,
+                        })}
+                        className="h-8 rounded border border-gray-300 text-xs"
                       >
-                        <option value="">Selecione...</option>
-                        {otherAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
+                        <option value="income">Receita</option>
+                        <option value="expense">Despesa</option>
+                        <option value="transfer">Transferência</option>
                       </select>
-                    ) : (
-                      <span className="text-xs text-gray-400">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
+                    </TableCell>
+                    <TableCell>
+                      {state.type === 'transfer' ? (
+                        <select
+                          value={state.transferToAccountId}
+                          onChange={(e) => updateRow(item.index, { transferToAccountId: e.target.value })}
+                          className="h-8 w-full min-w-[120px] rounded border border-gray-300 text-xs"
+                        >
+                          <option value="">Selecione...</option>
+                          {otherAccounts.map((a) => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <TableRow className="bg-blue-50/40">
+                      <TableCell colSpan={6} className="py-3">
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div className="text-xs font-medium text-gray-600 mr-1">Nova categoria:</div>
+                          <div>
+                            <label className="block text-[10px] text-gray-500 mb-1">Cor</label>
+                            <input
+                              type="color"
+                              value={newCategory.color}
+                              onChange={(e) => setNewCategory((prev) => ({ ...prev, color: e.target.value }))}
+                              className="h-8 w-8 rounded border border-gray-300 cursor-pointer"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-[160px]">
+                            <label className="block text-[10px] text-gray-500 mb-1">Nome</label>
+                            <Input
+                              autoFocus
+                              value={newCategory.name}
+                              onChange={(e) => setNewCategory((prev) => ({ ...prev, name: e.target.value }))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  handleCreateCategory(item.index)
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault()
+                                  closeCreateCategory()
+                                }
+                              }}
+                              placeholder="Ex.: Mercado, Salário"
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-gray-500 mb-1">Tipo</label>
+                            <select
+                              value={newCategory.type}
+                              onChange={(e) => setNewCategory((prev) => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
+                              className="h-8 rounded border border-gray-300 px-2 text-xs"
+                            >
+                              <option value="expense">Despesa</option>
+                              <option value="income">Receita</option>
+                            </select>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleCreateCategory(item.index)}
+                            disabled={creatingCategory || !newCategory.name.trim()}
+                            className="h-8"
+                          >
+                            {creatingCategory ? 'Criando...' : 'Criar'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={closeCreateCategory}
+                            disabled={creatingCategory}
+                            className="h-8"
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               )
             })}
           </TableBody>

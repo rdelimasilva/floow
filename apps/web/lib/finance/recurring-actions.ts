@@ -9,10 +9,28 @@
 
 import { revalidatePath } from 'next/cache'
 import { getDb, accounts, transactions, recurringTemplates } from '@floow/db'
-import { matchCategory, advanceByFrequency, getOverdueDates } from '@floow/core-finance'
+import {
+  matchCategory,
+  advanceByFrequency,
+  getOverdueDates,
+  generateInstallmentDates,
+} from '@floow/core-finance'
 import { eq, and, sql } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
-import { assertAccountOwnership } from './actions'
+import { assertAccountOwnership, refreshSnapshot } from './actions'
+import {
+  accountsTag,
+  budgetInvestingTag,
+  budgetSpendingTag,
+  cfoInsightsTag,
+  futureTransactionsTag,
+  patrimonyHistoryTag,
+  recentTransactionsTag,
+  snapshotsTag,
+  transactionsTag,
+  invalidateTag,
+} from '@/lib/cache-tags'
+import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
 
 type Db = ReturnType<typeof getDb>
 
@@ -104,13 +122,19 @@ export async function createRecurringTemplate(formData: FormData) {
   const db = getDb()
 
   const accountId = formData.get('accountId') as string
-  const categoryId = (formData.get('categoryId') as string) || null
+  const rawCategoryId = (formData.get('categoryId') as string) || null
   const type = formData.get('type') as string
   const amountCents = parseInt(formData.get('amountCents') as string, 10)
   const description = formData.get('description') as string
   const frequency = formData.get('frequency') as string
   const nextDueDateStr = formData.get('nextDueDate') as string
   const notes = (formData.get('notes') as string) || null
+  const endMode = ((formData.get('endMode') as string) || 'indefinite') as 'count' | 'end_date' | 'indefinite'
+  const installmentCountRaw = formData.get('installmentCount')
+  const installmentCount = installmentCountRaw
+    ? parseInt(installmentCountRaw as string, 10)
+    : undefined
+  const endDateStr = (formData.get('endDate') as string) || null
 
   if (!accountId) throw new Error('accountId is required')
   if (!type || !['income', 'expense'].includes(type))
@@ -121,36 +145,103 @@ export async function createRecurringTemplate(formData: FormData) {
   if (!frequency || !VALID_FREQUENCIES.includes(frequency as any))
     throw new Error(`frequency must be one of: ${VALID_FREQUENCIES.join(', ')}`)
   if (!nextDueDateStr) throw new Error('nextDueDate is required')
+  if (!['count', 'end_date', 'indefinite'].includes(endMode))
+    throw new Error('endMode inválido')
+  if (endMode === 'count' && (!installmentCount || installmentCount < 1))
+    throw new Error('installmentCount deve ser um inteiro positivo')
+  if (endMode === 'end_date' && !endDateStr)
+    throw new Error('endDate obrigatório quando endMode é "end_date"')
 
   await assertAccountOwnership(db as Db, accountId, orgId)
 
-  const nextDueDate = new Date(nextDueDateStr)
+  const startDate = new Date(nextDueDateStr)
+  const endDate = endDateStr ? new Date(endDateStr) : undefined
 
-  const [template] = await db
-    .insert(recurringTemplates)
-    .values({
-      orgId,
-      accountId,
-      categoryId: categoryId || null,
-      type: type as 'income' | 'expense',
-      amountCents,
-      description: description.trim(),
-      frequency: frequency as 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly',
-      nextDueDate,
-      isActive: true,
-      notes: notes || null,
-      endMode: 'indefinite' as const,
-    })
-    .returning()
-
-  // Auto-generate transactions if start date is today or in the past
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  if (nextDueDate <= today) {
-    await generateForTemplate(template.id, orgId)
+  // Resolve auto-categorization once
+  let resolvedCategoryId: string | null = rawCategoryId
+  let isAutoCategorized = false
+  if (!resolvedCategoryId && description) {
+    const rules = await getCategoryRules(orgId)
+    const enabledRules = rules.filter((r: any) => r.isEnabled)
+    const matched = matchCategory(description, enabledRules)
+    if (matched) {
+      resolvedCategoryId = matched
+      isAutoCategorized = true
+    }
   }
 
+  // Generate all installment dates upfront (count, end_date, or indefinite up to 60 months)
+  const dates = generateInstallmentDates({
+    startDate,
+    frequency: frequency as any,
+    endMode,
+    installmentCount,
+    endDate,
+  })
+  if (dates.length === 0) throw new Error('Nenhuma parcela gerada')
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const lastDate = dates[dates.length - 1]
+  const newNextDueDate = advanceByFrequency(lastDate, frequency as any)
+  const signedAmount = type === 'income' ? amountCents : -amountCents
+  const total = dates.length
+
+  const template = await db.transaction(async (tx) => {
+    const [t] = await tx
+      .insert(recurringTemplates)
+      .values({
+        orgId,
+        accountId,
+        categoryId: resolvedCategoryId,
+        type: type as 'income' | 'expense',
+        amountCents,
+        description: description.trim(),
+        frequency: frequency as 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly',
+        nextDueDate: newNextDueDate,
+        isActive: true,
+        notes: notes || null,
+        endMode,
+        installmentCount: endMode === 'count' ? installmentCount ?? null : null,
+        endDate: endMode === 'end_date' && endDate ? endDate : null,
+      })
+      .returning()
+
+    // Insert all transactions for the generated dates
+    let balanceDelta = 0
+    const rows = dates.map((installDate, i) => {
+      const isApplied = installDate <= today
+      if (isApplied) balanceDelta += signedAmount
+      return {
+        orgId,
+        accountId,
+        categoryId: resolvedCategoryId,
+        type: type as 'income' | 'expense',
+        amountCents: signedAmount,
+        description: total > 1 ? `${description.trim()} (${i + 1}/${total})` : description.trim(),
+        date: installDate,
+        recurringTemplateId: t.id,
+        balanceApplied: isApplied,
+        installmentNumber: total > 1 ? i + 1 : null,
+        installmentTotal: total > 1 ? total : null,
+        isAutoCategorized,
+      }
+    })
+
+    await tx.insert(transactions).values(rows)
+
+    if (balanceDelta !== 0) {
+      await tx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${balanceDelta}` })
+        .where(eq(accounts.id, accountId))
+    }
+
+    return t
+  })
+
   revalidatePath('/transactions/recurring')
+  revalidatePath('/transactions')
 
   return template
 }
@@ -238,11 +329,71 @@ export async function deleteRecurringTemplate(formData: FormData) {
   const id = formData.get('id') as string
   if (!id) throw new Error('id is required')
 
-  await db
-    .delete(recurringTemplates)
-    .where(and(eq(recurringTemplates.id, id), eq(recurringTemplates.orgId, orgId)))
+  // Sum balance impact of already-applied transactions per account, then delete
+  // all linked transactions and the template, reversing balances atomically.
+  await db.transaction(async (tx) => {
+    const linked = await tx
+      .select({
+        accountId: transactions.accountId,
+        amountCents: transactions.amountCents,
+        balanceApplied: transactions.balanceApplied,
+      })
+      .from(transactions)
+      .where(and(eq(transactions.orgId, orgId), eq(transactions.recurringTemplateId, id)))
+
+    // Aggregate applied amount per account (signed amount already on row)
+    const reversalByAccount = new Map<string, number>()
+    for (const row of linked) {
+      if (row.balanceApplied) {
+        reversalByAccount.set(
+          row.accountId,
+          (reversalByAccount.get(row.accountId) ?? 0) + row.amountCents,
+        )
+      }
+    }
+
+    await tx
+      .delete(transactions)
+      .where(and(eq(transactions.orgId, orgId), eq(transactions.recurringTemplateId, id)))
+
+    for (const [accountId, applied] of reversalByAccount) {
+      if (applied !== 0) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents - ${applied}` })
+          .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
+      }
+    }
+
+    await tx
+      .delete(recurringTemplates)
+      .where(and(eq(recurringTemplates.id, id), eq(recurringTemplates.orgId, orgId)))
+  })
+
+  invalidateTag(transactionsTag(orgId))
+  invalidateTag(recentTransactionsTag(orgId, 6))
+  invalidateTag(recentTransactionsTag(orgId, 24))
+  invalidateTag(futureTransactionsTag(orgId, 24))
+  invalidateTag(accountsTag(orgId))
+  invalidateTag(budgetSpendingTag(orgId))
+  invalidateTag(budgetInvestingTag(orgId))
+  invalidateTag(snapshotsTag(orgId))
+  invalidateTag(patrimonyHistoryTag(orgId, 12))
+  invalidateTag(cfoInsightsTag(orgId))
+
+  // Generate a fresh patrimony snapshot so the dashboard reflects the
+  // reversed account balances immediately. Failure here is non-fatal.
+  try {
+    await refreshSnapshot()
+  } catch (err) {
+    console.error('[recurring/delete] refreshSnapshot failed:', err)
+  }
+
+  triggerCfoAnalysis(orgId, 'transaction_deleted', ['cash_flow', 'budget', 'behavior'])
 
   revalidatePath('/transactions/recurring')
+  revalidatePath('/transactions')
+  revalidatePath('/dashboard')
 }
 
 // ---------------------------------------------------------------------------

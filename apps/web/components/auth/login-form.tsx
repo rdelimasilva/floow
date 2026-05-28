@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { loginSchema, type LoginInput } from '@floow/shared'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
@@ -35,7 +36,8 @@ export function LoginForm() {
       return
     }
 
-    router.replace('/dashboard')
+    const next = searchParams.get('next')
+    router.replace(next && next.startsWith('/') ? next : '/dashboard')
   }
 
   return (

@@ -330,7 +330,7 @@ export function RecurringTemplateList({
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Excluir recorrência"
-        description="Tem certeza que deseja excluir esta recorrência? As transações já geradas serão mantidas."
+        description="Tem certeza que deseja excluir esta recorrência? Todas as transações geradas serão removidas e o saldo da conta será revertido. Para preservar o histórico, use Pausar."
         confirmLabel="Excluir"
         loading={deleting}
       />

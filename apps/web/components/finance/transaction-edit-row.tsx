@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { formatBRL } from '@floow/core-finance'
 import { updateTransaction, createCategory } from '@/lib/finance/actions'
 import { useToast } from '@/components/ui/toast'
@@ -21,6 +22,7 @@ interface TransactionEditRowProps {
 export function TransactionEditRow({
   tx, accounts, categories, balance, isSelected, onToggleSelect, onClose,
 }: TransactionEditRowProps) {
+  const router = useRouter()
   const { toast } = useToast()
   const toastRef = useRef(toast)
   toastRef.current = toast
@@ -86,6 +88,7 @@ export function TransactionEditRow({
       formData.append('date', s.date)
       if (s.type === 'transfer' && s.destAccountId) formData.append('destAccountId', s.destAccountId)
       await updateTransaction(formData)
+      router.refresh()
       toastRef.current('Transação salva')
     } catch (e) {
       toastRef.current(
@@ -93,7 +96,7 @@ export function TransactionEditRow({
         'error',
       )
     }
-  }, [tx.id, tx.description, tx.amountCents, tx.date, tx.type, tx.accountId, tx.categoryId])
+  }, [tx.id, tx.description, tx.amountCents, tx.date, tx.type, tx.accountId, tx.categoryId, router])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

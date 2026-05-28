@@ -6,7 +6,8 @@ import { createCategory } from '@/lib/finance/actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { currencyToCents } from '@floow/core-finance'
+import { currencyToCents, generateInstallmentDates, formatBRL } from '@floow/core-finance'
+import type { RecurringFrequency } from '@floow/core-finance'
 
 interface AccountOption {
   id: string
@@ -89,6 +90,12 @@ export function CreateRecurringDialog({
   const [nextDueDate, setNextDueDate] = useState(toDateInputValue(editTemplate?.nextDueDate))
   const [notes, setNotes] = useState(editTemplate?.notes ?? '')
 
+  // Duration controls
+  type EndMode = 'count' | 'end_date' | 'indefinite'
+  const [endMode, setEndMode] = useState<EndMode>('count')
+  const [installmentCount, setInstallmentCount] = useState('12')
+  const [recurringEndDate, setRecurringEndDate] = useState('')
+
   // Inline category creation
   const [categories, setCategories] = useState(initialCategories)
   const [showNewCategory, setShowNewCategory] = useState(false)
@@ -107,6 +114,12 @@ export function CreateRecurringDialog({
     setNotes(editTemplate?.notes ?? '')
     setShowNewCategory(false)
     setNewCategoryName('')
+    // Duration controls only apply on create — keep defaults on edit
+    if (!editTemplate) {
+      setEndMode('count')
+      setInstallmentCount('12')
+      setRecurringEndDate('')
+    }
   }, [editTemplate])
 
   // Sync categories when prop changes
@@ -180,6 +193,13 @@ export function CreateRecurringDialog({
         await updateRecurringTemplate(formData)
         toast('Recorrência atualizada')
       } else {
+        formData.append('endMode', endMode)
+        if (endMode === 'count') {
+          formData.append('installmentCount', installmentCount)
+        }
+        if (endMode === 'end_date' && recurringEndDate) {
+          formData.append('endDate', recurringEndDate)
+        }
         await createRecurringTemplate(formData)
         toast('Recorrência criada')
       }
@@ -358,6 +378,96 @@ export function CreateRecurringDialog({
                 />
               </div>
             </div>
+
+            {/* Duration controls — only on create */}
+            {!isEdit && (
+              <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <label className="block text-sm font-medium text-gray-700">Duração</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="endMode"
+                      value="count"
+                      checked={endMode === 'count'}
+                      onChange={() => setEndMode('count')}
+                      className="border-gray-300"
+                    />
+                    <span className="text-sm">Número de parcelas</span>
+                  </label>
+                  {endMode === 'count' && (
+                    <Input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={installmentCount}
+                      onChange={(e) => setInstallmentCount(e.target.value)}
+                      placeholder="Ex: 12"
+                      className="ml-6 w-32"
+                    />
+                  )}
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="endMode"
+                      value="end_date"
+                      checked={endMode === 'end_date'}
+                      onChange={() => setEndMode('end_date')}
+                      className="border-gray-300"
+                    />
+                    <span className="text-sm">Até uma data</span>
+                  </label>
+                  {endMode === 'end_date' && (
+                    <Input
+                      type="date"
+                      value={recurringEndDate}
+                      onChange={(e) => setRecurringEndDate(e.target.value)}
+                      className="ml-6 w-48"
+                    />
+                  )}
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="endMode"
+                      value="indefinite"
+                      checked={endMode === 'indefinite'}
+                      onChange={() => setEndMode('indefinite')}
+                      className="border-gray-300"
+                    />
+                    <span className="text-sm">Sem fim (máx. 60 meses)</span>
+                  </label>
+                </div>
+
+                {(() => {
+                  if (!nextDueDate) return null
+                  try {
+                    const start = new Date(nextDueDate)
+                    start.setHours(0, 0, 0, 0)
+                    const cents = amount ? currencyToCents(amount) : 0
+                    const dates = generateInstallmentDates({
+                      startDate: start,
+                      frequency: frequency as RecurringFrequency,
+                      endMode,
+                      installmentCount: endMode === 'count' ? parseInt(installmentCount) || 1 : undefined,
+                      endDate: endMode === 'end_date' && recurringEndDate ? new Date(recurringEndDate) : undefined,
+                    })
+                    if (dates.length === 0) return null
+                    const first = dates[0].toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+                    const last = dates[dates.length - 1].toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+                    const amountStr = cents > 0 ? formatBRL(cents) : 'R$ 0,00'
+                    return (
+                      <p className="text-xs text-gray-500 bg-white rounded px-3 py-2 border border-gray-100">
+                        Serão geradas {dates.length} transações de {amountStr}, de {first} a {last}.
+                      </p>
+                    )
+                  } catch {
+                    return null
+                  }
+                })()}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Notas (opcional)</label>
