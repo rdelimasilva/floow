@@ -25,3 +25,5 @@ export { createAnthropicProvider } from './cfo/llm/anthropic'
 export { synthesizeInsights } from './cfo/llm/synthesizer'
 // Pacing de orçamento — orçado x realizado diário
 export * from './budget-pacing'
+// Open Finance — ingestão via Polp (Celcoin v2)
+export * from './openfinance/taxonomy'
