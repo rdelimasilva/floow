@@ -87,7 +87,11 @@ describe('createPolpClient — autenticação e corpo', () => {
 
   it('não inventa cnpj em conexão pessoal', async () => {
     const { client, calls } = harness([fakeResponse(201, consent)])
-    await client.createConsent({ institutionId: 'inst-1', cpf: '12345678900' })
+    await client.createConsent({
+      institutionId: 'inst-1',
+      cpf: '12345678900',
+      products: ['ACCOUNT'],
+    })
 
     expect(calls[0].body).not.toHaveProperty('cnpj')
   })
@@ -116,7 +120,9 @@ describe('createPolpClient — erros e retry', () => {
     // repetir queima teto regulatório por CPF. Só 429 garante que não passou.
     const { client, calls } = harness([fakeResponse(500, { message: 'boom' })])
 
-    await expect(client.createConsent({ institutionId: 'i', cpf: '1' })).rejects.toBeInstanceOf(PolpApiError)
+    await expect(
+      client.createConsent({ institutionId: 'i', cpf: '1', products: ['ACCOUNT'] }),
+    ).rejects.toBeInstanceOf(PolpApiError)
     expect(calls).toHaveLength(1)
   })
 

@@ -23,6 +23,7 @@ import type {
   PolpConsent,
   PolpInstitution,
   PolpPage,
+  PolpProduct,
   PolpResource,
 } from './polp-types'
 
@@ -73,7 +74,14 @@ export interface CreateConsentInput {
   cnpj?: string
   /** O floow manda o org_id aqui — defesa em profundidade (D3). */
   clienteUserId?: string
-  products?: string[]
+  /**
+   * Obrigatório de propósito. Omitir `products` no POST faz a Polp solicitar os
+   * CINCO produtos — conta, cartão, crédito, investimentos e câmbio. Seria pedir
+   * ao usuário permissão para dado que o floow não usa, num consentimento em que
+   * cada permissão é acesso real e contínuo à vida financeira dele. O wizard
+   * pergunta; esta assinatura garante que a resposta chegue até aqui.
+   */
+  products: PolpProduct[]
   /**
    * Padrão `true`: reconectar o mesmo par CPF + instituição queima teto
    * regulatório mensal, e o duplicado não traz dado novo.
@@ -227,7 +235,7 @@ export function createPolpClient(config: PolpClientConfig): PolpClient {
           cpf: input.cpf,
           ...(input.cnpj ? { cnpj: input.cnpj } : {}),
           ...(input.clienteUserId ? { cliente_user_id: input.clienteUserId } : {}),
-          ...(input.products ? { products: input.products } : {}),
+          products: input.products,
           avoidDuplicates: input.avoidDuplicates ?? true,
         },
       })
