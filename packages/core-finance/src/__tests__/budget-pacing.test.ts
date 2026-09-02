@@ -96,4 +96,95 @@ describe('computeBudgetPacing', () => {
     expect(result.total.unbudgetedCents).toBe(7000)
     expect(result.byCategory).toEqual([])
   })
+
+  const umPorDia = (dias: number, centsPorDia: number) =>
+    Array.from({ length: dias }, (_, i) => ({
+      date: `2026-09-${String(i + 1).padStart(2, '0')}`,
+      accountType: 'checking' as const,
+      categoryId: 'alim',
+      cents: centsPorDia,
+    }))
+
+  it('projeta o fechamento pelo ritmo corrente no mes em andamento', () => {
+    // 12 dias de setembro, R$ 100,00 por dia = 120000 acumulado.
+    const result = computeBudgetPacing({
+      daily: umPorDia(12, 10000),
+      budgets: [{ categoryId: 'alim', plannedCents: 250000 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 12),
+    })
+
+    expect(result.total.daysElapsed).toBe(12)
+    expect(result.total.spentCents).toBe(120000)
+    // 120000 / 12 * 30 = 300000
+    expect(result.total.projectedCents).toBe(300000)
+    expect(result.total.confidence).toBe('normal')
+  })
+
+  it('marca confianca baixa antes do dia 7', () => {
+    const result = computeBudgetPacing({
+      daily: umPorDia(3, 10000),
+      budgets: [{ categoryId: 'alim', plannedCents: 250000 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 3),
+    })
+
+    expect(result.total.daysElapsed).toBe(3)
+    expect(result.total.confidence).toBe('low')
+    expect(result.total.projectedCents).toBe(300000)
+  })
+
+  it('no dia 1 projeta sem dividir por zero', () => {
+    const result = computeBudgetPacing({
+      daily: umPorDia(1, 10000),
+      budgets: [{ categoryId: 'alim', plannedCents: 250000 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 1),
+    })
+
+    expect(result.total.daysElapsed).toBe(1)
+    expect(result.total.projectedCents).toBe(300000)
+    expect(Number.isFinite(result.total.projectedCents)).toBe(true)
+  })
+
+  it('em mes encerrado a projecao iguala o realizado', () => {
+    const result = computeBudgetPacing({
+      daily: umPorDia(30, 10000),
+      budgets: [{ categoryId: 'alim', plannedCents: 250000 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 10, 15),
+    })
+
+    expect(result.total.daysElapsed).toBe(30)
+    expect(result.total.spentCents).toBe(300000)
+    expect(result.total.projectedCents).toBe(300000)
+    expect(result.total.confidence).toBe('final')
+  })
+
+  it('em mes futuro zera dias decorridos e projecao', () => {
+    const result = computeBudgetPacing({
+      daily: [],
+      budgets: [{ categoryId: 'alim', plannedCents: 250000 }],
+      monthStart: utc(2026, 12, 1),
+      today: utc(2026, 9, 12),
+    })
+
+    expect(result.total.daysElapsed).toBe(0)
+    expect(result.total.projectedCents).toBe(0)
+    expect(result.total.confidence).toBe('low')
+    expect(result.total.daysInMonth).toBe(31)
+  })
+
+  it('conta 28 dias em fevereiro nao bissexto e 31 em janeiro', () => {
+    const fev = computeBudgetPacing({
+      daily: [], budgets: [], monthStart: utc(2026, 2, 1), today: utc(2026, 2, 10),
+    })
+    const jan = computeBudgetPacing({
+      daily: [], budgets: [], monthStart: utc(2026, 1, 1), today: utc(2026, 1, 10),
+    })
+
+    expect(fev.total.daysInMonth).toBe(28)
+    expect(fev.series).toHaveLength(28)
+    expect(jan.total.daysInMonth).toBe(31)
+  })
 })

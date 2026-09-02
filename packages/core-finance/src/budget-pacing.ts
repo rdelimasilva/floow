@@ -86,6 +86,33 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
   const month = monthStart.getUTCMonth()
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
 
+  // Comparação puramente por data em UTC, sem componente de hora.
+  const monthStartMs = Date.UTC(year, month, 1)
+  const monthEndMs = Date.UTC(year, month, daysInMonth)
+  const todayMs = Date.UTC(
+    input.today.getUTCFullYear(),
+    input.today.getUTCMonth(),
+    input.today.getUTCDate(),
+  )
+
+  const isFutureMonth = todayMs < monthStartMs
+  const isPastMonth = todayMs > monthEndMs
+
+  const daysElapsed = isFutureMonth ? 0 : isPastMonth ? daysInMonth : input.today.getUTCDate()
+
+  const confidence: Confidence = isPastMonth
+    ? 'final'
+    : daysElapsed < LOW_CONFIDENCE_DAY_CUTOFF
+      ? 'low'
+      : 'normal'
+
+  /** Extrapola o gasto acumulado para o mês inteiro pelo ritmo corrente. */
+  const project = (spentCents: number): number => {
+    if (daysElapsed === 0) return 0
+    if (isPastMonth) return spentCents
+    return Math.round((spentCents / daysElapsed) * daysInMonth)
+  }
+
   // Índice: YYYY-MM-DD -> posição em series
   const indexByDate = new Map<string, number>()
   const series: BudgetPacingResult['series'] = []
@@ -136,9 +163,9 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
       plannedCents,
       spentCents: last.budgetedCum,
       unbudgetedCents: last.unbudgetedCum,
-      projectedCents: 0,
-      confidence: 'low',
-      daysElapsed: 0,
+      projectedCents: project(last.budgetedCum),
+      confidence,
+      daysElapsed,
       daysInMonth,
     },
     byCategory: [],
