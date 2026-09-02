@@ -100,11 +100,21 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
     })
   }
 
+  // Teto zero ou ausente = categoria não orçada (spec D5).
+  const capByCategory = new Map<string, number>()
+  for (const b of input.budgets) {
+    if (b.plannedCents > 0) capByCategory.set(b.categoryId, b.plannedCents)
+  }
+
   // Soma cada linha no seu dia; linhas fora do mês são ignoradas.
   for (const row of input.daily) {
     const idx = indexByDate.get(row.date)
     if (idx === undefined) continue
     series[idx].byAccountTypeCum[row.accountType] += row.cents
+
+    const isBudgeted = row.categoryId !== null && capByCategory.has(row.categoryId)
+    if (isBudgeted) series[idx].budgetedCum += row.cents
+    else series[idx].unbudgetedCum += row.cents
   }
 
   // Converte os totais diários em acumulados.
@@ -112,14 +122,20 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
     for (const kind of ACCOUNT_KINDS) {
       series[i].byAccountTypeCum[kind] += series[i - 1].byAccountTypeCum[kind]
     }
+    series[i].budgetedCum += series[i - 1].budgetedCum
+    series[i].unbudgetedCum += series[i - 1].unbudgetedCum
   }
+
+  const last = series[series.length - 1]
+  let plannedCents = 0
+  for (const planned of capByCategory.values()) plannedCents += planned
 
   return {
     series,
     total: {
-      plannedCents: 0,
-      spentCents: 0,
-      unbudgetedCents: 0,
+      plannedCents,
+      spentCents: last.budgetedCum,
+      unbudgetedCents: last.unbudgetedCum,
       projectedCents: 0,
       confidence: 'low',
       daysElapsed: 0,

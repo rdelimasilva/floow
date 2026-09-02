@@ -62,4 +62,38 @@ describe('computeBudgetPacing', () => {
 
     expect(result.series[29].byAccountTypeCum.checking).toBe(1000)
   })
+
+  it('separa gasto orcado de nao orcado, incluindo transacao sem categoria', () => {
+    const result = computeBudgetPacing({
+      daily: [
+        { date: '2026-09-02', accountType: 'checking', categoryId: 'alim', cents: 30000 },
+        { date: '2026-09-02', accountType: 'checking', categoryId: 'saude', cents: 20000 },
+        { date: '2026-09-02', accountType: 'cash', categoryId: null, cents: 5000 },
+      ],
+      budgets: [{ categoryId: 'alim', plannedCents: 100000 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 12),
+    })
+
+    expect(result.total.plannedCents).toBe(100000)
+    expect(result.total.spentCents).toBe(30000)
+    // 'saude' nao tem teto e o gasto em dinheiro nao tem categoria.
+    expect(result.total.unbudgetedCents).toBe(25000)
+    expect(result.series[1].budgetedCum).toBe(30000)
+    expect(result.series[1].unbudgetedCum).toBe(25000)
+  })
+
+  it('trata teto zero como categoria sem teto', () => {
+    const result = computeBudgetPacing({
+      daily: [{ date: '2026-09-02', accountType: 'checking', categoryId: 'lazer', cents: 7000 }],
+      budgets: [{ categoryId: 'lazer', plannedCents: 0 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 12),
+    })
+
+    expect(result.total.plannedCents).toBe(0)
+    expect(result.total.spentCents).toBe(0)
+    expect(result.total.unbudgetedCents).toBe(7000)
+    expect(result.byCategory).toEqual([])
+  })
 })
