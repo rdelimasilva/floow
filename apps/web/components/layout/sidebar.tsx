@@ -14,6 +14,7 @@ import {
   Target,
   Building2,
   BarChart3,
+  Gauge,
   PiggyBank,
   Landmark,
   HelpCircle,
@@ -59,6 +60,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Orçamento',
     items: [
+      { href: '/budgets/pacing', label: 'Ritmo de Gastos', icon: Gauge },
       { href: '/budgets/spending', label: 'Meta de Gastos', icon: PiggyBank },
       { href: '/budgets/investing', label: 'Meta de Investimentos', icon: Target },
     ],

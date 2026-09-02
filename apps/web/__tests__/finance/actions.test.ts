@@ -27,6 +27,13 @@ vi.mock('@floow/db', () => ({
 }))
 
 // ── Mock next/cache ───────────────────────────────────────────────────────────
+// createTransaction dispara a análise do CFO, que faz fetch de verdade. Sem
+// este mock o teste tenta abrir conexão, recebe ECONNREFUSED e falha de forma
+// intermitente — flakiness que tornaria o CI não confiável.
+vi.mock('@/lib/cfo/trigger', () => ({
+  triggerCfoAnalysis: vi.fn(),
+}))
+
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
   // invalidateTag (lib/cache-tags.ts) chama revalidateTag; unstable_cache é
