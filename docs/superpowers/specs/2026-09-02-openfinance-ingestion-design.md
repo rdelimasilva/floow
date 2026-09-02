@@ -59,13 +59,15 @@ Enviamos `cliente_user_id = <org_id>` na criação. Não é usado no caminho pri
 Três tabelas, todas com `org_id` e RLS no mesmo padrão do projeto.
 
 ```
-openfinance_connections            -- um consentimento
+openfinance_connections            -- um consentimento, sempre de UM CPF
   id                uuid pk
   org_id            uuid not null -> orgs(id) on delete cascade
+  owner_user_id     uuid -> auth.users(id)   -- quem conectou (ver D4)
   polp_consent_id   text not null            -- id do consentimento na Polp
   institution_id    text not null
   institution_name  text
-  cpf_masked        text                     -- só os dígitos exibíveis; NUNCA o CPF inteiro
+  cpf_hash          text not null            -- SHA-256(cpf + salt); NUNCA o CPF em claro
+  cpf_masked        text not null            -- "***.456.789-**", apenas para exibir
   status            text not null            -- ConsentStatus
   execution_status  text                     -- ConsentExecutionStatus
   flags             text[] not null default '{}'
@@ -74,6 +76,7 @@ openfinance_connections            -- um consentimento
   revoked_at        timestamptz
   created_at/updated_at
   unique (polp_consent_id)
+  unique (org_id, cpf_hash, institution_id) where revoked_at is null
   index (org_id, status)
 
 openfinance_resources              -- conta ou cartão dentro de um consentimento
@@ -107,8 +110,42 @@ openfinance_webhook_events         -- trilha de auditoria e idempotência
 `unique (polp_resource_id)` é o que torna o roteamento determinístico: um `resource_id`
 pertence a exatamente uma org, ou a nenhuma.
 
-**Não guardamos CPF completo.** Ele é necessário no `POST /consents` e é descartado
-depois; a coluna guarda apenas forma mascarada para exibição.
+### D4 — A org é a família; o consentimento é de uma pessoa
+
+O produto hoje é pessoa física, e uma org funciona como núcleo familiar. O consentimento
+Open Finance é sempre de **um CPF** — a própria API exige (`POST /consents` recebe `cpf`;
+para instituição `PERSONAL` é só ele).
+
+Portanto: `org_id` é o dono do dado (a família vê o consolidado, que é o sentido de orçar
+junto), e `owner_user_id` registra quem conectou. As transações importadas ficam com
+`org_id`, como todo o resto do sistema — nenhuma camada de filtro por pessoa é construída
+agora, mas a coluna deixa a porta aberta sem exigir migration depois.
+
+**O CPF não é armazenado em claro.** É necessário apenas para criar o consentimento;
+`recreate` e `revoke` usam o `consent_id`. Guardamos:
+
+- `cpf_hash` — SHA-256 com salt da aplicação. Existe por uma razão operacional concreta:
+  o teto de reconexão do Open Finance é **regulatório por CPF**, e reconectar o mesmo par
+  CPF + instituição queima cota mensal. O hash detecta isso antes da chamada, em vez de
+  descobrir quando a Polp recusar.
+- `cpf_masked` — apenas para a interface dizer de quem é a conexão.
+
+O índice único parcial `(org_id, cpf_hash, institution_id) where revoked_at is null`
+impede a reconexão duplicada dentro da mesma família, complementando o
+`avoidDuplicates: true` do lado da Polp.
+
+### D5 — Contas existentes: o usuário escolhe vincular ou criar
+
+Depois da autorização, a interface mostra as contas que a Polp retornou ao lado das
+contas que o usuário já tem no floow, e ele decide para cada uma: vincular a uma existente
+ou criar nova.
+
+**Por quê:** casar automaticamente por banco e número parece conveniente, mas um falso
+positivo funde duas contas distintas e mistura histórico — difícil de desfazer num app
+financeiro. Criar sempre nova evita a ambiguidade, mas duplica saldo e patrimônio até o
+usuário arrumar à mão. A escolha explícita custa uma tela e elimina os dois danos.
+
+O vínculo mora em `openfinance_resources.account_id`.
 
 ## Fluxo de conexão
 
@@ -200,20 +237,36 @@ A convenção do floow é despesa negativa (`actions.ts:301`).
 | `TARIFA` | Despesa legítima (categoria de tarifas bancárias). |
 | `null` | Ocorre quando o BCB não envia o campo — tratar como `OUTROS`, nunca quebrar. |
 
-### Categorização — a Polp já resolve
+### D6 — Categorização: importar a taxonomia da Polp, com hierarquia
 
-A doc expõe `category_ref` com a **Polp Taxonomy**: cerca de 150 categorias hierárquicas
-(`FOOD_AND_DRINK_GROCERIES`, `TRANSPORTATION_TAXIS_AND_RIDE_SHARES`, …) já atribuídas.
-Isso é melhor do que o plano anterior de derivar categoria do MCC cru.
+A doc expõe `category_ref` com a **Polp Taxonomy**: cerca de 150 categorias já atribuídas
+pela Polp, em dois níveis — `FOOD_AND_DRINK` é raiz, `FOOD_AND_DRINK_GROCERIES` e
+`FOOD_AND_DRINK_RESTAURANT` são filhas. Isso supera o plano anterior de derivar categoria
+do MCC cru, e vem pronto.
 
-Ordem de precedência proposta:
+**Decisão:** importar a taxonomia inteira como categorias do floow, **preservando os dois
+níveis**. Requer `parent_id` em `categories` (migration).
+
+Sem hierarquia, importar 150 categorias achatadas quebraria os orçamentos existentes: um
+teto em "Alimentação" deixaria de captar gastos que agora caem em
+`FOOD_AND_DRINK_GROCERIES`. Com `parent_id`, o teto pode ser posto no nível que o usuário
+quiser — na raiz, somando tudo abaixo, ou numa filha específica para apertar um item.
+
+- ~14 raízes + ~136 filhas, com `is_system = true`
+- As 11 categorias de sistema atuais viram apelido das raízes equivalentes, para que
+  nenhum orçamento existente pare de funcionar
+- `computeBudgetPacing` **não muda**: continua recebendo `{ categoryId, plannedCents }` e
+  não sabe nada sobre hierarquia. Quem resolve a soma dos filhos é a query que monta os
+  tetos, não o motor.
+
+Ordem de precedência na atribuição:
 1. `category_rules` do usuário (override manual, já existe)
-2. mapa `category_ref` → categoria do floow
-3. `payee_mcc` como desempate
-4. `OTHER_OTHER` → sem categoria (cai em "não orçado" no pacing)
+2. `category_ref` da Polp → categoria correspondente
+3. `payee_mcc` como desempate quando `category_ref` vier `OTHER_OTHER`
+4. sem categoria → cai em "não orçado" no pacing
 
-O mapa taxonomia→categoria é a peça de mais trabalho manual desta fase e merece tabela
-própria, editável, em vez de constante no código.
+A coluna `category_ref` crua é guardada na transação de qualquer forma: permite
+recategorizar em massa depois sem reimportar nada.
 
 ### `counterparty` melhora a descrição
 
@@ -273,10 +326,24 @@ Investimentos, empréstimos, financiamentos e câmbio. O consentimento pode pedi
 produtos, mas esta fase importa apenas `ACCOUNT` e `CREDIT_CARD_ACCOUNT` — que é o que
 o pacing consome.
 
-## Pendências antes de implementar
+## Migrations necessárias
 
-1. **Autenticação do webhook** — a doc lida não descreve como validar a origem.
-   Confirmar no dashboard ou com o suporte da Polp. Expor a rota sem isso permitiria
-   injeção de transações forjadas.
-2. **Plano contratado** — define a frequência de sync e os rate limits aplicáveis.
-3. **Credenciais** — `POLP_API_CLIENT` e `POLP_API_SECRET` em variável de ambiente.
+Esta fase, ao contrário da anterior, **exige alteração de schema**:
+
+1. `categories.parent_id` (nullable, self-reference) — D6
+2. `transactions`: `bill_post_date` (date), `bill_forecast_month` (text AAAA-MM),
+   `payee_mcc` (integer), `category_ref` (text), `charge_number` / `charge_index` (integer)
+3. As três tabelas `openfinance_*` com RLS no padrão do projeto
+
+## Pendências que bloqueiam a implementação
+
+1. **Autenticação do webhook** — nem `/webhooks` nem `/webhooks/events` descrevem como
+   validar a origem; ambas só dizem "assine no Dashboard → Webhooks". Verificar no painel
+   se há signing secret, header configurável ou allowlist de IP, ou perguntar ao suporte.
+   Expor a rota sem isso permite injeção de transações forjadas. **Bloqueia apenas o
+   handler de webhook** — schema, taxonomia e a camada de cliente da API podem ser
+   construídos antes.
+2. **Plano contratado** — define a frequência de sync por recurso e os rate limits,
+   e portanto o que a interface pode prometer sobre atualidade do dado.
+3. **Credenciais** — `POLP_API_CLIENT` e `POLP_API_SECRET` no `.env`, nunca no repositório
+   nem em conversa. O secret é exibido uma única vez na criação, no dashboard.
