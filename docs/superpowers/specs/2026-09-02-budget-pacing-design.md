@@ -286,8 +286,13 @@ Sem banco, sem rede, sem React. Verificação: `pnpm test` no pacote.
 
 - `GROUP BY date, accounts.type, category_id` com `INNER JOIN accounts`
 - Filtros: `org_id`, `type = 'expense'`, `is_ignored = false`, intervalo de datas
-- `unstable_cache` reusando a tag `budgetSpendingTag(orgId)` que já existe, para que a
-  invalidação após criar ou editar transação continue funcionando sem código novo
+- `unstable_cache` reusando a tag `budgetSpendingTag(orgId)` que já existe, para
+  consistência com a query irmã (`getSpendingByCategory`). **Não** significa que a
+  invalidação após criar ou editar transação já funciona: essa tag é invalidada apenas
+  por CRUD de orçamento e por exclusão de template recorrente; os caminhos de escrita de
+  transação nunca a tocam. Na prática, o pacing pode ficar até `revalidate: 300`
+  segundos desatualizado após editar uma transação — limitação conhecida, compartilhada
+  com `/budgets/spending` e o dashboard, a ser corrigida em fase separada
 - Função irmã de `getSpendingByCategory`, **não** substituta — `/budgets/spending` segue
   intacta
 

@@ -2,7 +2,7 @@ import { unstable_cache } from 'next/cache'
 import { cache } from 'react'
 import { and, eq, gte, lte, sql } from 'drizzle-orm'
 import { getDb, transactions, accounts } from '@floow/db'
-import type { DailySpendRow, AccountKind } from '@floow/core-finance'
+import type { DailySpendRow } from '@floow/core-finance'
 import { budgetSpendingTag } from '@/lib/cache-tags'
 
 /**
@@ -42,11 +42,11 @@ export const getDailySpending = cache(async function getDailySpending(
             lte(transactions.date, end),
           ),
         )
-        .groupBy(sql`1`, accounts.type, transactions.categoryId)
+        .groupBy(transactions.date, accounts.type, transactions.categoryId)
 
       return rows.map((r) => ({
         date: r.date,
-        accountType: r.accountType as AccountKind,
+        accountType: r.accountType,
         categoryId: r.categoryId,
         cents: Number(r.cents),
       }))

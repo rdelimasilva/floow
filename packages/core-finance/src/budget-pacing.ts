@@ -1,6 +1,11 @@
 /**
  * Pacing de orçamento: cruza o orçado por categoria com o gasto diário efetivo.
  * Função pura — sem I/O, sem React. Ver docs/superpowers/specs/2026-09-02-budget-pacing-design.md
+ *
+ * Fuso horário: `today` é um instante (UTC Date), não uma data de calendário. A
+ * conversão do horário local do usuário (America/Sao_Paulo) para o dia de calendário
+ * correto é responsabilidade de quem chama esta função — ver o campo `today` em
+ * `BudgetPacingInput`.
  */
 
 /** Acima deste múltiplo do teto, a projeção classifica a categoria como risco. */
@@ -39,10 +44,28 @@ export interface BudgetPacingInput {
   budgets: BudgetCap[]
   /** Primeiro dia do mês analisado. */
   monthStart: Date
+  /**
+   * O dia de calendário do usuário em America/Sao_Paulo, expresso como um Date
+   * em UTC. Esta função não faz a conversão de fuso — quem chama precisa entregar
+   * o dia já resolvido no fuso do usuário (um `new Date()` de servidor UTC, à
+   * noite no Brasil, já é o dia seguinte).
+   */
   today: Date
 }
 
+/**
+ * Nota para quem desenha a UI: `byCategory[].projectedCents` é arredondado
+ * independentemente para cada categoria, enquanto `total.projectedCents` é
+ * arredondado uma única vez sobre o total — a soma das projeções por categoria
+ * não bate necessariamente com `total.projectedCents`. Não apresentar como se
+ * somassem.
+ */
 export interface BudgetPacingResult {
+  /**
+   * Série completa do mês (todos os dias, do 1º ao último). A curva "realizado"
+   * só deve ser desenhada até `total.daysElapsed` — dias além disso ainda não
+   * têm gasto real; é a projeção que cobre o restante do mês.
+   */
   series: {
     date: string
     /** Acumulados desde o dia 1 do mês. */
@@ -153,15 +176,23 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
     series[i].unbudgetedCum += series[i - 1].unbudgetedCum
   }
 
-  const last = series[series.length - 1]
+  // Gasto conta apenas até hoje. Este app grava despesas com data futura
+  // (parcelas recorrentes ainda não realizadas), e extrapolá-las produziria
+  // alarme falso sobre dinheiro que ainda não saiu.
+  const spendIdx = daysElapsed === 0 ? -1 : Math.min(daysElapsed, daysInMonth) - 1
+  const asOfToday =
+    spendIdx < 0 ? { budgetedCum: 0, unbudgetedCum: 0 } : series[spendIdx]
+
   let plannedCents = 0
   for (const planned of capByCategory.values()) plannedCents += planned
 
-  // Gasto do mês por categoria, apenas para as categorias com teto.
+  // Gasto do mês por categoria, apenas para as categorias com teto, e apenas
+  // até hoje — mesmo motivo do spendIdx acima.
   const spentByCategory = new Map<string, number>()
   for (const row of input.daily) {
     if (row.categoryId === null) continue
-    if (!indexByDate.has(row.date)) continue
+    const idx = indexByDate.get(row.date)
+    if (idx === undefined || idx > spendIdx) continue
     if (!capByCategory.has(row.categoryId)) continue
     spentByCategory.set(row.categoryId, (spentByCategory.get(row.categoryId) ?? 0) + row.cents)
   }
@@ -173,7 +204,9 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
 
     let status: PacingStatus
     if (spentCents > plannedCents) status = 'estourado'
-    else if (projectedCents > plannedCents * RISK_THRESHOLD) status = 'risco'
+    // RISK_THRESHOLD (1.1) comparado em inteiros para evitar erro de ponto
+    // flutuante (30000 * 1.1 === 33000.000000000004 em JS).
+    else if (projectedCents * 10 > plannedCents * 11) status = 'risco'
     else if (projectedCents > plannedCents) status = 'atencao'
     else status = 'ok'
 
@@ -184,9 +217,9 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
     series,
     total: {
       plannedCents,
-      spentCents: last.budgetedCum,
-      unbudgetedCents: last.unbudgetedCum,
-      projectedCents: project(last.budgetedCum),
+      spentCents: asOfToday.budgetedCum,
+      unbudgetedCents: asOfToday.unbudgetedCum,
+      projectedCents: project(asOfToday.budgetedCum),
       confidence,
       daysElapsed,
       daysInMonth,

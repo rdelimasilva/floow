@@ -227,8 +227,11 @@ describe('computeBudgetPacing', () => {
     expect(result.byCategory).toHaveLength(4)
   })
 
-  it('estourado vence mesmo quando a projecao esta abaixo do teto', () => {
-    // Gasto concentrado no dia 1 de um mes ja encerrado: projecao = realizado.
+  it('estourado vence quando o gasto ja passou o teto, mesmo em mes encerrado', () => {
+    // Gasto concentrado no dia 1 de um mes ja encerrado: projecao = realizado,
+    // ambos acima do teto. Confirma que 'estourado' e avaliado (e vence) antes
+    // de 'risco'/'atencao', não que a projeção fica abaixo do teto — isso só é
+    // possível em mês futuro (daysElapsed === 0), coberto abaixo.
     const result = computeBudgetPacing({
       daily: [noDia(1, 'lazer', 51000)],
       budgets: [{ categoryId: 'lazer', plannedCents: 50000 }],
@@ -270,5 +273,68 @@ describe('computeBudgetPacing', () => {
 
     expect(result.byCategory[0].status).toBe('ok')
     expect(result.byCategory[0].projectedCents).toBe(0)
+  })
+
+  it('em mes futuro com parcela ja lancada, gasto conta zero e nenhum status de alerta', () => {
+    // Parcela recorrente futura (balance_applied = false) de 300000, acima do
+    // teto de 250000, lançada em 20/dez — dentro do mês analisado (dezembro),
+    // que ainda não começou (hoje é 12/set). Antes da correção, spentCents
+    // chegava a 300000 (soma de toda a série) e o status virava 'estourado'
+    // num mês que ainda nem começou. Note: não usa o helper noDia() porque
+    // ele fixa o mês em setembro; aqui a linha precisa cair em dezembro.
+    const result = computeBudgetPacing({
+      daily: [{ date: '2026-12-20', accountType: 'credit_card', categoryId: 'alim', cents: 300000 }],
+      budgets: [{ categoryId: 'alim', plannedCents: 250000 }],
+      monthStart: utc(2026, 12, 1),
+      today: utc(2026, 9, 12),
+    })
+
+    expect(result.total.spentCents).toBe(0)
+    expect(result.total.daysElapsed).toBe(0)
+    expect(result.byCategory[0].status).toBe('ok')
+    expect(result.byCategory[0].spentCents).toBe(0)
+    expect(result.byCategory[0].projectedCents).toBe(0)
+  })
+
+  it('exclui linha com data futura dentro do mes corrente do gasto e da projecao', () => {
+    // Hoje é 5/set; uma parcela lançada para 20/set (30000) ainda não saiu da
+    // conta. Antes da correção, spentCents somava a série inteira do mês
+    // (30000 até o dia 20) e o projetado inflava para 30000/5*30 = 180000
+    // contra um teto de 40000 — 'risco' sobre dinheiro que não saiu.
+    const result = computeBudgetPacing({
+      daily: [noDia(20, 'transp', 30000)],
+      budgets: [{ categoryId: 'transp', plannedCents: 40000 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 5),
+    })
+
+    expect(result.total.spentCents).toBe(0)
+    expect(result.byCategory[0].spentCents).toBe(0)
+    expect(result.byCategory[0].projectedCents).toBe(0)
+    expect(result.byCategory[0].status).toBe('ok')
+    // A linha continua presente na série (curva completa do mês para a UI).
+    expect(result.series[19].budgetedCum).toBe(30000)
+  })
+
+  it('fronteira de fim de mes: ultimo dia e confidence normal, primeiro dia do mes seguinte e final', () => {
+    const ultimoDia = computeBudgetPacing({
+      daily: [],
+      budgets: [],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 30),
+    })
+
+    expect(ultimoDia.total.daysElapsed).toBe(30)
+    expect(ultimoDia.total.confidence).toBe('normal')
+
+    const diaSeguinte = computeBudgetPacing({
+      daily: [],
+      budgets: [],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 10, 1),
+    })
+
+    expect(diaSeguinte.total.daysElapsed).toBe(30)
+    expect(diaSeguinte.total.confidence).toBe('final')
   })
 })

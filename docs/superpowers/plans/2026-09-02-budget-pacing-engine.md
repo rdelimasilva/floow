@@ -873,7 +873,7 @@ export const getDailySpending = cache(async function getDailySpending(
 })
 ```
 
-`budgetSpendingTag` já é exportada de `apps/web/lib/cache-tags.ts:68` e é a mesma tag que `budget-actions.ts:42` e `recurring-actions.ts:378` invalidam ao criar ou editar transação. Reusá-la é o que faz o cache da query nova se invalidar sozinho, sem código novo. **Nenhum arquivo de cache-tags precisa ser modificado.**
+`budgetSpendingTag` já é exportada de `apps/web/lib/cache-tags.ts:68`. Reusá-la mantém a query nova consistente com a irmã `getSpendingByCategory`, que já usa a mesma tag. **Isso não significa que o cache se invalida sozinho ao criar ou editar transação**: `budget-actions.ts:42` invalida essa tag apenas em CRUD de orçamento (metas e lançamentos de budget), e `recurring-actions.ts:378` apenas ao excluir um template recorrente. Os caminhos de transação (`actions.ts` `revalidateTransactionData`, e as actions de import) invalidam `transactionsTag` / `recentTransactionsTag` / `futureTransactionsTag` e **nunca** `budgetSpendingTag`. Na prática, os dados de pacing podem ficar até `revalidate: 300` segundos desatualizados depois de uma edição de transação — limitação conhecida, compartilhada com `/budgets/spending` e o dashboard, a ser endereçada em outra fase. **Nenhum arquivo de cache-tags precisa ser modificado.**
 
 - [ ] **Step 2: Verificar tipos**
 
