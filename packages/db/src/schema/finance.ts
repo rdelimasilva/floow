@@ -67,10 +67,19 @@ export const categories = pgTable(
     color: text('color'),
     icon: text('icon'),
     isSystem: boolean('is_system').notNull().default(false),
+    /**
+     * Categoria pai. A taxonomia da Polp tem dois níveis
+     * (FOOD_AND_DRINK -> FOOD_AND_DRINK_GROCERIES); com parent_id o usuário
+     * pode orçar na raiz, somando tudo abaixo, ou numa filha específica.
+     */
+    parentId: uuid('parent_id'),
+    /** Valor do enum TransactionCategory da Polp, quando a categoria vem da taxonomia. */
+    polpRef: text('polp_ref'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     idxCategoriesOrgId: index('idx_categories_org_id').on(table.orgId),
+    idxCategoriesParentId: index('idx_categories_parent_id').on(table.parentId),
   })
 )
 
@@ -97,8 +106,23 @@ export const transactions = pgTable(
     // Recurring transaction tracking
     recurringTemplateId: uuid('recurring_template_id'),
     balanceApplied: boolean('balance_applied').notNull().default(true),
+    /** Parcela atual. Recebe charge_identificator na ingestão Open Finance. */
     installmentNumber: integer('installment_number'),
+    /** Total de parcelas. Recebe charge_number na ingestão Open Finance. */
     installmentTotal: integer('installment_total'),
+    // -- Open Finance (migration 00027) -------------------------------------
+    /**
+     * Data de lançamento na fatura do cartão. NULL enquanto não faturada.
+     * A Polp envia a sentinela '0001-01-01' nesse caso; a ingestão converte
+     * para NULL — gravá-la crua jogaria o lançamento para o ano 1.
+     */
+    billPostDate: date('bill_post_date', { mode: 'date' }),
+    /** Mês/ano de faturamento previsto (AAAA-MM), inclusive para parcelas futuras. */
+    billForecastMonth: text('bill_forecast_month'),
+    /** Merchant Category Code, desempate quando category_ref é genérico. */
+    payeeMcc: integer('payee_mcc'),
+    /** Valor cru do enum TransactionCategory da Polp. */
+    categoryRef: text('category_ref'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
