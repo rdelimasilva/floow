@@ -105,6 +105,13 @@ describe('computeBudgetPacing', () => {
       cents: centsPorDia,
     }))
 
+  const noDia = (dia: number, categoryId: string, cents: number) => ({
+    date: `2026-09-${String(dia).padStart(2, '0')}`,
+    accountType: 'credit_card' as const,
+    categoryId,
+    cents,
+  })
+
   it('projeta o fechamento pelo ritmo corrente no mes em andamento', () => {
     // 12 dias de setembro, R$ 100,00 por dia = 120000 acumulado.
     const result = computeBudgetPacing({
@@ -186,5 +193,82 @@ describe('computeBudgetPacing', () => {
     expect(fev.total.daysInMonth).toBe(28)
     expect(fev.series).toHaveLength(28)
     expect(jan.total.daysInMonth).toBe(31)
+  })
+
+  it('classifica cada categoria e inclui as que nao tiveram gasto', () => {
+    const result = computeBudgetPacing({
+      daily: [
+        // Realizado ja acima do teto -> estourado.
+        noDia(5, 'lazer', 60000),
+        // 120000 em 12 dias -> projeta 300000 contra teto 250000 = 120% -> risco.
+        noDia(5, 'alim', 120000),
+        // 40000 em 12 dias -> projeta 100000 contra teto 95000 = 105% -> atencao.
+        noDia(5, 'transp', 40000),
+      ],
+      budgets: [
+        { categoryId: 'lazer', plannedCents: 50000 },
+        { categoryId: 'alim', plannedCents: 250000 },
+        { categoryId: 'transp', plannedCents: 95000 },
+        { categoryId: 'moradia', plannedCents: 200000 },
+      ],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 12),
+    })
+
+    const by = Object.fromEntries(result.byCategory.map((c) => [c.categoryId, c]))
+
+    expect(by.lazer.status).toBe('estourado')
+    expect(by.alim.status).toBe('risco')
+    expect(by.alim.projectedCents).toBe(300000)
+    expect(by.transp.status).toBe('atencao')
+    // Categoria com teto e sem gasto continua na lista, como ok.
+    expect(by.moradia.status).toBe('ok')
+    expect(by.moradia.spentCents).toBe(0)
+    expect(result.byCategory).toHaveLength(4)
+  })
+
+  it('estourado vence mesmo quando a projecao esta abaixo do teto', () => {
+    // Gasto concentrado no dia 1 de um mes ja encerrado: projecao = realizado.
+    const result = computeBudgetPacing({
+      daily: [noDia(1, 'lazer', 51000)],
+      budgets: [{ categoryId: 'lazer', plannedCents: 50000 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 10, 5),
+    })
+
+    expect(result.byCategory[0].status).toBe('estourado')
+  })
+
+  it('respeita as fronteiras exatas de 100% e 110%', () => {
+    // 10000 em 10 dias -> projeta 30000. Teto 30000 = exatamente 100% -> ok.
+    const emCima = computeBudgetPacing({
+      daily: [noDia(1, 'x', 10000)],
+      budgets: [{ categoryId: 'x', plannedCents: 30000 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 10),
+    })
+    expect(emCima.byCategory[0].projectedCents).toBe(30000)
+    expect(emCima.byCategory[0].status).toBe('ok')
+
+    // Mesma projecao contra teto 27273 -> 110,0% -> ainda atencao, nao risco.
+    const noLimite = computeBudgetPacing({
+      daily: [noDia(1, 'x', 10000)],
+      budgets: [{ categoryId: 'x', plannedCents: 27273 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 10),
+    })
+    expect(noLimite.byCategory[0].status).toBe('atencao')
+  })
+
+  it('em mes futuro nenhuma categoria recebe alerta', () => {
+    const result = computeBudgetPacing({
+      daily: [],
+      budgets: [{ categoryId: 'alim', plannedCents: 250000 }],
+      monthStart: utc(2026, 12, 1),
+      today: utc(2026, 9, 12),
+    })
+
+    expect(result.byCategory[0].status).toBe('ok')
+    expect(result.byCategory[0].projectedCents).toBe(0)
   })
 })

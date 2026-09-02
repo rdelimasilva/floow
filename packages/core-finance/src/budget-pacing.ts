@@ -157,6 +157,29 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
   let plannedCents = 0
   for (const planned of capByCategory.values()) plannedCents += planned
 
+  // Gasto do mês por categoria, apenas para as categorias com teto.
+  const spentByCategory = new Map<string, number>()
+  for (const row of input.daily) {
+    if (row.categoryId === null) continue
+    if (!indexByDate.has(row.date)) continue
+    if (!capByCategory.has(row.categoryId)) continue
+    spentByCategory.set(row.categoryId, (spentByCategory.get(row.categoryId) ?? 0) + row.cents)
+  }
+
+  const byCategory: BudgetPacingResult['byCategory'] = []
+  for (const [categoryId, plannedCents] of capByCategory) {
+    const spentCents = spentByCategory.get(categoryId) ?? 0
+    const projectedCents = project(spentCents)
+
+    let status: PacingStatus
+    if (spentCents > plannedCents) status = 'estourado'
+    else if (projectedCents > plannedCents * RISK_THRESHOLD) status = 'risco'
+    else if (projectedCents > plannedCents) status = 'atencao'
+    else status = 'ok'
+
+    byCategory.push({ categoryId, plannedCents, spentCents, projectedCents, status })
+  }
+
   return {
     series,
     total: {
@@ -168,6 +191,6 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
       daysElapsed,
       daysInMonth,
     },
-    byCategory: [],
+    byCategory,
   }
 }
