@@ -86,14 +86,32 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
   const month = monthStart.getUTCMonth()
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
 
+  // Índice: YYYY-MM-DD -> posição em series
+  const indexByDate = new Map<string, number>()
   const series: BudgetPacingResult['series'] = []
   for (let day = 1; day <= daysInMonth; day++) {
+    const date = toISODate(new Date(Date.UTC(year, month, day)))
+    indexByDate.set(date, series.length)
     series.push({
-      date: toISODate(new Date(Date.UTC(year, month, day))),
+      date,
       byAccountTypeCum: emptyByAccountType(),
       budgetedCum: 0,
       unbudgetedCum: 0,
     })
+  }
+
+  // Soma cada linha no seu dia; linhas fora do mês são ignoradas.
+  for (const row of input.daily) {
+    const idx = indexByDate.get(row.date)
+    if (idx === undefined) continue
+    series[idx].byAccountTypeCum[row.accountType] += row.cents
+  }
+
+  // Converte os totais diários em acumulados.
+  for (let i = 1; i < series.length; i++) {
+    for (const kind of ACCOUNT_KINDS) {
+      series[i].byAccountTypeCum[kind] += series[i - 1].byAccountTypeCum[kind]
+    }
   }
 
   return {
