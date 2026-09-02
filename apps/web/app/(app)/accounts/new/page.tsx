@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
 import { createAccount } from '@/lib/finance/actions'
+import { currencyToCents } from '@floow/core-finance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,6 +25,7 @@ const newAccountSchema = z.object({
   type: z.enum(['checking', 'savings', 'brokerage', 'credit_card', 'cash']),
   branch: z.string().max(20).optional(),
   accountNumber: z.string().max(30).optional(),
+  initialBalance: z.string().optional(),
 })
 
 type NewAccountForm = z.infer<typeof newAccountSchema>
@@ -55,6 +57,12 @@ export default function NewAccountPage() {
     formData.append('type', data.type)
     if (data.branch) formData.append('branch', data.branch)
     if (data.accountNumber) formData.append('accountNumber', data.accountNumber)
+    if (data.initialBalance && data.initialBalance.trim() !== '') {
+      const cents = currencyToCents(data.initialBalance)
+      if (Number.isFinite(cents)) {
+        formData.append('initialBalanceCents', String(cents))
+      }
+    }
 
     await createAccount(formData)
     router.push('/accounts')
@@ -125,6 +133,30 @@ export default function NewAccountPage() {
               {errors.type && (
                 <p className="text-xs text-red-600">{errors.type.message}</p>
               )}
+            </div>
+
+            {/* Initial balance */}
+            <div className="space-y-1.5">
+              <Label htmlFor="initialBalance">
+                Saldo inicial <span className="text-gray-400 font-normal">(opcional)</span>
+              </Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-500">
+                  R$
+                </span>
+                <Input
+                  id="initialBalance"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  className="pl-10"
+                  {...register('initialBalance')}
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                Para cartão de crédito, use valor negativo para representar dívida já existente
+                (ex: <code>-1500,00</code>).
+              </p>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

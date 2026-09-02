@@ -5,6 +5,7 @@ export const createAccountSchema = z.object({
   type: z.enum(['checking', 'savings', 'brokerage', 'credit_card', 'cash']),
   branch: z.string().max(20).optional(),
   accountNumber: z.string().max(30).optional(),
+  initialBalanceCents: z.number().int().optional(),
 })
 
 export const createTransactionSchema = z.object({

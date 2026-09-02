@@ -7,6 +7,7 @@ import { getOrgId, getCategoryRules } from './queries'
 import { getPositions } from '@/lib/investments/queries'
 import {
   accountsTag,
+  budgetSpendingTag,
   categoriesTag,
   futureTransactionsTag,
   investmentsTag,
@@ -29,6 +30,9 @@ function revalidateTransactionData(orgId: string) {
   invalidateTag(recentTransactionsTag(orgId, 6))
   invalidateTag(recentTransactionsTag(orgId, 24))
   invalidateTag(futureTransactionsTag(orgId, 24))
+  // As telas de orçamento agregam as mesmas transações. Sem isto, /budgets/spending,
+  // /budgets/pacing e o dashboard servem números defasados por até 300s após uma edição.
+  invalidateTag(budgetSpendingTag(orgId))
 }
 
 function revalidateCategoryData(orgId: string) {
@@ -69,11 +73,17 @@ export async function createAccount(formData: FormData) {
   const orgId = await getOrgId()
   const db = getDb()
 
+  const rawInitialBalance = formData.get('initialBalanceCents')
+  const initialBalanceCents = rawInitialBalance != null && rawInitialBalance !== ''
+    ? parseInt(rawInitialBalance as string, 10)
+    : undefined
+
   const input = createAccountSchema.parse({
     name: formData.get('name'),
     type: formData.get('type'),
     branch: formData.get('branch') || undefined,
     accountNumber: formData.get('accountNumber') || undefined,
+    initialBalanceCents: Number.isFinite(initialBalanceCents) ? initialBalanceCents : undefined,
   })
 
   const [account] = await db
@@ -84,12 +94,93 @@ export async function createAccount(formData: FormData) {
       type: input.type,
       branch: input.branch ?? null,
       accountNumber: input.accountNumber ?? null,
+      balanceCents: input.initialBalanceCents ?? 0,
     })
     .returning()
 
   revalidateAccountData(orgId)
 
   return account
+}
+
+/**
+ * Server action: adjust an account's balance to a specific target value by
+ * inserting a single income/expense transaction whose amount equals the delta.
+ *
+ * Why a transaction (not a direct UPDATE on balance_cents):
+ *   - The account balance is the sum of all signed transaction amounts.
+ *   - A direct balance edit would desync balance_cents from the transaction
+ *     history → "details show R$ X but sum is R$ Y" bugs.
+ *   - A delta transaction keeps the invariant and preserves audit trail.
+ *
+ * If delta == 0 the call is a no-op (no transaction inserted).
+ */
+export async function adjustAccountBalance(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const accountId = formData.get('accountId') as string
+  const newBalanceRaw = formData.get('newBalanceCents') as string
+  const description = ((formData.get('description') as string) || '').trim()
+  const dateRaw = (formData.get('date') as string) || ''
+
+  if (!accountId) throw new Error('accountId é obrigatório')
+  const newBalanceCents = parseInt(newBalanceRaw, 10)
+  if (!Number.isFinite(newBalanceCents)) throw new Error('Novo saldo inválido')
+
+  // Date: YYYY-MM-DD from date input, fallback to today. Anchored to noon local
+  // to avoid timezone-shift edge cases (a midnight date in UTC-3 becomes the
+  // previous day when stored as UTC).
+  let txDate: Date
+  if (dateRaw) {
+    const parsed = new Date(`${dateRaw}T12:00:00`)
+    if (Number.isNaN(parsed.getTime())) throw new Error('Data inválida')
+    txDate = parsed
+  } else {
+    txDate = new Date()
+  }
+
+  await assertAccountOwnership(db, accountId, orgId)
+
+  const [current] = await db
+    .select({ balanceCents: accounts.balanceCents })
+    .from(accounts)
+    .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
+    .limit(1)
+  if (!current) throw new Error('Conta não encontrada')
+
+  const delta = newBalanceCents - current.balanceCents
+  if (delta === 0) {
+    return { adjusted: false as const, delta: 0 }
+  }
+
+  const txType: 'income' | 'expense' = delta > 0 ? 'income' : 'expense'
+  const finalDescription = description
+    ? `Ajuste de saldo — ${description}`
+    : 'Ajuste de saldo'
+
+  await db.transaction(async (tx) => {
+    await tx.insert(transactions).values({
+      orgId,
+      accountId,
+      type: txType,
+      amountCents: delta,
+      description: finalDescription,
+      date: txDate,
+      balanceApplied: true,
+    })
+
+    await tx
+      .update(accounts)
+      .set({ balanceCents: sql`balance_cents + ${delta}` })
+      .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
+  })
+
+  revalidateAccountData(orgId)
+  revalidateTransactionData(orgId)
+  revalidateSnapshotData(orgId)
+
+  return { adjusted: true as const, delta }
 }
 
 /**
