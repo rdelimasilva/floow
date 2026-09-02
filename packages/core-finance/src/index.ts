@@ -27,3 +27,5 @@ export { synthesizeInsights } from './cfo/llm/synthesizer'
 export * from './budget-pacing'
 // Open Finance — ingestão via Polp (Celcoin v2)
 export * from './openfinance/taxonomy'
+export * from './openfinance/polp-types'
+export * from './openfinance/normalize'

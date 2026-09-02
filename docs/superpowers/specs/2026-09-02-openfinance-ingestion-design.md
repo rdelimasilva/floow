@@ -229,13 +229,40 @@ A convenção do floow é despesa negativa (`actions.ts:301`).
 
 ### Filtro de tipo — o que NÃO é despesa
 
-| `transaction_type` | Tratamento |
+`transaction_type` **só existe no cartão**. A conta tem um campo `type` de nome
+parecido e enum totalmente diferente (`TED`, `PIX`, `BOLETO`, `TARIFA_SERVICOS_AVULSOS`…),
+que descreve o meio, não a natureza. Escrever um normalizador só para os dois é
+o erro que o `polp-types.ts` existe para tornar difícil.
+
+Cartão (`transaction_type`):
+
+| Valor | Tratamento |
 |---|---|
-| `PAGAMENTO_FATURA` | **Ignorar como despesa.** Já contabilizada na compra; contá-la duplica. Vira `transfer` ou `is_ignored`. |
-| `ESTORNO` | Entra com sinal invertido, abatendo. É o caso que motivou trocar `ABS` por `-amount` nas agregações. |
-| `CASHBACK` | Crédito, não despesa negativa. |
+| `PAGAMENTO_FATURA` | **Nunca despesa.** As compras que ele quita já entraram uma a uma; contá-lo dobra o mês. Vira `transfer`. |
+| `ESTORNO` | Entra como `expense` com valor **positivo** (vem `CREDITO`). A agregação soma `-amount_cents` sobre `type='expense'`, então ele abate a categoria em que se gastou. Como `income` não tocaria o orçamento, e o teto seguiria estourado por uma compra desfeita. |
+| `CASHBACK` | `income`: dinheiro que entra, sem compra correspondente para abater. |
 | `TARIFA` | Despesa legítima (categoria de tarifas bancárias). |
-| `null` | Ocorre quando o BCB não envia o campo — tratar como `OUTROS`, nunca quebrar. |
+| `null` | Ocorre quando o BCB não envia o campo — cai no tratamento por `credit_debit_type`, nunca quebra. |
+
+Conta (`completed_authorised_payment_type`), campo que a leitura da doc revelou e
+que não estava previsto aqui:
+
+| Valor | Tratamento |
+|---|---|
+| `TRANSACAO_EFETIVADA` | Gasto realizado. |
+| `LANCAMENTO_FUTURO` | Agendado, ainda não aconteceu — **não é gasto realizado**. |
+| `TRANSACAO_PROCESSANDO` | Pode ainda não se efetivar. |
+
+O normalizador devolve isso em `settlement` e não decide sozinho: quem escolhe
+entre importar com `is_ignored`, importar normal ou segurar é a ingestão.
+
+**Pagamento de fatura visto pela conta corrente.** Na conta, o pagamento chega
+categorizado como `LOAN_PAYMENTS_CREDIT_CARD_PAYMENT`, e o tratamento certo
+depende de um fato externo à transação: se o cartão também está conectado, as
+compras já entraram e o pagamento é `transfer`; se não está, ele é o **único**
+registro daquele gasto e precisa ser `expense`, senão o mês inteiro de cartão
+some do orçamento. `normalizeAccountTransaction` recebe isso em
+`creditCardConnected` em vez de adivinhar.
 
 ### D6 — Categorização: importar a taxonomia da Polp, com hierarquia
 
@@ -308,6 +335,10 @@ Registros feitos quando a doc estava inacessível e que a leitura desmentiu:
 | "Não há webhook; o sync é pull agendado" | **Há webhooks** para consentimento, recursos, transações e faturas. |
 | "OAuth 2.0 + mTLS / certificados ICP" | **API keys** em header. |
 | "`payeeMCC` como categorizador primário" | A Polp já entrega `category_ref` categorizado; MCC vira desempate. |
+| "`transaction_type` classifica conta e cartão" | Só o cartão tem `transaction_type`. A conta tem `type`, enum diferente (meio de pagamento). Conferido na doc em 2026-09-02, ao escrever o normalizador. |
+| — (não previsto) | A conta traz `completed_authorised_payment_type`: lançamento agendado e transação em processamento não são gasto realizado. |
+| — (não previsto) | O cartão traz `bill_id`, **imutável depois de atribuído** — sync posterior sem `billId` não desfaz o vínculo. Serve de âncora para a visão de fatura. |
+| "paginação por `next_cursor`" | Correto, em `meta.next_cursor`; 500 itens por página, e `fromCreatedAt`+`fromUpdatedAt` juntos combinam com **OR**, não AND. |
 
 ## Riscos
 
