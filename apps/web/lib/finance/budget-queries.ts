@@ -140,7 +140,7 @@ export const getSpendingByCategory = cache(async function getSpendingByCategory(
       const rows = await db
         .select({
           categoryId: transactions.categoryId,
-          spent: sql<number>`SUM(ABS(${transactions.amountCents}))`.as('spent'),
+          spent: sql<number>`SUM(-${transactions.amountCents})`.as('spent'),
         })
         .from(transactions)
         .where(
