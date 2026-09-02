@@ -23,3 +23,5 @@ export * from './cfo/types'
 export * from './cfo/analyzers'
 export { createAnthropicProvider } from './cfo/llm/anthropic'
 export { synthesizeInsights } from './cfo/llm/synthesizer'
+// Pacing de orçamento — orçado x realizado diário
+export * from './budget-pacing'
