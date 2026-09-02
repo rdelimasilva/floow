@@ -914,9 +914,11 @@ Nenhum arquivo é criado nesta etapa.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add apps/web/lib/finance/budget-daily-queries.ts apps/web/lib/finance/budget-queries.ts
+git add apps/web/lib/finance/budget-daily-queries.ts
 git commit -m "feat(budget): query de gasto diario por conta e categoria"
 ```
+
+Esta task cria **um único arquivo**. `budget-queries.ts` não é tocado aqui — quem o modifica é a Task 8.
 
 ---
 
