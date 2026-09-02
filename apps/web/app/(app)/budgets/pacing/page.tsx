@@ -2,31 +2,11 @@ import { getOrgId, getCategories } from '@/lib/finance/queries'
 import { getBudgetEntriesForMonth } from '@/lib/finance/budget-queries'
 import { getDailySpending } from '@/lib/finance/budget-daily-queries'
 import { computeBudgetPacing } from '@floow/core-finance'
+import { saoPauloToday } from '@/lib/finance/sp-date'
 import { PacingClient } from './client'
 
 interface Props {
   searchParams: Promise<Record<string, string | undefined>>
-}
-
-/**
- * Dia-calendário do usuário em São Paulo, expresso como Date em UTC.
- *
- * computeBudgetPacing pede exatamente isso. Passar `new Date()` cru quebraria
- * em produção: Vercel e Netlify rodam em UTC, então entre 21h e 23h59 no Brasil
- * o servidor já está no dia seguinte — a contagem de dias decorridos ficaria um
- * a mais toda noite, e na última noite do mês o mês corrente seria tratado como
- * encerrado três horas antes da hora.
- */
-function saoPauloToday(): Date {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date())
-
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value)
-  return new Date(Date.UTC(get('year'), get('month') - 1, get('day'), 12, 0, 0))
 }
 
 export default async function BudgetPacingPage({ searchParams }: Props) {

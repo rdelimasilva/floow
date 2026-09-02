@@ -21,6 +21,7 @@ import {
   cfoRuns,
 } from '@floow/db'
 import { eq, and, gte, gt, desc, sql } from 'drizzle-orm'
+import { buildBudgetPacingInput } from './budget-pacing-input'
 import {
   aggregateCashFlow,
   runAnalyzers,
@@ -303,6 +304,8 @@ export async function runCfoEngine(
           spent: e.plannedCents,
         })),
       }
+
+      inputs.budgetPacing = await buildBudgetPacingInput(orgId)
     }
 
     // -- Investment ----------------------------------------------------------
