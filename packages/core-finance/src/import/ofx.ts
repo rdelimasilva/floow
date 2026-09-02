@@ -52,7 +52,7 @@ export async function parseOFXFile(content: string): Promise<NormalizedTransacti
   const list = Array.isArray(txns) ? txns : [txns]
 
   return list.map((t) => {
-    const rawAmount = parseFloat(t.TRNAMT)
+    const rawAmount = parseFloat(String(t.TRNAMT))
     const amountCents = Math.round(rawAmount * 100)
     const type: 'income' | 'expense' = rawAmount >= 0 ? 'income' : 'expense'
 
