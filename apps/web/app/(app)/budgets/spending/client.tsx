@@ -87,7 +87,19 @@ export function SpendingClient({
 
   const spendingMap = new Map(spending.map((s) => [s.categoryId, s.spent]))
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
-  const totalSpent = spending.reduce((sum, s) => sum + s.spent, 0)
+
+  // O total gasto conta apenas as categorias que TÊM teto neste mês, para
+  // comparar com totalPlanned no mesmo universo. Somar todas as despesas
+  // inflava o percentual com gasto que o usuário nunca se propôs a controlar.
+  const budgetedCategoryIds = new Set(entriesForMonth.map((e) => e.categoryId))
+  const totalSpent = spending
+    .filter((s) => s.categoryId !== null && budgetedCategoryIds.has(s.categoryId))
+    .reduce((sum, s) => sum + s.spent, 0)
+
+  // O restante não some da tela: aparece como "não orçado", fora do denominador.
+  const totalUnbudgeted = spending
+    .filter((s) => s.categoryId === null || !budgetedCategoryIds.has(s.categoryId))
+    .reduce((sum, s) => sum + s.spent, 0)
 
   // Categories that already have an active entry
   const usedCategoryIds = new Set(allEntries.map((e) => e.categoryId))
@@ -302,8 +314,14 @@ export function SpendingClient({
           <CardHeader>
             <CardTitle className="text-base">Resumo — {formatMonth(selectedMonth)}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <BudgetProgressBar label="Total" currentCents={totalSpent} limitCents={totalPlanned} />
+            {totalUnbudgeted > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Mais <strong className="text-gray-900">{formatBRL(totalUnbudgeted)}</strong> em
+                categorias sem teto, fora do total acima.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

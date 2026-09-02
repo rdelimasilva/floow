@@ -1,7 +1,6 @@
 import type { InsightCategory, InsightResult } from '../types'
 import type {
   CashFlowAnalyzerInput,
-  BudgetAnalyzerInput,
   DebtAnalyzerInput,
   InvestmentAnalyzerInput,
   PatrimonyAnalyzerInput,
@@ -9,7 +8,6 @@ import type {
   BehaviorAnalyzerInput,
 } from '../types'
 import { analyzeCashFlow } from './cash-flow'
-import { analyzeBudget } from './budget'
 import { analyzeBudgetPacing, type BudgetPacingAnalyzerInput } from './budget-pacing'
 import { analyzeDebt } from './debt'
 import { analyzeInvestment } from './investment'
@@ -19,7 +17,6 @@ import { analyzeBehavior } from './behavior'
 
 export interface AllAnalyzerInputs {
   cashFlow?: CashFlowAnalyzerInput
-  budget?: BudgetAnalyzerInput
   budgetPacing?: BudgetPacingAnalyzerInput
   debt?: DebtAnalyzerInput
   investment?: InvestmentAnalyzerInput
@@ -41,9 +38,6 @@ export function runAnalyzers(
 
   if (shouldRun('cash_flow') && inputs.cashFlow) {
     insights.push(...analyzeCashFlow(inputs.cashFlow))
-  }
-  if (shouldRun('budget') && inputs.budget) {
-    insights.push(...analyzeBudget(inputs.budget))
   }
   if (shouldRun('budget') && inputs.budgetPacing) {
     insights.push(...analyzeBudgetPacing(inputs.budgetPacing))
@@ -71,7 +65,6 @@ export type { BudgetPacingAnalyzerInput }
 
 export {
   analyzeCashFlow,
-  analyzeBudget,
   analyzeBudgetPacing,
   analyzeDebt,
   analyzeInvestment,

@@ -5,8 +5,17 @@
  * CRITICAL: OFX dates are YYYYMMDDHHMMSS.SSS[±hh:TZ] — NOT ISO 8601.
  * Do NOT pass raw OFX dates to `new Date()`. Use parseOFXDate() instead.
  */
+// ofx-js não publica tipos. A declaração ambiente em ../../ofx-js.d.ts (raiz do
+// pacote) é carregada pelo tsconfig do core-finance, mas NÃO pelo do @floow/web
+// quando ele compila este arquivo como dependência — ali o import cai em TS7016.
+// Por isso o @ts-ignore continua necessário; ele não é resquício.
+//
+// O custo dessa supressão é real e já cobrou: no contexto do web ela também
+// escondia o TS2345 de TRNAMT (string | number), que só apareceu quando o
+// typecheck do pacote passou a ser exigido. Ao mexer neste import, rode
+// `pnpm --filter @floow/core-finance typecheck`, onde os tipos valem de fato.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — ofx-js has no type declarations; see ofx-js.d.ts ambient declaration
+// @ts-ignore — ver acima
 import { parse as parseOFX } from 'ofx-js'
 import type { NormalizedTransaction } from '../types'
 

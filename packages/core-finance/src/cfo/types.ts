@@ -32,10 +32,12 @@ export interface CashFlowAnalyzerInput {
   accountBalances: { accountId: string; name: string; balance: number }[]
 }
 
-export interface BudgetAnalyzerInput {
-  goals: { category: string; limit: number; spent: number; period: string }[]
-  historicalUsage: { category: string; month: string; spent: number }[]
-}
+// BudgetAnalyzerInput e analyzeBudget foram removidos: o engine montava seu
+// input com `spent: 0` e `historicalUsage.spent = plannedCents`, de modo que
+// nenhuma das duas regras podia disparar. Quem cobre orçamento agora é
+// analyzeBudgetPacing, sobre gasto real. A regra de "folga consistente" que
+// vivia ali não foi reescrita — se voltar, deve ser sobre gasto, não sobre o
+// planejado.
 
 export interface DebtAnalyzerInput {
   debts: {

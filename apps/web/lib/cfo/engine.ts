@@ -279,32 +279,10 @@ export async function runCfoEngine(
 
     // -- Budget --------------------------------------------------------------
     if (shouldRun('budget')) {
-      const goalRows = await db
-        .select()
-        .from(budgetGoals)
-        .where(and(eq(budgetGoals.orgId, orgId), eq(budgetGoals.isActive, true)))
-
-      const entryRows = await db
-        .select()
-        .from(budgetEntries)
-        .where(eq(budgetEntries.orgId, orgId))
-
-      inputs.budget = {
-        goals: goalRows.map((g) => ({
-          category: g.name,
-          limit: g.targetCents,
-          spent: 0, // actual spend comes from transaction matching — summary placeholder
-          period: g.period,
-        })),
-        historicalUsage: entryRows.map((e) => ({
-          category: e.name ?? e.type,
-          month: e.startMonth instanceof Date
-            ? e.startMonth.toISOString().split('T')[0].slice(0, 7)
-            : String(e.startMonth).slice(0, 7),
-          spent: e.plannedCents,
-        })),
-      }
-
+      // O input antigo (goals + historicalUsage) foi removido junto com
+      // analyzeBudget: ele passava `spent: 0` e o planejado no lugar do gasto,
+      // então nenhum insight de orçamento chegava a ser gerado. O pacing usa
+      // gasto real, agregado por dia.
       inputs.budgetPacing = await buildBudgetPacingInput(orgId)
     }
 
