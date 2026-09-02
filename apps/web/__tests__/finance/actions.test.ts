@@ -8,25 +8,41 @@ const mockUpdateWhere = vi.fn()
 const mockInsert = vi.fn()
 const mockUpdate = vi.fn()
 const mockCreateDb = vi.fn()
+const mockGetDb = vi.fn()
 
+// O mock precisa expor TODO símbolo que actions.ts importa de @floow/db — a
+// resolução do módulo falha no import, antes de qualquer teste rodar, se faltar
+// um. Foi assim que getDb (que substituiu createDb) derrubou este arquivo.
 vi.mock('@floow/db', () => ({
   createDb: mockCreateDb,
+  getDb: mockGetDb,
   accounts: { name: 'accounts' },
   transactions: { name: 'transactions' },
   categories: { name: 'categories' },
+  patrimonySnapshots: { name: 'patrimony_snapshots' },
+  categoryRules: { name: 'category_rules' },
+  recurringTemplates: { name: 'recurring_templates' },
+  budgetEntries: { name: 'budget_entries' },
+  debts: { name: 'debts' },
 }))
 
 // ── Mock next/cache ───────────────────────────────────────────────────────────
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  // invalidateTag (lib/cache-tags.ts) chama revalidateTag; unstable_cache é
+  // usado pelas queries. Ambos precisam existir aqui ou o import falha.
+  revalidateTag: vi.fn(),
+  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
 }))
 
 // ── Mock @/lib/supabase/server ────────────────────────────────────────────────
 const mockGetUser = vi.fn()
+const mockGetSession = vi.fn()
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
       getUser: mockGetUser,
+      getSession: mockGetSession,
     },
   })),
 }))
@@ -91,8 +107,26 @@ function setupDbMock() {
 
   const db = { insert: mockInsert, update: mockUpdate, select: mockSelect, transaction: mockTransaction }
   mockCreateDb.mockReturnValue(db)
+  mockGetDb.mockReturnValue(db)
 
   return { db, insertCalls, updateCalls }
+}
+
+/**
+ * Monta um access_token no formato que getOrgId realmente lê.
+ *
+ * getOrgId (lib/finance/queries.ts) NÃO usa session.user.app_metadata — esse
+ * objeto vem de auth.users.raw_app_meta_data, onde o custom_access_token_hook
+ * não escreve. Ele decodifica o payload do JWT, que é o único lugar onde as
+ * org_ids injetadas pelo hook existem. Só a parte do meio do token importa;
+ * header e assinatura nunca são verificados na decodificação.
+ */
+function makeAccessToken(orgId: string): string {
+  const payload = Buffer.from(
+    JSON.stringify({ app_metadata: { org_ids: [orgId] } }),
+    'utf8',
+  ).toString('base64url')
+  return `header.${payload}.signature`
 }
 
 function setupUserMock(orgId = 'org-test-123') {
@@ -101,6 +135,15 @@ function setupUserMock(orgId = 'org-test-123') {
       user: {
         id: 'user-test-id',
         app_metadata: { org_ids: [orgId] },
+      },
+    },
+    error: null,
+  })
+  mockGetSession.mockResolvedValue({
+    data: {
+      session: {
+        access_token: makeAccessToken(orgId),
+        user: { id: 'user-test-id' },
       },
     },
     error: null,

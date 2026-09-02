@@ -18,7 +18,10 @@ export async function getDebtProgress(orgId: string, categoryId: string) {
   const [row] = await db
     .select({
       paidCount: sql<number>`COUNT(*)`.as('paid_count'),
-      paidCents: sql<number>`COALESCE(SUM(ABS(${transactions.amountCents})), 0)`.as('paid_cents'),
+      // Despesas são persistidas negativas (actions.ts). -x em vez de ABS(x) dá o
+      // mesmo resultado para elas e abate corretamente um estorno importado como
+      // expense positivo, em vez de contá-lo como pagamento.
+      paidCents: sql<number>`COALESCE(SUM(-${transactions.amountCents}), 0)`.as('paid_cents'),
     })
     .from(transactions)
     .where(
@@ -42,7 +45,10 @@ export async function getDebtsWithProgress(orgId: string) {
     .select({
       categoryId: transactions.categoryId,
       paidCount: sql<number>`COUNT(*)`.as('paid_count'),
-      paidCents: sql<number>`COALESCE(SUM(ABS(${transactions.amountCents})), 0)`.as('paid_cents'),
+      // Despesas são persistidas negativas (actions.ts). -x em vez de ABS(x) dá o
+      // mesmo resultado para elas e abate corretamente um estorno importado como
+      // expense positivo, em vez de contá-lo como pagamento.
+      paidCents: sql<number>`COALESCE(SUM(-${transactions.amountCents}), 0)`.as('paid_cents'),
     })
     .from(transactions)
     .where(

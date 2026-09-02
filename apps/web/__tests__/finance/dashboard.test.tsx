@@ -14,12 +14,29 @@ import { render, screen } from '@testing-library/react'
 import React from 'react'
 
 // ── Mock recharts and chart components (avoid canvas issues in jsdom) ──────
+// Espelha todos os símbolos que cash-flow-chart.tsx importa de recharts.
+// Um símbolo faltando aqui quebra o teste com "No <X> export is defined on the
+// recharts mock" — foi o que aconteceu quando Legend foi adicionado ao gráfico.
 vi.mock('recharts', () => ({
   BarChart: ({ children }: { children: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'bar-chart' }, children),
   Bar: () => null,
+  LineChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement('div', { 'data-testid': 'line-chart' }, children),
+  Line: () => null,
+  AreaChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement('div', { 'data-testid': 'area-chart' }, children),
+  Area: () => null,
+  PieChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement('div', { 'data-testid': 'pie-chart' }, children),
+  Pie: () => null,
+  Cell: () => null,
   XAxis: () => null,
   CartesianGrid: () => null,
+  Tooltip: () => null,
+  Legend: () => null,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) =>
+    React.createElement('div', null, children),
 }))
 
 vi.mock('@/components/ui/chart', () => ({
