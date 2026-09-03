@@ -5,6 +5,7 @@ import {
   categories,
   categoryRules,
   hiddenSystemCategories,
+  openfinanceIngestionIssues,
   openfinanceConnections,
   openfinanceResources,
   transactions,
@@ -15,8 +16,11 @@ import {
   normalizeCardTransaction,
   type CategoryRule,
   type NormalizedPolpTransaction,
+  type PolpAccountTransaction,
+  type PolpCardTransaction,
   type PolpClient,
 } from '@floow/core-finance'
+import { normalizeBatch, type RejectedItem } from './normalize-batch'
 
 /**
  * Importação das transações de uma conexão Open Finance.
@@ -36,6 +40,13 @@ export interface SyncSummary {
   updated: number
   /** Recursos sem conta vinculada — o dado existe na Polp e não tem onde entrar. */
   skippedUnlinked: number
+  /**
+   * Itens que a ingestão não conseguiu ler. Ficam em
+   * `openfinance_ingestion_issues` com o payload cru, e o recurso não avança a
+   * janela de sincronização — eles voltam sozinhos quando o defeito for
+   * corrigido.
+   */
+  rejected: number
 }
 
 export async function syncConnectionTransactions(
@@ -54,7 +65,7 @@ export async function syncConnectionTransactions(
     hasLinkedCreditCard(db, connection.orgId),
   ])
 
-  const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0 }
+  const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0, rejected: 0 }
 
   for (const resource of resources) {
     if (!resource.accountId) {
@@ -71,22 +82,36 @@ export async function syncConnectionTransactions(
       : {}
 
     const startedAt = new Date()
-    const pages =
-      resource.resourceType === 'CREDIT_CARD_ACCOUNT'
-        ? mapPages(client.streamCardTransactions(resource.polpResourceId, query), normalizeCardTransaction)
-        : mapPages(client.streamAccountTransactions(resource.polpResourceId, query), (tx) =>
-            // `creditCardConnected` decide o destino do pagamento de fatura que
+    const isCard = resource.resourceType === 'CREDIT_CARD_ACCOUNT'
+    const pages = isCard
+      ? client.streamCardTransactions(resource.polpResourceId, query)
+      : client.streamAccountTransactions(resource.polpResourceId, query)
+
+    let rejectedHere = 0
+
+    for await (const page of pages as AsyncGenerator<unknown[]>) {
+      // Item defeituoso não derruba o lote. Antes, um `page.map()` levava as
+      // outras 499 transações junto — e o cliente via só "não foi possível
+      // sincronizar", sem nada para investigar.
+      const { ok, rejected } = normalizeBatch(page, (tx) =>
+        isCard
+          ? normalizeCardTransaction(tx as PolpCardTransaction)
+          : // `creditCardConnected` decide o destino do pagamento de fatura que
             // aparece na conta corrente. Sem passá-lo, o pagamento entrava como
             // despesa ao lado das compras do cartão e o mês de cartão era
             // contado DUAS vezes no orçamento.
-            normalizeAccountTransaction(tx, { creditCardConnected }),
-          )
+            normalizeAccountTransaction(tx as PolpAccountTransaction, { creditCardConnected }),
+      )
 
-    for await (const page of pages) {
+      if (rejected.length > 0) {
+        rejectedHere += rejected.length
+        await recordIssues(db, connection.orgId, resource.id, rejected)
+      }
+
       const result = await persistPage(db, {
         orgId: connection.orgId,
         accountId: resource.accountId,
-        normalized: page,
+        normalized: ok,
         categoryByRef,
         rules,
       })
@@ -94,10 +119,19 @@ export async function syncConnectionTransactions(
       summary.updated += result.updated
     }
 
-    await db
-      .update(openfinanceResources)
-      .set({ lastSyncedAt: startedAt, updatedAt: new Date() })
-      .where(eq(openfinanceResources.id, resource.id))
+    summary.rejected += rejectedHere
+
+    // A janela só avança quando o recurso veio inteiro. Avançar com rejeição
+    // perderia aquelas transações para sempre: a próxima sincronização pediria
+    // só o que mudou DEPOIS, e elas nunca voltariam. Assim, corrigir o
+    // normalizador basta — a próxima sync as traz de novo, e o índice único por
+    // (external_id, account_id) evita duplicar o que já entrou.
+    if (rejectedHere === 0) {
+      await db
+        .update(openfinanceResources)
+        .set({ lastSyncedAt: startedAt, updatedAt: new Date() })
+        .where(eq(openfinanceResources.id, resource.id))
+    }
   }
 
   await db
@@ -106,13 +140,6 @@ export async function syncConnectionTransactions(
     .where(eq(openfinanceConnections.id, connection.id))
 
   return summary
-}
-
-async function* mapPages<T>(
-  pages: AsyncGenerator<T[]>,
-  normalize: (tx: T) => NormalizedPolpTransaction,
-): AsyncGenerator<NormalizedPolpTransaction[]> {
-  for await (const page of pages) yield page.map(normalize)
 }
 
 /**
@@ -154,6 +181,29 @@ async function loadCategoryIndex(db: Db, orgId: string): Promise<Map<string, str
     if (daOrg || !index.has(row.polpRef)) index.set(row.polpRef, row.id)
   }
   return index
+}
+
+/**
+ * Grava o que não foi possível ler, com o payload cru.
+ *
+ * Sem isso, "faltou uma transação no meu extrato" é indebugável: não sobra
+ * nenhum vestígio do que a instituição mandou de diferente.
+ */
+async function recordIssues(
+  db: Db,
+  orgId: string,
+  resourceId: string,
+  rejected: RejectedItem[],
+): Promise<void> {
+  await db.insert(openfinanceIngestionIssues).values(
+    rejected.map((item) => ({
+      orgId,
+      resourceId,
+      externalId: item.externalId,
+      reason: item.reason.slice(0, 500),
+      payload: item.raw as Record<string, unknown>,
+    })),
+  )
 }
 
 /**

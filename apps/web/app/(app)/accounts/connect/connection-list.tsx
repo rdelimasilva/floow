@@ -89,10 +89,20 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
           toast('Nenhuma conta vinculada ainda — escolha a conta de cada item primeiro.', 'error')
           return
         }
-        toast(
+        const importadas =
           summary.imported === 0
             ? 'Nada novo desde a última sincronização.'
-            : `${summary.imported} ${summary.imported === 1 ? 'transação importada' : 'transações importadas'}.`,
+            : `${summary.imported} ${summary.imported === 1 ? 'transação importada' : 'transações importadas'}.`
+
+        // Rejeitada não é o mesmo que perdida: fica registrada com o payload e
+        // volta na próxima sincronização, porque a janela do recurso não
+        // avança enquanto houver pendência. Dizer isso evita o susto de ver o
+        // extrato incompleto sem explicação.
+        toast(
+          summary.rejected === 0
+            ? importadas
+            : `${importadas} ${summary.rejected} ${summary.rejected === 1 ? 'lançamento não pôde ser lido e será' : 'lançamentos não puderam ser lidos e serão'} tentado de novo.`,
+          summary.rejected === 0 ? undefined : 'error',
         )
       } catch (error) {
         toast(error instanceof Error ? error.message : 'Não foi possível sincronizar', 'error')

@@ -112,3 +112,35 @@ export const openfinanceWebhookEvents = pgTable(
     idxStatus: index('idx_openfinance_webhook_status').on(table.status, table.createdAt),
   })
 )
+
+/**
+ * Itens que a ingestao nao conseguiu normalizar.
+ *
+ * O normalizador levanta erro em valor ou data que nao reconhece — virar NaN em
+ * silencio poria numero errado no saldo. Antes esse erro derrubava a pagina
+ * inteira de 500 transacoes; agora o lote entra e o que sobrou fica aqui, com o
+ * payload cru, para diagnostico e reimportacao.
+ */
+export const openfinanceIngestionIssues = pgTable(
+  'openfinance_ingestion_issues',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    /** Recurso de origem. SET NULL para a trilha sobreviver a revogacao. */
+    resourceId: uuid('resource_id').references(() => openfinanceResources.id, {
+      onDelete: 'set null',
+    }),
+    /** `id` da transacao na Polp, quando o payload traz um reconhecivel. */
+    externalId: text('external_id'),
+    reason: text('reason').notNull(),
+    payload: jsonb('payload').notNull(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    idxOrgCreated: index('idx_openfinance_issues_org_created').on(table.orgId, table.createdAt),
+    idxReason: index('idx_openfinance_issues_reason').on(table.reason),
+  })
+)
