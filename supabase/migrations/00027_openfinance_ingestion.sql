@@ -171,40 +171,51 @@ CREATE INDEX IF NOT EXISTS idx_openfinance_webhook_status
 -- caminho do webhook é feita em código, explicitamente.
 -- ----------------------------------------------------------------------------
 
+-- DROP antes de cada CREATE: CREATE POLICY não aceita IF NOT EXISTS, e sem isto
+-- reaplicar a migration falha com 42710 em vez de não fazer nada. O resto do
+-- arquivo já é repetível (IF NOT EXISTS em tabelas, colunas e índices).
 ALTER TABLE public.openfinance_connections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "openfinance_connections: members can select" ON public.openfinance_connections;
 CREATE POLICY "openfinance_connections: members can select"
   ON public.openfinance_connections FOR SELECT TO authenticated
   USING (org_id IN (SELECT public.get_user_org_ids()));
 
+DROP POLICY IF EXISTS "openfinance_connections: members can insert" ON public.openfinance_connections;
 CREATE POLICY "openfinance_connections: members can insert"
   ON public.openfinance_connections FOR INSERT TO authenticated
   WITH CHECK (org_id IN (SELECT public.get_user_org_ids()));
 
+DROP POLICY IF EXISTS "openfinance_connections: members can update" ON public.openfinance_connections;
 CREATE POLICY "openfinance_connections: members can update"
   ON public.openfinance_connections FOR UPDATE TO authenticated
   USING (org_id IN (SELECT public.get_user_org_ids()))
   WITH CHECK (org_id IN (SELECT public.get_user_org_ids()));
 
+DROP POLICY IF EXISTS "openfinance_connections: members can delete" ON public.openfinance_connections;
 CREATE POLICY "openfinance_connections: members can delete"
   ON public.openfinance_connections FOR DELETE TO authenticated
   USING (org_id IN (SELECT public.get_user_org_ids()));
 
 ALTER TABLE public.openfinance_resources ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "openfinance_resources: members can select" ON public.openfinance_resources;
 CREATE POLICY "openfinance_resources: members can select"
   ON public.openfinance_resources FOR SELECT TO authenticated
   USING (org_id IN (SELECT public.get_user_org_ids()));
 
+DROP POLICY IF EXISTS "openfinance_resources: members can insert" ON public.openfinance_resources;
 CREATE POLICY "openfinance_resources: members can insert"
   ON public.openfinance_resources FOR INSERT TO authenticated
   WITH CHECK (org_id IN (SELECT public.get_user_org_ids()));
 
+DROP POLICY IF EXISTS "openfinance_resources: members can update" ON public.openfinance_resources;
 CREATE POLICY "openfinance_resources: members can update"
   ON public.openfinance_resources FOR UPDATE TO authenticated
   USING (org_id IN (SELECT public.get_user_org_ids()))
   WITH CHECK (org_id IN (SELECT public.get_user_org_ids()));
 
+DROP POLICY IF EXISTS "openfinance_resources: members can delete" ON public.openfinance_resources;
 CREATE POLICY "openfinance_resources: members can delete"
   ON public.openfinance_resources FOR DELETE TO authenticated
   USING (org_id IN (SELECT public.get_user_org_ids()));
@@ -214,6 +225,7 @@ CREATE POLICY "openfinance_resources: members can delete"
 -- authenticated — a ausência de política já nega a operação.
 ALTER TABLE public.openfinance_webhook_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "openfinance_webhook_events: members can select" ON public.openfinance_webhook_events;
 CREATE POLICY "openfinance_webhook_events: members can select"
   ON public.openfinance_webhook_events FOR SELECT TO authenticated
   USING (org_id IN (SELECT public.get_user_org_ids()));

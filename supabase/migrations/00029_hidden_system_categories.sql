@@ -36,15 +36,21 @@ COMMENT ON TABLE public.hidden_system_categories IS
 
 ALTER TABLE public.hidden_system_categories ENABLE ROW LEVEL SECURITY;
 
+-- DROP antes de CREATE, como em 00026: CREATE POLICY não aceita IF NOT EXISTS,
+-- e sem isto reaplicar a migration falha com 42710 em vez de não fazer nada.
+DROP POLICY IF EXISTS "hidden_system_categories: members can select" ON public.hidden_system_categories;
+DROP POLICY IF EXISTS "hidden_system_categories: members can insert" ON public.hidden_system_categories;
+DROP POLICY IF EXISTS "hidden_system_categories: members can delete" ON public.hidden_system_categories;
+
 CREATE POLICY "hidden_system_categories: members can select"
-  ON public.hidden_system_categories FOR SELECT
+  ON public.hidden_system_categories FOR SELECT TO authenticated
   USING (org_id IN (SELECT public.get_user_org_ids()));
 
 CREATE POLICY "hidden_system_categories: members can insert"
-  ON public.hidden_system_categories FOR INSERT
+  ON public.hidden_system_categories FOR INSERT TO authenticated
   WITH CHECK (org_id IN (SELECT public.get_user_org_ids()));
 
 -- Reexibir é desfazer a própria escolha, então DELETE também é da org.
 CREATE POLICY "hidden_system_categories: members can delete"
-  ON public.hidden_system_categories FOR DELETE
+  ON public.hidden_system_categories FOR DELETE TO authenticated
   USING (org_id IN (SELECT public.get_user_org_ids()));
