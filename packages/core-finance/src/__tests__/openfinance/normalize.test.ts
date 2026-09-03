@@ -217,3 +217,65 @@ describe('normalizeCardTransaction', () => {
     expect(normalizeCardTransaction(cardTx({ payee_mcc: 5812 })).payeeMcc).toBe(5812)
   })
 })
+
+describe('camada 1: natureza determinada pelo type do BCB', () => {
+  it('APLICACAO_FINANCEIRA é transferência mesmo com category_ref de despesa', () => {
+    const result = normalizeAccountTransaction(
+      accountTx({ type: 'APLICACAO_FINANCEIRA', category_ref: 'OTHER' }),
+    )
+    expect(result.type).toBe('transfer')
+  })
+
+  it('RESGATE_APLIC_FINANCEIRA é transferência, não receita', () => {
+    const result = normalizeAccountTransaction(
+      accountTx({
+        type: 'RESGATE_APLIC_FINANCEIRA',
+        credit_debit_type: 'CREDITO',
+        category_ref: 'OTHER',
+      }),
+    )
+    expect(result.type).toBe('transfer')
+    // O sinal do valor não muda: resgate entra dinheiro, valor positivo.
+    expect(result.amountCents).toBeGreaterThan(0)
+  })
+
+  it('TRANSFERENCIA_SALDO_RESERVADO é transferência', () => {
+    const result = normalizeAccountTransaction(
+      accountTx({ type: 'TRANSFERENCIA_SALDO_RESERVADO', category_ref: 'OTHER' }),
+    )
+    expect(result.type).toBe('transfer')
+  })
+
+  it('RENDIMENTO_APLIC_FINANCEIRA é receita: rendimento é dinheiro novo', () => {
+    const result = normalizeAccountTransaction(
+      accountTx({
+        type: 'RENDIMENTO_APLIC_FINANCEIRA',
+        credit_debit_type: 'CREDITO',
+        category_ref: 'TRANSFER_IN_OTHER_TRANSFER_IN',
+      }),
+    )
+    expect(result.type).toBe('income')
+  })
+
+  it('OUTROS não desempata: quem decide é o category_ref', () => {
+    const transferencia = normalizeAccountTransaction(
+      accountTx({ type: 'OUTROS', category_ref: 'TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS' }),
+    )
+    expect(transferencia.type).toBe('transfer')
+
+    const despesa = normalizeAccountTransaction(
+      accountTx({ type: 'OUTROS', category_ref: 'OTHER' }),
+    )
+    expect(despesa.type).toBe('expense')
+  })
+
+  it('polpType carrega o type cru da conta', () => {
+    expect(normalizeAccountTransaction(accountTx({ type: 'TARIFA_SERVICOS_AVULSOS' })).polpType).toBe(
+      'TARIFA_SERVICOS_AVULSOS',
+    )
+  })
+
+  it('polpType é null em transação de cartão: transaction_type é outro enum', () => {
+    expect(normalizeCardTransaction(cardTx()).polpType).toBeNull()
+  })
+})

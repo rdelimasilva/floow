@@ -8,7 +8,12 @@
  * Ver docs/superpowers/specs/2026-09-02-openfinance-ingestion-design.md
  */
 import { kindForRef } from './taxonomy'
-import type { PolpAccountTransaction, PolpCardTransaction, PolpCounterparty } from './polp-types'
+import type {
+  PolpAccountTransaction,
+  PolpAccountTransactionType,
+  PolpCardTransaction,
+  PolpCounterparty,
+} from './polp-types'
 
 /** O que a ingestão grava em `transactions`. */
 export interface NormalizedPolpTransaction {
@@ -22,6 +27,14 @@ export interface NormalizedPolpTransaction {
   description: string
   /** `category_ref` cru, guardado mesmo já mapeado: permite recategorizar depois. */
   categoryRef: string | null
+  /**
+   * `type` cru da Polp (AccountTransactionType). Null em transação de cartão:
+   * `transaction_type` do cartão é OUTRO enum (PAGAMENTO_FATURA, ESTORNO,
+   * CASHBACK), já consumido inteiro por `cardType()`. Guardar os dois no mesmo
+   * campo criaria exatamente a confusão que o cabeçalho de `polp-types.ts`
+   * avisa: dois enums distintos em campos de nome parecido.
+   */
+  polpType: string | null
   payeeMcc: number | null
   /** Null enquanto a compra não foi lançada em fatura. */
   billPostDate: string | null
@@ -158,6 +171,38 @@ export interface AccountNormalizeOptions {
   creditCardConnected?: boolean
 }
 
+/**
+ * Natureza que o `type` do Banco Central determina sozinho, ou `undefined`
+ * quando ele não desempata.
+ *
+ * Tem precedência sobre o `category_ref` de propósito: quando os dois
+ * discordam, é o `category_ref` que erra. `Aplicação CDB DI` chegou rotulada
+ * `OTHER` e jogou R$ 125 mil em "despesa", enquanto `Saída APLICACAO CDB DI` —
+ * a mesma operação, na mesma conta — veio rotulada como transferência. O enum
+ * do BCB não tem essa ambiguidade.
+ *
+ * `PIX`, `TED`, `OUTROS` e a maioria dos outros valores não dizem nada sobre
+ * ser gasto ou movimentação, e caem no `undefined`.
+ */
+function natureFromPolpType(
+  type: PolpAccountTransactionType | null | undefined,
+): NormalizedPolpTransaction['type'] | undefined {
+  switch (type) {
+    case 'APLICACAO_FINANCEIRA':
+    case 'RESGATE_APLIC_FINANCEIRA':
+    case 'TRANSFERENCIA_SALDO_RESERVADO':
+      return 'transfer'
+
+    // Rendimento é dinheiro novo, ao contrário do resgate — que é dinheiro que
+    // já era do usuário voltando para a conta.
+    case 'RENDIMENTO_APLIC_FINANCEIRA':
+      return 'income'
+
+    default:
+      return undefined
+  }
+}
+
 /** Transação de conta bancária (GET /accounts/{account}/transactions). */
 export function normalizeAccountTransaction(
   tx: PolpAccountTransaction,
@@ -168,11 +213,13 @@ export function normalizeAccountTransaction(
 
   const isCardBillPayment = categoryRef === 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT'
   const type: NormalizedPolpTransaction['type'] =
-    kindForRef(categoryRef ?? '') === 'transfer' || (isCardBillPayment && options.creditCardConnected === true)
+    natureFromPolpType(tx.type) ??
+    (kindForRef(categoryRef ?? '') === 'transfer' ||
+    (isCardBillPayment && options.creditCardConnected === true)
       ? 'transfer'
       : tx.credit_debit_type === 'CREDITO'
         ? 'income'
-        : 'expense'
+        : 'expense')
 
   const settlement =
     tx.completed_authorised_payment_type === 'LANCAMENTO_FUTURO'
@@ -188,6 +235,7 @@ export function normalizeAccountTransaction(
     type,
     description: describe(tx.transaction_name, tx.counterparty),
     categoryRef,
+    polpType: tx.type ?? null,
     payeeMcc: null,
     billPostDate: null,
     billForecastMonth: null,
@@ -216,6 +264,7 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
     type: cardType(tx, categoryRef),
     description: describe(tx.transaction_name, tx.counterparty),
     categoryRef,
+    polpType: null,
     payeeMcc: tx.payee_mcc ?? null,
     billPostDate: billPostDateOrNull(tx.bill_post_date),
     billForecastMonth: forecastMonthOrNull(tx.bill_forecast_date),
