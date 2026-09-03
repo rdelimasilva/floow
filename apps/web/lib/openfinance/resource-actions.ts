@@ -39,7 +39,22 @@ export type LinkTarget =
   | { kind: 'existing'; accountId: string }
   | { kind: 'new'; name: string }
 
-export async function linkResourceToAccount(resourceId: string, target: LinkTarget): Promise<void> {
+export interface LinkOptions {
+  /**
+   * A partir de que data importar (AAAA-MM-DD).
+   *
+   * Sem isso, a primeira sincronização traz todo o histórico que a instituição
+   * libera e duplica o que a conta já tinha de outra origem — o dedupe por
+   * external_id não pega, porque o id do OFX não é o id da Polp.
+   */
+  syncFromDate?: string | null
+}
+
+export async function linkResourceToAccount(
+  resourceId: string,
+  target: LinkTarget,
+  options: LinkOptions = {},
+): Promise<void> {
   const orgId = await getOrgId()
   const db = getDb()
 
@@ -63,7 +78,11 @@ export async function linkResourceToAccount(resourceId: string, target: LinkTarg
 
   await db
     .update(openfinanceResources)
-    .set({ accountId, updatedAt: new Date() })
+    .set({
+      accountId,
+      syncFromDate: normalizeDate(options.syncFromDate),
+      updatedAt: new Date(),
+    })
     .where(eq(openfinanceResources.id, resource.id))
 
   await invalidateTag(accountsTag(orgId))
@@ -153,4 +172,10 @@ async function createMirrorAccount(
     .returning({ id: accounts.id })
 
   return account.id
+}
+
+/** Aceita AAAA-MM-DD ou nada. Data inventada aqui viraria corte silencioso. */
+function normalizeDate(value: string | null | undefined): string | null {
+  if (!value) return null
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null
 }

@@ -24,6 +24,8 @@ interface AccountOption {
   id: string
   name: string
   type: string
+  /** Última transação já existente na conta (AAAA-MM-DD), se houver. */
+  lastTransactionDate: string | null
 }
 
 interface LinkResourcesProps {
@@ -50,6 +52,7 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
   const [pending, startTransition] = useTransition()
   const [choice, setChoice] = useState<Record<string, string>>({})
   const [newName, setNewName] = useState<Record<string, string>>({})
+  const [fromDate, setFromDate] = useState<Record<string, string>>({})
 
   function handleRefresh() {
     startTransition(async () => {
@@ -68,6 +71,24 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
         toast(error instanceof Error ? error.message : 'Não foi possível atualizar', 'error')
       }
     })
+  }
+
+  /**
+   * Dia seguinte à última transação que a conta escolhida já tem.
+   *
+   * É o corte que não duplica nada: importar desde antes traria de volta o que
+   * veio de OFX ou foi lançado à mão, e o dedupe por `external_id` não pega —
+   * o id de um OFX não é o id da Polp. Conta vazia não precisa de corte.
+   */
+  function sugestaoDeCorte(accountId: string): string | null {
+    if (accountId === '__new__' || !accountId) return null
+
+    const conta = accounts.find((a) => a.id === accountId)
+    if (!conta?.lastTransactionDate) return null
+
+    const dia = new Date(`${conta.lastTransactionDate}T12:00:00Z`)
+    dia.setUTCDate(dia.getUTCDate() + 1)
+    return dia.toISOString().slice(0, 10)
   }
 
   function handleReauthorize() {
@@ -94,6 +115,7 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
           selected === '__new__'
             ? { kind: 'new', name: newName[resource.id] ?? resource.displayLabel ?? '' }
             : { kind: 'existing', accountId: selected },
+          { syncFromDate: fromDate[resource.id] || sugestaoDeCorte(selected) },
         )
         toast('Conta vinculada.')
         router.refresh()
@@ -183,6 +205,25 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
                   ))}
                   <option value="__new__">+ Criar conta nova</option>
                 </select>
+
+                {selected && selected !== '__new__' && sugestaoDeCorte(selected) && (
+                  <label className="block text-xs text-gray-600">
+                    Importar a partir de
+                    <Input
+                      type="date"
+                      className="mt-1"
+                      value={fromDate[resource.id] ?? sugestaoDeCorte(selected) ?? ''}
+                      onChange={(e) =>
+                        setFromDate((prev) => ({ ...prev, [resource.id]: e.target.value }))
+                      }
+                    />
+                    <span className="mt-1 block text-gray-500">
+                      Esta conta já tem lançamentos até{' '}
+                      {accounts.find((a) => a.id === selected)?.lastTransactionDate}. Começar depois
+                      dessa data evita importar o mesmo movimento duas vezes.
+                    </span>
+                  </label>
+                )}
 
                 {selected === '__new__' && (
                   <Input

@@ -13,6 +13,7 @@ import {
   text,
   timestamp,
   jsonb,
+  date,
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
@@ -84,6 +85,14 @@ export const openfinanceResources = pgTable(
     identificationDigits: text('identification_digits'),
     /** detail | transaction | fallback — de qual elo da cadeia veio. */
     identificationSource: text('identification_source'),
+    /**
+     * Data minima de transacao a importar na primeira sincronizacao.
+     *
+     * Existe para nao duplicar o que a conta ja tem de outra origem: o dedupe e
+     * por (external_id, account_id), e o external_id de um OFX e o FITID do
+     * banco, sem relacao com o id da Polp. NULL importa todo o historico.
+     */
+    syncFromDate: date('sync_from_date', { mode: 'string' }),
     /** Chaves vistas no payload do detalhe, sem valores. Diagnostico da forma. */
     detailKeys: text('detail_keys').array(),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),

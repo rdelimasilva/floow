@@ -1,5 +1,5 @@
-import { and, desc, eq, isNull } from 'drizzle-orm'
-import { getDb, accounts, openfinanceConnections, openfinanceResources } from '@floow/db'
+import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import { getDb, accounts, openfinanceConnections, openfinanceResources, transactions } from '@floow/db'
 
 /**
  * Leituras da conexão Open Finance.
@@ -82,4 +82,32 @@ export async function getBankConnection(
 ): Promise<BankConnectionSummary | null> {
   const all = await getBankConnections(orgId)
   return all.find((c) => c.id === connectionId) ?? null
+}
+
+/**
+ * Última data de transação de cada conta da org.
+ *
+ * Serve para sugerir o corte da primeira importação: começar no dia seguinte
+ * elimina a sobreposição com o que a conta já tem, que o dedupe por
+ * `external_id` não pegaria — o id de um OFX não é o id da Polp.
+ */
+export async function getLastTransactionDateByAccount(
+  orgId: string,
+): Promise<Record<string, string>> {
+  const db = getDb()
+
+  const rows = await db
+    .select({
+      accountId: transactions.accountId,
+      // A maior data que NÃO está no futuro: parcela e recorrência já lançadas
+      // para frente não dizem nada sobre até onde o histórico real vai.
+      last: sql<string>`max(${transactions.date}) FILTER (WHERE ${transactions.date} <= now()::date)`,
+    })
+    .from(transactions)
+    .where(eq(transactions.orgId, orgId))
+    .groupBy(transactions.accountId)
+
+  const mapa: Record<string, string> = {}
+  for (const row of rows) if (row.last) mapa[row.accountId] = row.last
+  return mapa
 }

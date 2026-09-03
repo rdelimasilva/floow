@@ -77,9 +77,14 @@ export async function syncConnectionTransactions(
     // desde a última. `fromUpdatedAt` e não `fromDate` de propósito: a
     // counterparty e a categoria chegam depois, na mesma transação, e é a data
     // de atualização que as traz de volta.
+    // Primeira sincronização respeita o corte que o usuário escolheu, para não
+    // duplicar o que a conta já tem de OFX ou de lançamento manual. As
+    // seguintes pedem só o que mudou desde a última.
     const query = resource.lastSyncedAt
       ? { fromUpdatedAt: resource.lastSyncedAt.toISOString() }
-      : {}
+      : resource.syncFromDate
+        ? { fromDate: `${resource.syncFromDate}T00:00:00Z` }
+        : {}
 
     const startedAt = new Date()
     const isCard = resource.resourceType === 'CREDIT_CARD_ACCOUNT'
