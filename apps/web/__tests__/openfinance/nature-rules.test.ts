@@ -103,6 +103,24 @@ describe('natureForDescription', () => {
   it('match_value só com espaço é ignorado, não casa com tudo', () => {
     expect(natureForDescription('qualquer coisa', CONTA, [rule({ matchValue: '   ' })])).toBeUndefined()
   })
+
+  it('contains casa mesmo com dígito no MEIO da descrição, não só na ponta', () => {
+    // Regressão do Crítico 1: `groupKey` apaga dígito para agrupar, e o
+    // `match_value` gravado pela ação nasce dessa chave. Se a comparação não
+    // apagar dígito dos dois lados, uma descrição com o número no meio do
+    // texto (em vez de no fim) nunca casa, e o backfill devolve zero.
+    const regras = [rule({ matchValue: 'DEBITO AUTOMATICO PERS BLACK' })]
+    expect(
+      natureForDescription('Débito automático 12/08 PERS BLACK', CONTA, regras),
+    ).toBe('transfer')
+  })
+
+  it('exact NÃO ignora dígito: continua exigindo a descrição inteira', () => {
+    // `exact` existe para dizer "sem variação nenhuma". Se apagasse dígito
+    // como `contains`, perderia a única diferença que tem razão de existir.
+    const regras = [rule({ matchType: 'exact', matchValue: 'Aplicação CDB DI' })]
+    expect(natureForDescription('Aplicação 12/08 CDB DI', CONTA, regras)).toBeUndefined()
+  })
 })
 
 describe('applyNatureRules', () => {

@@ -1,4 +1,4 @@
-import { foldForMatch } from './nature-rules'
+import { foldForMatch, foldForRuleMatch } from './nature-rules'
 
 /**
  * Detector de despesas que provavelmente não são gasto.
@@ -100,10 +100,10 @@ const MIN_GROUP_CENTS = 100_000
  * piso.
  */
 export function groupKey(description: string): string {
-  return foldForMatch(description)
-    .replace(/\d[\d./-]*/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  // Delega para `nature-rules.ts`: é a MESMA normalização que a comparação de
+  // regra `contains` usa do outro lado. `nature-suspects` já importa de
+  // `nature-rules`, nunca o contrário, então delegar aqui não cria ciclo.
+  return foldForRuleMatch(description)
 }
 
 function tokensOf(value: string): string[] {

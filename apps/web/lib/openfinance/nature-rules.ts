@@ -47,6 +47,28 @@ export function foldForMatch(value: string): string {
 }
 
 /**
+ * Forma canônica para CASAR regra do tipo `contains` com descrição.
+ *
+ * Além do que `foldForMatch` faz, apaga as sequências numéricas: a mesma
+ * operação repetida todo mês chega com data e número diferentes no meio da
+ * descrição, e é justamente por isso que a chave do grupo (`groupKey`) nasce
+ * sem eles. Os dois lados dessa comparação têm de passar por aqui — comparar
+ * chave sem dígito contra descrição com dígito só casa quando o número está
+ * na ponta, e falha em silêncio no resto.
+ *
+ * Só entra na comparação `contains`. `exact` existe para dizer "a descrição
+ * inteira, sem variação nenhuma"; apagar dígito dali removeria a única
+ * diferença que resta entre os dois tipos e uma regra `exact` passaria a
+ * casar com qualquer parcela da mesma operação.
+ */
+export function foldForRuleMatch(value: string): string {
+  return foldForMatch(value)
+    .replace(/\d[\d./-]*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
  * Filtra e ordena as regras: desligadas fora, vazias fora, e a ordem em que
  * competem.
  *
@@ -61,7 +83,7 @@ export function foldForMatch(value: string): string {
  */
 function prepareNatureRules(rules: NatureRule[]): NatureRule[] {
   return rules
-    .filter((r) => r.isEnabled && foldForMatch(r.matchValue) !== '')
+    .filter((r) => r.isEnabled && ruleNeedle(r) !== '')
     .sort((a, b) => {
       const escopoA = a.accountId ? 0 : 1
       const escopoB = b.accountId ? 0 : 1
@@ -71,20 +93,29 @@ function prepareNatureRules(rules: NatureRule[]): NatureRule[] {
     })
 }
 
+/**
+ * O `matchValue` dobrado no formato que o `matchType` da regra exige:
+ * `exact` compara a descrição inteira, sem apagar dígito; `contains` compara
+ * ignorando dígito, o mesmo tratamento que `groupKey` já aplicou à chave.
+ */
+function ruleNeedle(rule: NatureRule): string {
+  return rule.matchType === 'exact' ? foldForMatch(rule.matchValue) : foldForRuleMatch(rule.matchValue)
+}
+
 /** Primeira regra preparada que casa, ou `undefined`. */
-function matchPrepared(
-  foldedDescription: string,
-  accountId: string,
-  prepared: NatureRule[],
-): TransactionNature | undefined {
+function matchPrepared(description: string, accountId: string, prepared: NatureRule[]): TransactionNature | undefined {
+  // Duas dobras da MESMA descrição, uma para cada `matchType` — comparar
+  // chave sem dígito contra descrição com dígito é exatamente o bug que
+  // fazia o backfill devolver `reclassified: 0`.
+  const foldedExact = foldForMatch(description)
+  const foldedContains = foldForRuleMatch(description)
+
   for (const rule of prepared) {
     if (rule.accountId !== null && rule.accountId !== accountId) continue
 
-    const needle = foldForMatch(rule.matchValue)
+    const needle = ruleNeedle(rule)
     const hit =
-      rule.matchType === 'exact'
-        ? foldedDescription === needle
-        : foldedDescription.includes(needle)
+      rule.matchType === 'exact' ? foldedExact === needle : foldedContains.includes(needle)
 
     if (hit) return rule.nature
   }
@@ -98,7 +129,7 @@ export function natureForDescription(
   accountId: string,
   rules: NatureRule[],
 ): TransactionNature | undefined {
-  return matchPrepared(foldForMatch(description), accountId, prepareNatureRules(rules))
+  return matchPrepared(description, accountId, prepareNatureRules(rules))
 }
 
 /**
@@ -117,7 +148,7 @@ export function applyNatureRules(
   if (prepared.length === 0) return normalized
 
   return normalized.map((tx) => {
-    const nature = matchPrepared(foldForMatch(tx.description), accountId, prepared)
+    const nature = matchPrepared(tx.description, accountId, prepared)
     return nature && nature !== tx.type ? { ...tx, type: nature } : tx
   })
 }

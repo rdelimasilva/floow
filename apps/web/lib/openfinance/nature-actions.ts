@@ -4,9 +4,11 @@ import { z } from 'zod'
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { getDb, transactions, transactionNatureRules } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
+import { assertAccountOwnership } from '@/lib/finance/actions'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
-import { foldForMatch } from './nature-rules'
+import { escapeLikePattern } from '@/lib/finance/sql-utils'
+import { foldForRuleMatch } from './nature-rules'
 
 /**
  * O usuário confirma a natureza de um grupo, e a confirmação vale para trás.
@@ -22,10 +24,7 @@ import { foldForMatch } from './nature-rules'
  */
 
 const inputSchema = z.object({
-  // Não usamos `.uuid()` aqui: o id da conta é sempre um uuid de verdade em
-  // produção, mas travar o formato no schema só duplicaria uma validação que
-  // a foreign key do banco já garante — e sem ganho nenhum de segurança.
-  accountId: z.string().trim().min(1),
+  accountId: z.string().uuid(),
   /** Descrição normalizada do grupo. Vazio casaria com o extrato inteiro. */
   matchValue: z.string().trim().min(2),
   nature: z.enum(['income', 'expense', 'transfer']),
@@ -40,47 +39,80 @@ export async function createNatureRule(
   const orgId = await getOrgId()
   const db = getDb()
 
-  const matchValue = foldForMatch(input.matchValue)
+  // A regra grava `matchType: 'contains'` sempre, e a comparação `contains`
+  // ignora dígito (ver `foldForRuleMatch` em `nature-rules.ts`) — é o mesmo
+  // tratamento que `groupKey` já deu à chave que a tela manda como
+  // `matchValue`. Dobrar com `foldForMatch` aqui e deixar o dígito reapareceria
+  // no valor gravado, e o `LIKE` do backfill abaixo — que compara contra uma
+  // descrição já sem dígito — nunca acharia essas linhas.
+  const matchValue = foldForRuleMatch(input.matchValue)
   if (matchValue.length < 2) {
     throw new Error('O texto da regra é curto demais para identificar um lançamento.')
   }
 
-  await db.insert(transactionNatureRules).values({
-    orgId,
-    accountId: input.accountId,
-    matchType: 'contains',
-    matchValue,
-    nature: input.nature,
-  })
-
-  // A comparação repete `foldForMatch` em SQL: sem acento, sem caixa, sem
-  // espaço duplo. `unaccent` não está instalado no projeto, então o
-  // `translate` faz o trabalho para as vogais que aparecem em português.
+  // A comparação repete a mesma dobra em SQL: sem acento, sem caixa, sem
+  // dígito, sem espaço duplo. `unaccent` não está instalado no projeto, então
+  // o `translate` faz o trabalho para as vogais que aparecem em português.
   const foldedDescription = sql`
     btrim(regexp_replace(
-      upper(translate(${transactions.description},
-        'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ',
-        'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC')),
+      regexp_replace(
+        upper(translate(${transactions.description},
+          'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ',
+          'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC')),
+        '[0-9][0-9./-]*', ' ', 'g'),
       '\\s+', ' ', 'g'))
   `
 
-  // `transactions` não tem coluna `updated_at` — só `created_at`, que marca a
-  // ingestão original e não deve mudar aqui.
-  const reclassified = await db
-    .update(transactions)
-    .set({ type: input.nature })
-    .where(
-      and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.accountId, input.accountId),
-        // As duas cercas: só dado do Open Finance, e nunca perna de
-        // transferência pareada — mexer numa perna sem a outra desequilibra.
-        isNotNull(transactions.externalId),
-        isNull(transactions.transferGroupId),
-        sql`${foldedDescription} LIKE ${'%' + matchValue + '%'}`,
-      ),
+  // `%` e `_` são curinga de LIKE, e aparecem em descrição bancária real
+  // ("IOF 6,38%", "RENDIMENTO 100% CDI"). Sem escapar, a regra do usuário
+  // reclassificaria muito mais linha do que ele confirmou.
+  const likePattern = `%${escapeLikePattern(matchValue)}%`
+
+  // INSERT da regra e UPDATE retroativo andam juntos: se o UPDATE falhar
+  // depois da regra já gravada, o grupo some da tela de suspeitas (a exclusão
+  // em `nature-queries.ts` passa a casar) e as transações continuam como
+  // `expense` — o pior desfecho, porque é silencioso. `db.transaction`
+  // desfaz os dois se qualquer um falhar.
+  const reclassified = await db.transaction(async (tx) => {
+    // A FK só garante que a conta existe, não que é desta org — sem esta
+    // checagem, o sucesso do insert vira oráculo de existência de UUID de
+    // conta de outra org, e a regra fica apontando para fora da org do
+    // usuário.
+    // Cast necessário: o tipo da transação do Drizzle não é estruturalmente
+    // idêntico ao de `getDb()` (falta `$client`), mesma solução já usada em
+    // `finance/actions.ts` para o mesmo helper dentro de `db.transaction`.
+    await assertAccountOwnership(
+      tx as unknown as Parameters<typeof assertAccountOwnership>[0],
+      input.accountId,
+      orgId,
     )
-    .returning({ id: transactions.id })
+
+    await tx.insert(transactionNatureRules).values({
+      orgId,
+      accountId: input.accountId,
+      matchType: 'contains',
+      matchValue,
+      nature: input.nature,
+    })
+
+    // `transactions` não tem coluna `updated_at` — só `created_at`, que marca
+    // a ingestão original e não deve mudar aqui.
+    return tx
+      .update(transactions)
+      .set({ type: input.nature })
+      .where(
+        and(
+          eq(transactions.orgId, orgId),
+          eq(transactions.accountId, input.accountId),
+          // As duas cercas: só dado do Open Finance, e nunca perna de
+          // transferência pareada — mexer numa perna sem a outra desequilibra.
+          isNotNull(transactions.externalId),
+          isNull(transactions.transferGroupId),
+          sql`${foldedDescription} LIKE ${likePattern}`,
+        ),
+      )
+      .returning({ id: transactions.id })
+  })
 
   revalidateTransactionData(orgId)
   // `revalidateAccountData` não existe: `revalidate.ts` só exporta transação,

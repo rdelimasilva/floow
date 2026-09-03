@@ -4,6 +4,7 @@ import { createAccountSchema, createTransactionSchema, updateAccountSchema, upda
 import { computeSnapshot, matchCategory, generateInstallmentDates, advanceByFrequency } from '@floow/core-finance'
 import { eq, sql, and, or, desc, isNull, ilike, count, max, inArray } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
+import { escapeLikePattern } from './sql-utils'
 import { getPositions } from '@/lib/investments/queries'
 import {
   accountsTag,
@@ -1034,14 +1035,6 @@ export async function toggleEnabled(formData: FormData) {
     .where(and(eq(categoryRules.id, id), eq(categoryRules.orgId, orgId)))
 
   revalidateCategoryData(orgId)
-}
-
-/**
- * Escapes special LIKE wildcard characters in a matchValue string.
- * Prevents user-supplied % and _ from acting as wildcards in ilike patterns.
- */
-function escapeLikePattern(value: string): string {
-  return value.replace(/%/g, '\\%').replace(/_/g, '\\_')
 }
 
 /**
