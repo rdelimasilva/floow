@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { getOrgId, getTransactionsWithCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
+import { getNatureSuspects } from '@/lib/openfinance/nature-queries'
+import { NatureSuspectsBanner } from '@/components/openfinance/nature-suspects-banner'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
@@ -43,12 +45,14 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const queryOpts = { limit: pageSize, offset: (page - 1) * pageSize, ...filters }
 
-  const [{ transactions, totalCount, startingBalance }, accounts, categories, categoryOrder] = await Promise.all([
-    getTransactionsWithCount(orgId, queryOpts),
-    getAccounts(orgId),
-    getCategories(orgId),
-    getCategoryUsageOrder(orgId),
-  ])
+  const [{ transactions, totalCount, startingBalance }, accounts, categories, categoryOrder, natureSuspects] =
+    await Promise.all([
+      getTransactionsWithCount(orgId, queryOpts),
+      getAccounts(orgId),
+      getCategories(orgId),
+      getCategoryUsageOrder(orgId),
+      getNatureSuspects(orgId),
+    ])
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
@@ -90,6 +94,8 @@ export default async function TransactionsPage({ searchParams }: Props) {
         </Button>
         <InlineTransactionFormButton />
       </PageHeader>
+
+      <NatureSuspectsBanner groups={natureSuspects} />
 
       <InlineTransactionFormPanel
         accounts={accountOptions}
