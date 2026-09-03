@@ -85,7 +85,9 @@ export async function startBankConnection(
     .limit(1)
 
   if (existing) {
-    throw new Error('Este CPF já está conectado a esta instituição')
+    throw new Error(
+      'Este CPF já está conectado a esta instituição. Se a autorização no banco falhou, use "Reabrir autorização" na conexão existente.',
+    )
   }
 
   const supabase = await createClient()
@@ -149,6 +151,55 @@ export async function startBankConnection(
     authUrl: consent.url_to_authenticate,
     authUrlExpiresAt: consent.url_to_authenticate_expires_at,
   }
+}
+
+/**
+ * Gera uma nova autorização para uma conexão que já existe.
+ *
+ * A `url_to_authenticate` não é um link que se guarda: dentro dela vai um
+ * `request_uri` de Pushed Authorization Request, que no Open Finance é de uso
+ * único e vale dezenas de segundos — bem menos que a validade de uma hora que a
+ * Polp anuncia para a URL. Abrir depois disso devolve
+ * `invalid_request_uri: request_uri is invalid or expired` na página do banco.
+ *
+ * `recreate` renova a autorização SEM criar outro consentimento, o que também
+ * é o que evita queimar o teto regulatório de reconexão daquele CPF.
+ */
+export async function recreateBankAuthorization(connectionId: string): Promise<{ authUrl: string }> {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const [connection] = await db
+    .select({ id: openfinanceConnections.id, polpConsentId: openfinanceConnections.polpConsentId })
+    .from(openfinanceConnections)
+    .where(and(eq(openfinanceConnections.id, connectionId), eq(openfinanceConnections.orgId, orgId)))
+    .limit(1)
+
+  if (!connection) throw new Error('Conexão não encontrada')
+
+  const consent = await comErroTraduzido(() =>
+    getPolpClient().recreateConsent(connection.polpConsentId),
+  )
+
+  await db
+    .update(openfinanceConnections)
+    .set({
+      status: consent.status,
+      executionStatus: consent.execution_status ?? null,
+      flags: consent.flags ?? [],
+      updatedAt: new Date(),
+    })
+    .where(eq(openfinanceConnections.id, connection.id))
+
+  if (!consent.url_to_authenticate) {
+    throw new Error(
+      'O banco não devolveu um novo link de autorização. Tente de novo em alguns minutos.',
+    )
+  }
+
+  revalidatePath('/accounts')
+
+  return { authUrl: consent.url_to_authenticate }
 }
 
 export interface ConnectionSyncResult {

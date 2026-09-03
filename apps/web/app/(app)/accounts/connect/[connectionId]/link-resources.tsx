@@ -5,7 +5,10 @@ import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
-import { refreshBankConnection } from '@/lib/openfinance/connection-actions'
+import {
+  recreateBankAuthorization,
+  refreshBankConnection,
+} from '@/lib/openfinance/connection-actions'
 import { linkResourceToAccount } from '@/lib/openfinance/resource-actions'
 
 interface Resource {
@@ -66,6 +69,20 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
     })
   }
 
+  function handleReauthorize() {
+    startTransition(async () => {
+      try {
+        const { authUrl } = await recreateBankAuthorization(connectionId)
+        window.location.href = authUrl
+      } catch (error) {
+        toast(
+          error instanceof Error ? error.message : 'Não foi possível reabrir a autorização',
+          'error',
+        )
+      }
+    })
+  }
+
   function handleLink(resource: Resource) {
     const selected = choice[resource.id] ?? ''
 
@@ -92,9 +109,18 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
           Esta conexão ainda não foi autorizada no banco. Se você já autorizou, o banco pode levar
           alguns minutos para confirmar.
         </p>
-        <Button variant="outline" className="mt-4" onClick={handleRefresh} disabled={pending}>
-          Verificar de novo
-        </Button>
+        <p className="mt-2 text-xs text-gray-500">
+          Se a página do banco recusou o link, ele expirou: o prazo é de poucos minutos. Reabra a
+          autorização e conclua em seguida, sem deixar para depois.
+        </p>
+        <div className="mt-4 flex gap-2">
+          <Button variant="primary" onClick={handleReauthorize} disabled={pending}>
+            Reabrir autorização
+          </Button>
+          <Button variant="outline" onClick={handleRefresh} disabled={pending}>
+            Verificar de novo
+          </Button>
+        </div>
       </div>
     )
   }

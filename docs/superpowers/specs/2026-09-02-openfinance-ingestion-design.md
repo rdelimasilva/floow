@@ -339,6 +339,9 @@ Registros feitos quando a doc estava inacessível e que a leitura desmentiu:
 | — (não previsto) | A conta traz `completed_authorised_payment_type`: lançamento agendado e transação em processamento não são gasto realizado. |
 | — (não previsto) | O cartão traz `bill_id`, **imutável depois de atribuído** — sync posterior sem `billId` não desfaz o vínculo. Serve de âncora para a visão de fatura. |
 | "paginação por `next_cursor`" | Correto, em `meta.next_cursor`; 500 itens por página, e `fromCreatedAt`+`fromUpdatedAt` juntos combinam com **OR**, não AND. |
+| — (não previsto) | **Recurso único vem envelopado em `data`.** `GET /consents/{id}`, o `POST /consents` e o `recreate` respondem `{ "data": { … } }`, não o objeto na raiz. Ler a raiz devolve um objeto sem `id`, e o `undefined` só aparece camadas adiante. Descoberto em produção, como erro de driver de banco. |
+| "`url_to_authenticate_expires_at` diz até quando o link vale" | **Não.** Dentro do link vai um `request_uri` de Pushed Authorization Request, que no Open Finance é de **uso único e vale dezenas de segundos**. A Polp anuncia uma hora para a URL, e o banco recusa muito antes com `invalid_request_uri: request_uri is invalid or expired`. Consequência de desenho: a URL nunca é guardada para depois — cria-se o consentimento e redireciona-se na hora; para tentar de novo, `POST /consents/{id}/recreate`. |
+| — (não previsto) | `GET /consents/{id}/resources` responde **401 quando o consentimento não está autorizado**. É 401 de estado, não de credencial — tratá-lo como credencial manda o usuário ao suporte por um passo normal do fluxo. |
 
 ## Riscos
 

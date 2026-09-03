@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import {
+  recreateBankAuthorization,
   refreshBankConnection,
   revokeBankConnection,
   syncBankConnection,
@@ -101,6 +102,22 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
     })
   }
 
+  function handleReauthorize(id: string) {
+    setBusyId(id)
+    startTransition(async () => {
+      try {
+        const { authUrl } = await recreateBankAuthorization(id)
+        // Redireciona na hora: o request_uri dentro do link é de uso único e
+        // vale dezenas de segundos. Guardar para clicar depois é o que produz
+        // "request_uri is invalid or expired" na página do banco.
+        window.location.href = authUrl
+      } catch (error) {
+        toast(error instanceof Error ? error.message : 'Não foi possível reabrir a autorização', 'error')
+        setBusyId(null)
+      }
+    })
+  }
+
   function handleRevoke(id: string) {
     setBusyId(id)
     startTransition(async () => {
@@ -137,7 +154,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
             </div>
 
             <div className="flex gap-2">
-              {connection.status === 'AUTHORISED' && (
+              {connection.status === 'AUTHORISED' ? (
                 <Button
                   size="sm"
                   variant="primary"
@@ -145,6 +162,15 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
                   disabled={pending && busyId === connection.id}
                 >
                   Sincronizar
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => handleReauthorize(connection.id)}
+                  disabled={pending && busyId === connection.id}
+                >
+                  Reabrir autorização
                 </Button>
               )}
               <Button
@@ -190,6 +216,13 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
                 </li>
               ))}
             </ul>
+          )}
+
+          {connection.status === 'AWAITING_AUTHORIZATION' && (
+            <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+              A autorização no banco não foi concluída. O link tem validade de poucos minutos, então
+              use Reabrir autorização e conclua o passo no banco em seguida.
+            </p>
           )}
 
           {connection.status === 'AUTHORISED' && connection.resources.length === 0 && (
