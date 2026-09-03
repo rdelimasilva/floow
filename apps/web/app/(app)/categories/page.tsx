@@ -16,6 +16,7 @@ export default async function CategoriesPage() {
     id: c.id,
     name: c.name,
     type: c.type,
+    parentId: c.parentId,
   }))
 
   return (

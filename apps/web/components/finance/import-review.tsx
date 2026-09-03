@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table'
 import type { PreviewItem, TransactionOverride } from '@/lib/finance/import-actions'
 import type { Account } from '@floow/db'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
@@ -29,6 +30,7 @@ interface CategoryOption {
   id: string
   name: string
   type: string
+  parentId?: string | null
 }
 
 interface ImportReviewProps {
@@ -202,11 +204,11 @@ export function ImportReview({
                           className="h-8 w-full min-w-[120px] rounded border border-gray-300 text-xs"
                         >
                           <option value="">Sem categoria</option>
-                          {categories
-                            .filter((c) => c.type === state.type || state.type === 'transfer')
-                            .map((c) => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
+                          {toCategoryOptions(
+                            categories.filter((c) => c.type === state.type || state.type === 'transfer'),
+                          ).map((c) => (
+                            <option key={c.id} value={c.id}>{c.label}</option>
+                          ))}
                         </select>
                         <button
                           type="button"

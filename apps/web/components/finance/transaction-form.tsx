@@ -21,6 +21,7 @@ import {
 import type { Account, Category } from '@floow/db'
 import { useToast } from '@/components/ui/toast'
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -337,9 +338,9 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
                   <SelectValue placeholder="Selecione a categoria (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filteredCategories.map((cat) => (
+                  {toCategoryOptions(filteredCategories).map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
+                      {cat.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

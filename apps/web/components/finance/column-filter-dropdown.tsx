@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 // ── Type Filter ─────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export function TypeFilter({ selected, onChange }: TypeFilterProps) {
 interface CategoryOption {
   id: string
   name: string
+  parentId?: string | null
 }
 
 interface CategoryFilterProps {
@@ -70,7 +72,7 @@ export function CategoryFilter({ categories, selected, onChange }: CategoryFilte
     <div className="space-y-1.5">
       <p className="text-xs font-medium text-gray-500">Categoria</p>
       <div className="max-h-48 overflow-y-auto space-y-1">
-        {categories.map((cat) => (
+        {toCategoryOptions(categories).map((cat) => (
           <label key={cat.id} className="flex items-center gap-2 text-sm cursor-pointer">
             <input
               type="checkbox"

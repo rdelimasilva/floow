@@ -68,7 +68,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }))
   const categoryOrderMap = new Map(categoryOrder.map((id, i) => [id, i]))
   const categoryOptions = categories
-    .map((c) => ({ id: c.id, name: c.name, type: c.type }))
+    .map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId }))
     .sort((a, b) => {
       const aIdx = categoryOrderMap.get(a.id) ?? 999
       const bIdx = categoryOrderMap.get(b.id) ?? 999

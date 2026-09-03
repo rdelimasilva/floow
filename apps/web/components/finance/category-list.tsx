@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DeleteCategoryDialog } from './delete-category-dialog'
+import { sortCategoryTree } from '@/lib/finance/category-options'
 
 interface Category {
   id: string
@@ -16,6 +17,7 @@ interface Category {
   icon: string | null
   isSystem: boolean
   orgId: string | null
+  parentId?: string | null
 }
 
 interface CategoryListProps {
@@ -92,8 +94,10 @@ export function CategoryList({ categories }: CategoryListProps) {
     setDeleteTarget(null)
   }
 
-  const incomeCategories = categories.filter((c) => c.type === 'income')
-  const expenseCategories = categories.filter((c) => c.type === 'expense')
+  // Ordem de arvore: a filha aparece logo abaixo do pai, nao perdida na ordem
+  // alfabetica global entre outras 140.
+  const incomeCategories = sortCategoryTree(categories.filter((c) => c.type === 'income'))
+  const expenseCategories = sortCategoryTree(categories.filter((c) => c.type === 'expense'))
 
   function renderCategoryGroup(title: string, cats: Category[]) {
     return (
@@ -109,7 +113,12 @@ export function CategoryList({ categories }: CategoryListProps) {
                 <Button size="sm" variant="primary" onClick={() => handleUpdate(cat.id)} disabled={loading} className="h-8">Salvar</Button>
               </div>
             ) : (
-              <div key={cat.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50">
+              <div
+                key={cat.id}
+                // A filha recuada mostra a que raiz pertence sem repetir o nome
+                // do pai em cada linha.
+                className={`flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50 ${cat.parentId ? 'ml-6' : ''}`}
+              >
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: cat.color ?? '#6b7280' }} />
                   <span className="text-sm text-foreground">{cat.name}</span>

@@ -11,6 +11,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { createDebt, updateDebt, deleteDebt } from '@/lib/finance/debt-actions'
 import { formatBRL } from '@floow/core-finance'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 interface DebtRow {
   id: string
@@ -268,8 +269,8 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                   <select value={formCategoryId} onChange={(e) => setFormCategoryId(e.target.value)} required className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                     <option value="">Selecione...</option>
                     <option value="__new__">+ Criar automaticamente</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                    {toCategoryOptions(categories).map((c) => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
                     ))}
                   </select>
                 </div>

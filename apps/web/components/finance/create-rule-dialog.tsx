@@ -6,11 +6,13 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 interface CategoryOption {
   id: string
   name: string
   type: string
+  parentId?: string | null
 }
 
 interface CreateRuleDialogProps {
@@ -175,9 +177,9 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
                   className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm"
                 >
                   <option value="">Selecione uma categoria</option>
-                  {categories.map((c) => (
+                  {toCategoryOptions(categories).map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}
+                      {c.label}
                     </option>
                   ))}
                 </select>

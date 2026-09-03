@@ -14,6 +14,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { formatBRL } from '@floow/core-finance'
 import { RecurringEntriesList } from './recurring-entries-list'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 interface CategoryOption {
   id: string
@@ -235,8 +236,8 @@ export function SpendingClient({
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                   >
                     <option value="">Selecione...</option>
-                    {availableCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                    {toCategoryOptions(availableCategories).map((c) => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
                     ))}
                   </select>
                   {!showNewCategory ? (

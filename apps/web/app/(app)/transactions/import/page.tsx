@@ -36,7 +36,7 @@ export default async function ImportPage() {
 
       <ImportForm
         accounts={accounts}
-        categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId }))}
       />
     </div>
   )

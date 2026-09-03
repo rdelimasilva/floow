@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 import { getCategoryUsage, reassignAndDeleteCategory, deleteCategory } from '@/lib/finance/actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 interface CategoryOption {
   id: string
   name: string
   type: 'income' | 'expense' | 'transfer'
+  parentId?: string | null
 }
 
 interface DeleteCategoryDialogProps {
@@ -81,8 +83,8 @@ export function DeleteCategoryDialog({
   const hasReferences = totalUsage > 0
 
   // Available replacement: same type, different id
-  const replacementOptions = allCategories.filter(
-    (c) => c.type === target.type && c.id !== target.id,
+  const replacementOptions = toCategoryOptions(
+    allCategories.filter((c) => c.type === target.type && c.id !== target.id),
   )
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
@@ -171,7 +173,7 @@ export function DeleteCategoryDialog({
                 >
                   <option value="">Selecione a categoria de destino...</option>
                   {replacementOptions.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>{c.label}</option>
                   ))}
                 </select>
               )}

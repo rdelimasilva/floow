@@ -23,6 +23,8 @@ export * from './cfo/types'
 export * from './cfo/analyzers'
 export { createAnthropicProvider } from './cfo/llm/anthropic'
 export { synthesizeInsights } from './cfo/llm/synthesizer'
+// Hierarquia de categorias — rollup de gasto para a categoria que tem teto
+export * from './category-tree'
 // Pacing de orçamento — orçado x realizado diário
 export * from './budget-pacing'
 // Open Finance — ingestão via Polp (Celcoin v2)

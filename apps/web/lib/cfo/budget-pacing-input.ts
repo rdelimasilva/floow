@@ -7,7 +7,7 @@
  */
 import { getDb, transactions, accounts, categories, budgetEntries } from '@floow/db'
 import { and, eq, gte, lte, isNull, or, sql } from 'drizzle-orm'
-import { computeBudgetPacing } from '@floow/core-finance'
+import { computeBudgetPacing, buildParentIndex, rollUpToBudgetedCategories } from '@floow/core-finance'
 import type { AccountKind, DailySpendRow } from '@floow/core-finance'
 import type { BudgetPacingAnalyzerInput } from '@floow/core-finance'
 import { saoPauloToday, monthStartUTC, monthEndUTC, monthKeyUTC } from '@/lib/finance/sp-date'
@@ -60,7 +60,7 @@ export async function buildBudgetPacingInput(
     )
     .groupBy(transactions.date, accounts.type, transactions.categoryId)
 
-  const daily: DailySpendRow[] = dailyRows.map((r) => ({
+  const rawDaily: DailySpendRow[] = dailyRows.map((r) => ({
     date: r.date,
     accountType: r.accountType as AccountKind,
     categoryId: r.categoryId,
@@ -68,9 +68,20 @@ export async function buildBudgetPacingInput(
   }))
 
   const categoryRows = await db
-    .select({ id: categories.id, name: categories.name })
+    .select({ id: categories.id, name: categories.name, parentId: categories.parentId })
     .from(categories)
     .where(or(eq(categories.orgId, orgId), isNull(categories.orgId)))
+
+  // A taxonomia da Polp tem dois níveis, e o teto pode estar em qualquer um
+  // deles. Sem subir o gasto da filha até a raiz orçada, um teto em
+  // "Alimentação" ignoraria o que cai em "Supermercado" e apareceria intocado
+  // enquanto o dinheiro sai. computeBudgetPacing casa por id e não sabe de
+  // hierarquia — de propósito.
+  const daily = rollUpToBudgetedCategories(
+    rawDaily,
+    buildParentIndex(categoryRows),
+    new Set(budgets.map((b) => b.categoryId)),
+  )
 
   return {
     pacing: computeBudgetPacing({ daily, budgets, monthStart, today }),

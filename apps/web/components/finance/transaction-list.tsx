@@ -12,6 +12,7 @@ import { TypeFilter, CategoryFilter, AmountFilter } from '@/components/finance/c
 import { TransactionMobileCard, TransactionDesktopRow } from './transaction-display-row'
 import { TransactionEditRow } from './transaction-edit-row'
 import type { TransactionRowData, AccountOption, CategoryOption } from './transaction-list-types'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 interface TransactionListProps {
   transactions: TransactionRowData[]
@@ -221,7 +222,7 @@ export function TransactionList({
               <div className="flex items-center gap-1.5">
                 <select value={bulkCatId} onChange={(e) => setBulkCatId(e.target.value)} className="h-8 rounded border border-gray-300 text-xs">
                   <option value="">Escolher categoria</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {toCategoryOptions(categories).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
                 <Button size="sm" variant="primary" onClick={handleBulkCategorize} disabled={bulkLoading || !bulkCatId}>Aplicar</Button>
                 <Button size="sm" variant="outline" onClick={() => setShowBulkCat(false)}>Cancelar</Button>

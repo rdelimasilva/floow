@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { currencyToCents, generateInstallmentDates, formatBRL } from '@floow/core-finance'
 import type { RecurringFrequency } from '@floow/core-finance'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 interface AccountOption {
   id: string
@@ -18,6 +19,7 @@ interface CategoryOption {
   id: string
   name: string
   type: string
+  parentId?: string | null
 }
 
 interface CreateRecurringDialogProps {
@@ -296,9 +298,9 @@ export function CreateRecurringDialog({
                 className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm"
               >
                 <option value="">Selecione a categoria (opcional)</option>
-                {filteredCategories.map((c) => (
+                {toCategoryOptions(filteredCategories).map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {c.label}
                   </option>
                 ))}
               </select>

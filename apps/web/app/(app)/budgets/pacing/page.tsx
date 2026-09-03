@@ -1,7 +1,7 @@
 import { getOrgId, getCategories } from '@/lib/finance/queries'
 import { getBudgetEntriesForMonth } from '@/lib/finance/budget-queries'
 import { getDailySpending } from '@/lib/finance/budget-daily-queries'
-import { computeBudgetPacing } from '@floow/core-finance'
+import { computeBudgetPacing, buildParentIndex, rollUpToBudgetedCategories } from '@floow/core-finance'
 import { saoPauloToday } from '@/lib/finance/sp-date'
 import { PacingClient } from './client'
 
@@ -29,11 +29,20 @@ export default async function BudgetPacingPage({ searchParams }: Props) {
     getDailySpending(orgId, monthStart, monthEnd),
   ])
 
+  const budgets = budgetEntries
+    .filter((e): e is typeof e & { categoryId: string } => e.categoryId !== null)
+    .map((e) => ({ categoryId: e.categoryId, plannedCents: e.plannedCents }))
+
   const result = computeBudgetPacing({
-    daily,
-    budgets: budgetEntries
-      .filter((e): e is typeof e & { categoryId: string } => e.categoryId !== null)
-      .map((e) => ({ categoryId: e.categoryId, plannedCents: e.plannedCents })),
+    // O gasto que cai numa categoria filha sobe para a raiz que tem o teto. O
+    // mesmo rollup roda em buildBudgetPacingInput, para o insight do CFO e esta
+    // tela nunca contarem o mesmo mês de formas diferentes.
+    daily: rollUpToBudgetedCategories(
+      daily,
+      buildParentIndex(categories),
+      new Set(budgets.map((b) => b.categoryId)),
+    ),
+    budgets,
     monthStart,
     today,
   })

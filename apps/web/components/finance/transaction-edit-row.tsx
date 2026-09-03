@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toDateInputValue, type TransactionRowData, type AccountOption, type CategoryOption } from './transaction-list-types'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 
 interface TransactionEditRowProps {
   tx: TransactionRowData
@@ -168,8 +169,8 @@ export function TransactionEditRow({
               className="h-8 w-full rounded border border-gray-300 text-xs"
             >
               <option value="">Sem categoria</option>
-              {localCategories.filter((c) => c.type === editType).map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              {toCategoryOptions(localCategories.filter((c) => c.type === editType)).map((c) => (
+                <option key={c.id} value={c.id}>{c.label}</option>
               ))}
               <option value="__new__">+ Criar nova...</option>
             </select>

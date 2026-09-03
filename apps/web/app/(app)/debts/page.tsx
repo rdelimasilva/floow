@@ -11,7 +11,7 @@ export default async function DebtsPage() {
 
   const expenseCategories = categories
     .filter((c) => c.type === 'expense')
-    .map((c) => ({ id: c.id, name: c.name }))
+    .map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }))
 
   return (
     <DebtsClient
