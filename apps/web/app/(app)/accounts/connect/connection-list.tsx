@@ -4,7 +4,11 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
-import { refreshBankConnection, revokeBankConnection } from '@/lib/openfinance/connection-actions'
+import {
+  refreshBankConnection,
+  revokeBankConnection,
+  syncBankConnection,
+} from '@/lib/openfinance/connection-actions'
 import type { BankConnectionSummary } from '@/lib/openfinance/queries'
 
 /**
@@ -63,6 +67,28 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
     })
   }
 
+  function handleSync(id: string) {
+    setBusyId(id)
+    startTransition(async () => {
+      try {
+        const summary = await syncBankConnection(id)
+        if (summary.skippedUnlinked > 0 && summary.imported === 0 && summary.updated === 0) {
+          toast('Nenhuma conta vinculada ainda — escolha a conta de cada item primeiro.', 'error')
+          return
+        }
+        toast(
+          summary.imported === 0
+            ? 'Nada novo desde a última sincronização.'
+            : `${summary.imported} ${summary.imported === 1 ? 'transação importada' : 'transações importadas'}.`,
+        )
+      } catch (error) {
+        toast(error instanceof Error ? error.message : 'Não foi possível sincronizar', 'error')
+      } finally {
+        setBusyId(null)
+      }
+    })
+  }
+
   function handleRevoke(id: string) {
     setBusyId(id)
     startTransition(async () => {
@@ -99,6 +125,16 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
             </div>
 
             <div className="flex gap-2">
+              {connection.status === 'AUTHORISED' && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => handleSync(connection.id)}
+                  disabled={pending && busyId === connection.id}
+                >
+                  Sincronizar
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"

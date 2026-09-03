@@ -19,8 +19,10 @@ import { getDb, openfinanceConnections, openfinanceResources } from '@floow/db'
 import type { PolpProduct, PolpResource } from '@floow/core-finance'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/finance/queries'
+import { accountsTag, transactionsTag, invalidateTag } from '@/lib/cache-tags'
 import { getCpfSalt, getPolpClient } from './config'
 import { hashCpf, isValidCpf, maskCpf } from './cpf'
+import { syncConnectionTransactions, type SyncSummary } from './sync'
 
 /** Os únicos produtos que esta fase sabe ingerir. */
 const SUPPORTED_PRODUCTS: PolpProduct[] = ['ACCOUNT', 'CREDIT_CARD_ACCOUNT']
@@ -275,4 +277,42 @@ export async function revokeBankConnection(connectionId: string): Promise<void> 
     .where(eq(openfinanceConnections.id, connection.id))
 
   revalidatePath('/accounts')
+}
+
+/**
+ * Puxa as transacoes das contas vinculadas desta conexao.
+ *
+ * E o mesmo caminho que o webhook vai acionar quando existir: la a janela sera
+ * menor e o gatilho automatico, mas o codigo que grava e este.
+ */
+export async function syncBankConnection(connectionId: string): Promise<SyncSummary> {
+  const orgId = await getOrgId()
+  const db = getDb()
+
+  const [connection] = await db
+    .select({
+      id: openfinanceConnections.id,
+      orgId: openfinanceConnections.orgId,
+      status: openfinanceConnections.status,
+    })
+    .from(openfinanceConnections)
+    .where(and(eq(openfinanceConnections.id, connectionId), eq(openfinanceConnections.orgId, orgId)))
+    .limit(1)
+
+  if (!connection) throw new Error('Conexão não encontrada')
+  if (connection.status !== 'AUTHORISED') {
+    throw new Error('A conexão ainda não foi autorizada no banco')
+  }
+
+  const summary = await syncConnectionTransactions(db, getPolpClient(), {
+    id: connection.id,
+    orgId: connection.orgId,
+  })
+
+  await invalidateTag(accountsTag(orgId))
+  await invalidateTag(transactionsTag(orgId))
+  revalidatePath('/accounts')
+  revalidatePath('/transactions')
+
+  return summary
 }

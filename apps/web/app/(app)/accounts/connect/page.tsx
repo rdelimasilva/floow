@@ -38,7 +38,12 @@ export default async function ConnectBankPage() {
   try {
     const all = await getPolpClient().listInstitutions()
     institutions = all
-      .filter((i) => i.status === 'OPERATIONAL')
+      // OPERATIONAL porque o POST /consents exige; e só instituições que
+      // aceitam conexão de pessoa física, porque o wizard pede apenas CPF.
+      // Das 211 que a Polp lista, 22 são BUSINESS e exigem CNPJ: oferecê-las
+      // aqui seria deixar o usuário escolher um banco que vai recusar o
+      // consentimento depois de ele já ter digitado o CPF.
+      .filter((i) => i.status === 'OPERATIONAL' && (i.type === 'PERSONAL' || i.type === 'BOTH'))
       .map((i) => ({ id: i.id, name: i.name, logoUrl: i.logo_url, type: i.type }))
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
   } catch {
