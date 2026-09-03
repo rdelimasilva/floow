@@ -228,8 +228,8 @@ export function createPolpClient(config: PolpClientConfig): PolpClient {
       return collect<PolpInstitution>('/institutions')
     },
 
-    createConsent(input) {
-      return request<PolpConsent>('POST', '/consents', {
+    async createConsent(input) {
+      const payload = await request<unknown>('POST', '/consents', {
         body: {
           institution_id: input.institutionId,
           cpf: input.cpf,
@@ -239,14 +239,21 @@ export function createPolpClient(config: PolpClientConfig): PolpClient {
           avoidDuplicates: input.avoidDuplicates ?? true,
         },
       })
+
+      return assertConsent(unwrap<PolpConsent>(payload), 'POST /consents')
     },
 
-    getConsent(consentId) {
-      return request<PolpConsent>('GET', `/consents/${encodeURIComponent(consentId)}`)
+    async getConsent(consentId) {
+      const payload = await request<unknown>('GET', `/consents/${encodeURIComponent(consentId)}`)
+      return assertConsent(unwrap<PolpConsent>(payload), 'GET /consents/{id}')
     },
 
-    recreateConsent(consentId) {
-      return request<PolpConsent>('POST', `/consents/${encodeURIComponent(consentId)}/recreate`)
+    async recreateConsent(consentId) {
+      const payload = await request<unknown>(
+        'POST',
+        `/consents/${encodeURIComponent(consentId)}/recreate`,
+      )
+      return assertConsent(unwrap<PolpConsent>(payload), 'POST /consents/{id}/recreate')
     },
 
     async revokeConsent(consentId) {
@@ -276,9 +283,42 @@ export function createPolpClient(config: PolpClientConfig): PolpClient {
   }
 }
 
+/**
+ * A API envelopa recurso único em `data` — `GET /consents/{id}` responde
+ * `{ "data": { "id": ... } }`, não o objeto na raiz. Ler a raiz devolvia um
+ * objeto sem `id`, e o `undefined` só aparecia lá adiante, quando ele chegava
+ * como parâmetro de query: "UNDEFINED_VALUE: Undefined values are not allowed".
+ *
+ * Aceita as duas formas de propósito: se um endpoint responder sem envelope, o
+ * cliente continua funcionando em vez de devolver `undefined` silenciosamente.
+ */
+function unwrap<T>(payload: unknown): T {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return (payload as { data: T }).data
+  }
+  return payload as T
+}
+
 /** 500ms, 1s, 2s, 4s… com teto de 8s. */
 function backoffMs(attempt: number): number {
   return Math.min(500 * 2 ** attempt, 8000)
+}
+
+/**
+ * Um consentimento sem `id` não serve para nada: ele é a chave de tudo que vem
+ * depois, do webhook à revogação. Falhar aqui, com o nome da rota, é melhor que
+ * deixar o `undefined` viajar até virar erro de driver de banco três camadas
+ * adiante — foi exatamente o que aconteceu.
+ */
+function assertConsent(consent: PolpConsent | undefined, rota: string): PolpConsent {
+  if (!consent?.id) {
+    throw new PolpApiError(
+      `${rota} respondeu sem o id do consentimento`,
+      200,
+      JSON.stringify(consent ?? null).slice(0, 300),
+    )
+  }
+  return consent
 }
 
 function parseRetryAfter(header: string | null): number | null {

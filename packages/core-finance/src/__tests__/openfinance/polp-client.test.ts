@@ -52,7 +52,9 @@ function harness(responses: ReturnType<typeof fakeResponse>[], overrides: Partia
   return { client, calls, slept }
 }
 
-const consent = { id: 'consent-1', status: 'AWAITING_AUTHORIZATION' }
+// Formato real da API, conferido em 2026-09-03: recurso único vem em `data`.
+const consentPayload = { data: { id: 'consent-1', status: 'AWAITING_AUTHORIZATION' } }
+const consent = consentPayload
 
 describe('createPolpClient — autenticação e corpo', () => {
   it('manda as credenciais em header, nunca na URL', async () => {
@@ -227,5 +229,47 @@ describe('pickTransactionQuery', () => {
   it('aceita a string com ou sem a interrogação', () => {
     expect(pickTransactionQuery('?fromDate=2026-09-01')).toEqual({ fromDate: '2026-09-01' })
     expect(pickTransactionQuery('')).toEqual({})
+  })
+})
+
+describe('createPolpClient — envelope da resposta', () => {
+  it('desembrulha o `data` de um recurso único', async () => {
+    // A API responde { "data": { "id": ... } }. Ler a raiz devolvia um objeto
+    // sem id, e o undefined só estourava três camadas adiante, como
+    // "UNDEFINED_VALUE" do driver de banco.
+    const { client } = harness([fakeResponse(200, { data: { id: 'consent-9', status: 'AUTHORISED' } })])
+
+    const consent = await client.getConsent('consent-9')
+    expect(consent.id).toBe('consent-9')
+    expect(consent.status).toBe('AUTHORISED')
+  })
+
+  it('aceita resposta sem envelope, se algum endpoint mudar', async () => {
+    const { client } = harness([fakeResponse(200, { id: 'consent-7', status: 'AUTHORISED' })])
+    expect((await client.getConsent('consent-7')).id).toBe('consent-7')
+  })
+
+  it('falha com o nome da rota quando volta consentimento sem id', async () => {
+    // Sem esta checagem o undefined viajava até virar erro de driver, num lugar
+    // que não dizia nada sobre a causa.
+    const { client } = harness([fakeResponse(200, { data: { status: 'AUTHORISED' } })])
+
+    await expect(client.getConsent('x')).rejects.toThrow(/sem o id do consentimento/)
+  })
+
+  it('desembrulha também na criação e no recreate', async () => {
+    const { client } = harness([
+      fakeResponse(201, { data: { id: 'novo-1', status: 'AWAITING_AUTHORIZATION' } }),
+      fakeResponse(200, { data: { id: 'novo-1', status: 'AWAITING_AUTHORIZATION' } }),
+    ])
+
+    const criado = await client.createConsent({
+      institutionId: 'i',
+      cpf: '52998224725',
+      products: ['ACCOUNT'],
+    })
+    expect(criado.id).toBe('novo-1')
+
+    expect((await client.recreateConsent('novo-1')).id).toBe('novo-1')
   })
 })

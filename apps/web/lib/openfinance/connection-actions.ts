@@ -16,7 +16,7 @@
 import { revalidatePath } from 'next/cache'
 import { and, eq, isNull } from 'drizzle-orm'
 import { getDb, openfinanceConnections, openfinanceResources } from '@floow/db'
-import type { PolpProduct, PolpResource } from '@floow/core-finance'
+import { PolpApiError, type PolpProduct, type PolpResource } from '@floow/core-finance'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/finance/queries'
 import { accountsTag, transactionsTag, invalidateTag } from '@/lib/cache-tags'
@@ -208,9 +208,15 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
     }
   }
 
-  const remote = await comErroTraduzido(() =>
-    client.listConsentResources(connection.polpConsentId),
-  )
+  // Esta rota responde 401 enquanto o consentimento não está de fato
+  // autorizado — 401 de ESTADO, não de credencial. E o consentimento pode estar
+  // AUTHORISED com os recursos ainda não liberados pela instituição. Nos dois
+  // casos o certo é seguir com lista vazia e deixar o usuário tentar de novo,
+  // não gritar "credenciais inválidas" e mandá-lo para o suporte.
+  const remote = await client.listConsentResources(connection.polpConsentId).catch((error) => {
+    if (error instanceof PolpApiError && [401, 403, 404].includes(error.status)) return []
+    throw new Error(describePolpError(error))
+  })
   const { pending, conflicting } = await persistResources(db, connection.id, connection.orgId, remote)
 
   const stored = await db
