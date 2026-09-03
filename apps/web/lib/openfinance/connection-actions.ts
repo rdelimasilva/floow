@@ -22,6 +22,7 @@ import { getOrgId } from '@/lib/finance/queries'
 import { accountsTag, transactionsTag, invalidateTag } from '@/lib/cache-tags'
 import { getCpfSalt, getPolpClient } from './config'
 import { hashCpf, isValidCpf, maskCpf } from './cpf'
+import { decideResourceRouting } from './resource-routing'
 import { syncConnectionTransactions, type SyncSummary } from './sync'
 
 /** Os únicos produtos que esta fase sabe ingerir. */
@@ -100,6 +101,24 @@ export async function startBankConnection(
     products,
   })
 
+  // `avoidDuplicates: true` faz a Polp DEVOLVER um consentimento que ja existe
+  // para o mesmo CPF na mesma instituicao, em vez de criar outro. Se esse
+  // consentimento e de outra org, gravar aqui violaria a unicidade de
+  // polp_consent_id e o usuario veria um erro de constraint. Pior que o erro
+  // feio seria a alternativa: duas orgs penduradas no mesmo consentimento
+  // significa extrato de um CPF visivel em dois tenants.
+  const [jaRegistrado] = await db
+    .select({ orgId: openfinanceConnections.orgId })
+    .from(openfinanceConnections)
+    .where(eq(openfinanceConnections.polpConsentId, consent.id))
+    .limit(1)
+
+  if (jaRegistrado && jaRegistrado.orgId !== orgId) {
+    throw new Error(
+      'Este CPF já está conectado a esta instituição em outra organização. Revogue a conexão lá antes de conectar aqui.',
+    )
+  }
+
   const [connection] = await db
     .insert(openfinanceConnections)
     .values({
@@ -134,6 +153,8 @@ export interface ConnectionSyncResult {
   resources: { id: string; resourceType: string; status: string; accountId: string | null }[]
   /** Recursos que a Polp ainda não persistiu — precisam de nova consulta. */
   pendingResourceCount: number
+  /** Recursos que já pertencem a outra org — não foram registrados aqui. */
+  conflictingResourceCount: number
 }
 
 /**
@@ -177,11 +198,12 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
       flags: consent.flags ?? [],
       resources: [],
       pendingResourceCount: 0,
+      conflictingResourceCount: 0,
     }
   }
 
   const remote = await client.listConsentResources(connection.polpConsentId)
-  const pendingResourceCount = await persistResources(db, connection.id, connection.orgId, remote)
+  const { pending, conflicting } = await persistResources(db, connection.id, connection.orgId, remote)
 
   const stored = await db
     .select({
@@ -200,24 +222,32 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
     executionStatus: consent.execution_status ?? null,
     flags: consent.flags ?? [],
     resources: stored,
-    pendingResourceCount,
+    pendingResourceCount: pending,
+    conflictingResourceCount: conflicting,
   }
 }
 
 /**
  * Grava cada recurso com o org_id da conexão — nunca de outra fonte.
  *
- * Devolve quantos vieram sem `resource_id`: a Polp ainda não os persistiu, e
- * sem esse id não há como rotear o webhook daquele recurso. Não são um erro,
- * são um "volte a consultar".
+ * `pending` são os que vieram sem `resource_id`: a Polp ainda não os persistiu,
+ * e sem esse id não há como rotear o webhook daquele recurso. Não são erro, são
+ * um "volte a consultar".
+ *
+ * `conflicting` são os que já existem sob OUTRA org. `polp_resource_id` é único
+ * globalmente — é o que torna o roteamento do webhook determinístico —, então a
+ * mesma conta bancária não pode pertencer a duas orgs. Antes esta função dava
+ * UPDATE sem conferir a org: a segunda org silenciosamente atualizava a linha da
+ * primeira e ficava sem recurso nenhum, sem erro em lugar algum.
  */
 async function persistResources(
   db: ReturnType<typeof getDb>,
   connectionId: string,
   orgId: string,
   remote: PolpResource[],
-): Promise<number> {
+): Promise<{ pending: number; conflicting: number }> {
   let pending = 0
+  let conflicting = 0
 
   for (const resource of remote) {
     if (!SUPPORTED_RESOURCE_TYPES.has(resource.type)) continue
@@ -228,16 +258,28 @@ async function persistResources(
     }
 
     const [existing] = await db
-      .select({ id: openfinanceResources.id })
+      .select({ id: openfinanceResources.id, orgId: openfinanceResources.orgId })
       .from(openfinanceResources)
       .where(eq(openfinanceResources.polpResourceId, resource.resource_id))
       .limit(1)
 
-    if (existing) {
+    const decision = decideResourceRouting(existing, orgId)
+
+    if (decision.action === 'conflict') {
+      conflicting++
+      continue
+    }
+
+    if (decision.action === 'update') {
       await db
         .update(openfinanceResources)
         .set({ status: resource.status, updatedAt: new Date() })
-        .where(eq(openfinanceResources.id, existing.id))
+        .where(
+          and(
+            eq(openfinanceResources.id, decision.resourceId),
+            eq(openfinanceResources.orgId, orgId),
+          ),
+        )
       continue
     }
 
@@ -250,7 +292,7 @@ async function persistResources(
     })
   }
 
-  return pending
+  return { pending, conflicting }
 }
 
 /** Revoga o consentimento na Polp e marca a conexão como encerrada. */

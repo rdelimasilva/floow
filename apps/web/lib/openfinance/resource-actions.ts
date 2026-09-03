@@ -12,15 +12,27 @@
  */
 
 import { revalidatePath } from 'next/cache'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, ne } from 'drizzle-orm'
 import { getDb, accounts, openfinanceResources } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
 
-/** Conta espelho para cada tipo de recurso. */
+/** Conta espelho criada para cada tipo de recurso. */
 const ACCOUNT_TYPE_BY_RESOURCE: Record<string, 'checking' | 'credit_card'> = {
   ACCOUNT: 'checking',
   CREDIT_CARD_ACCOUNT: 'credit_card',
+}
+
+/**
+ * Tipos de conta do floow que aceitam cada tipo de recurso.
+ *
+ * A tela já filtra, mas a validação tem de existir aqui: server action é
+ * endpoint, e vincular um cartão a uma conta corrente jogaria fatura no saldo
+ * de caixa — dinheiro que não saiu contando como saído.
+ */
+const COMPATIBLE_ACCOUNT_TYPES: Record<string, string[]> = {
+  ACCOUNT: ['checking', 'savings', 'cash'],
+  CREDIT_CARD_ACCOUNT: ['credit_card'],
 }
 
 export type LinkTarget =
@@ -41,8 +53,13 @@ export async function linkResourceToAccount(resourceId: string, target: LinkTarg
 
   const accountId =
     target.kind === 'existing'
-      ? await assertAccountInOrg(db, target.accountId, orgId)
+      ? await assertLinkableAccount(db, orgId, target.accountId, resource.resourceType)
       : await createMirrorAccount(db, orgId, target.name, resource.resourceType)
+
+  // Uma conta do floow espelha UM recurso. Duas contas do banco apontando para
+  // a mesma conta local somariam dois extratos no mesmo saldo, e o dedupe por
+  // (external_id, account_id) não pegaria: os ids das transações são diferentes.
+  await assertAccountIsFree(db, orgId, accountId, resource.id)
 
   await db
     .update(openfinanceResources)
@@ -66,19 +83,54 @@ export async function unlinkResource(resourceId: string): Promise<void> {
   revalidatePath('/accounts')
 }
 
-async function assertAccountInOrg(
+async function assertLinkableAccount(
   db: ReturnType<typeof getDb>,
-  accountId: string,
   orgId: string,
+  accountId: string,
+  resourceType: string,
 ): Promise<string> {
   const [account] = await db
-    .select({ id: accounts.id })
+    .select({ id: accounts.id, type: accounts.type })
     .from(accounts)
     .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
     .limit(1)
 
   if (!account) throw new Error('Conta não encontrada')
+
+  const aceitos = COMPATIBLE_ACCOUNT_TYPES[resourceType] ?? []
+  if (!aceitos.includes(account.type)) {
+    throw new Error(
+      resourceType === 'CREDIT_CARD_ACCOUNT'
+        ? 'Um cartão de crédito só pode ser vinculado a uma conta do tipo cartão.'
+        : 'Esta conta bancária não pode ser vinculada a uma conta de cartão.',
+    )
+  }
+
   return account.id
+}
+
+/** A conta local já espelha outro recurso? */
+async function assertAccountIsFree(
+  db: ReturnType<typeof getDb>,
+  orgId: string,
+  accountId: string,
+  resourceId: string,
+): Promise<void> {
+  const [ocupada] = await db
+    .select({ id: openfinanceResources.id })
+    .from(openfinanceResources)
+    .where(
+      and(
+        eq(openfinanceResources.orgId, orgId),
+        eq(openfinanceResources.accountId, accountId),
+        ne(openfinanceResources.id, resourceId),
+      ),
+    )
+    .limit(1)
+
+  if (ocupada) {
+    throw new Error('Esta conta do floow já está vinculada a outra conta do banco.')
+  }
 }
 
 async function createMirrorAccount(

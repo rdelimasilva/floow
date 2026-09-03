@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, notExists, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, notExists, or, sql } from 'drizzle-orm'
 import {
   getDb,
   accounts,
@@ -48,9 +48,10 @@ export async function syncConnectionTransactions(
     .from(openfinanceResources)
     .where(eq(openfinanceResources.connectionId, connection.id))
 
-  const [categoryByRef, rules] = await Promise.all([
+  const [categoryByRef, rules, creditCardConnected] = await Promise.all([
     loadCategoryIndex(db, connection.orgId),
     loadRules(db, connection.orgId),
+    hasLinkedCreditCard(db, connection.orgId),
   ])
 
   const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0 }
@@ -73,9 +74,12 @@ export async function syncConnectionTransactions(
     const pages =
       resource.resourceType === 'CREDIT_CARD_ACCOUNT'
         ? mapPages(client.streamCardTransactions(resource.polpResourceId, query), normalizeCardTransaction)
-        : mapPages(
-            client.streamAccountTransactions(resource.polpResourceId, query),
-            normalizeAccountTransaction,
+        : mapPages(client.streamAccountTransactions(resource.polpResourceId, query), (tx) =>
+            // `creditCardConnected` decide o destino do pagamento de fatura que
+            // aparece na conta corrente. Sem passá-lo, o pagamento entrava como
+            // despesa ao lado das compras do cartão e o mês de cartão era
+            // contado DUAS vezes no orçamento.
+            normalizeAccountTransaction(tx, { creditCardConnected }),
           )
 
     for await (const page of pages) {
@@ -150,6 +154,36 @@ async function loadCategoryIndex(db: Db, orgId: string): Promise<Map<string, str
     if (daOrg || !index.has(row.polpRef)) index.set(row.polpRef, row.id)
   }
   return index
+}
+
+/**
+ * A org tem algum cartao de credito conectado E vinculado a uma conta?
+ *
+ * Se tem, o pagamento de fatura que aparece na conta corrente e transferencia:
+ * as compras que ele quita ja entraram uma a uma. Se nao tem, aquele pagamento
+ * e o unico registro daquele gasto e precisa contar como despesa.
+ *
+ * Limitacao conhecida: o critério é por org, nao por cartao. Quem tem um cartao
+ * conectado e outro fora do floow vai ter o pagamento da fatura do segundo
+ * tratado como transferencia, e aquele gasto fica subestimado. A transacao da
+ * conta nao diz de qual cartao e a fatura, entao nao ha como casar sem chutar —
+ * e chutar errado aqui dobra ou apaga um mes inteiro de gasto. O `category_ref`
+ * original fica gravado, o que deixa o caso rastreavel para revisao.
+ */
+async function hasLinkedCreditCard(db: Db, orgId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: openfinanceResources.id })
+    .from(openfinanceResources)
+    .where(
+      and(
+        eq(openfinanceResources.orgId, orgId),
+        eq(openfinanceResources.resourceType, 'CREDIT_CARD_ACCOUNT'),
+        isNotNull(openfinanceResources.accountId),
+      ),
+    )
+    .limit(1)
+
+  return Boolean(row)
 }
 
 /**
@@ -231,7 +265,10 @@ async function persistPage(
           // Categoria manual do usuário nunca é sobrescrita (mesma regra da v1.1).
           ...(categoryId ? { categoryId: sql`COALESCE(${transactions.categoryId}, ${categoryId})` } : {}),
         })
-        .where(eq(transactions.id, existingId))
+        // O id ja veio de uma consulta filtrada por org; repetir o filtro aqui
+        // e defesa em profundidade — no caminho do app o RLS nao vale, porque a
+        // conexao usa o role dono do banco.
+        .where(and(eq(transactions.id, existingId), eq(transactions.orgId, input.orgId)))
 
       updated++
       continue

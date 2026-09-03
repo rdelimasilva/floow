@@ -54,6 +54,18 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
     startTransition(async () => {
       try {
         const result = await refreshBankConnection(id)
+
+        if (result.conflictingResourceCount > 0) {
+          // Uma conta do banco pertence a exatamente uma organização: é assim
+          // que o floow sabe de quem é cada transação que chega. Silenciar isso
+          // deixaria a conta faltando na lista sem explicação.
+          toast(
+            `${result.conflictingResourceCount === 1 ? 'Uma conta' : `${result.conflictingResourceCount} contas`} deste consentimento já pertence a outra organização e não foi vinculada aqui.`,
+            'error',
+          )
+          return
+        }
+
         toast(
           result.pendingResourceCount > 0
             ? 'Atualizado. O banco ainda está preparando parte das contas.'

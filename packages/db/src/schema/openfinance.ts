@@ -6,6 +6,7 @@
  * trazem apenas um resource_id. Estas tabelas existem para que o floow saiba de
  * qual org é cada dado que chega, antes de aceitá-lo.
  */
+import { sql } from 'drizzle-orm'
 import {
   pgTable,
   uuid,
@@ -79,6 +80,10 @@ export const openfinanceResources = pgTable(
   },
   (table) => ({
     uqPolpId: uniqueIndex('uq_openfinance_resources_polp_id').on(table.polpResourceId),
+    // Uma conta do floow espelha um recurso so; ver migration 00030.
+    uqAccount: uniqueIndex('uq_openfinance_resources_account')
+      .on(table.accountId)
+      .where(sql`account_id IS NOT NULL`),
     idxOrgType: index('idx_openfinance_resources_org_type').on(table.orgId, table.resourceType),
     idxConnection: index('idx_openfinance_resources_connection').on(table.connectionId),
   })

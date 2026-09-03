@@ -52,9 +52,12 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
       try {
         const result = await refreshBankConnection(connectionId)
         toast(
-          result.resources.length === 0
-            ? 'O banco ainda não liberou as contas. Tente de novo em alguns minutos.'
-            : 'Contas atualizadas.',
+          result.conflictingResourceCount > 0
+            ? 'Parte das contas deste consentimento já pertence a outra organização.'
+            : result.resources.length === 0
+              ? 'O banco ainda não liberou as contas. Tente de novo em alguns minutos.'
+              : 'Contas atualizadas.',
+          result.conflictingResourceCount > 0 ? 'error' : undefined,
         )
         router.refresh()
       } catch (error) {
