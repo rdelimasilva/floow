@@ -22,6 +22,7 @@ import { getOrgId } from '@/lib/finance/queries'
 import { accountsTag, transactionsTag, invalidateTag } from '@/lib/cache-tags'
 import { getCpfSalt, getPolpClient } from './config'
 import { hashCpf, isValidCpf, maskCpf } from './cpf'
+import { describePolpError } from './errors'
 import { decideResourceRouting } from './resource-routing'
 import { syncConnectionTransactions, type SyncSummary } from './sync'
 
@@ -92,14 +93,19 @@ export async function startBankConnection(
     data: { session },
   } = await supabase.auth.getSession()
 
-  const consent = await getPolpClient().createConsent({
-    institutionId: input.institutionId,
-    cpf: input.cpf,
-    // Defesa em profundidade (D3): o webhook não devolve este campo, mas ele
-    // permite conferir o vínculo de forma independente em GET /consents/{id}.
-    clienteUserId: orgId,
-    products,
-  })
+  // A falha aqui e a mais provavel de todo o fluxo (plano, credencial, CPF
+  // recusado pelo banco), e e a que o usuario le na tela. O status cru nao
+  // diria a ele o que fazer em seguida.
+  const consent = await comErroTraduzido(() =>
+    getPolpClient().createConsent({
+      institutionId: input.institutionId,
+      cpf: input.cpf,
+      // Defesa em profundidade (D3): o webhook não devolve este campo, mas ele
+      // permite conferir o vínculo de forma independente em GET /consents/{id}.
+      clienteUserId: orgId,
+      products,
+    }),
+  )
 
   // `avoidDuplicates: true` faz a Polp DEVOLVER um consentimento que ja existe
   // para o mesmo CPF na mesma instituicao, em vez de criar outro. Se esse
@@ -179,7 +185,7 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
   if (!connection) throw new Error('Conexão não encontrada')
 
   const client = getPolpClient()
-  const consent = await client.getConsent(connection.polpConsentId)
+  const consent = await comErroTraduzido(() => client.getConsent(connection.polpConsentId))
 
   await db
     .update(openfinanceConnections)
@@ -202,7 +208,9 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
     }
   }
 
-  const remote = await client.listConsentResources(connection.polpConsentId)
+  const remote = await comErroTraduzido(() =>
+    client.listConsentResources(connection.polpConsentId),
+  )
   const { pending, conflicting } = await persistResources(db, connection.id, connection.orgId, remote)
 
   const stored = await db
@@ -308,7 +316,7 @@ export async function revokeBankConnection(connectionId: string): Promise<void> 
 
   if (!connection) throw new Error('Conexão não encontrada')
 
-  await getPolpClient().revokeConsent(connection.polpConsentId)
+  await comErroTraduzido(() => getPolpClient().revokeConsent(connection.polpConsentId))
 
   // As transações já importadas continuam onde estão: são do usuário, e apagá-
   // las junto seria destruir histórico que ele espera manter. O que acaba é o
@@ -346,10 +354,12 @@ export async function syncBankConnection(connectionId: string): Promise<SyncSumm
     throw new Error('A conexão ainda não foi autorizada no banco')
   }
 
-  const summary = await syncConnectionTransactions(db, getPolpClient(), {
-    id: connection.id,
-    orgId: connection.orgId,
-  })
+  const summary = await comErroTraduzido(() =>
+    syncConnectionTransactions(db, getPolpClient(), {
+      id: connection.id,
+      orgId: connection.orgId,
+    }),
+  )
 
   await invalidateTag(accountsTag(orgId))
   await invalidateTag(transactionsTag(orgId))
@@ -357,4 +367,18 @@ export async function syncBankConnection(connectionId: string): Promise<SyncSumm
   revalidatePath('/transactions')
 
   return summary
+}
+
+/**
+ * Roda a chamada e substitui a falha da Polp por uma frase acionavel.
+ *
+ * O erro original nao e engolido: describePolpError le status, Retry-After e o
+ * corpo da resposta para montar a mensagem.
+ */
+async function comErroTraduzido<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (error) {
+    throw new Error(describePolpError(error))
+  }
 }
