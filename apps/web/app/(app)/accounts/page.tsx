@@ -19,6 +19,9 @@ export default async function AccountsPage() {
         title="Contas"
         description={accounts.length > 0 ? 'Patrimônio total' : undefined}
       >
+        <Button asChild variant="outline">
+          <Link href="/accounts/connect">Conectar Banco</Link>
+        </Button>
         <Button asChild variant="primary">
           <Link href="/accounts/new">Nova Conta</Link>
         </Button>

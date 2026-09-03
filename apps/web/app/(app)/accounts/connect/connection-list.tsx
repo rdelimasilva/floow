@@ -1,0 +1,157 @@
+'use client'
+
+import Link from 'next/link'
+import { useState, useTransition } from 'react'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/toast'
+import { refreshBankConnection, revokeBankConnection } from '@/lib/openfinance/connection-actions'
+import type { BankConnectionSummary } from '@/lib/openfinance/queries'
+
+/**
+ * Rótulos dos status que o usuário vê.
+ *
+ * Dois deles enganam se traduzidos ao pé da letra e por isso são explicados na
+ * própria interface: `PARTIAL_SUCCESS` não é falha (os dados principais já
+ * estão lá e a Polp segue tentando o resto sozinha), e um recurso
+ * `TEMPORARILY_UNAVAILABLE` volta — dizer que a conta caiu seria alarme falso.
+ */
+const STATUS_LABEL: Record<string, string> = {
+  AWAITING_AUTHORIZATION: 'Aguardando autorização no banco',
+  AUTHORISED: 'Conectado',
+  REJECTED: 'Recusado pelo banco',
+  EXPIRED: 'Expirado',
+}
+
+const EXECUTION_LABEL: Record<string, string> = {
+  AWAITING_RESOURCES: 'O banco ainda está enviando os dados',
+  SUCCESS: 'Dados importados',
+  PARTIAL_SUCCESS: 'Dados disponíveis; parte do enriquecimento ainda em andamento',
+}
+
+const RESOURCE_LABEL: Record<string, string> = {
+  ACCOUNT: 'Conta',
+  CREDIT_CARD_ACCOUNT: 'Cartão de crédito',
+}
+
+const RESOURCE_STATUS_LABEL: Record<string, string> = {
+  AVAILABLE: 'Disponível',
+  UNAVAILABLE: 'Encerrado',
+  TEMPORARILY_UNAVAILABLE: 'Indisponível no momento',
+  PENDING_AUTHORISATION: 'Aguardando os demais titulares',
+}
+
+export function ConnectionList({ connections }: { connections: BankConnectionSummary[] }) {
+  const { toast } = useToast()
+  const [pending, startTransition] = useTransition()
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  function handleRefresh(id: string) {
+    setBusyId(id)
+    startTransition(async () => {
+      try {
+        const result = await refreshBankConnection(id)
+        toast(
+          result.pendingResourceCount > 0
+            ? 'Atualizado. O banco ainda está preparando parte das contas.'
+            : 'Conexão atualizada.',
+        )
+      } catch (error) {
+        toast(error instanceof Error ? error.message : 'Não foi possível atualizar', 'error')
+      } finally {
+        setBusyId(null)
+      }
+    })
+  }
+
+  function handleRevoke(id: string) {
+    setBusyId(id)
+    startTransition(async () => {
+      try {
+        await revokeBankConnection(id)
+        toast('Conexão encerrada. As transações já importadas continuam no floow.')
+      } catch (error) {
+        toast(error instanceof Error ? error.message : 'Não foi possível encerrar', 'error')
+      } finally {
+        setBusyId(null)
+      }
+    })
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-medium text-gray-500">Conexões</h2>
+
+      {connections.map((connection) => (
+        <article key={connection.id} className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-medium text-foreground">
+                {connection.institutionName ?? 'Instituição'}
+              </p>
+              <p className="text-sm text-gray-500">
+                CPF {connection.cpfMasked} · {STATUS_LABEL[connection.status] ?? connection.status}
+              </p>
+              {connection.executionStatus && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {EXECUTION_LABEL[connection.executionStatus] ?? connection.executionStatus}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleRefresh(connection.id)}
+                disabled={pending && busyId === connection.id}
+              >
+                Atualizar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleRevoke(connection.id)}
+                disabled={pending && busyId === connection.id}
+              >
+                Encerrar
+              </Button>
+            </div>
+          </div>
+
+          {connection.resources.length > 0 && (
+            <ul className="mt-4 space-y-2 border-t border-gray-100 pt-3">
+              {connection.resources.map((resource) => (
+                <li key={resource.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="text-foreground">
+                    {RESOURCE_LABEL[resource.resourceType] ?? resource.resourceType}
+                    <span className="ml-2 text-xs text-gray-500">
+                      {RESOURCE_STATUS_LABEL[resource.status] ?? resource.status}
+                    </span>
+                  </span>
+
+                  {resource.accountName ? (
+                    <span className="text-xs text-gray-500">Vinculado a {resource.accountName}</span>
+                  ) : (
+                    <Link
+                      href={`/accounts/connect/${connection.id}`}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Escolher conta
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {connection.status === 'AUTHORISED' && connection.resources.length === 0 && (
+            <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+              Nenhuma conta disponível ainda. O banco pode levar alguns minutos para enviar os dados
+              — use Atualizar.
+            </p>
+          )}
+        </article>
+      ))}
+    </section>
+  )
+}

@@ -378,3 +378,18 @@ Esta fase, ao contrário da anterior, **exige alteração de schema**:
    e portanto o que a interface pode prometer sobre atualidade do dado.
 3. **Credenciais** — `POLP_API_CLIENT` e `POLP_API_SECRET` no `.env`, nunca no repositório
    nem em conversa. O secret é exibido uma única vez na criação, no dashboard.
+   Some-se a elas `POLP_CPF_SALT`, gerado por nós: sem salt, o espaço de CPFs é
+   pequeno o bastante para ser varrido inteiro e `cpf_hash` deixaria de proteger
+   o que se propõe a proteger. A tela de conexão detecta a ausência das três e
+   diz que a integração não está configurada, em vez de estourar.
+
+## Escolha de produtos — decidido em 2026-09-02
+
+O consentimento pede `products`, e **omitir o campo faz a Polp solicitar os cinco**
+(conta, cartão, crédito, investimentos e câmbio). Como cada produto é acesso
+contínuo à vida financeira do usuário até a revogação, o default silencioso pedia
+mais do que o floow usa.
+
+Decisão: **o usuário escolhe no wizard**, entre os dois que esta fase ingere —
+`ACCOUNT` e `CREDIT_CARD_ACCOUNT`. `CreateConsentInput.products` é obrigatório no
+tipo, então é impossível chamar a API sem que a escolha tenha sido feita.
