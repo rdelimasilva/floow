@@ -16,13 +16,19 @@
 import { revalidatePath } from 'next/cache'
 import { and, eq, isNull } from 'drizzle-orm'
 import { getDb, openfinanceConnections, openfinanceResources } from '@floow/db'
-import { PolpApiError, type PolpProduct, type PolpResource } from '@floow/core-finance'
+import {
+  PolpApiError,
+  type PolpClient,
+  type PolpProduct,
+  type PolpResource,
+} from '@floow/core-finance'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/finance/queries'
 import { accountsTag, transactionsTag, invalidateTag } from '@/lib/cache-tags'
 import { getCpfSalt, getPolpClient } from './config'
 import { hashCpf, isValidCpf, maskCpf } from './cpf'
 import { describePolpError } from './errors'
+import { deriveResourceIdentity } from './resource-label'
 import { decideResourceRouting } from './resource-routing'
 import { syncConnectionTransactions, type SyncSummary } from './sync'
 
@@ -207,7 +213,13 @@ export interface ConnectionSyncResult {
   executionStatus: string | null
   flags: string[]
   /** Recursos que viraram linha local. Vazio enquanto não autorizado. */
-  resources: { id: string; resourceType: string; status: string; accountId: string | null }[]
+  resources: {
+    id: string
+    resourceType: string
+    status: string
+    accountId: string | null
+    displayLabel: string | null
+  }[]
   /** Recursos que a Polp ainda não persistiu — precisam de nova consulta. */
   pendingResourceCount: number
   /** Recursos que já pertencem a outra org — não foram registrados aqui. */
@@ -268,7 +280,13 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
     if (error instanceof PolpApiError && [401, 403, 404].includes(error.status)) return []
     throw new Error(describePolpError(error))
   })
-  const { pending, conflicting } = await persistResources(db, connection.id, connection.orgId, remote)
+  const { pending, conflicting } = await persistResources(
+    db,
+    client,
+    connection.id,
+    connection.orgId,
+    remote,
+  )
 
   const stored = await db
     .select({
@@ -276,6 +294,7 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
       resourceType: openfinanceResources.resourceType,
       status: openfinanceResources.status,
       accountId: openfinanceResources.accountId,
+      displayLabel: openfinanceResources.displayLabel,
     })
     .from(openfinanceResources)
     .where(eq(openfinanceResources.connectionId, connection.id))
@@ -307,6 +326,7 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
  */
 async function persistResources(
   db: ReturnType<typeof getDb>,
+  client: PolpClient,
   connectionId: string,
   orgId: string,
   remote: PolpResource[],
@@ -348,16 +368,38 @@ async function persistResources(
       continue
     }
 
+    // A identidade é buscada uma vez, na criação da linha, e não a cada tela: a
+    // rota de detalhe tem 30 req/min por CREDENCIAL, e a credencial é uma para
+    // o floow inteiro. Orçamento compartilhado não se gasta em renderização.
+    const identity = await resolveIdentity(client, resource.type, resource.resource_id)
+
     await db.insert(openfinanceResources).values({
       orgId,
       connectionId,
       polpResourceId: resource.resource_id,
       resourceType: resource.type,
       status: resource.status,
+      displayLabel: identity.label,
+      identificationDigits: identity.digits,
+      identificationSource: identity.source,
+      detailKeys: identity.detailKeys,
     })
   }
 
   return { pending, conflicting }
+}
+
+/**
+ * Percorre a cadeia de identificação do recurso.
+ *
+ * Falha ao buscar o detalhe NÃO impede o registro: o último elo da cadeia usa o
+ * próprio `resource_id`, então o usuário sempre consegue distinguir as linhas —
+ * e um recurso não registrado seria bem pior que um recurso com rótulo feio.
+ */
+async function resolveIdentity(client: PolpClient, resourceType: string, polpResourceId: string) {
+  const detail = await client.getResourceDetail(resourceType, polpResourceId).catch(() => null)
+
+  return deriveResourceIdentity({ resourceType, detail, polpResourceId })
 }
 
 /** Revoga o consentimento na Polp e marca a conexão como encerrada. */

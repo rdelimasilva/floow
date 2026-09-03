@@ -17,6 +17,7 @@ interface Resource {
   status: string
   accountId: string | null
   accountName: string | null
+  displayLabel: string | null
 }
 
 interface AccountOption {
@@ -91,7 +92,7 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
         await linkResourceToAccount(
           resource.id,
           selected === '__new__'
-            ? { kind: 'new', name: newName[resource.id] ?? '' }
+            ? { kind: 'new', name: newName[resource.id] ?? resource.displayLabel ?? '' }
             : { kind: 'existing', accountId: selected },
         )
         toast('Conta vinculada.')
@@ -155,8 +156,13 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
         return (
           <article key={resource.id} className="rounded-xl border border-gray-200 bg-white p-4">
             <p className="font-medium text-foreground">
-              {RESOURCE_LABEL[resource.resourceType] ?? resource.resourceType}
+              {resource.displayLabel ?? RESOURCE_LABEL[resource.resourceType] ?? resource.resourceType}
             </p>
+            {resource.displayLabel && (
+              <p className="text-xs text-gray-500">
+                {RESOURCE_LABEL[resource.resourceType] ?? resource.resourceType}
+              </p>
+            )}
 
             {resource.accountName ? (
               <p className="mt-2 text-sm text-gray-600">
@@ -180,7 +186,10 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
 
                 {selected === '__new__' && (
                   <Input
-                    value={newName[resource.id] ?? ''}
+                    // Pré-preenchido com o rótulo do recurso: é o nome que
+                    // distingue este cartão do outro, e digitar de novo só
+                    // convida a errar.
+                    value={newName[resource.id] ?? resource.displayLabel ?? ''}
                     onChange={(e) => setNewName((prev) => ({ ...prev, [resource.id]: e.target.value }))}
                     placeholder="Nome da nova conta"
                   />
@@ -190,7 +199,12 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
                   <Button
                     variant="primary"
                     size="sm"
-                    disabled={pending || !selected || (selected === '__new__' && !newName[resource.id]?.trim())}
+                    disabled={
+                      pending ||
+                      !selected ||
+                      (selected === '__new__' &&
+                        !(newName[resource.id] ?? resource.displayLabel ?? '').trim())
+                    }
                     onClick={() => handleLink(resource)}
                   >
                     Vincular

@@ -27,6 +27,8 @@ export interface BankConnectionSummary {
     status: string
     accountId: string | null
     accountName: string | null
+    /** "Cartão · final 1234" — sempre preenchido; ver resource-label.ts. */
+    displayLabel: string | null
   }[]
 }
 
@@ -51,6 +53,7 @@ export async function getBankConnections(orgId: string): Promise<BankConnectionS
       status: openfinanceResources.status,
       accountId: openfinanceResources.accountId,
       accountName: accounts.name,
+      displayLabel: openfinanceResources.displayLabel,
     })
     .from(openfinanceResources)
     .leftJoin(accounts, eq(accounts.id, openfinanceResources.accountId))

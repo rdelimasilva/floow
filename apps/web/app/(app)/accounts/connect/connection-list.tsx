@@ -207,7 +207,9 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
               {connection.resources.map((resource) => (
                 <li key={resource.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="text-foreground">
-                    {RESOURCE_LABEL[resource.resourceType] ?? resource.resourceType}
+                    {/* O rótulo distingue duas contas do mesmo banco; o tipo
+                        genérico só serve para linha antiga, sem rótulo. */}
+                    {resource.displayLabel ?? RESOURCE_LABEL[resource.resourceType] ?? resource.resourceType}
                     <span className="ml-2 text-xs text-gray-500">
                       {RESOURCE_STATUS_LABEL[resource.status] ?? resource.status}
                     </span>

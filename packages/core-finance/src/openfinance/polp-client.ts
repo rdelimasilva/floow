@@ -29,6 +29,15 @@ import type {
 
 const DEFAULT_BASE_URL = 'https://api.polp.com.br/api/v2'
 
+/**
+ * Rota de detalhe por tipo de recurso, conforme a correspondência que a doc
+ * publica: ACCOUNT -> accounts, CREDIT_CARD_ACCOUNT -> credit-cards.
+ */
+const RESOURCE_DETAIL_PATH: Record<string, string> = {
+  ACCOUNT: '/accounts',
+  CREDIT_CARD_ACCOUNT: '/credit-cards',
+}
+
 /** Só estes parâmetros chegam à URL — ver `pickTransactionQuery`. */
 const TRANSACTION_QUERY_KEYS = [
   'cursor',
@@ -96,6 +105,17 @@ export interface PolpClient {
   recreateConsent(consentId: string): Promise<PolpConsent>
   revokeConsent(consentId: string): Promise<void>
   listConsentResources(consentId: string): Promise<PolpResource[]>
+  /**
+   * Detalhe de uma conta ou cartão, cru.
+   *
+   * O tipo é `unknown` de propósito. A doc anuncia que `identification`,
+   * `contract` e `product` passaram a existir na raiz do recurso, mas não
+   * publica os subcampos, e inventar uma interface aqui seria fingir
+   * conhecimento — o envelope `data` já custou um 500 em produção por conta
+   * disso. Quem consome extrai o que reconhece e sobrevive ao que não
+   * reconhece.
+   */
+  getResourceDetail(resourceType: string, resourceId: string): Promise<unknown>
   /** Páginas de 500 itens, buscadas sob demanda. */
   streamAccountTransactions(accountId: string, query?: TransactionQuery): AsyncGenerator<PolpAccountTransaction[]>
   streamCardTransactions(creditCardId: string, query?: TransactionQuery): AsyncGenerator<PolpCardTransaction[]>
@@ -267,6 +287,14 @@ export function createPolpClient(config: PolpClientConfig): PolpClient {
         `/consents/${encodeURIComponent(consentId)}/resources`,
       )
       return response.data ?? []
+    },
+
+    async getResourceDetail(resourceType, resourceId) {
+      const rota = RESOURCE_DETAIL_PATH[resourceType]
+      if (!rota) throw new Error(`Tipo de recurso sem rota de detalhe: ${resourceType}`)
+
+      const payload = await request<unknown>('GET', `${rota}/${encodeURIComponent(resourceId)}`)
+      return unwrap<unknown>(payload)
     },
 
     streamAccountTransactions(accountId, query = {}) {

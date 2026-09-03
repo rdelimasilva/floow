@@ -74,6 +74,18 @@ export const openfinanceResources = pgTable(
     status: text('status').notNull(),
     /** Conta espelho no floow. NULL até o usuário escolher vincular ou criar. */
     accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    /**
+     * Rotulo curto para a tela, ex.: "Cartao · Platinum · final 1234". Sempre
+     * preenchido: o ultimo elo da cadeia usa o fim do resource_id, entao duas
+     * contas do mesmo banco nunca aparecem com o mesmo nome.
+     */
+    displayLabel: text('display_label'),
+    /** Quatro ultimos digitos apenas — o numero completo nao e armazenado. */
+    identificationDigits: text('identification_digits'),
+    /** detail | transaction | fallback — de qual elo da cadeia veio. */
+    identificationSource: text('identification_source'),
+    /** Chaves vistas no payload do detalhe, sem valores. Diagnostico da forma. */
+    detailKeys: text('detail_keys').array(),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
