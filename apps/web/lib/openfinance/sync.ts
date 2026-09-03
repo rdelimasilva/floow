@@ -8,6 +8,7 @@ import {
   openfinanceIngestionIssues,
   openfinanceConnections,
   openfinanceResources,
+  transactionNatureRules,
   transactions,
 } from '@floow/db'
 import {
@@ -21,6 +22,7 @@ import {
   type PolpClient,
 } from '@floow/core-finance'
 import { normalizeBatch, type RejectedItem } from './normalize-batch'
+import { applyNatureRules, type NatureRule } from './nature-rules'
 
 /**
  * Importação das transações de uma conexão Open Finance.
@@ -59,10 +61,11 @@ export async function syncConnectionTransactions(
     .from(openfinanceResources)
     .where(eq(openfinanceResources.connectionId, connection.id))
 
-  const [categoryByRef, rules, creditCardConnected] = await Promise.all([
+  const [categoryByRef, rules, creditCardConnected, natureRules] = await Promise.all([
     loadCategoryIndex(db, connection.orgId),
     loadRules(db, connection.orgId),
     hasLinkedCreditCard(db, connection.orgId),
+    loadNatureRules(db, connection.orgId),
   ])
 
   const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0, rejected: 0 }
@@ -113,10 +116,14 @@ export async function syncConnectionTransactions(
         await recordIssues(db, connection.orgId, resource.id, rejected)
       }
 
+      // Camada 2: o que o usuário já confirmou sobre esta conta. Só muda
+      // `type`; valor, data e descrição passam intactos.
+      const comNatureza = applyNatureRules(ok, resource.accountId, natureRules)
+
       const result = await persistPage(db, {
         orgId: connection.orgId,
         accountId: resource.accountId,
-        normalized: ok,
+        normalized: comNatureza,
         categoryByRef,
         rules,
       })
@@ -257,6 +264,31 @@ async function loadRules(db: Db, orgId: string): Promise<CategoryRule[]> {
   return rows as CategoryRule[]
 }
 
+/**
+ * Regras de natureza da org.
+ *
+ * Sem filtro nem ordenação em SQL de propósito: `applyNatureRules` faz os dois,
+ * e são poucas linhas por org. Duplicar a regra de precedência em SQL criaria
+ * duas verdades — e a versão testada é a de TypeScript.
+ */
+async function loadNatureRules(db: Db, orgId: string): Promise<NatureRule[]> {
+  const rows = await db
+    .select()
+    .from(transactionNatureRules)
+    .where(eq(transactionNatureRules.orgId, orgId))
+
+  return rows.map((row) => ({
+    id: row.id,
+    accountId: row.accountId,
+    matchType: row.matchType,
+    matchValue: row.matchValue,
+    nature: row.nature,
+    priority: row.priority,
+    isEnabled: row.isEnabled,
+    createdAt: row.createdAt,
+  }))
+}
+
 interface PersistInput {
   orgId: string
   accountId: string
@@ -312,6 +344,7 @@ async function persistPage(
         .set({
           description: tx.description,
           categoryRef: tx.categoryRef,
+          polpType: tx.polpType,
           payeeMcc: tx.payeeMcc,
           billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
           billForecastMonth: tx.billForecastMonth,
@@ -348,6 +381,7 @@ async function persistPage(
       isIgnored: isScheduled,
       balanceApplied: applied,
       categoryRef: tx.categoryRef,
+      polpType: tx.polpType,
       payeeMcc: tx.payeeMcc,
       billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
       billForecastMonth: tx.billForecastMonth,
