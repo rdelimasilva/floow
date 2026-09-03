@@ -23,45 +23,65 @@ const migrationsSql = readdirSync(MIGRATIONS_DIR)
   .map((f) => readFileSync(join(MIGRATIONS_DIR, f), 'utf8'))
   .join('\n')
 
+function escapeRef(ref: string): string {
+  return ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Linhas `('REF', ...` de VALUES — o seed que garante que o ref existe. */
+function insertsOf(ref: string): number {
+  return migrationsSql.match(new RegExp(`\\('${escapeRef(ref)}',`, 'g'))?.length ?? 0
+}
+
 /**
- * Uma linha `('REF', ...` de VALUES, ou um `SET polp_ref = 'REF'` de alias.
+ * `SET polp_ref = 'REF'` — o alias que reaproveita uma categoria existente.
  * O `SET` importa: sem ele, o `polp_ref = 'INCOME'` que resolve o pai numa
  * subconsulta contaria como se fosse mais um seed da raiz.
  */
-function assignmentsOf(ref: string): number {
-  const escaped = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const inserts = migrationsSql.match(new RegExp(`\\('${escaped}',`, 'g'))?.length ?? 0
-  const aliases = migrationsSql.match(new RegExp(`SET polp_ref = '${escaped}'`, 'g'))?.length ?? 0
-  return inserts + aliases
+function aliasesOf(ref: string): number {
+  return migrationsSql.match(new RegExp(`SET polp_ref = '${escapeRef(ref)}'`, 'g'))?.length ?? 0
 }
 
+const aliasedNodes = [
+  ...POLP_TAXONOMY.filter((r) => r.floowAlias).map((r) => ({ ref: r.ref, name: r.floowAlias! })),
+  ...POLP_TAXONOMY.flatMap((r) =>
+    r.children.filter((c) => c.floowAlias).map((c) => ({ ref: c.ref, name: c.floowAlias! })),
+  ),
+]
+
 describe('seed da taxonomia da Polp', () => {
-  it('atribui cada ref da taxonomia exatamente uma vez', () => {
+  it('garante uma linha de criação para cada ref da taxonomia', () => {
+    // O INSERT é a rede: mesmo que o alias não case — porque a categoria foi
+    // renomeada ou excluída pela interface —, o ref passa a existir.
     const errados = allRefs()
-      .map((ref) => ({ ref, n: assignmentsOf(ref) }))
+      .map((ref) => ({ ref, n: insertsOf(ref) }))
       .filter(({ n }) => n !== 1)
 
     expect(errados, 'refs sem seed ou semeados duas vezes').toEqual([])
   })
 
-  it('mantém as categorias de sistema existentes, em vez de duplicá-las', () => {
+  it('só tenta reaproveitar as categorias que o floow já tinha', () => {
+    const comAlias = new Set(aliasedNodes.map((n) => n.ref))
+
+    const inesperados = allRefs()
+      .filter((ref) => !comAlias.has(ref))
+      .map((ref) => ({ ref, n: aliasesOf(ref) }))
+      .filter(({ n }) => n !== 0)
+
+    expect(inesperados, 'ref sem floowAlias não deveria ter UPDATE de alias').toEqual([])
+
+    for (const { ref } of aliasedNodes) {
+      expect(aliasesOf(ref), `${ref} deveria ter exatamente um alias`).toBe(1)
+    }
+  })
+
+  it('casa o alias pelo nome da categoria de sistema correspondente', () => {
     // O alias é um UPDATE na linha que já existe. Um INSERT com o mesmo nome
     // criaria a segunda "Salário" que este mecanismo existe para evitar.
-    const aliases = [
-      ...POLP_TAXONOMY.filter((r) => r.floowAlias).map((r) => ({ ref: r.ref, name: r.floowAlias! })),
-      ...POLP_TAXONOMY.flatMap((r) =>
-        r.children.filter((c) => c.floowAlias).map((c) => ({ ref: c.ref, name: c.floowAlias! })),
-      ),
-    ]
-
-    expect(aliases.length).toBeGreaterThan(0)
-
-    for (const { ref, name } of aliases) {
-      // O statement inteiro, do UPDATE ao ponto e vírgula: é o `UPDATE` que
-      // distingue reaproveitar a linha existente de inserir outra.
-      const stmt = migrationsSql.match(new RegExp(`UPDATE[^;]*?SET polp_ref = '${ref}'[^;]*;`))
+    for (const { ref, name } of aliasedNodes) {
+      const stmt = migrationsSql.match(new RegExp(`UPDATE[^;]*?SET polp_ref = '${escapeRef(ref)}'[^;]*;`))
       expect(stmt, `alias de ${ref} não encontrado como UPDATE nas migrations`).not.toBeNull()
-      expect(stmt![0], `${ref} deveria reaproveitar a categoria "${name}"`).toContain(`name = '${name}'`)
+      expect(stmt![0], `${ref} deveria reaproveitar a categoria "${name}"`).toContain(`'${name}'`)
+      expect(stmt![0], `${ref} deveria casar por nome`).toMatch(/name (=|IN)/)
     }
   })
 

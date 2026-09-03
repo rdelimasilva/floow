@@ -3,6 +3,7 @@
 -- Ver docs/superpowers/specs/2026-09-02-openfinance-ingestion-design.md (D6)
 --
 -- 145 categorias de sistema (org_id NULL): 18 raízes e 127 filhas.
+--
 -- Espelha packages/core-finance/src/openfinance/taxonomy.ts — a mesma fonte que
 -- a ingestão usa para resolver category_ref. taxonomy-seed.test.ts lê estas
 -- migrations e falha se um ref existir de um lado e não do outro: a divergência
@@ -10,72 +11,52 @@
 -- sumiria do orçamento. Ref novo na taxonomia pede migration nova — esta, uma
 -- vez aplicada, não se edita.
 --
--- As 10 categorias de sistema que o floow já tinha são REAPROVEITADAS, não
--- duplicadas: recebem o polp_ref do nó correspondente e continuam com o mesmo id.
--- Sem isso a importação criaria um "Salário" novo ao lado do existente, e os
--- orçamentos apontariam para o antigo enquanto os gastos cairiam no novo.
+-- As 10 categorias de sistema que o floow já tinha são REAPROVEITADAS quando
+-- existem: recebem o polp_ref do nó correspondente e continuam com o mesmo id,
+-- o mesmo nome e as mesmas transações apontando para elas. Sem isso a
+-- importação criaria um "Salário" novo ao lado do existente, e os orçamentos
+-- apontariam para o antigo enquanto os gastos cairiam no novo.
 --
--- "Assinaturas" fica de fora de propósito: é transversal na taxonomia da Polp
+-- O alias é melhor esforço, não pré-condição. Categoria de sistema pode ter
+-- sido renomeada ou excluída pela interface antes desta migration (o que de
+-- fato aconteceu: "Transporte" virou "Carro", e "Saúde", "Outros" e
+-- "Assinaturas" foram excluídas). Quem não for encontrada é simplesmente
+-- criada no passo seguinte, e a verificação final garante que a taxonomia
+-- fique completa de um jeito ou de outro.
+--
+-- "Assinaturas" não tem alias de propósito: é transversal na taxonomia da Polp
 -- (streaming cai em ENTERTAINMENT, telefonia em RENT_AND_UTILITIES) e sobrevive
--- como categoria própria, sem polp_ref.
+-- como categoria própria, sem polp_ref — quando ainda existir.
 -- =============================================================================
-
--- ----------------------------------------------------------------------------
--- 0. As categorias aliasadas precisam existir com o nome exato
--- ----------------------------------------------------------------------------
--- Um acento fora do lugar aqui não daria erro: o UPDATE do passo 1 não casaria,
--- o INSERT do passo 2 criaria a raiz nova, e o banco ficaria com duas
--- "Alimentação" — o dano silencioso que este seed existe para evitar. Falhar a
--- migration inteira é o resultado preferível.
-
-DO $$
-DECLARE faltando text;
-BEGIN
-  SELECT string_agg(v.name, ', ') INTO faltando
-  FROM (VALUES
-    ('Lazer'),
-    ('Alimentação'),
-    ('Saúde'),
-    ('Transporte'),
-    ('Outros'),
-    ('Freelance'),
-    ('Investimentos'),
-    ('Salário'),
-    ('Educação'),
-    ('Aluguel')
-  ) AS v(name)
-  WHERE NOT EXISTS (
-    SELECT 1 FROM public.categories c
-    WHERE c.org_id IS NULL AND c.is_system = true AND c.name = v.name
-  );
-
-  IF faltando IS NOT NULL THEN
-    RAISE EXCEPTION 'seed da taxonomia Polp: categorias de sistema esperadas nao encontradas: %. Conferir 00002_finance.sql e 00008_fix_category_names.sql antes de prosseguir.', faltando;
-  END IF;
-END $$;
 
 -- ----------------------------------------------------------------------------
 -- 1. Raízes que já existem no floow recebem o polp_ref
 -- ----------------------------------------------------------------------------
 -- O nome do floow é mantido: é o que o usuário já vê e o que os orçamentos
--- referenciam na interface. Só o vínculo com a taxonomia é novo.
+-- referenciam. Só o vínculo com a taxonomia é novo.
 
 UPDATE public.categories SET polp_ref = 'ENTERTAINMENT'
-  WHERE org_id IS NULL AND is_system = true AND name = 'Lazer' AND polp_ref IS NULL;  -- Entretenimento
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Lazer');  -- Entretenimento
 UPDATE public.categories SET polp_ref = 'FOOD_AND_DRINK'
-  WHERE org_id IS NULL AND is_system = true AND name = 'Alimentação' AND polp_ref IS NULL;  -- Alimentação e bebidas
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Alimentação');  -- Alimentação e bebidas
 UPDATE public.categories SET polp_ref = 'MEDICAL'
-  WHERE org_id IS NULL AND is_system = true AND name = 'Saúde' AND polp_ref IS NULL;  -- Saúde
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Saúde');  -- Saúde
 UPDATE public.categories SET polp_ref = 'TRANSPORTATION'
-  WHERE org_id IS NULL AND is_system = true AND name = 'Transporte' AND polp_ref IS NULL;  -- Transporte
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Transporte', 'Carro');  -- Transporte
 UPDATE public.categories SET polp_ref = 'OTHER'
-  WHERE org_id IS NULL AND is_system = true AND name = 'Outros' AND polp_ref IS NULL;  -- Outros
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Outros');  -- Outros
 
 -- ----------------------------------------------------------------------------
--- 2. Raízes novas
+-- 2. Raízes que faltarem
 -- ----------------------------------------------------------------------------
--- As 5 do passo 1 não aparecem aqui: já existem. O NOT EXISTS por polp_ref
--- torna a migration repetível sem duplicar nada.
+-- Todas as 18 entram aqui, mas o NOT EXISTS por polp_ref pula as que o
+-- passo 1 acabou de aliasar. É o que torna a migration repetível e o que cobre
+-- a categoria que alguém excluiu antes de ela chegar a ser aliasada.
 
 INSERT INTO public.categories (org_id, name, type, color, icon, is_system, polp_ref)
 SELECT NULL, v.name, v.type::transaction_type, v.color, v.icon, true, v.ref
@@ -86,13 +67,18 @@ FROM (VALUES
   ('LOAN_DISBURSEMENTS', 'Empréstimos recebidos', 'income', '#10b981', 'hand-coins'),
   ('LOAN_PAYMENTS', 'Pagamento de empréstimos', 'expense', '#dc2626', 'banknote'),
   ('BANK_FEES', 'Tarifas bancárias', 'expense', '#b91c1c', 'receipt'),
+  ('ENTERTAINMENT', 'Entretenimento', 'expense', '#06b6d4', 'gamepad-2'),
+  ('FOOD_AND_DRINK', 'Alimentação e bebidas', 'expense', '#f97316', 'utensils'),
   ('GENERAL_MERCHANDISE', 'Compras e mercadorias', 'expense', '#f59e0b', 'shopping-bag'),
   ('HOME_IMPROVEMENT', 'Casa e reformas', 'expense', '#d97706', 'hammer'),
+  ('MEDICAL', 'Saúde', 'expense', '#ec4899', 'heart'),
   ('PERSONAL_CARE', 'Cuidados pessoais', 'expense', '#db2777', 'sparkles'),
   ('GENERAL_SERVICES', 'Serviços gerais', 'expense', '#7c3aed', 'wrench'),
   ('GOVERNMENT_AND_NON_PROFIT', 'Governo e doações', 'expense', '#64748b', 'landmark'),
+  ('TRANSPORTATION', 'Transporte', 'expense', '#eab308', 'car'),
   ('TRAVEL', 'Viagens', 'expense', '#0ea5e9', 'plane'),
-  ('RENT_AND_UTILITIES', 'Aluguel e contas', 'expense', '#f43f5e', 'plug')
+  ('RENT_AND_UTILITIES', 'Aluguel e contas', 'expense', '#f43f5e', 'plug'),
+  ('OTHER', 'Outros', 'expense', '#6b7280', 'more-horizontal')
 ) AS v(ref, name, type, color, icon)
 WHERE NOT EXISTS (
   SELECT 1 FROM public.categories c WHERE c.org_id IS NULL AND c.polp_ref = v.ref
@@ -101,44 +87,51 @@ WHERE NOT EXISTS (
 -- ----------------------------------------------------------------------------
 -- 3. Filhas que já existem no floow: polp_ref e parent_id
 -- ----------------------------------------------------------------------------
--- Precisa vir depois do passo 2 porque a raiz de cada uma pode ser nova.
+-- Depois do passo 2 porque a raiz de cada uma pode ter acabado de ser criada.
 -- "Salário" é filha de "Receitas", não a raiz: INCOME é toda receita, e o alias
 -- mora no nível que de fato corresponde.
 
 UPDATE public.categories SET polp_ref = 'INCOME_CONTRACTOR',
        parent_id = (SELECT id FROM public.categories WHERE org_id IS NULL AND polp_ref = 'INCOME')
-  WHERE org_id IS NULL AND is_system = true AND name = 'Freelance' AND polp_ref IS NULL;
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Freelance');
 UPDATE public.categories SET polp_ref = 'INCOME_DIVIDENDS',
        parent_id = (SELECT id FROM public.categories WHERE org_id IS NULL AND polp_ref = 'INCOME')
-  WHERE org_id IS NULL AND is_system = true AND name = 'Investimentos' AND polp_ref IS NULL;
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Investimentos');
 UPDATE public.categories SET polp_ref = 'INCOME_SALARY',
        parent_id = (SELECT id FROM public.categories WHERE org_id IS NULL AND polp_ref = 'INCOME')
-  WHERE org_id IS NULL AND is_system = true AND name = 'Salário' AND polp_ref IS NULL;
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Salário');
 UPDATE public.categories SET polp_ref = 'GENERAL_SERVICES_EDUCATION',
        parent_id = (SELECT id FROM public.categories WHERE org_id IS NULL AND polp_ref = 'GENERAL_SERVICES')
-  WHERE org_id IS NULL AND is_system = true AND name = 'Educação' AND polp_ref IS NULL;
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Educação');
 UPDATE public.categories SET polp_ref = 'RENT_AND_UTILITIES_RENT',
        parent_id = (SELECT id FROM public.categories WHERE org_id IS NULL AND polp_ref = 'RENT_AND_UTILITIES')
-  WHERE org_id IS NULL AND is_system = true AND name = 'Aluguel' AND polp_ref IS NULL;
+  WHERE org_id IS NULL AND is_system = true AND polp_ref IS NULL
+    AND name IN ('Aluguel');
 
 -- ----------------------------------------------------------------------------
--- 4. Filhas novas
+-- 4. Filhas que faltarem
 -- ----------------------------------------------------------------------------
--- type e color vêm da raiz, por JOIN: uma filha nunca diverge da natureza do pai.
--- O JOIN também é a garantia de que nenhuma filha entra sem parent_id — se a
--- raiz faltasse, a linha simplesmente não seria inserida, e a checagem final do
--- passo 5 acusaria a diferença.
+-- type e color vêm da raiz, por JOIN: uma filha nunca diverge da natureza do
+-- pai. O JOIN também garante que nenhuma entra sem parent_id — se a raiz
+-- faltasse, a linha não seria inserida e o passo 5 acusaria.
 
 INSERT INTO public.categories (org_id, name, type, color, icon, is_system, polp_ref, parent_id)
 SELECT NULL, v.name, p.type, p.color, NULL, true, v.ref, p.id
 FROM (VALUES
   ('INCOME_CHILD_SUPPORT', 'Pensão alimentícia recebida', 'INCOME'),
+  ('INCOME_CONTRACTOR', 'Renda de trabalho autônomo ou freelance', 'INCOME'),
+  ('INCOME_DIVIDENDS', 'Dividendos de investimentos', 'INCOME'),
   ('INCOME_GIG_ECONOMY', 'Renda de aplicativos e economia gig', 'INCOME'),
   ('INCOME_INTEREST_EARNED', 'Juros recebidos de contas e poupança', 'INCOME'),
   ('INCOME_LONG_TERM_DISABILITY', 'Auxílio por incapacidade ou invalidez', 'INCOME'),
   ('INCOME_MILITARY', 'Renda militar e benefícios de veteranos', 'INCOME'),
   ('INCOME_RENTAL', 'Renda de aluguéis e locações', 'INCOME'),
   ('INCOME_RETIREMENT_PENSION', 'Aposentadoria e pensão', 'INCOME'),
+  ('INCOME_SALARY', 'Salário e ordenados', 'INCOME'),
   ('INCOME_TAX_REFUND', 'Restituição de imposto', 'INCOME'),
   ('INCOME_UNEMPLOYMENT', 'Seguro-desemprego e benefícios afins', 'INCOME'),
   ('INCOME_OTHER', 'Outras receitas', 'INCOME'),
@@ -228,6 +221,7 @@ FROM (VALUES
   ('GENERAL_SERVICES_AUTOMOTIVE', 'Serviços automotivos', 'GENERAL_SERVICES'),
   ('GENERAL_SERVICES_CHILDCARE', 'Creche e cuidado infantil', 'GENERAL_SERVICES'),
   ('GENERAL_SERVICES_CONSULTING_AND_LEGAL', 'Consultoria e serviços jurídicos', 'GENERAL_SERVICES'),
+  ('GENERAL_SERVICES_EDUCATION', 'Educação', 'GENERAL_SERVICES'),
   ('GENERAL_SERVICES_INSURANCE', 'Seguros', 'GENERAL_SERVICES'),
   ('GENERAL_SERVICES_POSTAGE_AND_SHIPPING', 'Correios e fretes', 'GENERAL_SERVICES'),
   ('GENERAL_SERVICES_STORAGE', 'Armazenamento e guarda-móveis', 'GENERAL_SERVICES'),
@@ -249,6 +243,7 @@ FROM (VALUES
   ('TRAVEL_OTHER_TRAVEL', 'Outras despesas de viagem', 'TRAVEL'),
   ('RENT_AND_UTILITIES_GAS_AND_ELECTRICITY', 'Gás e energia elétrica', 'RENT_AND_UTILITIES'),
   ('RENT_AND_UTILITIES_INTERNET_AND_CABLE', 'Internet e TV a cabo', 'RENT_AND_UTILITIES'),
+  ('RENT_AND_UTILITIES_RENT', 'Aluguel', 'RENT_AND_UTILITIES'),
   ('RENT_AND_UTILITIES_SEWAGE_AND_WASTE_MANAGEMENT', 'Esgoto e coleta de lixo', 'RENT_AND_UTILITIES'),
   ('RENT_AND_UTILITIES_TELEPHONE', 'Telefone', 'RENT_AND_UTILITIES'),
   ('RENT_AND_UTILITIES_WATER', 'Água', 'RENT_AND_UTILITIES'),
@@ -263,6 +258,9 @@ WHERE NOT EXISTS (
 -- ----------------------------------------------------------------------------
 -- 5. A taxonomia está completa e bem formada
 -- ----------------------------------------------------------------------------
+-- Aqui a migration ainda falha alto, e continua sendo o ponto certo para isso:
+-- neste momento tudo já deveria estar no lugar, então divergência é defeito no
+-- seed, não estado herdado do banco.
 
 DO $$
 DECLARE n int;
