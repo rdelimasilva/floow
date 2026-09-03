@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import { createCategory, updateCategory } from '@/lib/finance/actions'
+import { createCategory, updateCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

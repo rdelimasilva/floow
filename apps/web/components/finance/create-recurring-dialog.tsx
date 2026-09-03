@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createRecurringTemplate, updateRecurringTemplate } from '@/lib/finance/recurring-actions'
-import { createCategory } from '@/lib/finance/actions'
+import { createCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

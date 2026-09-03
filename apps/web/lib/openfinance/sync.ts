@@ -1,9 +1,10 @@
-import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, notExists, or, sql } from 'drizzle-orm'
 import {
   getDb,
   accounts,
   categories,
   categoryRules,
+  hiddenSystemCategories,
   openfinanceConnections,
   openfinanceResources,
   transactions,
@@ -110,15 +111,44 @@ async function* mapPages<T>(
   for await (const page of pages) yield page.map(normalize)
 }
 
-/** `polp_ref` -> id da categoria local. */
+/**
+ * `polp_ref` -> id da categoria local, com a da org na frente.
+ *
+ * Desde o copy-on-write, editar uma categoria de sistema cria uma cópia da org
+ * carregando o mesmo `polp_ref`. As duas passam a existir, e a importação tem
+ * de escolher a da org: é nela que estão o nome que o usuário deu e o histórico
+ * que foi movido junto. Sem a precedência, a escolha dependeria da ordem em que
+ * o banco devolvesse as linhas.
+ */
 async function loadCategoryIndex(db: Db, orgId: string): Promise<Map<string, string>> {
   const rows = await db
-    .select({ id: categories.id, polpRef: categories.polpRef })
+    .select({ id: categories.id, polpRef: categories.polpRef, orgId: categories.orgId })
     .from(categories)
-    .where(or(eq(categories.orgId, orgId), isNull(categories.orgId)))
+    .where(
+      and(
+        or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+        // Categoria que a org escondeu não recebe importação: melhor a
+        // transação chegar sem categoria do que cair numa que ninguém vê.
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(hiddenSystemCategories)
+            .where(
+              and(
+                eq(hiddenSystemCategories.orgId, orgId),
+                eq(hiddenSystemCategories.categoryId, categories.id),
+              ),
+            ),
+        ),
+      ),
+    )
 
   const index = new Map<string, string>()
-  for (const row of rows) if (row.polpRef) index.set(row.polpRef, row.id)
+  for (const row of rows) {
+    if (!row.polpRef) continue
+    const daOrg = row.orgId !== null
+    if (daOrg || !index.has(row.polpRef)) index.set(row.polpRef, row.id)
+  }
   return index
 }
 

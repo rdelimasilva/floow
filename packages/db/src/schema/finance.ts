@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
   date,
+  primaryKey,
 } from 'drizzle-orm/pg-core'
 import { orgs } from './auth'
 
@@ -162,6 +163,29 @@ export const patrimonySnapshots = pgTable(
       table.orgId,
       table.snapshotDate
     ),
+  })
+)
+
+/**
+ * Categorias de sistema que uma org escolheu nao ver.
+ *
+ * A linha original (org_id IS NULL) e compartilhada por todas as orgs, entao
+ * excluir para atender uma delas apagaria a categoria das outras. Esconder e a
+ * unica exclusao que nao vaza para o vizinho.
+ */
+export const hiddenSystemCategories = pgTable(
+  'hidden_system_categories',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.orgId, table.categoryId] }),
   })
 )
 

@@ -1,8 +1,8 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules, recurringTemplates, orgMembers } from '@floow/db'
-import { eq, and, desc, asc, isNull, or, gte, count, ilike, lte, inArray, sql } from 'drizzle-orm'
+import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules, recurringTemplates, orgMembers, hiddenSystemCategories } from '@floow/db'
+import { eq, and, desc, asc, isNull, or, gte, count, ilike, lte, inArray, notExists, sql } from 'drizzle-orm'
 import {
   accountsTag,
   categoriesTag,
@@ -318,10 +318,27 @@ export const getCategories = cache(async function getCategories(orgId: string) {
   return unstable_cache(
     async () => {
       const db = getDb()
+      // Categoria de sistema que ESTA org escondeu sai da lista. A linha
+      // continua existindo para as outras orgs — ver 00029 e category-actions.
       return db
         .select()
         .from(categories)
-        .where(or(eq(categories.orgId, orgId), isNull(categories.orgId)))
+        .where(
+          and(
+            or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+            notExists(
+              db
+                .select({ one: sql`1` })
+                .from(hiddenSystemCategories)
+                .where(
+                  and(
+                    eq(hiddenSystemCategories.orgId, orgId),
+                    eq(hiddenSystemCategories.categoryId, categories.id),
+                  ),
+                ),
+            ),
+          ),
+        )
         .orderBy(categories.type, categories.name)
     },
     ['finance-categories', orgId],

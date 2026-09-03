@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { getCategoryUsage, reassignAndDeleteCategory, deleteCategory } from '@/lib/finance/actions'
+import { getCategoryUsage, reassignAndDeleteCategory, deleteCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { toCategoryOptions } from '@/lib/finance/category-options'

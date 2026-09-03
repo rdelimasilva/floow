@@ -5,7 +5,7 @@ import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
-import { createCategory } from '@/lib/finance/actions'
+import { createCategory } from '@/lib/finance/category-actions'
 import {
   Table,
   TableBody,
