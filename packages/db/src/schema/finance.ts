@@ -124,6 +124,11 @@ export const transactions = pgTable(
     payeeMcc: integer('payee_mcc'),
     /** Valor cru do enum TransactionCategory da Polp. */
     categoryRef: text('category_ref'),
+    /**
+     * `type` cru da Polp (AccountTransactionType), sinal estrutural do detector
+     * de suspeitas. Null em lançamento manual e em transação de cartão.
+     */
+    polpType: text('polp_type'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

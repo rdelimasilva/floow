@@ -7,6 +7,7 @@ import {
   categories,
   patrimonySnapshots,
 } from '../schema/finance'
+import { transactionNatureRules } from '../schema/automation'
 
 describe('finance schema: enums', () => {
   it('accountTypeEnum exports with correct values', () => {
@@ -107,5 +108,32 @@ describe('finance schema: inferred types exported', () => {
     expect(patrimonySnapshots).toBeDefined()
     expect(accountTypeEnum).toBeDefined()
     expect(transactionTypeEnum).toBeDefined()
+  })
+})
+
+describe('transactions: coluna polp_type', () => {
+  it('polpType existe', () => {
+    expect(transactions.polpType).toBeDefined()
+  })
+})
+
+describe('transaction_nature_rules', () => {
+  it('tem as colunas esperadas', () => {
+    expect(transactionNatureRules.id).toBeDefined()
+    expect(transactionNatureRules.orgId).toBeDefined()
+    expect(transactionNatureRules.accountId).toBeDefined()
+    expect(transactionNatureRules.matchType).toBeDefined()
+    expect(transactionNatureRules.matchValue).toBeDefined()
+    expect(transactionNatureRules.nature).toBeDefined()
+    expect(transactionNatureRules.priority).toBeDefined()
+    expect(transactionNatureRules.isEnabled).toBeDefined()
+  })
+
+  it('accountId é opcional: null vale para a org inteira', () => {
+    expect(transactionNatureRules.accountId.notNull).toBe(false)
+  })
+
+  it('nature usa o enum transaction_type que já existe', () => {
+    expect(transactionNatureRules.nature.enumValues).toEqual(['income', 'expense', 'transfer'])
   })
 })

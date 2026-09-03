@@ -37,6 +37,44 @@ export type CategoryRuleRow = typeof categoryRules.$inferSelect
 export type NewCategoryRuleRow = typeof categoryRules.$inferInsert
 
 // ---------------------------------------------------------------------------
+// Nature Rules
+// ---------------------------------------------------------------------------
+
+/**
+ * Regras que decidem a NATUREZA de uma transação, não a categoria.
+ *
+ * Tabela criada na migration 00034. Separada de `category_rules` porque os
+ * conceitos são distintos: categoria diz *em que* o dinheiro foi, natureza diz
+ * *se* foi dinheiro saindo. Uma regra de categoria nunca deveria poder mudar o
+ * total de despesa do orçamento por acidente.
+ *
+ * `account_id` nulo vale para a org inteira; preenchido, só para aquela conta.
+ */
+export const transactionNatureRules = pgTable(
+  'transaction_nature_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+    matchType: text('match_type').notNull().$type<'contains' | 'exact'>(),
+    matchValue: text('match_value').notNull(),
+    nature: transactionTypeEnum('nature').notNull(),
+    priority: integer('priority').notNull().default(0),
+    isEnabled: boolean('is_enabled').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    idxTransactionNatureRulesOrgId: index('idx_transaction_nature_rules_org_id').on(table.orgId),
+  })
+)
+
+export type TransactionNatureRuleRow = typeof transactionNatureRules.$inferSelect
+export type NewTransactionNatureRuleRow = typeof transactionNatureRules.$inferInsert
+
+// ---------------------------------------------------------------------------
 // Recurring Templates
 // ---------------------------------------------------------------------------
 
