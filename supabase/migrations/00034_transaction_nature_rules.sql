@@ -32,6 +32,22 @@ CREATE TABLE public.transaction_nature_rules (
 CREATE INDEX idx_transaction_nature_rules_org_id
   ON public.transaction_nature_rules(org_id);
 
+-- Unicidade da regra. Confirmar o mesmo grupo duas vezes — dois cliques, ou o
+-- painel reaberto depois de uma revalidação — gravava duas regras idênticas,
+-- que a interface não oferece jeito nenhum de remover.
+--
+-- São DOIS índices parciais, e não um só sobre (org_id, account_id,
+-- match_value), porque `account_id` é anulável e no índice único do Postgres
+-- NULL nunca colide com NULL: a regra da org inteira escaparia da restrição
+-- justamente por ser a de maior alcance.
+CREATE UNIQUE INDEX uq_transaction_nature_rules_conta
+  ON public.transaction_nature_rules(org_id, account_id, match_value)
+  WHERE account_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_transaction_nature_rules_org
+  ON public.transaction_nature_rules(org_id, match_value)
+  WHERE account_id IS NULL;
+
 ALTER TABLE public.transaction_nature_rules ENABLE ROW LEVEL SECURITY;
 
 -- Padrão consolidado pela 00026: a chave no JWT é o ARRAY `org_ids`, e
