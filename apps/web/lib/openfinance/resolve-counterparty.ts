@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { getDb, counterparties } from '@floow/db'
 import type { NormalizedPolpTransaction } from '@floow/core-finance'
 import { counterpartyKeyFor, compositeKey, type CounterpartyKey } from './counterparty-key'
@@ -111,6 +111,14 @@ export async function resolveCounterparty(
     } else {
       // Colidiu com outra página/sync criando a mesma contraparte entre o
       // SELECT do índice e este INSERT. Busca a linha que venceu a corrida.
+      //
+      // O filtro de `accountId` aqui não é opcional: chave `description` tem
+      // índice único parcial ESCOPADO por conta (migração 00035) — duas
+      // contas da mesma org podem ter contraparte-descrição legítima e
+      // distinta com o mesmo `keyValue`/`direction`. Sem este filtro, uma
+      // corrida real devolveria a linha da conta errada. Para `tax_id`,
+      // `key.accountId` é sempre null e `isNull` é o filtro certo (o índice
+      // único parcial desse caso já garante uma linha só).
       const [existing] = await db
         .select()
         .from(counterparties)
@@ -120,6 +128,9 @@ export async function resolveCounterparty(
             eq(counterparties.keyType, key.keyType),
             eq(counterparties.keyValue, key.keyValue),
             eq(counterparties.direction, key.direction),
+            key.accountId === null
+              ? isNull(counterparties.accountId)
+              : eq(counterparties.accountId, key.accountId),
           ),
         )
         .limit(1)

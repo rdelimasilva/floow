@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import type { SQL } from 'drizzle-orm'
 import { resolveCounterparty, type CounterpartyRecord } from '@/lib/openfinance/resolve-counterparty'
 
 const ORG = 'org-1'
@@ -63,6 +65,61 @@ beforeEach(() => {
   inserted = []
   insertReturns = []
 })
+
+/**
+ * Simula a corrida do INSERT (`onConflictDoNothing().returning()` volta
+ * vazio) e faz o `select` de desempate rodar contra a condição REAL que
+ * `resolveCounterparty` monta — renderizada pelo `PgDialect` de verdade, não
+ * reimplementada à mão — para que o teste realmente prove que o filtro de
+ * `accountId` existe na query, em vez de só confiar que o código o escreveu.
+ *
+ * `rows` simula o que já está gravado no banco quando a corrida acontece.
+ */
+function makeRaceDb(rows: Array<{
+  id: string
+  keyType: 'tax_id' | 'description'
+  keyValue: string
+  direction: 'in' | 'out'
+  accountId: string | null
+  nature: null
+  categoryId: null
+  confirmedAt: null
+}>) {
+  const dialect = new PgDialect()
+  return {
+    insert: vi.fn(() => ({
+      values: (v: any) => {
+        inserted.push(v)
+        return {
+          onConflictDoNothing: () => ({
+            returning: () => Promise.resolve([]), // perdeu a corrida
+          }),
+        }
+      },
+    })),
+    select: vi.fn(() => ({
+      from: () => ({
+        where: (cond: SQL) => ({
+          limit: () => {
+            const { sql, params } = dialect.sqlToQuery(cond)
+            // Ordem fixa que `resolveCounterparty` monta: orgId, keyType,
+            // keyValue, direction, e por último — opcionalmente —
+            // accountId (eq ou is null, nunca ausente na versão corrigida).
+            const [, keyType, keyValue, direction, accountIdParam] = params as string[]
+            const hasAccountIdClause = sql.includes('"account_id"')
+            const matches = rows.filter((r) => {
+              if (r.keyType !== keyType || r.keyValue !== keyValue || r.direction !== direction) return false
+              if (!hasAccountIdClause) return true // bug: nenhum filtro de conta
+              if (sql.includes('"account_id" is null')) return r.accountId === null
+              return r.accountId === accountIdParam
+            })
+            return Promise.resolve(matches.slice(0, 1))
+          },
+        }),
+      }),
+    })),
+  } as any
+}
 
 describe('resolveCounterparty', () => {
   it('Nível 1 confirmado não toca o índice nem o banco', async () => {
@@ -134,5 +191,30 @@ describe('resolveCounterparty', () => {
 
     expect(resolved.reviewState).toBe('pending')
     expect(resolved.counterpartyId).toBe('cp-desc')
+  })
+
+  it('corrida em chave de descrição não vaza contraparte de outra conta', async () => {
+    const CONTA_A = 'conta-a'
+    const CONTA_B = 'conta-b'
+    // Mesma descrição/direção em duas contas da mesma org: contrapartes
+    // legítimas e DISTINTAS (índice único parcial é escopado por account_id
+    // — migração 00035). A linha da conta A vem primeiro de propósito: um
+    // filtro de accountId ausente devolveria ela por engano para a conta B.
+    const db = makeRaceDb([
+      {
+        id: 'cp-conta-a', keyType: 'description', keyValue: 'DEBITO AUTOMATICO PERS BLACK',
+        direction: 'out', accountId: CONTA_A, nature: null, categoryId: null, confirmedAt: null,
+      },
+      {
+        id: 'cp-conta-b', keyType: 'description', keyValue: 'DEBITO AUTOMATICO PERS BLACK',
+        direction: 'out', accountId: CONTA_B, nature: null, categoryId: null, confirmedAt: null,
+      },
+    ])
+    const index = new Map<string, CounterpartyRecord>()
+
+    const resolved = await resolveCounterparty(db, ORG, CONTA_B, normalizedTx(), index)
+
+    expect(resolved.reviewState).toBe('pending')
+    expect(resolved.counterpartyId).toBe('cp-conta-b')
   })
 })
