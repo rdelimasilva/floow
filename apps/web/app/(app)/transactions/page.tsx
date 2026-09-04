@@ -92,6 +92,9 @@ export default async function TransactionsPage({ searchParams }: Props) {
         <Button asChild variant="outline">
           <Link href="/transactions/import">Importar</Link>
         </Button>
+        <Button asChild variant="outline">
+          <Link href="/transactions/review">Revisar contrapartes</Link>
+        </Button>
         <InlineTransactionFormButton />
       </PageHeader>
 

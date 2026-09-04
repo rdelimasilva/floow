@@ -1,5 +1,5 @@
-import { and, eq, sql } from 'drizzle-orm'
-import { getDb, orgs, transactions } from '@floow/db'
+import { and, desc, eq, sql } from 'drizzle-orm'
+import { getDb, orgs, transactions, counterparties } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 
 /**
@@ -64,4 +64,90 @@ export async function getReviewGateStatusSafe(): Promise<ReviewGateSafeResult> {
     console.error('[review-gate] falha ao checar o portao, seguindo sem bloquear:', error)
     return { ok: false }
   }
+}
+
+export interface PendingGroupItem {
+  id: string
+  date: string
+  description: string
+  amountCents: number
+}
+
+export interface PendingGroup {
+  counterpartyId: string
+  displayName: string
+  keyType: 'tax_id' | 'description'
+  count: number
+  totalCents: number
+  items: PendingGroupItem[]
+}
+
+/**
+ * Contrapartes pendentes da org, com os lançamentos por trás de cada uma.
+ * Ordenada por dinheiro — o mesmo princípio que o detector antigo já validou:
+ * "R$ 92 mil" move o usuário, "12 lançamentos" não.
+ */
+export async function getPendingCounterpartyGroups(orgId: string): Promise<PendingGroup[]> {
+  const db = getDb()
+
+  const rows = await db
+    .select({
+      counterpartyId: transactions.counterpartyId,
+      displayName: counterparties.displayName,
+      keyType: counterparties.keyType,
+      id: transactions.id,
+      date: transactions.date,
+      description: transactions.description,
+      amountCents: transactions.amountCents,
+    })
+    .from(transactions)
+    .innerJoin(counterparties, eq(counterparties.id, transactions.counterpartyId))
+    .where(and(eq(transactions.orgId, orgId), eq(transactions.reviewState, 'pending')))
+    .orderBy(transactions.date)
+
+  const groups = new Map<string, PendingGroup>()
+  for (const row of rows) {
+    if (!row.counterpartyId) continue
+    let group = groups.get(row.counterpartyId)
+    if (!group) {
+      group = { counterpartyId: row.counterpartyId, displayName: row.displayName, keyType: row.keyType, count: 0, totalCents: 0, items: [] }
+      groups.set(row.counterpartyId, group)
+    }
+    group.count++
+    group.totalCents += row.amountCents
+    group.items.push({
+      id: row.id,
+      date: row.date instanceof Date ? row.date.toISOString() : String(row.date),
+      description: row.description,
+      amountCents: row.amountCents,
+    })
+  }
+
+  return [...groups.values()].sort((a, b) => Math.abs(b.totalCents) - Math.abs(a.totalCents))
+}
+
+export interface ConfirmedCounterparty {
+  id: string
+  displayName: string
+  nature: 'income' | 'expense' | 'transfer'
+  categoryId: string | null
+  confirmedAt: string
+}
+
+/** Contrapartes já confirmadas, para a aba editável da fila. */
+export async function getConfirmedCounterparties(orgId: string): Promise<ConfirmedCounterparty[]> {
+  const db = getDb()
+  const rows = await db
+    .select()
+    .from(counterparties)
+    .where(and(eq(counterparties.orgId, orgId), sql`${counterparties.confirmedAt} is not null`))
+    .orderBy(desc(counterparties.confirmedAt))
+
+  return rows.map((row) => ({
+    id: row.id,
+    displayName: row.displayName,
+    nature: row.nature!,
+    categoryId: row.categoryId,
+    confirmedAt: row.confirmedAt!.toISOString(),
+  }))
 }
