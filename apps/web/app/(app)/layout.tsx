@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/layout/app-shell'
 import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
-import { ToastProvider } from '@/components/providers/toast-provider'
+import { ToastProvider } from '@/components/ui/toast'
 import { ReconcileProvider } from '@/components/providers/reconcile-provider'
 import dynamic from 'next/dynamic'
 
