@@ -17,6 +17,12 @@ import { getTableName } from 'drizzle-orm'
 /** UUID de verdade: `accountId` é validado na borda (`z.string().uuid()`). */
 const ACCOUNT_ID = '11111111-1111-1111-1111-111111111111'
 
+/**
+ * Os ids que o detector devolveu. O backfill deixou de casar descrição em SQL e
+ * passou a reescrever exatamente estas linhas (rodada final, Crítico 2).
+ */
+const TX_IDS = ['22222222-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333333']
+
 interface Op {
   op: 'select' | 'insert' | 'update'
   table: string
@@ -33,7 +39,12 @@ function makeChain(result: unknown[]): any {
     catch: () => chain,
     finally: () => chain,
   }
-  for (const m of ['from', 'where', 'limit', 'set', 'values', 'returning', 'orderBy', 'innerJoin']) {
+  // `onConflictDoNothing`: o insert da regra passou a usá-lo (M3) para que
+  // confirmar o mesmo grupo duas vezes não grave duas regras iguais.
+  for (const m of [
+    'from', 'where', 'limit', 'set', 'values', 'returning', 'orderBy', 'innerJoin',
+    'onConflictDoNothing',
+  ]) {
     chain[m] = () => makeChain(result)
   }
   return chain
@@ -90,6 +101,7 @@ describe('createNatureRule', () => {
     await createNatureRule({
       accountId: ACCOUNT_ID,
       matchValue: 'DEBITO AUTOMATICO PERS BLACK',
+      transactionIds: TX_IDS,
       nature: 'transfer',
     })
 
@@ -103,6 +115,7 @@ describe('createNatureRule', () => {
     const result = await createNatureRule({
       accountId: ACCOUNT_ID,
       matchValue: 'APLICACAO CDB DI',
+      transactionIds: TX_IDS,
       nature: 'transfer',
     })
 
@@ -120,6 +133,7 @@ describe('createNatureRule', () => {
       createNatureRule({
         accountId: ACCOUNT_ID,
         matchValue: 'APLICACAO CDB DI',
+        transactionIds: TX_IDS,
         nature: 'transfer',
       }),
     ).rejects.toThrow(/não encontrada|not found/i)
@@ -135,7 +149,12 @@ describe('createNatureRule', () => {
     // validação de `matchValue` que rejeita, e não um TypeError qualquer
     // vindo do mock (Importante 4).
     await expect(
-      createNatureRule({ accountId: ACCOUNT_ID, matchValue: '   ', nature: 'transfer' }),
+      createNatureRule({
+        accountId: ACCOUNT_ID,
+        matchValue: '   ',
+        transactionIds: TX_IDS,
+        nature: 'transfer',
+      }),
     ).rejects.toMatchObject({
       issues: [expect.objectContaining({ path: ['matchValue'] })],
     })
@@ -151,10 +170,83 @@ describe('createNatureRule', () => {
       createNatureRule({
         accountId: ACCOUNT_ID,
         matchValue: 'DESCRICAO VALIDA',
+        transactionIds: TX_IDS,
         nature: 'outra' as never,
       }),
     ).rejects.toMatchObject({
       issues: [expect.objectContaining({ path: ['nature'] })],
     })
+  })
+
+  it('rejeita nature "income": a linha de origem é despesa, e o valor é negativo', async () => {
+    const { createNatureRule } = await import('@/lib/openfinance/nature-actions')
+
+    // Crítico 1 da revisão final. O atalho só aparece em linha de despesa, e
+    // toda despesa tem `amount_cents` NEGATIVO. Gravar `income` mantendo o
+    // sinal fazia a receita do mês DESPENCAR — `sum(case when type = 'income'
+    // then amount_cents else 0 end)` somava R$ -106 mil como receita, em todo
+    // dashboard, gráfico de fluxo e pacing. O enum do zod é a cerca: o estado
+    // inválido não é representável, não é vigiado em runtime.
+    await expect(
+      createNatureRule({
+        accountId: ACCOUNT_ID,
+        matchValue: 'DESCRICAO VALIDA',
+        transactionIds: TX_IDS,
+        nature: 'income' as never,
+      }),
+    ).rejects.toMatchObject({
+      issues: [expect.objectContaining({ path: ['nature'] })],
+    })
+
+    expect(ops.some((o) => o.op === 'insert')).toBe(false)
+    expect(ops.some((o) => o.op === 'update')).toBe(false)
+  })
+
+  it('aceita exatamente expense e transfer', async () => {
+    const { createNatureRule } = await import('@/lib/openfinance/nature-actions')
+
+    for (const nature of ['expense', 'transfer'] as const) {
+      await expect(
+        createNatureRule({
+          accountId: ACCOUNT_ID,
+          matchValue: 'DESCRICAO VALIDA',
+          transactionIds: TX_IDS,
+          nature,
+        }),
+      ).resolves.toMatchObject({ reclassified: expect.any(Number) })
+    }
+  })
+
+  it('rejeita lista de lançamentos vazia: sem id não há passado para reescrever', async () => {
+    const { createNatureRule } = await import('@/lib/openfinance/nature-actions')
+
+    await expect(
+      createNatureRule({
+        accountId: ACCOUNT_ID,
+        matchValue: 'DESCRICAO VALIDA',
+        transactionIds: [],
+        nature: 'transfer',
+      }),
+    ).rejects.toMatchObject({
+      issues: [expect.objectContaining({ path: ['transactionIds'] })],
+    })
+  })
+
+  it('lança quando o UPDATE não casa nada, para a transação desfazer a regra', async () => {
+    updateQueue.push([])
+    const { createNatureRule } = await import('@/lib/openfinance/nature-actions')
+
+    // Crítico 2: antes, zero linhas não era erro. A regra ficava gravada, o
+    // filtro de supressão de `nature-queries.ts` passava a casar, o grupo sumia
+    // do painel PARA SEMPRE e o dinheiro continuava contado como despesa — com
+    // "0 lançamentos reclassificados" na tela como única pista.
+    await expect(
+      createNatureRule({
+        accountId: ACCOUNT_ID,
+        matchValue: 'APLICACAO CDB DI',
+        transactionIds: TX_IDS,
+        nature: 'transfer',
+      }),
+    ).rejects.toThrow(/nenhum lançamento correspondeu/i)
   })
 })

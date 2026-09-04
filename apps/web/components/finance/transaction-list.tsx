@@ -49,7 +49,7 @@ export function TransactionList({
   const [deleteTarget, setDeleteTarget] = useState<TransactionRowData | null>(null)
   const [loading, setLoading] = useState(false)
   const [ruleShortcut, setRuleShortcut] = useState<{ matchValue: string; categoryId: string } | null>(null)
-  const [natureTarget, setNatureTarget] = useState<{ accountId: string; description: string } | null>(null)
+  const [natureTarget, setNatureTarget] = useState<{ id: string; accountId: string; description: string } | null>(null)
   const [cancelTarget, setCancelTarget] = useState<{ templateId: string; description: string } | null>(null)
 
   // Bulk selection
@@ -120,7 +120,7 @@ export function TransactionList({
   }, [])
 
   const handleSetNature = useCallback((tx: TransactionRowData) => {
-    setNatureTarget({ accountId: tx.accountId, description: tx.description })
+    setNatureTarget({ id: tx.id, accountId: tx.accountId, description: tx.description })
   }, [])
 
   const closeEdit = useCallback(() => {

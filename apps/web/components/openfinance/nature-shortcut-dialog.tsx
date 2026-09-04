@@ -9,20 +9,25 @@ import { useToast } from '@/components/ui/toast'
 /**
  * "Isto não é despesa" a partir de uma linha do extrato.
  *
- * O caminho é o mesmo do painel de revisão: cria regra e reclassifica o
- * histórico daquela conta. A diferença é o ponto de partida — aqui o usuário
- * viu uma linha específica e reconheceu o padrão, em vez de ter sido alertado.
+ * O atalho reclassifica UMA linha — a que o usuário clicou — e cria a regra que
+ * vale para o que ainda vai chegar do banco. Não reescreve o resto do extrato:
+ * reescrever histórico financeiro em massa sem preview e sem desfazer não se
+ * justifica pela conveniência de um clique. Quem quer o grupo inteiro usa o
+ * painel de revisão, que mostra a contagem e o valor antes de perguntar.
+ *
+ * A única natureza oferecida é transferência. O botão que abre este diálogo só
+ * aparece em linha de despesa, e despesa tem `amount_cents` negativo: gravar
+ * `income` sem trocar o sinal derrubaria a receita do mês em todo dashboard.
  */
 
 interface Props {
-  target: { accountId: string; description: string } | null
+  target: { id: string; accountId: string; description: string } | null
   onClose: () => void
 }
 
 export function NatureShortcutDialog({ target, onClose }: Props) {
   const { toast } = useToast()
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const [nature, setNature] = useState<'transfer' | 'income'>('transfer')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -40,12 +45,13 @@ export function NatureShortcutDialog({ target, onClose }: Props) {
     if (!target) return
     setLoading(true)
     try {
-      const { reclassified } = await createNatureRule({
+      await createNatureRule({
         accountId: target.accountId,
         matchValue: key,
-        nature,
+        transactionIds: [target.id],
+        nature: 'transfer',
       })
-      toast(`${reclassified} lançamentos reclassificados`)
+      toast('Lançamento reclassificado como transferência')
       onClose()
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Não foi possível salvar', 'error')
@@ -64,24 +70,24 @@ export function NatureShortcutDialog({ target, onClose }: Props) {
       className="rounded-xl border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-black/40"
     >
       <div className="w-[min(92vw,480px)] p-6">
-        <h2 className="text-lg font-semibold text-gray-900">Reclassificar lançamentos</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Isto não é despesa</h2>
         <p className="mt-2 text-sm text-gray-600">
-          Todos os lançamentos desta conta cuja descrição contenha{' '}
-          <strong className="font-medium text-gray-900">{key}</strong> passam a valer como:
+          Este lançamento passa a valer como{' '}
+          <strong className="font-medium text-gray-900">
+            transferência — dinheiro que só mudou de lugar
+          </strong>
+          .
+        </p>
+        <p className="mt-3 text-sm text-gray-600">
+          Os próximos lançamentos desta conta cuja descrição contenha{' '}
+          <strong className="font-medium text-gray-900">{key}</strong> seguem a mesma regra assim
+          que chegarem do banco. Os que já estão no extrato continuam como estão — para revisar o
+          grupo inteiro de uma vez, use o aviso no topo da página.
         </p>
 
-        <select
-          value={nature}
-          onChange={(e) => setNature(e.target.value as 'transfer' | 'income')}
-          className="mt-3 h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
-        >
-          <option value="transfer">Transferência — dinheiro que só mudou de lugar</option>
-          <option value="income">Receita — dinheiro que entrou</option>
-        </select>
-
         <p className="mt-3 text-xs text-gray-500">
-          O saldo da conta não muda: o valor de cada lançamento continua o mesmo. O que muda é
-          deixarem de contar como gasto no orçamento.
+          O saldo da conta não muda: o valor do lançamento continua o mesmo. O que muda é deixar de
+          contar como gasto no orçamento.
         </p>
 
         <div className="mt-6 flex justify-end gap-3">

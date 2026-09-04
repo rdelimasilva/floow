@@ -1,13 +1,12 @@
 'use server'
 
 import { z } from 'zod'
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { getDb, transactions, transactionNatureRules } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { assertAccountOwnership } from '@/lib/finance/actions'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
-import { escapeLikePattern } from '@/lib/finance/sql-utils'
 import { foldForRuleMatch } from './nature-rules'
 
 /**
@@ -21,13 +20,41 @@ import { foldForRuleMatch } from './nature-rules'
  * `newSignedAmount = type === 'income' ? +v : -v` (finance/actions.ts:729). Um
  * resgate de CDB é transferência de valor POSITIVO; passar por ali o tornaria
  * negativo e o saldo quebraria em silêncio.
+ *
+ * PASSADO e FUTURO são reescritos por caminhos diferentes, de propósito:
+ * `transactionIds` diz exatamente quais linhas já gravadas mudam de natureza; a
+ * regra em `transaction_nature_rules` governa o que ainda vai chegar, aplicada
+ * na ingestão por `applyNatureRules`.
  */
 
 const inputSchema = z.object({
   accountId: z.string().uuid(),
   /** Descrição normalizada do grupo. Vazio casaria com o extrato inteiro. */
   matchValue: z.string().trim().min(2),
-  nature: z.enum(['income', 'expense', 'transfer']),
+  /**
+   * Exatamente os lançamentos que mudam de natureza agora.
+   *
+   * Vêm do detector, que é quem contou os "12 lançamentos" que o usuário leu na
+   * tela. Substituem o `LIKE` sobre descrição dobrada que existia aqui: aquela
+   * dobra era uma SEGUNDA implementação da normalização, em SQL, e divergia da
+   * de JS em toda descrição acentuada em forma decomposta — o `UPDATE` casava
+   * zero linhas, zero não é erro, e o grupo sumia do painel com o dinheiro
+   * ainda contado como despesa.
+   *
+   * Os ids vêm do cliente e não são confiáveis por si: quem protege são as
+   * cercas do `UPDATE` (org, conta, origem Open Finance, perna não pareada).
+   */
+  transactionIds: z.array(z.string().uuid()).min(1),
+  /**
+   * `income` NÃO entra aqui.
+   *
+   * O único ponto de entrada desta ação é uma linha de despesa, e toda despesa
+   * tem `amount_cents` negativo (ver `normalize.ts`). Gravar `income` mantendo o
+   * valor negativo faria a receita do mês DESPENCAR no dashboard, no fluxo de
+   * caixa e no pacing. O estado inválido fica irrepresentável no tipo, em vez de
+   * ser vigiado em runtime.
+   */
+  nature: z.enum(['expense', 'transfer']),
 })
 
 export type CreateNatureRuleInput = z.infer<typeof inputSchema>
@@ -39,34 +66,15 @@ export async function createNatureRule(
   const orgId = await getOrgId()
   const db = getDb()
 
-  // A regra grava `matchType: 'contains'` sempre, e a comparação `contains`
-  // ignora dígito (ver `foldForRuleMatch` em `nature-rules.ts`) — é o mesmo
-  // tratamento que `groupKey` já deu à chave que a tela manda como
-  // `matchValue`. Dobrar com `foldForMatch` aqui e deixar o dígito reapareceria
-  // no valor gravado, e o `LIKE` do backfill abaixo — que compara contra uma
-  // descrição já sem dígito — nunca acharia essas linhas.
+  // A regra grava `matchType: 'contains'`, e a comparação `contains` ignora
+  // dígito (ver `foldForRuleMatch` em `nature-rules.ts`) — é o mesmo tratamento
+  // que `groupKey` já deu à chave que a tela manda como `matchValue`. Os dois
+  // lados da comparação futura passam por esta mesma função, em JS: não há mais
+  // nenhuma dobra em SQL para divergir dela.
   const matchValue = foldForRuleMatch(input.matchValue)
   if (matchValue.length < 2) {
     throw new Error('O texto da regra é curto demais para identificar um lançamento.')
   }
-
-  // A comparação repete a mesma dobra em SQL: sem acento, sem caixa, sem
-  // dígito, sem espaço duplo. `unaccent` não está instalado no projeto, então
-  // o `translate` faz o trabalho para as vogais que aparecem em português.
-  const foldedDescription = sql`
-    btrim(regexp_replace(
-      regexp_replace(
-        upper(translate(${transactions.description},
-          'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ',
-          'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC')),
-        '[0-9][0-9./-]*', ' ', 'g'),
-      '\\s+', ' ', 'g'))
-  `
-
-  // `%` e `_` são curinga de LIKE, e aparecem em descrição bancária real
-  // ("IOF 6,38%", "RENDIMENTO 100% CDI"). Sem escapar, a regra do usuário
-  // reclassificaria muito mais linha do que ele confirmou.
-  const likePattern = `%${escapeLikePattern(matchValue)}%`
 
   // INSERT da regra e UPDATE retroativo andam juntos: se o UPDATE falhar
   // depois da regra já gravada, o grupo some da tela de suspeitas (a exclusão
@@ -87,31 +95,52 @@ export async function createNatureRule(
       orgId,
     )
 
-    await tx.insert(transactionNatureRules).values({
-      orgId,
-      accountId: input.accountId,
-      matchType: 'contains',
-      matchValue,
-      nature: input.nature,
-    })
+    // `onConflictDoNothing`: confirmar o mesmo grupo duas vezes gravaria duas
+    // regras idênticas que a interface não sabe remover. Os índices únicos
+    // parciais da migration 00034 cobrem os dois escopos — regra de conta e
+    // regra da org inteira, que `NULL <> NULL` deixaria escapar num índice só.
+    await tx
+      .insert(transactionNatureRules)
+      .values({
+        orgId,
+        accountId: input.accountId,
+        matchType: 'contains',
+        matchValue,
+        nature: input.nature,
+      })
+      .onConflictDoNothing()
 
     // `transactions` não tem coluna `updated_at` — só `created_at`, que marca
     // a ingestão original e não deve mudar aqui.
-    return tx
+    const rows = await tx
       .update(transactions)
       .set({ type: input.nature })
       .where(
         and(
           eq(transactions.orgId, orgId),
           eq(transactions.accountId, input.accountId),
-          // As duas cercas: só dado do Open Finance, e nunca perna de
-          // transferência pareada — mexer numa perna sem a outra desequilibra.
+          // As cercas continuam sendo a rede, agora sobre ids vindos do
+          // cliente: só dado do Open Finance, e nunca perna de transferência
+          // pareada — mexer numa perna sem a outra desequilibra o par.
           isNotNull(transactions.externalId),
           isNull(transactions.transferGroupId),
-          sql`${foldedDescription} LIKE ${likePattern}`,
+          inArray(transactions.id, input.transactionIds),
         ),
       )
       .returning({ id: transactions.id })
+
+    // Zero linhas aqui significa que algo está errado: os ids saíram do próprio
+    // detector, que já aplicou estas mesmas cercas. Deixar passar em silêncio
+    // gravaria a regra, silenciaria o grupo no painel e manteria o dinheiro
+    // contado como despesa — exatamente o desfecho que a transação existe para
+    // impedir.
+    if (rows.length === 0) {
+      throw new Error(
+        'Nenhum lançamento correspondeu; a regra não foi criada. Recarregue a página e tente de novo.',
+      )
+    }
+
+    return rows
   })
 
   revalidateTransactionData(orgId)

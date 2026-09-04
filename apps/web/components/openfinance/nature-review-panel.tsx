@@ -58,9 +58,13 @@ export function NatureReviewPanel({ open, onClose, groups }: Props) {
       const { reclassified } = await createNatureRule({
         accountId: group.accountId,
         // `matchValue` continua sendo `group.key` puro — é o que
-        // `createNatureRule` normaliza e grava para casar com o histórico.
+        // `createNatureRule` normaliza e grava como regra para o FUTURO.
         // A identidade composta é só para o estado local da tela.
         matchValue: group.key,
+        // O PASSADO vai por id, não por casamento de texto: são exatamente os
+        // lançamentos cuja contagem o usuário acabou de ler neste cartão. A
+        // tela prometia 12 e o `LIKE` reescrevia um número que ninguém sabia.
+        transactionIds: group.transactionIds,
         nature,
       })
       setResolved((prev) => new Set(prev).add(identity))
