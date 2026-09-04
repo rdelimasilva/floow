@@ -41,3 +41,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Sentry
+# O plugin de build escreve o auth token aqui. Sem esta linha, um `git add -A`
+# distraido commita a credencial.
+.env.sentry-build-plugin
+.sentryclirc

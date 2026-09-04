@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 import { readFileSync } from 'fs';
+import { withSentryConfig } from '@sentry/nextjs/config';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 
@@ -19,4 +20,14 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  webpack: {
+    treeshake: { removeDebugLogging: true },
+    automaticVercelMonitors: true,
+  },
+});
