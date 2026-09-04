@@ -34,6 +34,8 @@ export interface ConnectedCard {
 export interface KnownTransfer {
   accountId: string
   description: string
+  /** Negativo quando o dinheiro saiu. Ver `prepareTransfers`. */
+  amountCents: number
 }
 
 export type SuspectSignal =
@@ -179,6 +181,19 @@ function prepareTransfers(transfers: KnownTransfer[]): Map<string, PreparedTrans
   const porConta = new Map<string, PreparedTransfer[]>()
 
   for (const transfer of transfers) {
+    // Entrada nunca contradiz despesa: ela a CONFIRMA.
+    //
+    // Uma despesa "ser na verdade transferência" significa dinheiro saindo
+    // para outro bolso do usuário. Quando o mesmo nome aparece entrando, é o
+    // reembolso daquela despesa — evidência de que ela é real, e não de que é
+    // falsa. A Polp manda o texto idêntico nos dois sentidos, então sem este
+    // filtro o sinal lê a evidência ao contrário: medido no extrato real,
+    // R$ 35.818,91 de mensalidade de plano de saúde foram sinalizados por oito
+    // créditos de reembolso de R$ 243 a R$ 690, e R$ 7.624,85 de outro grupo
+    // por um único crédito de R$ 22,72. Quarenta por cento das transferências
+    // da conta são entradas, e nenhuma delas tem sinal verdadeiro para dar.
+    if (transfer.amountCents >= 0) continue
+
     const prepared: PreparedTransfer = {
       description: transfer.description,
       key: groupKey(transfer.description),
