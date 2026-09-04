@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const ORG = 'org-1'
 let orgRow: { reviewGateClearedAt: Date | null } | undefined
 let pendingRow: unknown[] = []
 let updateCalled = false
+let dbShouldThrow = false
+let getOrgIdImpl: () => Promise<string> = () => Promise.resolve(ORG)
 
 vi.mock('@floow/db', async () => {
   const actual = await vi.importActual<typeof import('@floow/db')>('@floow/db')
@@ -14,7 +16,10 @@ vi.mock('@floow/db', async () => {
         from: (table: any) => ({
           where: () => ({
             // Heurística: só a tabela `orgs` tem coluna `reviewGateClearedAt`.
-            limit: () => Promise.resolve('reviewGateClearedAt' in table ? (orgRow ? [orgRow] : []) : pendingRow),
+            limit: () => {
+              if (dbShouldThrow) return Promise.reject(new Error('db indisponivel'))
+              return Promise.resolve('reviewGateClearedAt' in table ? (orgRow ? [orgRow] : []) : pendingRow)
+            },
           }),
         }),
       }),
@@ -23,12 +28,18 @@ vi.mock('@floow/db', async () => {
   }
 })
 
-import { getReviewGateStatus } from '@/lib/openfinance/counterparty-queries'
+vi.mock('@/lib/finance/queries', () => ({
+  getOrgId: () => getOrgIdImpl(),
+}))
+
+import { getReviewGateStatus, getReviewGateStatusSafe } from '@/lib/openfinance/counterparty-queries'
 
 beforeEach(() => {
   orgRow = undefined
   pendingRow = []
   updateCalled = false
+  dbShouldThrow = false
+  getOrgIdImpl = () => Promise.resolve(ORG)
 })
 
 describe('getReviewGateStatus', () => {
@@ -39,11 +50,12 @@ describe('getReviewGateStatus', () => {
     expect(status.blocked).toBe(false)
   })
 
-  it('org travada com pendência bloqueia', async () => {
+  it('org travada com pendência bloqueia, sem gravar nada', async () => {
     orgRow = { reviewGateClearedAt: null }
     pendingRow = [{ one: 1 }]
     const status = await getReviewGateStatus(ORG)
     expect(status.blocked).toBe(true)
+    expect(updateCalled).toBe(false)
   })
 
   it('org travada sem nenhuma pendência destrava e grava o timestamp', async () => {
@@ -52,5 +64,31 @@ describe('getReviewGateStatus', () => {
     const status = await getReviewGateStatus(ORG)
     expect(status.blocked).toBe(false)
     expect(updateCalled).toBe(true)
+  })
+})
+
+describe('getReviewGateStatusSafe', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('repassa o resultado quando getOrgId e getReviewGateStatus funcionam', async () => {
+    orgRow = { reviewGateClearedAt: new Date() }
+    const result = await getReviewGateStatusSafe()
+    expect(result).toEqual({ ok: true, orgId: ORG, blocked: false })
+  })
+
+  it('falha aberto (nao bloqueia) quando getOrgId lanca', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    getOrgIdImpl = () => Promise.reject(new Error('No organization found for user'))
+    const result = await getReviewGateStatusSafe()
+    expect(result).toEqual({ ok: false })
+  })
+
+  it('falha aberto (nao bloqueia) quando getReviewGateStatus lanca', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    dbShouldThrow = true
+    const result = await getReviewGateStatusSafe()
+    expect(result).toEqual({ ok: false })
   })
 })

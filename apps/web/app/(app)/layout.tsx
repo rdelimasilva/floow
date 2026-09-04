@@ -6,8 +6,7 @@ import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/ui/toast'
 import { ReconcileProvider } from '@/components/providers/reconcile-provider'
-import { getReviewGateStatus } from '@/lib/openfinance/counterparty-queries'
-import { getOrgId } from '@/lib/finance/queries'
+import { getReviewGateStatusSafe } from '@/lib/openfinance/counterparty-queries'
 import { ReviewGate } from '@/components/openfinance/review-gate'
 import dynamic from 'next/dynamic'
 
@@ -26,13 +25,12 @@ export default async function AppLayout({
     redirect('/auth')
   }
 
-  const orgId = await getOrgId()
-  const { blocked } = await getReviewGateStatus(orgId)
+  const gate = await getReviewGateStatusSafe()
 
-  if (blocked) {
+  if (gate.ok && gate.blocked) {
     return (
       <ToastProvider>
-        <ReviewGate orgId={orgId} />
+        <ReviewGate orgId={gate.orgId} />
       </ToastProvider>
     )
   }

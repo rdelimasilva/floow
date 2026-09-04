@@ -1,5 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { getDb, orgs, transactions } from '@floow/db'
+import { getOrgId } from '@/lib/finance/queries'
 
 /**
  * O portão bloqueia o app inteiro no lugar do dashboard, só até a org zerar a
@@ -34,4 +35,33 @@ export async function getReviewGateStatus(orgId: string): Promise<{ blocked: boo
   }
 
   return { blocked: true }
+}
+
+type ReviewGateSafeResult = { ok: true; orgId: string; blocked: boolean } | { ok: false }
+
+/**
+ * Versão "fail open" de `getReviewGateStatus`, para uso no layout raiz de
+ * `(app)`. O layout não tem error boundary próprio — um erro lançado ali
+ * (ex.: "No organization found for user") não é pego pelo `(app)/error.tsx`
+ * do segmento (o Next.js não deixa um layout ser coberto pelo error boundary
+ * do próprio nível dele) e vaza direto para o `global-error.tsx`, uma tela
+ * genérica sem "tentar de novo" que substitui o `<html>` inteiro.
+ *
+ * Por isso qualquer falha aqui — em `getOrgId()` ou em `getReviewGateStatus`
+ * — é tratada como "não bloqueado": nunca mais fechado do que o
+ * comportamento anterior a esta task, quando `getOrgId()` só era chamado
+ * dentro de páginas filhas (cobertas pelo boundary do segmento). Se uma
+ * página filha chamar `getOrgId()` de novo e falhar, o boundary de
+ * `(app)/error.tsx` continua pegando normalmente — esta função não muda
+ * nada desse caminho.
+ */
+export async function getReviewGateStatusSafe(): Promise<ReviewGateSafeResult> {
+  try {
+    const orgId = await getOrgId()
+    const { blocked } = await getReviewGateStatus(orgId)
+    return { ok: true, orgId, blocked }
+  } catch (error) {
+    console.error('[review-gate] falha ao checar o portao, seguindo sem bloquear:', error)
+    return { ok: false }
+  }
 }
