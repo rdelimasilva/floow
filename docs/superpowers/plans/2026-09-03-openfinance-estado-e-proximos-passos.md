@@ -78,8 +78,8 @@ O que existe:
   que a lógica está implementada e testada isoladamente.
 
 Quem retomar por aqui precisa aplicar a migration num ambiente seguro, rodar o
-fluxo contra os dados reais e só então considerar a seção 1 ("Categorização")
-verdadeiramente resolvida para a conta corrente.
+fluxo contra os dados reais e só então considerar a linha "Categorização" da
+tabela da seção 1 verdadeiramente resolvida para a conta corrente.
 
 ---
 
@@ -191,10 +191,12 @@ Feito isso, o que continua aberto é a lista de decisões pendentes da seção 3
 nenhuma delas tocada por este plano:
 
 - **#2 — parear as duas pernas do pagamento de fatura com `transfer_group_id`.**
-  A reclassificação de natureza resolve a *conta corrente* (o débito automático
-  vira transferência, não despesa), mas não liga essa perna à compra
-  correspondente no extrato do cartão. As duas continuam existindo soltas,
-  cada uma no seu extrato.
+  A reclassificação de natureza foi desenhada para resolver a *conta
+  corrente* (o débito automático viraria transferência, não despesa), mas
+  isso ainda depende de ser exercitado contra os dados reais (seção 2). Mesmo
+  quando confirmado, o pareamento não liga essa perna à compra correspondente
+  no extrato do cartão — as duas continuam existindo soltas, cada uma no seu
+  extrato.
 - **#1 — conta "Banco Itaú" duplicada**, com 122 transações de OFX sem vínculo
   num período que já existe na conta conectada via Open Finance.
 - **#3 — saldo inicial da conta corrente** nunca ajustado para o começo do
