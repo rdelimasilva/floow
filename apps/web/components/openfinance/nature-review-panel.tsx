@@ -21,10 +21,23 @@ interface Props {
   groups: SuspectGroup[]
 }
 
+/**
+ * Identidade de um grupo na tela.
+ *
+ * `key` sozinho não serve: o detector agrupa por conta MAIS descrição
+ * normalizada, e "APLICACAO CDB" existe na conta corrente e na poupança ao
+ * mesmo tempo. Chavear estado só pela descrição faz uma decisão numa conta
+ * apagar o grupo da outra da lista, sem que regra nenhuma tenha sido criada
+ * para ele.
+ */
+function groupIdentity(group: SuspectGroup): string {
+  return `${group.accountId}-${group.key}`
+}
+
 export function NatureReviewPanel({ open, onClose, groups }: Props) {
   const { toast } = useToast()
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const [pendingKey, setPendingKey] = useState<string | null>(null)
+  const [pendingIdentity, setPendingIdentity] = useState<string | null>(null)
   const [resolved, setResolved] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -39,14 +52,18 @@ export function NatureReviewPanel({ open, onClose, groups }: Props) {
   }
 
   async function decide(group: SuspectGroup, nature: 'expense' | 'transfer') {
-    setPendingKey(group.key)
+    const identity = groupIdentity(group)
+    setPendingIdentity(identity)
     try {
       const { reclassified } = await createNatureRule({
         accountId: group.accountId,
+        // `matchValue` continua sendo `group.key` puro — é o que
+        // `createNatureRule` normaliza e grava para casar com o histórico.
+        // A identidade composta é só para o estado local da tela.
         matchValue: group.key,
         nature,
       })
-      setResolved((prev) => new Set(prev).add(group.key))
+      setResolved((prev) => new Set(prev).add(identity))
       toast(
         nature === 'transfer'
           ? `${reclassified} lançamentos deixaram de contar como despesa`
@@ -55,11 +72,11 @@ export function NatureReviewPanel({ open, onClose, groups }: Props) {
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Não foi possível salvar', 'error')
     } finally {
-      setPendingKey(null)
+      setPendingIdentity(null)
     }
   }
 
-  const pending = groups.filter((group) => !resolved.has(group.key))
+  const pending = groups.filter((group) => !resolved.has(groupIdentity(group)))
 
   return (
     <dialog
@@ -78,38 +95,41 @@ export function NatureReviewPanel({ open, onClose, groups }: Props) {
           <p className="mt-6 text-sm text-gray-600">Nada mais para revisar por aqui.</p>
         ) : (
           <ul className="mt-6 space-y-4">
-            {pending.map((group) => (
-              <li key={`${group.accountId}-${group.key}`} className="rounded-lg border border-gray-200 p-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-sm font-medium text-gray-900">{group.sample}</p>
-                  <p className="shrink-0 text-sm font-semibold text-red-600">
-                    {formatBRL(Math.abs(group.totalCents))}
+            {pending.map((group) => {
+              const identity = groupIdentity(group)
+              return (
+                <li key={identity} className="rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-sm font-medium text-gray-900">{group.sample}</p>
+                    <p className="shrink-0 text-sm font-semibold text-red-600">
+                      {formatBRL(Math.abs(group.totalCents))}
+                    </p>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {group.count} lançamentos · {group.accountName}
                   </p>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  {group.count} lançamentos · {group.accountName}
-                </p>
-                <p className="mt-2 text-xs text-gray-600">{explainSuspect(group)}</p>
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    disabled={pendingKey !== null}
-                    onClick={() => decide(group, 'transfer')}
-                  >
-                    {pendingKey === group.key ? 'Salvando...' : 'É transferência'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={pendingKey !== null}
-                    onClick={() => decide(group, 'expense')}
-                  >
-                    É despesa mesmo
-                  </Button>
-                </div>
-              </li>
-            ))}
+                  <p className="mt-2 text-xs text-gray-600">{explainSuspect(group)}</p>
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      disabled={pendingIdentity !== null}
+                      onClick={() => decide(group, 'transfer')}
+                    >
+                      {pendingIdentity === identity ? 'Salvando...' : 'É transferência'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={pendingIdentity !== null}
+                      onClick={() => decide(group, 'expense')}
+                    >
+                      É despesa mesmo
+                    </Button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
 
