@@ -188,6 +188,33 @@ describe('detectNatureSuspects', () => {
     expect(new Set(grupos.map((g) => g.accountId))).toEqual(new Set([CONTA, 'poupanca']))
   })
 
+  it('token repetido na transferência não vale por dois', () => {
+    // M1 da revisão final. `shared.length >= 2` contava a REPETIÇÃO: "CDB CDB"
+    // satisfazia a exigência de dois tokens distintos com um token só, e
+    // enfraquecia justamente o sinal mais forte do detector — o único que é
+    // evidência do próprio dado do usuário. Só "CDB" está em comum aqui.
+    const [grupo] = detectNatureSuspects({
+      candidates: aplicacaoCdb().map((c) => ({ ...c, description: 'Aplicação CDB' })),
+      cards: [],
+      knownTransfers: [{ accountId: CONTA, description: 'Saída CDB CDB' }],
+    })
+
+    expect(grupo.signals.map((s) => s.kind)).toEqual(['investment-vocabulary'])
+  })
+
+  it('dois tokens distintos em comum continuam sendo contradição', () => {
+    const [grupo] = detectNatureSuspects({
+      candidates: aplicacaoCdb().map((c) => ({ ...c, description: 'Aplicação CDB' })),
+      cards: [],
+      knownTransfers: [{ accountId: CONTA, description: 'Saída APLICACAO CDB' }],
+    })
+
+    expect(grupo.signals.map((s) => s.kind).sort()).toEqual([
+      'investment-vocabulary',
+      'polp-contradiction',
+    ])
+  })
+
   it('a contradição só vale na mesma conta', () => {
     const [grupo] = detectNatureSuspects({
       candidates: aplicacaoCdb(),

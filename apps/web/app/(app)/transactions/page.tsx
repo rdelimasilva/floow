@@ -1,8 +1,8 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { cookies } from 'next/headers'
 import { getOrgId, getTransactionsWithCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
-import { getNatureSuspects } from '@/lib/openfinance/nature-queries'
-import { NatureSuspectsBanner } from '@/components/openfinance/nature-suspects-banner'
+import { NatureSuspectsSection } from '@/components/openfinance/nature-suspects-section'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
@@ -45,13 +45,12 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const queryOpts = { limit: pageSize, offset: (page - 1) * pageSize, ...filters }
 
-  const [{ transactions, totalCount, startingBalance }, accounts, categories, categoryOrder, natureSuspects] =
+  const [{ transactions, totalCount, startingBalance }, accounts, categories, categoryOrder] =
     await Promise.all([
       getTransactionsWithCount(orgId, queryOpts),
       getAccounts(orgId),
       getCategories(orgId),
       getCategoryUsageOrder(orgId),
-      getNatureSuspects(orgId),
     ])
 
   const totalPages = Math.ceil(totalCount / pageSize)
@@ -95,7 +94,11 @@ export default async function TransactionsPage({ searchParams }: Props) {
         <InlineTransactionFormButton />
       </PageHeader>
 
-      <NatureSuspectsBanner groups={natureSuspects} />
+      {/* Fora do `Promise.all` de propósito: o detector varre treze meses de
+          extrato sem paginação e não pode segurar a lista de transações. */}
+      <Suspense fallback={null}>
+        <NatureSuspectsSection orgId={orgId} />
+      </Suspense>
 
       <InlineTransactionFormPanel
         accounts={accountOptions}

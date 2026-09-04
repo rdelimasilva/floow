@@ -26,10 +26,17 @@ const LOOKBACK_MONTHS = 13
 /** Tipos de conta onde o problema existe. Cartão não entra: veio limpo. */
 const CASH_ACCOUNT_TYPES = ['checking', 'savings'] as const
 
+/**
+ * Primeiro dia do mês de treze meses atrás.
+ *
+ * `setMonth(getMonth() - 13)` transborda: em 31 de março, "13 meses atrás" cai
+ * em 31 de fevereiro, que o JavaScript escorrega para 2 ou 3 de março — a
+ * janela encolhe um mês inteiro, e só nos dias 29 a 31. Ancorar no dia 1 não
+ * tem dia inexistente para escorregar, e o corte fica igual todo dia do mês.
+ */
 function lookbackDate(): Date {
-  const date = new Date()
-  date.setMonth(date.getMonth() - LOOKBACK_MONTHS)
-  return date
+  const hoje = new Date()
+  return new Date(hoje.getFullYear(), hoje.getMonth() - LOOKBACK_MONTHS, 1)
 }
 
 export async function getNatureSuspects(orgId: string): Promise<SuspectGroup[]> {

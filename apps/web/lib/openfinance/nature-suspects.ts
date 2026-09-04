@@ -155,6 +155,39 @@ function investmentToken(key: string): string | null {
   return null
 }
 
+/** Transferência com os tokens já extraídos, agrupadas por conta. */
+interface PreparedTransfer {
+  description: string
+  tokens: Set<string>
+}
+
+/**
+ * Tokeniza as transferências UMA vez, antes do laço de grupos.
+ *
+ * `contradictingTransfer` é chamada por grupo e varre a lista inteira. Sem este
+ * pré-cálculo, 200 grupos contra 1.000 transferências davam 200 mil chamadas de
+ * `tokensOf` — cada uma um `normalize('NFD')` mais regex mais split — a cada
+ * carregamento de `/transactions`.
+ *
+ * O `Map` por conta também elimina a varredura das transferências das outras
+ * contas, que o sinal descarta de qualquer jeito.
+ */
+function prepareTransfers(transfers: KnownTransfer[]): Map<string, PreparedTransfer[]> {
+  const porConta = new Map<string, PreparedTransfer[]>()
+
+  for (const transfer of transfers) {
+    const prepared: PreparedTransfer = {
+      description: transfer.description,
+      tokens: new Set(tokensOf(transfer.description)),
+    }
+    const lista = porConta.get(transfer.accountId)
+    if (lista) lista.push(prepared)
+    else porConta.set(transfer.accountId, [prepared])
+  }
+
+  return porConta
+}
+
 /**
  * A Polp classificou a mesma coisa como transferência em outro lançamento da
  * mesma conta?
@@ -164,21 +197,25 @@ function investmentToken(key: string): string | null {
  * forte daqui e o único que não depende de vocabulário nenhum: é evidência do
  * próprio dado do usuário.
  *
- * Exige dois tokens de três caracteres ou mais em comum. Com um só, "Aluguel"
- * casaria com qualquer transferência que mencionasse aluguel.
+ * Exige dois tokens DISTINTOS de três caracteres ou mais em comum. Com um só,
+ * "Aluguel" casaria com qualquer transferência que mencionasse aluguel — e
+ * contando repetição, "CDB CDB" satisfaria a exigência de dois com um token só,
+ * enfraquecendo justamente o sinal mais forte. Os dois lados são conjuntos: a
+ * repetição não conta.
  */
 function contradictingTransfer(
   accountId: string,
   key: string,
-  transfers: KnownTransfer[],
+  transfersByAccount: Map<string, PreparedTransfer[]>,
 ): string | null {
   const keyTokens = new Set(tokensOf(key).filter((token) => token.length >= 3))
   if (keyTokens.size < 2) return null
 
-  for (const transfer of transfers) {
-    if (transfer.accountId !== accountId) continue
-    const shared = tokensOf(transfer.description).filter((token) => keyTokens.has(token))
-    if (shared.length >= 2) return transfer.description
+  for (const transfer of transfersByAccount.get(accountId) ?? []) {
+    let shared = 0
+    for (const token of transfer.tokens) {
+      if (keyTokens.has(token) && ++shared >= 2) return transfer.description
+    }
   }
 
   return null
@@ -243,6 +280,8 @@ export function detectNatureSuspects({
   }
 
   const groups: SuspectGroup[] = []
+  // Fora do laço: uma passada pelas transferências, não uma por grupo.
+  const transfersByAccount = prepareTransfers(knownTransfers)
 
   for (const bucket of buckets.values()) {
     if (bucket.count < MIN_GROUP_COUNT && Math.abs(bucket.totalCents) < MIN_GROUP_CENTS) continue
@@ -259,7 +298,11 @@ export function detectNatureSuspects({
     const token = investmentToken(bucket.key)
     if (token) signals.push({ kind: 'investment-vocabulary', token })
 
-    const transferDescription = contradictingTransfer(bucket.accountId, bucket.key, knownTransfers)
+    const transferDescription = contradictingTransfer(
+      bucket.accountId,
+      bucket.key,
+      transfersByAccount,
+    )
     if (transferDescription) signals.push({ kind: 'polp-contradiction', transferDescription })
 
     // Nenhum sinal, nenhuma pergunta. O sinal estrutural não conta aqui.
