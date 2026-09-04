@@ -1,8 +1,9 @@
 # Open Finance via Polp — estado e próximos passos
 
 **Data:** 2026-09-03
-**Situação:** conexão real funcionando, dados importados, **classificação da conta corrente inutilizável**
-**Spec:** `docs/superpowers/specs/2026-09-02-openfinance-ingestion-design.md`
+**Situação:** conexão real funcionando, dados importados, camada de reclassificação de natureza implementada e **nunca executada contra banco real**
+**Spec:** `docs/superpowers/specs/2026-09-02-openfinance-ingestion-design.md` (ingestão) e
+`docs/superpowers/specs/2026-09-03-openfinance-nature-reclassification-design.md` (natureza)
 
 Este documento existe para retomar sem redescobrir. O que está aqui foi apurado
 contra a API e o banco de produção, não deduzido da documentação.
@@ -32,80 +33,53 @@ ingestão. Os dois cartões vieram com dado limpo e bem categorizado
 
 ---
 
-## 2. O problema aberto: natureza da transação na conta corrente
+## 2. A camada de reclassificação de natureza — implementada, não verificada
 
-**Os cartões estão bons. A conta corrente não.**
+O problema descrito nesta seção até 2026-09-03 (pagamento de fatura e aplicação
+CDB entrando como "despesa" na conta corrente) tem agora uma solução
+implementada, seguindo a spec
+`docs/superpowers/specs/2026-09-03-openfinance-nature-reclassification-design.md`.
+O que existe:
 
-Cerca de R$ 635 mil entraram como "despesa" na conta corrente em 12 meses. Boa
-parte não é gasto: são pagamentos de fatura (que já foram contados como compras
-no cartão) e movimentação de investimento.
+- **`packages/core-finance/src/openfinance/normalize.ts`** — o `type` bruto da
+  Polp (`APLICACAO_FINANCEIRA`, `RESGATE_APLIC_FINANCEIRA`,
+  `TRANSFERENCIA_SALDO_RESERVADO`) decide a natureza como transferência antes
+  de olhar `category_ref`. É a parte determinística, sem palpite.
+- **`apps/web/lib/openfinance/nature-rules.ts`** — regras de descrição
+  confirmadas pelo usuário (ex.: "Débito automático PERS BLACK é a fatura do
+  cartão X"), aplicadas na ingestão para reclassificar a natureza.
+- **`apps/web/lib/openfinance/nature-suspects.ts`** — detector puro que agrupa
+  transações suspeitas por descrição e sugere candidatas a regra; **nunca
+  aplica nada sozinho**, só sugere.
+- **`apps/web/lib/openfinance/nature-queries.ts`** e
+  **`apps/web/lib/openfinance/nature-actions.ts`** — leitura dos agrupamentos
+  suspeitos e as `'use server'` actions que criam regra e disparam o backfill
+  do histórico já importado.
+- **`apps/web/components/openfinance/`** (`nature-suspects-banner.tsx`,
+  `nature-review-panel.tsx`, `nature-shortcut-dialog.tsx`) — a interface onde o
+  usuário vê o agrupamento suspeito, o total em reais, e confirma ou não a
+  regra.
+- Tabela nova de regras e coluna `polp_type` em `transactions`, na migration
+  `00034_transaction_nature_rules.sql`.
 
-### 2.1 Pagamento de fatura que não se identifica como tal
+**O que não foi verificado — registrar com todas as letras:**
 
-Nove transações somando ~R$ 106 mil chegam assim:
+- A migration `00034` foi **escrita e nunca aplicada a banco nenhum**. Não há
+  banco local neste ambiente; `DATABASE_URL` aponta para o Supabase de
+  produção, e aplicar migration ali não é uma decisão para tomar sozinho.
+- Nenhum passo deste plano — regra criada, backfill rodado, suspeitos
+  detectados sobre dado real — **rodou contra os dados de produção** (as 739
+  transações da seção 1). Tudo o que existe tem cobertura de teste unitário
+  (funções puras, mocks), não execução real.
+- Portanto: os números da versão anterior desta seção (R$ 635 mil em
+  "despesa", os R$ 106 mil de fatura, os R$ 125 mil de CDB) **não foram
+  reconferidos** depois da implementação. Não há confirmação de que a
+  reclassificação, aplicada de fato, resolve esses casos específicos — só de
+  que a lógica está implementada e testada isoladamente.
 
-```
-type: TARIFA_SERVICOS_AVULSOS        <- "tarifa de serviços avulsos"
-category_ref: BANK_FEES_OTHER_BANK_FEES
-transaction_name: "Débito automático <nome do cartão> ..."
-```
-
-É o débito automático da fatura do cartão. **Nem o `type` estruturado nem o
-`category_ref` dizem isso** — só a descrição. O tratamento atual
-(`normalizeAccountTransaction`) só reconhece pagamento de fatura por
-`category_ref = LOAN_PAYMENTS_CREDIT_CARD_PAYMENT`, que pegou 9 outros
-pagamentos, mas não estes.
-
-Consequência: as compras do cartão entram como despesa **e** o pagamento da
-fatura entra como despesa. É exatamente a dupla contagem que `creditCardConnected`
-deveria impedir — ela funciona, mas só para os pagamentos que a Polp rotula
-corretamente.
-
-### 2.2 A Polp classifica a mesma operação de dois jeitos
-
-| Descrição | `type` | `category_ref` | Vira |
-|---|---|---|---|
-| `Saída APLICACAO CDB DI` | OUTROS | `TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS` | transferência ✓ |
-| `Aplicação CDB DI` | OUTROS | `OTHER` | **despesa** ✗ |
-
-A segunda, sozinha, jogou R$ 125 mil em "despesa". Aplicação e resgate de CDB
-aparecem ora com `category_ref` de transferência, ora como `OTHER`, e o `type`
-não desempata (vem `OUTROS` nos dois).
-
-### 2.3 Por que isso não se resolve com mais um `if`
-
-Três fontes existem e nenhuma é suficiente sozinha:
-
-- **`type` (AccountTransactionType)** — resolve `APLICACAO_FINANCEIRA` e
-  `RESGATE_APLIC_FINANCEIRA`, mas vem `OUTROS` nos casos mais caros.
-- **`category_ref`** — resolve quando a Polp acerta, e ela erra de formas
-  contraditórias na mesma conta.
-- **descrição** — é a única que identifica o pagamento de fatura, e depende de
-  saber que aquele nome é o cartão *daquele* usuário.
-
-`category_rules`, que já existe no floow, **não serve**: ela atribui categoria e
-não altera a natureza (`type`) da transação. Não há como uma regra transformar
-despesa em transferência hoje.
-
-### 2.4 Desenho proposto
-
-Uma camada de reclassificação que decide **natureza**, aplicada depois do
-normalizador e antes da gravação, com três fontes em ordem de confiança:
-
-1. `type` estruturado: `APLICACAO_FINANCEIRA`, `RESGATE_APLIC_FINANCEIRA`,
-   `TRANSFERENCIA_SALDO_RESERVADO` → transferência. Determinístico, sem palpite.
-2. **Regra de descrição confirmada pelo usuário** — "Débito automático PERS
-   BLACK é pagamento da fatura do meu cartão X". Só o usuário pode afirmar isso;
-   inferir sozinho é o mesmo erro do D5 da spec (casar conta automaticamente).
-3. Valor casado com a fatura do cartão conectado, como reforço da regra 2.
-
-Isso exige estender `category_rules` (ou criar irmã) com uma ação de natureza,
-e uma tela onde o usuário veja "estas 9 transações somam R$ 106 mil e estão
-como despesa — são pagamento de fatura?".
-
-**Nota de projeto:** o normalizador (`packages/core-finance/src/openfinance/normalize.ts`)
-deve continuar puro e determinístico. A reclassificação por regra do usuário é
-outra camada, em `apps/web/lib/openfinance/`.
+Quem retomar por aqui precisa aplicar a migration num ambiente seguro, rodar o
+fluxo contra os dados reais e só então considerar a seção 1 ("Categorização")
+verdadeiramente resolvida para a conta corrente.
 
 ---
 
@@ -208,11 +182,27 @@ Manter até conferir o resultado; o caminho de volta está no rodapé de
 
 ## 7. Por onde recomeçar
 
-A camada de reclassificação (seção 2) é o que separa "os dados entraram" de "os
-dados servem". Enquanto ela não existir, o orçamento e o pacing sobre a conta
-corrente vão mentir — os cartões, esses já podem ser usados.
+A camada de reclassificação de natureza (seção 2) está implementada, mas o
+primeiro passo de qualquer retomada é aplicar a migration `00034` num ambiente
+seguro e rodar o fluxo contra dado real — sem isso, nada do que segue pode
+assumir que o problema da conta corrente está de fato resolvido.
 
-O primeiro passo é uma decisão de produto, não de código: **como o usuário
-confirma que "Débito automático PERS BLACK" é pagamento da fatura dele.** Uma
-tela que mostra os agrupamentos suspeitos por descrição, com o total em reais ao
-lado, e pergunta. O resto decorre disso.
+Feito isso, o que continua aberto é a lista de decisões pendentes da seção 3,
+nenhuma delas tocada por este plano:
+
+- **#2 — parear as duas pernas do pagamento de fatura com `transfer_group_id`.**
+  A reclassificação de natureza resolve a *conta corrente* (o débito automático
+  vira transferência, não despesa), mas não liga essa perna à compra
+  correspondente no extrato do cartão. As duas continuam existindo soltas,
+  cada uma no seu extrato.
+- **#1 — conta "Banco Itaú" duplicada**, com 122 transações de OFX sem vínculo
+  num período que já existe na conta conectada via Open Finance.
+- **#3 — saldo inicial da conta corrente** nunca ajustado para o começo do
+  histórico importado (~R$ 3.677 no floow contra ~R$ 271 informado pelo Itaú).
+- **#4 — contas de cartão órfãs** ("Cartão PDA", "Cartão Master Black",
+  "teste"), zero transações, provavelmente anteriores ao vínculo atual.
+
+E os itens da seção 6, que seguem inexistentes: webhook (`/api/webhooks/polp`),
+sincronização automática pelo cron diário, produtos além de conta e cartão
+(crédito, investimentos, câmbio), e as variáveis `POLP_API_CLIENT`,
+`POLP_API_SECRET` e `POLP_CPF_SALT` em produção.
