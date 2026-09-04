@@ -147,6 +147,7 @@ export const getSpendingByCategory = cache(async function getSpendingByCategory(
           and(
             eq(transactions.orgId, orgId),
             eq(transactions.type, 'expense'),
+            eq(transactions.reviewState, 'confirmed'),
             eq(transactions.isIgnored, false),
             gte(transactions.date, start),
             lte(transactions.date, end),
@@ -185,6 +186,7 @@ export const getInvestmentContributions = cache(async function getInvestmentCont
           and(
             eq(transactions.orgId, orgId),
             eq(transactions.type, 'transfer'),
+            eq(transactions.reviewState, 'confirmed'),
             eq(accounts.type, 'brokerage'),
             sql`${transactions.amountCents} > 0`,
             eq(transactions.isIgnored, false),
