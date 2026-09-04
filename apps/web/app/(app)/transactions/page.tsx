@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { cookies } from 'next/headers'
 import { getOrgId, getTransactionsWithCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
 import { NatureSuspectsSection } from '@/components/openfinance/nature-suspects-section'
+import { NatureSuspectsBoundary } from '@/components/openfinance/nature-suspects-boundary'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
@@ -95,10 +96,13 @@ export default async function TransactionsPage({ searchParams }: Props) {
       </PageHeader>
 
       {/* Fora do `Promise.all` de propósito: o detector varre treze meses de
-          extrato sem paginação e não pode segurar a lista de transações. */}
-      <Suspense fallback={null}>
-        <NatureSuspectsSection orgId={orgId} />
-      </Suspense>
+          extrato sem paginação e não pode segurar a lista de transações. O
+          boundary fecha a outra ponta: falha dele não derruba a página. */}
+      <NatureSuspectsBoundary>
+        <Suspense fallback={null}>
+          <NatureSuspectsSection orgId={orgId} />
+        </Suspense>
+      </NatureSuspectsBoundary>
 
       <InlineTransactionFormPanel
         accounts={accountOptions}
