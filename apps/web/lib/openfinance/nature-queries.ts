@@ -70,7 +70,13 @@ export async function getNatureSuspects(orgId: string): Promise<SuspectGroup[]> 
       ),
 
     db
-      .select({ accountId: transactions.accountId, description: transactions.description })
+      .select({
+        accountId: transactions.accountId,
+        description: transactions.description,
+        // O detector descarta as entradas: reembolso não contradiz a despesa
+        // que ele devolve. O filtro mora lá, junto do motivo e do teste.
+        amountCents: transactions.amountCents,
+      })
       .from(transactions)
       .innerJoin(accounts, eq(accounts.id, transactions.accountId))
       .where(

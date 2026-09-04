@@ -70,18 +70,19 @@ export function TransactionList({
     else setSelected(new Set(transactions.map((t) => t.id)))
   }
 
-  // Running balance
+  // Running balance — lançamentos recorrentes futuros ainda não conciliados
+  // (balanceApplied === false) não devem debitar/creditar o saldo exibido.
   const runningBalances = useMemo(() => {
     const balances: number[] = []
     let balance = startingBalance
     if (sortDir === 'desc') {
       for (let i = 0; i < transactions.length; i++) {
         balances.push(balance)
-        balance -= transactions[i].amountCents
+        if (transactions[i].balanceApplied !== false) balance -= transactions[i].amountCents
       }
     } else {
       for (let i = 0; i < transactions.length; i++) {
-        balance += transactions[i].amountCents
+        if (transactions[i].balanceApplied !== false) balance += transactions[i].amountCents
         balances.push(balance)
       }
     }

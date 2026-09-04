@@ -55,7 +55,7 @@ function aplicacaoCdb(): SuspectCandidate[] {
 const CARTAO: ConnectedCard = { label: 'Cartão · PERSONNALITE MC BLACK · final 1234', digits: '1234' }
 
 const TRANSFERENCIA_CONHECIDA: KnownTransfer[] = [
-  { accountId: CONTA, description: 'Saída APLICACAO CDB DI' },
+  { accountId: CONTA, description: 'Saída APLICACAO CDB DI', amountCents: -100000 },
 ]
 
 describe('groupKey', () => {
@@ -196,7 +196,7 @@ describe('detectNatureSuspects', () => {
     const [grupo] = detectNatureSuspects({
       candidates: aplicacaoCdb().map((c) => ({ ...c, description: 'Aplicação CDB' })),
       cards: [],
-      knownTransfers: [{ accountId: CONTA, description: 'Saída CDB CDB' }],
+      knownTransfers: [{ accountId: CONTA, description: 'Saída CDB CDB', amountCents: -100000 }],
     })
 
     expect(grupo.signals.map((s) => s.kind)).toEqual(['investment-vocabulary'])
@@ -206,7 +206,7 @@ describe('detectNatureSuspects', () => {
     const [grupo] = detectNatureSuspects({
       candidates: aplicacaoCdb().map((c) => ({ ...c, description: 'Aplicação CDB' })),
       cards: [],
-      knownTransfers: [{ accountId: CONTA, description: 'Saída APLICACAO CDB' }],
+      knownTransfers: [{ accountId: CONTA, description: 'Saída APLICACAO CDB', amountCents: -100000 }],
     })
 
     expect(grupo.signals.map((s) => s.kind).sort()).toEqual([
@@ -215,11 +215,151 @@ describe('detectNatureSuspects', () => {
     ])
   })
 
+  /**
+   * O prefixo burocrático do banco não é a operação.
+   *
+   * Descrição de extrato brasileiro começa com duas ou três palavras de
+   * envelope — "Pagamento de Pix QR Code", "Débito automático", "Pagamento de
+   * boleto". O limiar de dois tokens distintos era satisfeito pelo envelope
+   * sozinho, e o sinal mais forte do detector passou a casar qualquer despesa
+   * com qualquer transferência da conta. Medido contra o extrato real de uma
+   * org: 30 grupos e R$ 537 mil sinalizados, 81% de TUDO que a pessoa gastou.
+   */
+  describe('o prefixo do banco sozinho não é contradição', () => {
+    const casos: Array<[string, string]> = [
+      ['Pagamento de boleto HANNI DAVID IMOVEIS LTDA', 'Pagamento de Pix QR Code M4 PRODUTOS E SERVICOS LTDA'],
+      ['Pagamento de Pix QR Code Clientbase Ltda', 'Pagamento de Pix QR Code Ricardo de Lima Silva'],
+      ['Débito automático PERS BLACK', 'Débito automático ITAU VISA PAO DE AC'],
+      ['Pagamento de boleto INT PERS BLACK', 'Pagamento de boleto BRADESCO VIDA E PREVIDENCIA'],
+      // Os três abaixo sobreviviam a exigir PROPORÇÃO dos tokens em comum: o
+      // envelope ocupa quatro dos cinco tokens da chave, então qualquer outro
+      // Pix da conta cobre 80% dela sem ter nada a ver com a operação.
+      ['Pagamento de Pix QR Code Clientbase Ltda', 'Pagamento de Pix QR Code M4 PRODUTOS E SERVICOS LTDA'],
+      ['Pagamento de Pix QR Code PIX MARKETPLACE', 'Pagamento de Pix QR Code Ricardo de Lima Silva'],
+      ['Pagamento de Pix QR Code PIX QRS CLIENTBASE', 'Pagamento de Pix QR Code PIX QRS VINDI PAGAM 27/02'],
+    ]
+
+    for (const [despesa, transferencia] of casos) {
+      it(`"${despesa}" não contradiz "${transferencia}"`, () => {
+        const [grupo] = detectNatureSuspects({
+          candidates: Array.from({ length: 5 }, (_, i) =>
+            candidate({ id: `t-${i}`, description: despesa, amountCents: -50000 }),
+          ),
+          cards: [],
+          knownTransfers: [{ accountId: CONTA, description: transferencia, amountCents: -100000 }],
+        })
+
+        expect(grupo).toBeUndefined()
+      })
+    }
+  })
+
+  it('a mesma descrição dos dois lados continua sendo contradição', () => {
+    // O caso que o sinal existe para pegar: o banco mandou a MESMA operação
+    // como despesa e como transferência. Aqui não há envelope nenhum sobrando.
+    const [grupo] = detectNatureSuspects({
+      candidates: Array.from({ length: 5 }, (_, i) =>
+        candidate({ id: `unimed-${i}`, description: 'Unimed Cnu', amountCents: -325626 }),
+      ),
+      cards: [],
+      knownTransfers: [{ accountId: CONTA, description: 'Unimed Cnu', amountCents: -100000 }],
+    })
+
+    expect(grupo.signals.map((s) => s.kind)).toEqual(['polp-contradiction'])
+  })
+
+  it('descrição idêntica vale mesmo quando sobra um token de identidade só', () => {
+    // "Stark Bank S.A." tem BANK na lista de envelope e STARK sozinho não
+    // chegaria a dois tokens. O caminho da descrição idêntica existe para que
+    // o custo da lista não derrube o caso mais forte do sinal.
+    const [grupo] = detectNatureSuspects({
+      candidates: Array.from({ length: 5 }, (_, i) =>
+        candidate({ id: `stark-${i}`, description: 'Stark Bank S.A.', amountCents: -379331 }),
+      ),
+      cards: [],
+      knownTransfers: [{ accountId: CONTA, description: 'Stark Bank S.A.', amountCents: -100000 }],
+    })
+
+    expect(grupo.signals.map((s) => s.kind)).toEqual(['polp-contradiction'])
+  })
+
+  it('nome de cidade em comum não é contradição', () => {
+    // A stoplist de palavras burocráticas cobria o envelope e não cobria "SAO
+    // PAULO": dois tokens perfeitamente comuns, e "Estado de São Paulo" casava
+    // com um estacionamento rotativo. Não há lista que termine.
+    const [grupo] = detectNatureSuspects({
+      candidates: Array.from({ length: 5 }, (_, i) =>
+        candidate({ id: `sp-${i}`, description: 'Enel Distribuicao Sao Paulo', amountCents: -50000 }),
+      ),
+      cards: [],
+      knownTransfers: [
+        { accountId: CONTA, description: 'Pagamento de Pix QR Code Z.A. DIGITAL DE SAO PAULO ESTACIONAMENTO ROTATIVO S.A.', amountCents: -100000 },
+      ],
+    })
+
+    expect(grupo).toBeUndefined()
+  })
+
+  it('chave de um token só exige descrição idêntica', () => {
+    const candidatos = Array.from({ length: 5 }, (_, i) =>
+      candidate({ id: `onr-${i}`, description: 'Onr', amountCents: -50000 }),
+    )
+
+    const [identica] = detectNatureSuspects({
+      candidates: candidatos,
+      cards: [],
+      knownTransfers: [{ accountId: CONTA, description: 'Onr', amountCents: -100000 }],
+    })
+    expect(identica.signals.map((s) => s.kind)).toEqual(['polp-contradiction'])
+
+    // Continência com um token só viraria "qualquer transferência que mencione
+    // a palavra", que é a armadilha do "Aluguel".
+    const [apenasContida] = detectNatureSuspects({
+      candidates: candidatos,
+      cards: [],
+      knownTransfers: [{ accountId: CONTA, description: 'Pagamento de boleto ONR cartorio', amountCents: -100000 }],
+    })
+    expect(apenasContida).toBeUndefined()
+  })
+
+  it('reembolso NAO contradiz a despesa que ele devolve', () => {
+    // A mensalidade do plano de saude vinha marcada por causa dos reembolsos
+    // que a Unimed devolve: a Polp manda o texto identico ("Unimed Cnu") nos
+    // dois sentidos, e o reembolso entrou como transferencia. Medido no
+    // extrato real: R$ 35.818,91 de mensalidade legitima sinalizados por oito
+    // creditos de R$ 243 a R$ 690, e R$ 7.624,85 de "Altavis Aldeia"
+    // sinalizados por um unico credito de R$ 22,72.
+    //
+    // Uma despesa "ser na verdade transferencia" significa dinheiro SAINDO
+    // para outro bolso do usuario. Uma entrada com o mesmo nome e o reembolso
+    // daquela despesa — evidencia de que ela e real, e nao de que e falsa. O
+    // sinal lia a evidencia ao contrario.
+    const mensalidades = Array.from({ length: 11 }, (_, i) =>
+      candidate({ id: `unimed-${i}`, description: 'Unimed Cnu', amountCents: -325626 }),
+    )
+
+    expect(
+      detectNatureSuspects({
+        candidates: mensalidades,
+        cards: [],
+        knownTransfers: [{ accountId: CONTA, description: 'Unimed Cnu', amountCents: 55220 }],
+      }),
+    ).toEqual([])
+
+    // A mesma descricao SAINDO continua sendo contradicao.
+    const [saida] = detectNatureSuspects({
+      candidates: mensalidades,
+      cards: [],
+      knownTransfers: [{ accountId: CONTA, description: 'Unimed Cnu', amountCents: -325626 }],
+    })
+    expect(saida.signals.map((s) => s.kind)).toEqual(['polp-contradiction'])
+  })
+
   it('a contradição só vale na mesma conta', () => {
     const [grupo] = detectNatureSuspects({
       candidates: aplicacaoCdb(),
       cards: [],
-      knownTransfers: [{ accountId: 'outra-conta', description: 'Saída APLICACAO CDB DI' }],
+      knownTransfers: [{ accountId: 'outra-conta', description: 'Saída APLICACAO CDB DI', amountCents: -100000 }],
     })
 
     expect(grupo.signals.map((s) => s.kind)).toEqual(['investment-vocabulary'])

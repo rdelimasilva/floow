@@ -209,7 +209,13 @@ function buildTransactionOrder(opts?: Pick<TransactionQueryOpts, 'sortBy' | 'sor
   const sortCol = sortColumns[opts?.sortBy ?? 'date'] ?? transactions.date
   const sortFn = opts?.sortDir === 'asc' ? asc : desc
 
-  return [desc(transactions.balanceApplied), sortFn(sortCol)] as const
+  // `id` fecha a ordenação. Nenhuma das colunas ordenáveis é única — um extrato
+  // tem dezessete lançamentos no mesmo dia — e sem desempate o Postgres devolve
+  // a ordem que quiser dentro do empate. A mesma página trocava de ordem entre
+  // dois carregamentos, e a coluna de saldo trocava junto. É também o que torna
+  // a janela do saldo acumulado determinística: sem chave única ela não tem
+  // como somar "até esta linha".
+  return [desc(transactions.balanceApplied), sortFn(sortCol), asc(transactions.id)] as const
 }
 
 /**
@@ -251,8 +257,15 @@ export async function getTransactionsWithCount(
       categoryColor: categories.color,
       categoryIcon: categories.icon,
       totalCount: sql<number>`count(*) over ()`,
-      totalSum: sql<number>`coalesce(sum(${transactions.amountCents}) over (), 0)`,
-      runningSum: sql<number>`coalesce(sum(${transactions.amountCents}) over (order by ${sql.join(orderBySql, sql`, `)}), 0)`,
+      totalSum: sql<number>`coalesce(sum(case when ${transactions.balanceApplied} then ${transactions.amountCents} else 0 end) over (), 0)`,
+      // `rows between unbounded preceding and current row` é obrigatório. Sem
+      // cláusula de frame o Postgres assume `range`, que soma os PEERS junto:
+      // toda linha empatada na chave de ordenação recebe o acumulado de todas
+      // as outras do empate, inclusive as que vêm depois dela. Como
+      // `sumBeforePage` sai daqui, o saldo inicial saía errado em toda página
+      // cujo primeiro lançamento empatava — medido no extrato de uma org, 495
+      // das 808 linhas divergiam, e o topo da página 4 errava R$ 3.725,58.
+      runningSum: sql<number>`coalesce(sum(case when ${transactions.balanceApplied} then ${transactions.amountCents} else 0 end) over (order by ${sql.join(orderBySql, sql`, `)} rows between unbounded preceding and current row), 0)`,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -264,7 +277,7 @@ export async function getTransactionsWithCount(
   const totalCount = rows[0]?.totalCount ?? 0
   const firstRow = rows[0]
   const sumBeforePage = firstRow
-    ? Number(firstRow.runningSum) - firstRow.amountCents
+    ? Number(firstRow.runningSum) - (firstRow.balanceApplied ? firstRow.amountCents : 0)
     : 0
   const startingBalance = firstRow
     ? sortDir === 'desc'

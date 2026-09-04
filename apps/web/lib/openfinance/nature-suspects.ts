@@ -34,6 +34,8 @@ export interface ConnectedCard {
 export interface KnownTransfer {
   accountId: string
   description: string
+  /** Negativo quando o dinheiro saiu. Ver `prepareTransfers`. */
+  amountCents: number
 }
 
 export type SuspectSignal =
@@ -158,6 +160,9 @@ function investmentToken(key: string): string | null {
 /** Transferência com os tokens já extraídos, agrupadas por conta. */
 interface PreparedTransfer {
   description: string
+  /** Descrição normalizada pela MESMA função que produz a chave do grupo. */
+  key: string
+  /** Todos os tokens, para o teste de continência da chave do grupo. */
   tokens: Set<string>
 }
 
@@ -176,8 +181,22 @@ function prepareTransfers(transfers: KnownTransfer[]): Map<string, PreparedTrans
   const porConta = new Map<string, PreparedTransfer[]>()
 
   for (const transfer of transfers) {
+    // Entrada nunca contradiz despesa: ela a CONFIRMA.
+    //
+    // Uma despesa "ser na verdade transferência" significa dinheiro saindo
+    // para outro bolso do usuário. Quando o mesmo nome aparece entrando, é o
+    // reembolso daquela despesa — evidência de que ela é real, e não de que é
+    // falsa. A Polp manda o texto idêntico nos dois sentidos, então sem este
+    // filtro o sinal lê a evidência ao contrário: medido no extrato real,
+    // R$ 35.818,91 de mensalidade de plano de saúde foram sinalizados por oito
+    // créditos de reembolso de R$ 243 a R$ 690, e R$ 7.624,85 de outro grupo
+    // por um único crédito de R$ 22,72. Quarenta por cento das transferências
+    // da conta são entradas, e nenhuma delas tem sinal verdadeiro para dar.
+    if (transfer.amountCents >= 0) continue
+
     const prepared: PreparedTransfer = {
       description: transfer.description,
+      key: groupKey(transfer.description),
       tokens: new Set(tokensOf(transfer.description)),
     }
     const lista = porConta.get(transfer.accountId)
@@ -197,25 +216,44 @@ function prepareTransfers(transfers: KnownTransfer[]): Map<string, PreparedTrans
  * forte daqui e o único que não depende de vocabulário nenhum: é evidência do
  * próprio dado do usuário.
  *
- * Exige dois tokens DISTINTOS de três caracteres ou mais em comum. Com um só,
- * "Aluguel" casaria com qualquer transferência que mencionasse aluguel — e
- * contando repetição, "CDB CDB" satisfaria a exigência de dois com um token só,
- * enfraquecendo justamente o sinal mais forte. Os dois lados são conjuntos: a
- * repetição não conta.
+ * O critério é CONTINÊNCIA: a descrição da transferência tem que conter TODOS
+ * os tokens da chave do grupo. É a tradução literal de "o banco descreveu esta
+ * mesma coisa como transferência", e o banco só acrescenta ("Saída APLICACAO
+ * CDB DI", "Débito automático PERS BLACK 3608-0884"), nunca tira.
+ *
+ * Contar tokens em comum foi o critério anterior e não funciona. Descrição de
+ * extrato brasileiro abre com um envelope burocrático — "Pagamento de Pix QR
+ * Code", "Débito automático" — que sozinho entregava os dois tokens que a
+ * regra pedia: medido contra o extrato real de uma org, o sinal marcava 30
+ * grupos e R$ 537 mil, 81% de TUDO que a pessoa gastou. Um painel que aponta
+ * para quase tudo não aponta para nada.
+ *
+ * Duas variantes mais fracas foram medidas contra o mesmo extrato e caíram:
+ * exigir uma PROPORÇÃO dos tokens deixava passar qualquer outro Pix da conta
+ * contra "PAGAMENTO DE PIX QR CODE CLIENTBASE LTDA", porque o envelope ocupa
+ * quatro dos cinco tokens da chave; e uma stoplist de palavras burocráticas
+ * cobria o envelope e não cobria "SAO PAULO", que casava "Estado de São Paulo"
+ * com um estacionamento rotativo. Não há lista que termine — nome de cidade,
+ * sufixo societário e primeiro nome comum entram todos na mesma armadilha.
+ *
+ * Com um token só na chave, continência vira "qualquer transferência que
+ * mencione a palavra": "Aluguel" casaria com qualquer uma que falasse de
+ * aluguel. Por isso o token único exige a descrição normalizada IDÊNTICA dos
+ * dois lados, que é o caso de "Onr" contra "Onr".
  */
 function contradictingTransfer(
   accountId: string,
   key: string,
   transfersByAccount: Map<string, PreparedTransfer[]>,
 ): string | null {
-  const keyTokens = new Set(tokensOf(key).filter((token) => token.length >= 3))
-  if (keyTokens.size < 2) return null
+  // Abaixo de três caracteres não identifica nada e o banco abrevia à vontade:
+  // "DI", "S", "A" entrariam na continência e só serviriam para reprová-la.
+  const keyTokens = tokensOf(key).filter((token) => token.length >= 3)
+  if (keyTokens.length === 0) return null
 
   for (const transfer of transfersByAccount.get(accountId) ?? []) {
-    let shared = 0
-    for (const token of transfer.tokens) {
-      if (keyTokens.has(token) && ++shared >= 2) return transfer.description
-    }
+    if (keyTokens.length < 2 && transfer.key !== key) continue
+    if (keyTokens.every((token) => transfer.tokens.has(token))) return transfer.description
   }
 
   return null
