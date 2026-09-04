@@ -76,7 +76,9 @@ balde visível e não-bloqueante.
 - `apps/web/lib/cfo/budget-pacing-input.ts`,
   `apps/web/lib/finance/budget-daily-queries.ts`,
   `apps/web/lib/finance/budget-queries.ts`,
-  `apps/web/lib/finance/debt-queries.ts` — filtro `review_state = 'confirmed'`.
+  `apps/web/lib/finance/debt-queries.ts`,
+  `apps/web/lib/cfo/engine.ts` — filtro `review_state = 'confirmed'` (o
+  quinto arquivo foi achado no pré-flight desta execução, a spec só listava 4).
 
 **Removido (Task 11, só depois do backfill confirmado em produção):**
 - `apps/web/lib/openfinance/nature-suspects.ts` e teste
@@ -221,7 +223,11 @@ ON CONFLICT DO NOTHING;
 -- silêncio caso existisse — não existe, confirmado contra produção antes
 -- desta migração.
 
-DROP TABLE public.transaction_nature_rules;
+-- NÃO derruba transaction_nature_rules aqui. `sync.ts` (Task 5) e
+-- `nature-actions.ts`/`nature-rules.ts` (Task 11) continuam consultando esta
+-- tabela até serem reescritos — derrubá-la agora quebraria o repo inteiro no
+-- intervalo entre esta task e aquelas. O DROP fica na migração 00036,
+-- escrita na Task 11, depois que o último consumidor for removido.
 
 -- Colunas novas em transactions.
 ALTER TABLE public.transactions
@@ -1701,13 +1707,22 @@ git commit -m "feat(openfinance): confirmar contraparte reclassifica por chave e
 
 ---
 
-## Task 7: Os 4 agregadores — filtro `review_state = 'confirmed'`
+## Task 7: Os agregadores — filtro `review_state = 'confirmed'`
+
+A spec (§5/§10) lista 4 arquivos; uma varredura contra o código real
+(`grep -rl "transactions.type" apps/web/lib`) durante o pré-flight desta
+execução achou um quinto que a spec deixou de fora:
+`apps/web/lib/cfo/engine.ts`, que alimenta as análises de fluxo de caixa,
+comportamento, dívida e aposentadoria do CFO com o mesmo `type` sem filtro
+nenhum. Mesma classe de bug — entra aqui também.
 
 **Files:**
 - Modify: `apps/web/lib/cfo/budget-pacing-input.ts:55`
 - Modify: `apps/web/lib/finance/budget-daily-queries.ts:39`
 - Modify: `apps/web/lib/finance/budget-queries.ts:149,187`
 - Modify: `apps/web/lib/finance/debt-queries.ts:31,57`
+- Modify: `apps/web/lib/cfo/engine.ts:~148` (a consulta que popula
+  `AllAnalyzerInputs` para `cash_flow`/`behavior`/`debt`/`retirement`)
 
 **Interfaces:**
 - Consumes: `transactions.reviewState` (Task 1).
@@ -1737,7 +1752,24 @@ Duas ocorrências: `getSpendingByCategory` (linha ~149) e
 Duas ocorrências: `getDebtProgress` (linha ~31) e `getDebtsWithProgress`
 (linha ~57). Mesma adição.
 
-- [ ] **Step 5: Escrever um teste de regressão que falharia sem o filtro**
+- [ ] **Step 5: `cfo/engine.ts`**
+
+Na consulta que busca `txRows` para os analyzers de `cash_flow`/`behavior`/
+`debt`/`retirement` (por volta da linha 148, dentro do `if (shouldRun(...))`
+que popula `AllAnalyzerInputs`), no `and(...)` que já tem
+`eq(transactions.isIgnored, false)`, adicionar:
+
+```typescript
+            eq(transactions.isIgnored, false),
+            eq(transactions.reviewState, 'confirmed'),
+```
+
+Ler o arquivo antes de editar para confirmar que não há uma SEGUNDA consulta
+com `type` mais abaixo (o `shouldRun` cobre 4 categorias diferentes, mas a
+busca de `txRows` parece ser uma única consulta compartilhada — confirmar
+lendo o arquivo inteiro, não só o trecho já visto).
+
+- [ ] **Step 6: Escrever um teste de regressão que falharia sem o filtro**
 
 Não há suite de teste hoje para estes 4 arquivos (todos usam `unstable_cache`
 + Drizzle direto, sem mock — confirmar isso antes de escrever). Se não houver
@@ -1748,22 +1780,22 @@ manualmente contra um lançamento pendente real. Se já existir suite para
 algum destes arquivos, seguir o padrão dela e adicionar um caso "lançamento
 pendente não entra na soma".
 
-- [ ] **Step 6: Typecheck**
+- [ ] **Step 7: Typecheck**
 
 Run: `cd apps/web && npx tsc --noEmit`
 Expected: sem erro.
 
-- [ ] **Step 7: Rodar a suite inteira do app**
+- [ ] **Step 8: Rodar a suite inteira do app**
 
 Run: `cd apps/web && npx vitest run`
 Expected: PASS em tudo (as suites de `nature-*` ainda existem e ainda passam
 — só são removidas na Task 11).
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add apps/web/lib/cfo/budget-pacing-input.ts apps/web/lib/finance/budget-daily-queries.ts apps/web/lib/finance/budget-queries.ts apps/web/lib/finance/debt-queries.ts
-git commit -m "fix(finance): pendente de revisao fica fora de orcamento, pacing e divida"
+git add apps/web/lib/cfo/budget-pacing-input.ts apps/web/lib/finance/budget-daily-queries.ts apps/web/lib/finance/budget-queries.ts apps/web/lib/finance/debt-queries.ts apps/web/lib/cfo/engine.ts
+git commit -m "fix(finance): pendente de revisao fica fora de orcamento, pacing, divida e cfo"
 ```
 
 ---
@@ -2582,6 +2614,9 @@ spec (§10, passo 8) é explícito: remover antes deixaria uma janela sem
 nenhuma das duas coisas funcionando.
 
 **Files:**
+- Create: `supabase/migrations/00036_drop_transaction_nature_rules.sql`
+- Modify: `packages/db/src/schema/automation.ts` (remove `transactionNatureRules` e tipos derivados)
+- Modify: `packages/db/src/index.ts` (se `transactionNatureRules`/tipos forem exportados nominalmente em algum lugar além do barrel `export *` — conferir, provavelmente nada muda aqui)
 - Delete: `apps/web/lib/openfinance/nature-suspects.ts` e teste
 - Delete: `apps/web/lib/openfinance/nature-queries.ts`
 - Delete: `apps/web/lib/openfinance/nature-rules.ts` e teste
@@ -2592,6 +2627,11 @@ nenhuma das duas coisas funcionando.
 - Delete: `apps/web/components/openfinance/nature-suspects-section.tsx`
 - Delete: `apps/web/components/openfinance/nature-shortcut-dialog.tsx` e teste
 - Modify: `apps/web/app/(app)/transactions/page.tsx`
+
+**Ordem dentro desta task importa**: apagar os arquivos PRIMEIRO (Steps 1-2),
+só então remover o schema Drizzle antigo e derrubar a tabela (Steps 3-4) — na
+ordem inversa, o app ficaria typecheckando contra uma tabela que o banco já
+não tem.
 
 - [ ] **Step 1: Remover o uso em `transactions/page.tsx`**
 
@@ -2621,19 +2661,44 @@ git rm apps/web/components/openfinance/nature-review-panel.tsx apps/web/componen
 git rm apps/web/__tests__/openfinance/nature-suspects.test.ts apps/web/__tests__/openfinance/nature-rules.test.ts apps/web/__tests__/openfinance/nature-actions.test.ts apps/web/__tests__/openfinance/nature-suspects-boundary.test.tsx apps/web/__tests__/openfinance/nature-shortcut-dialog.test.tsx
 ```
 
-- [ ] **Step 3: Typecheck — pega qualquer referência esquecida**
+- [ ] **Step 3: Remover `transactionNatureRules` do schema Drizzle**
 
-Run: `cd apps/web && npx tsc --noEmit`
+Em `packages/db/src/schema/automation.ts`, remover a definição da tabela
+`transactionNatureRules` (Drizzle) inteira e os tipos `TransactionNatureRule`/
+`NewTransactionNatureRule` (ou nomes equivalentes — conferir os nomes exatos
+lendo o arquivo antes de editar; a Task 1 não tocou este arquivo, então ele
+está exatamente como está hoje em produção).
+
+- [ ] **Step 4: Migração que derruba a tabela antiga**
+
+```sql
+-- supabase/migrations/00036_drop_transaction_nature_rules.sql
+-- =============================================================================
+-- Derruba transaction_nature_rules, substituída por counterparties (00035).
+-- Adiada da 00035 de propósito: sync.ts e nature-actions.ts/nature-rules.ts
+-- só pararam de consultar esta tabela agora, nesta mesma task que os apaga —
+-- derrubar antes teria quebrado o app no meio do plano.
+-- =============================================================================
+
+DROP TABLE public.transaction_nature_rules;
+```
+
+Aplicar: `cd supabase && npx supabase db push` (mesmo comando do Step 2 da
+Task 1).
+
+- [ ] **Step 5: Typecheck — pega qualquer referência esquecida**
+
+Run: `cd apps/web && npx tsc --noEmit` e `cd packages/db && npx tsc --noEmit`
 Expected: sem erro. Se algo importar um destes arquivos e eu não tiver
 listado acima, o typecheck aponta exatamente onde.
 
-- [ ] **Step 4: Rodar a suíte inteira**
+- [ ] **Step 6: Rodar a suíte inteira**
 
-Run: `cd apps/web && npx vitest run`
+Run: `cd apps/web && npx vitest run` e `cd packages/db && npx vitest run`
 Expected: PASS — nenhum teste deveria sequer existir mais para o que foi
 removido.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add -A
