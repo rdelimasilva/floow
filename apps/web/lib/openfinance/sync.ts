@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, isNull, notExists, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, notExists, or, sql } from 'drizzle-orm'
 import {
   getDb,
   accounts,
@@ -8,7 +8,6 @@ import {
   openfinanceIngestionIssues,
   openfinanceConnections,
   openfinanceResources,
-  transactionNatureRules,
   transactions,
 } from '@floow/db'
 import {
@@ -16,13 +15,13 @@ import {
   normalizeAccountTransaction,
   normalizeCardTransaction,
   type CategoryRule,
-  type NormalizedPolpTransaction,
   type PolpAccountTransaction,
   type PolpCardTransaction,
   type PolpClient,
 } from '@floow/core-finance'
 import { normalizeBatch, type RejectedItem } from './normalize-batch'
-import { applyNatureRules, type NatureRule } from './nature-rules'
+import { loadCounterpartyIndex, resolveCounterparty } from './resolve-counterparty'
+import type { ResolvedTransaction } from './resolve-counterparty'
 
 /**
  * Importação das transações de uma conexão Open Finance.
@@ -61,11 +60,10 @@ export async function syncConnectionTransactions(
     .from(openfinanceResources)
     .where(eq(openfinanceResources.connectionId, connection.id))
 
-  const [categoryByRef, rules, creditCardConnected, natureRules] = await Promise.all([
+  const [categoryByRef, rules, counterpartyIndex] = await Promise.all([
     loadCategoryIndex(db, connection.orgId),
     loadRules(db, connection.orgId),
-    hasLinkedCreditCard(db, connection.orgId),
-    loadNatureRules(db, connection.orgId),
+    loadCounterpartyIndex(db, connection.orgId),
   ])
 
   const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0, rejected: 0 }
@@ -104,11 +102,7 @@ export async function syncConnectionTransactions(
       const { ok, rejected } = normalizeBatch(page, (tx) =>
         isCard
           ? normalizeCardTransaction(tx as PolpCardTransaction)
-          : // `creditCardConnected` decide o destino do pagamento de fatura que
-            // aparece na conta corrente. Sem passá-lo, o pagamento entrava como
-            // despesa ao lado das compras do cartão e o mês de cartão era
-            // contado DUAS vezes no orçamento.
-            normalizeAccountTransaction(tx as PolpAccountTransaction, { creditCardConnected }),
+          : normalizeAccountTransaction(tx as PolpAccountTransaction),
       )
 
       if (rejected.length > 0) {
@@ -116,14 +110,19 @@ export async function syncConnectionTransactions(
         await recordIssues(db, connection.orgId, resource.id, rejected)
       }
 
-      // Camada 2: o que o usuário já confirmou sobre esta conta. Só muda
-      // `type`; valor, data e descrição passam intactos.
-      const comNatureza = applyNatureRules(ok, resource.accountId, natureRules)
+      // Nível 2: contraparte resolve o que o Nível 1 (em normalize.ts) não
+      // resolveu sozinho. Sequencial, não Promise.all — duas transações
+      // novas com a MESMA contraparte na mesma página não podem correr em
+      // paralelo, ou as duas tentam criar a linha ao mesmo tempo.
+      const resolved = []
+      for (const tx of ok) {
+        resolved.push(await resolveCounterparty(db, connection.orgId, resource.accountId, tx, counterpartyIndex))
+      }
 
       const result = await persistPage(db, {
         orgId: connection.orgId,
         accountId: resource.accountId,
-        normalized: comNatureza,
+        normalized: resolved,
         categoryByRef,
         rules,
       })
@@ -219,36 +218,6 @@ async function recordIssues(
 }
 
 /**
- * A org tem algum cartao de credito conectado E vinculado a uma conta?
- *
- * Se tem, o pagamento de fatura que aparece na conta corrente e transferencia:
- * as compras que ele quita ja entraram uma a uma. Se nao tem, aquele pagamento
- * e o unico registro daquele gasto e precisa contar como despesa.
- *
- * Limitacao conhecida: o critério é por org, nao por cartao. Quem tem um cartao
- * conectado e outro fora do floow vai ter o pagamento da fatura do segundo
- * tratado como transferencia, e aquele gasto fica subestimado. A transacao da
- * conta nao diz de qual cartao e a fatura, entao nao ha como casar sem chutar —
- * e chutar errado aqui dobra ou apaga um mes inteiro de gasto. O `category_ref`
- * original fica gravado, o que deixa o caso rastreavel para revisao.
- */
-async function hasLinkedCreditCard(db: Db, orgId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: openfinanceResources.id })
-    .from(openfinanceResources)
-    .where(
-      and(
-        eq(openfinanceResources.orgId, orgId),
-        eq(openfinanceResources.resourceType, 'CREDIT_CARD_ACCOUNT'),
-        isNotNull(openfinanceResources.accountId),
-      ),
-    )
-    .limit(1)
-
-  return Boolean(row)
-}
-
-/**
  * Regras do usuario, ja filtradas e ordenadas.
  *
  * `matchCategory` NAO olha `isEnabled` — quem chama e que precisa tirar as
@@ -264,35 +233,10 @@ async function loadRules(db: Db, orgId: string): Promise<CategoryRule[]> {
   return rows as CategoryRule[]
 }
 
-/**
- * Regras de natureza da org.
- *
- * Sem filtro nem ordenação em SQL de propósito: `applyNatureRules` faz os dois,
- * e são poucas linhas por org. Duplicar a regra de precedência em SQL criaria
- * duas verdades — e a versão testada é a de TypeScript.
- */
-async function loadNatureRules(db: Db, orgId: string): Promise<NatureRule[]> {
-  const rows = await db
-    .select()
-    .from(transactionNatureRules)
-    .where(eq(transactionNatureRules.orgId, orgId))
-
-  return rows.map((row) => ({
-    id: row.id,
-    accountId: row.accountId,
-    matchType: row.matchType,
-    matchValue: row.matchValue,
-    nature: row.nature,
-    priority: row.priority,
-    isEnabled: row.isEnabled,
-    createdAt: row.createdAt,
-  }))
-}
-
 interface PersistInput {
   orgId: string
   accountId: string
-  normalized: NormalizedPolpTransaction[]
+  normalized: ResolvedTransaction[]
   categoryByRef: Map<string, string>
   rules: CategoryRule[]
 }
@@ -327,9 +271,15 @@ async function persistPage(
   let updated = 0
 
   for (const tx of input.normalized) {
+    // Contraparte (Nível 2) decide sozinha, confirmada ou pendente — nos dois
+    // casos `tx.categoryId` já é a resposta final e não pode ser sobrescrita
+    // por `category_rules`. Sem contraparte (Nível 1), a categorização
+    // continua exatamente como antes desta mudança.
     const categoryId =
-      matchCategory(tx.description, input.rules) ??
-      (tx.categoryRef ? (input.categoryByRef.get(tx.categoryRef) ?? null) : null)
+      tx.counterpartyId !== null
+        ? tx.categoryId
+        : (matchCategory(tx.description, input.rules) ??
+           (tx.categoryRef ? (input.categoryByRef.get(tx.categoryRef) ?? null) : null))
 
     const date = new Date(`${tx.date}T12:00:00Z`)
     const existingId = existingByExternalId.get(tx.externalId)
@@ -387,6 +337,10 @@ async function persistPage(
       billForecastMonth: tx.billForecastMonth,
       installmentNumber: tx.installmentNumber,
       installmentTotal: tx.installmentTotal,
+      counterpartyId: tx.counterpartyId,
+      counterpartyTaxId: tx.counterpartyTaxId,
+      counterpartyName: tx.counterpartyName,
+      reviewState: tx.reviewState,
     })
   }
 
