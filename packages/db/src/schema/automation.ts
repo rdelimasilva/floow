@@ -1,5 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, index, uniqueIndex, date } from 'drizzle-orm/pg-core'
-import { sql } from 'drizzle-orm'
+import { pgTable, uuid, text, integer, boolean, timestamp, index, date } from 'drizzle-orm/pg-core'
 import { orgs } from './auth'
 import { categories, transactionTypeEnum, accounts } from './finance'
 
@@ -36,54 +35,6 @@ export const categoryRules = pgTable(
 
 export type CategoryRuleRow = typeof categoryRules.$inferSelect
 export type NewCategoryRuleRow = typeof categoryRules.$inferInsert
-
-// ---------------------------------------------------------------------------
-// Nature Rules
-// ---------------------------------------------------------------------------
-
-/**
- * Regras que decidem a NATUREZA de uma transação, não a categoria.
- *
- * Tabela criada na migration 00034. Separada de `category_rules` porque os
- * conceitos são distintos: categoria diz *em que* o dinheiro foi, natureza diz
- * *se* foi dinheiro saindo. Uma regra de categoria nunca deveria poder mudar o
- * total de despesa do orçamento por acidente.
- *
- * `account_id` nulo vale para a org inteira; preenchido, só para aquela conta.
- */
-export const transactionNatureRules = pgTable(
-  'transaction_nature_rules',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    orgId: uuid('org_id')
-      .notNull()
-      .references(() => orgs.id, { onDelete: 'cascade' }),
-    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'cascade' }),
-    matchType: text('match_type').notNull().$type<'contains' | 'exact'>(),
-    matchValue: text('match_value').notNull(),
-    nature: transactionTypeEnum('nature').notNull(),
-    priority: integer('priority').notNull().default(0),
-    isEnabled: boolean('is_enabled').notNull().default(true),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    idxTransactionNatureRulesOrgId: index('idx_transaction_nature_rules_org_id').on(table.orgId),
-    // Dois índices parciais, espelhando a migration 00034: `account_id` é
-    // anulável e NULL não colide com NULL num índice único, então a regra da
-    // org inteira precisa do seu próprio. É o que faz `onConflictDoNothing()`
-    // em `nature-actions.ts` impedir a regra duplicada.
-    uqTransactionNatureRulesConta: uniqueIndex('uq_transaction_nature_rules_conta')
-      .on(table.orgId, table.accountId, table.matchValue)
-      .where(sql`${table.accountId} IS NOT NULL`),
-    uqTransactionNatureRulesOrg: uniqueIndex('uq_transaction_nature_rules_org')
-      .on(table.orgId, table.matchValue)
-      .where(sql`${table.accountId} IS NULL`),
-  })
-)
-
-export type TransactionNatureRuleRow = typeof transactionNatureRules.$inferSelect
-export type NewTransactionNatureRuleRow = typeof transactionNatureRules.$inferInsert
 
 // ---------------------------------------------------------------------------
 // Recurring Templates

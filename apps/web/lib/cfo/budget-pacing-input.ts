@@ -53,6 +53,7 @@ export async function buildBudgetPacingInput(
       and(
         eq(transactions.orgId, orgId),
         eq(transactions.type, 'expense'),
+        eq(transactions.reviewState, 'confirmed'),
         eq(transactions.isIgnored, false),
         gte(transactions.date, monthStart),
         lte(transactions.date, monthEnd),

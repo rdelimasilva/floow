@@ -153,6 +153,7 @@ export async function runCfoEngine(
           and(
             eq(transactions.orgId, orgId),
             eq(transactions.isIgnored, false),
+            eq(transactions.reviewState, 'confirmed'),
             gte(transactions.date, new Date(thirteenMonthsAgoDate)),
           )
         )

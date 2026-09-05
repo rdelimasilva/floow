@@ -7,7 +7,6 @@
  *
  * Ver docs/superpowers/specs/2026-09-02-openfinance-ingestion-design.md
  */
-import { kindForRef } from './taxonomy'
 import type {
   PolpAccountTransaction,
   PolpAccountTransactionType,
@@ -24,6 +23,17 @@ export interface NormalizedPolpTransaction {
   /** Convenção do floow: despesa negativa, receita positiva. */
   amountCents: number
   type: 'income' | 'expense' | 'transfer'
+  /**
+   * Verdadeiro quando `type` já é natureza confirmada pelo Nível 1 (sinal
+   * estrutural do Banco Central). Falso quando `type` é só um placeholder
+   * (crédito→receita, débito→despesa, nunca transferência) até a resolução
+   * de contraparte decidir de verdade.
+   */
+  natureConfirmed: boolean
+  /** CNPJ/CPF só dígitos, ou null. Identidade de Nível 2. */
+  counterpartyTaxId: string | null
+  /** Nome que a Polp mandou para a contraparte, para a fila mostrar. */
+  counterpartyName: string | null
   description: string
   /** `category_ref` cru, guardado mesmo já mapeado: permite recategorizar depois. */
   categoryRef: string | null
@@ -158,17 +168,13 @@ function installments(current: number | null | undefined, total: number | null |
   return { installmentNumber: current ?? null, installmentTotal: total }
 }
 
-export interface AccountNormalizeOptions {
-  /**
-   * Há cartão de crédito conectado nesta org?
-   *
-   * Muda o significado do pagamento de fatura que aparece na conta corrente. Se
-   * o cartão está conectado, as compras já entraram uma a uma e contar o
-   * pagamento da fatura conta o mesmo dinheiro duas vezes — vira transferência.
-   * Se não está, o pagamento é o único registro daquele gasto e precisa contar
-   * como despesa, senão o mês inteiro de cartão desaparece do orçamento.
-   */
-  creditCardConnected?: boolean
+/** Só dígitos. A Polp normalmente já manda limpo, mas pontuação de CNPJ
+ * ("12.345.678/0001-90") faria duas representações da mesma contraparte
+ * virarem duas linhas em `counterparties`. */
+function digitsOnly(value: string | null | undefined): string | null {
+  if (!value) return null
+  const digits = value.replace(/\D/g, '')
+  return digits.length > 0 ? digits : null
 }
 
 /**
@@ -204,22 +210,12 @@ function natureFromPolpType(
 }
 
 /** Transação de conta bancária (GET /accounts/{account}/transactions). */
-export function normalizeAccountTransaction(
-  tx: PolpAccountTransaction,
-  options: AccountNormalizeOptions = {},
-): NormalizedPolpTransaction {
+export function normalizeAccountTransaction(tx: PolpAccountTransaction): NormalizedPolpTransaction {
   const categoryRef = tx.category_ref ?? null
   const amountCents = signedAmount(tx.transaction_amount.amount, tx.credit_debit_type)
 
-  const isCardBillPayment = categoryRef === 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT'
-  const type: NormalizedPolpTransaction['type'] =
-    natureFromPolpType(tx.type) ??
-    (kindForRef(categoryRef ?? '') === 'transfer' ||
-    (isCardBillPayment && options.creditCardConnected === true)
-      ? 'transfer'
-      : tx.credit_debit_type === 'CREDITO'
-        ? 'income'
-        : 'expense')
+  const resolved = natureFromPolpType(tx.type)
+  const type = resolved ?? (tx.credit_debit_type === 'CREDITO' ? 'income' : 'expense')
 
   const settlement =
     tx.completed_authorised_payment_type === 'LANCAMENTO_FUTURO'
@@ -233,6 +229,9 @@ export function normalizeAccountTransaction(
     date: toCompetenceDate(tx.transaction_date_time),
     amountCents,
     type,
+    natureConfirmed: resolved !== undefined,
+    counterpartyTaxId: digitsOnly(tx.partie_cnpj_cpf) ?? digitsOnly(tx.counterparty?.tax_id) ?? null,
+    counterpartyName: tx.counterparty?.alias ?? tx.counterparty?.name ?? null,
     description: describe(tx.transaction_name, tx.counterparty),
     categoryRef,
     polpType: tx.type ?? null,
@@ -251,6 +250,7 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
   const categoryRef = tx.category_ref ?? null
   // `brazilian_amount` já vem convertido pela Polp; `amount` é a moeda da compra.
   const amountCents = signedAmount(tx.brazilian_amount.amount, tx.credit_debit_type)
+  const { type, natureConfirmed } = cardType(tx)
 
   const foreign =
     tx.amount && tx.amount.currency !== tx.brazilian_amount.currency
@@ -261,7 +261,10 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
     externalId: tx.id,
     date: toCompetenceDate(tx.transaction_date_time),
     amountCents,
-    type: cardType(tx, categoryRef),
+    type,
+    natureConfirmed,
+    counterpartyTaxId: digitsOnly(tx.counterparty?.tax_id),
+    counterpartyName: tx.counterparty?.alias ?? tx.counterparty?.name ?? null,
     description: describe(tx.transaction_name, tx.counterparty),
     categoryRef,
     polpType: null,
@@ -269,36 +272,30 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
     billPostDate: billPostDateOrNull(tx.bill_post_date),
     billForecastMonth: forecastMonthOrNull(tx.bill_forecast_date),
     ...installments(tx.charge_identificator, tx.charge_number),
-    // A fatura ainda não fechada não torna a compra menos real: o gasto
-    // aconteceu na data da compra, que é o regime que o pacing usa.
     settlement: 'settled',
     foreign,
   }
 }
 
-function cardType(tx: PolpCardTransaction, categoryRef: string | null): NormalizedPolpTransaction['type'] {
+/**
+ * Sinal estrutural do BCB para cartão. Três casos o Banco Central já resolve;
+ * o quarto (novo) é estrutural do PRODUTO, não do comerciante: um cartão de
+ * crédito não recebe salário nem Pix, então um débito que não é fatura paga,
+ * estorno nem cashback só pode ser compra.
+ *
+ * Crédito fora dos três casos explícitos NÃO resolve — é o resíduo raro (um
+ * estorno informal, "pagamento com saldo") que precisa da fila.
+ */
+function cardType(tx: PolpCardTransaction): { type: NormalizedPolpTransaction['type']; natureConfirmed: boolean } {
   switch (tx.transaction_type) {
-    // O pagamento da fatura não é gasto: as compras que ele quita já entraram
-    // uma a uma. Contá-lo dobra o mês inteiro de cartão.
     case 'PAGAMENTO_FATURA':
-      return 'transfer'
-
-    // Estorno é despesa NEGATIVA, não receita. A agregação de gasto soma
-    // -amount_cents sobre type='expense'; como estorno vem CREDITO (valor
-    // positivo), tipá-lo assim faz o dinheiro devolvido abater a categoria em
-    // que foi gasto. Como 'income' ele não tocaria o orçamento, e o teto
-    // continuaria estourado por uma compra que foi desfeita.
+      return { type: 'transfer', natureConfirmed: true }
     case 'ESTORNO':
-      return 'expense'
-
-    // Cashback é dinheiro que entra, sem compra correspondente para abater.
+      return { type: 'expense', natureConfirmed: true }
     case 'CASHBACK':
-      return 'income'
-
+      return { type: 'income', natureConfirmed: true }
     default:
-      // `transaction_type` null acontece quando o BCB não envia o campo — cai
-      // aqui e é tratado pelo crédito/débito, como qualquer outra.
-      if (kindForRef(categoryRef ?? '') === 'transfer') return 'transfer'
-      return tx.credit_debit_type === 'CREDITO' ? 'income' : 'expense'
+      if (tx.credit_debit_type === 'DEBITO') return { type: 'expense', natureConfirmed: true }
+      return { type: 'income', natureConfirmed: false }
   }
 }

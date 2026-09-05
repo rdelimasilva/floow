@@ -26,7 +26,11 @@ export async function buildChatSystemPrompt(
   const recentTx = await db
     .select({ date: transactions.date, amountCents: transactions.amountCents, type: transactions.type })
     .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), gte(transactions.date, sixMonthsAgo)))
+    .where(and(
+      eq(transactions.orgId, orgId),
+      gte(transactions.date, sixMonthsAgo),
+      eq(transactions.reviewState, 'confirmed'),
+    ))
 
   const cashFlow = aggregateCashFlow(recentTx)
   const latest = cashFlow[0]

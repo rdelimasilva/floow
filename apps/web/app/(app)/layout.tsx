@@ -6,6 +6,8 @@ import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/ui/toast'
 import { ReconcileProvider } from '@/components/providers/reconcile-provider'
+import { getReviewGateStatusSafe } from '@/lib/openfinance/counterparty-queries'
+import { ReviewGate } from '@/components/openfinance/review-gate'
 import dynamic from 'next/dynamic'
 
 const CommandPalette = dynamic(() => import('@/components/layout/command-palette').then(m => ({ default: m.CommandPalette })))
@@ -21,6 +23,16 @@ export default async function AppLayout({
 
   if (!session) {
     redirect('/auth')
+  }
+
+  const gate = await getReviewGateStatusSafe()
+
+  if (gate.ok && gate.blocked) {
+    return (
+      <ToastProvider>
+        <ReviewGate orgId={gate.orgId} />
+      </ToastProvider>
+    )
   }
 
   const user = session.user

@@ -1,7 +1,7 @@
 'use client'
 
 import { memo } from 'react'
-import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, ArrowLeftRight } from 'lucide-react'
+import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
 import { formatDate, TYPE_STYLES, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
 
@@ -12,7 +12,6 @@ interface RowActions {
   onCancelRecurring: (templateId: string, description: string) => void
   onCreateRule: (matchValue: string, categoryId: string) => void
   onToggleSelect: (id: string) => void
-  onSetNature: (tx: TransactionRowData) => void
 }
 
 interface MobileCardProps {
@@ -72,16 +71,6 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
           {!tx.transferGroupId && (
             <button type="button" onClick={() => actions.onEdit(tx)} className="rounded p-1 text-gray-400 hover:text-gray-700">
               <Pencil className="h-4 w-4" />
-            </button>
-          )}
-          {tx.externalId && tx.type === 'expense' && !tx.transferGroupId && (
-            <button
-              type="button"
-              title="Não é despesa"
-              onClick={() => actions.onSetNature(tx)}
-              className="rounded p-1 text-gray-400 hover:text-blue-600"
-            >
-              <ArrowLeftRight className="h-4 w-4" />
             </button>
           )}
           {tx.externalId ? (
@@ -178,16 +167,6 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
               className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
             >
               <Pencil className="h-3.5 w-3.5" />
-            </button>
-          )}
-          {tx.externalId && tx.type === 'expense' && !tx.transferGroupId && (
-            <button
-              type="button"
-              title="Não é despesa"
-              onClick={() => actions.onSetNature(tx)}
-              className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600"
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5" />
             </button>
           )}
           {tx.externalId ? (

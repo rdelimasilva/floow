@@ -29,6 +29,7 @@ export async function getDebtProgress(orgId: string, categoryId: string) {
         eq(transactions.orgId, orgId),
         eq(transactions.categoryId, categoryId),
         eq(transactions.type, 'expense'),
+        eq(transactions.reviewState, 'confirmed'),
         eq(transactions.isIgnored, false),
       )
     )
@@ -55,6 +56,7 @@ export async function getDebtsWithProgress(orgId: string) {
       and(
         eq(transactions.orgId, orgId),
         eq(transactions.type, 'expense'),
+        eq(transactions.reviewState, 'confirmed'),
         eq(transactions.isIgnored, false),
       )
     )

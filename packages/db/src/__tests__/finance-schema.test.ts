@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { getTableColumns } from 'drizzle-orm'
 import {
   accountTypeEnum,
   transactionTypeEnum,
@@ -7,7 +8,8 @@ import {
   categories,
   patrimonySnapshots,
 } from '../schema/finance'
-import { transactionNatureRules } from '../schema/automation'
+import { counterparties } from '../schema/counterparty'
+import { orgs } from '../schema/auth'
 
 describe('finance schema: enums', () => {
   it('accountTypeEnum exports with correct values', () => {
@@ -117,23 +119,27 @@ describe('transactions: coluna polp_type', () => {
   })
 })
 
-describe('transaction_nature_rules', () => {
-  it('tem as colunas esperadas', () => {
-    expect(transactionNatureRules.id).toBeDefined()
-    expect(transactionNatureRules.orgId).toBeDefined()
-    expect(transactionNatureRules.accountId).toBeDefined()
-    expect(transactionNatureRules.matchType).toBeDefined()
-    expect(transactionNatureRules.matchValue).toBeDefined()
-    expect(transactionNatureRules.nature).toBeDefined()
-    expect(transactionNatureRules.priority).toBeDefined()
-    expect(transactionNatureRules.isEnabled).toBeDefined()
+describe('fila de revisão por contraparte', () => {
+  it('transactions tem as colunas da fila de revisão', () => {
+    const cols = getTableColumns(transactions)
+    expect(cols.counterpartyId).toBeDefined()
+    expect(cols.counterpartyTaxId).toBeDefined()
+    expect(cols.counterpartyName).toBeDefined()
+    expect(cols.reviewState).toBeDefined()
   })
 
-  it('accountId é opcional: null vale para a org inteira', () => {
-    expect(transactionNatureRules.accountId.notNull).toBe(false)
+  it('counterparties tem a identidade completa', () => {
+    const cols = getTableColumns(counterparties)
+    expect(cols.keyType).toBeDefined()
+    expect(cols.keyValue).toBeDefined()
+    expect(cols.direction).toBeDefined()
+    expect(cols.accountId).toBeDefined()
+    expect(cols.nature).toBeDefined()
+    expect(cols.categoryId).toBeDefined()
+    expect(cols.confirmedAt).toBeDefined()
   })
 
-  it('nature usa o enum transaction_type que já existe', () => {
-    expect(transactionNatureRules.nature.enumValues).toEqual(['income', 'expense', 'transfer'])
+  it('orgs tem o portão da revisão', () => {
+    expect(getTableColumns(orgs).reviewGateClearedAt).toBeDefined()
   })
 })

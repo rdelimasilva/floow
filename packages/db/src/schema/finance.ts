@@ -12,6 +12,12 @@ import {
   primaryKey,
 } from 'drizzle-orm/pg-core'
 import { orgs } from './auth'
+// NÃO importar de './counterparty' aqui: counterparty.ts importa
+// `transactionTypeEnum` deste arquivo eagerly (dentro do próprio pgTable), e
+// import circular em ESM deadlocka nesse valor não estar pronto ainda —
+// verificado em runtime (vitest), não é só teórico. O FK real já existe no
+// banco (migração 00035); `counterpartyId` abaixo fica sem `.references()` do
+// lado do Drizzle por isso.
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -30,6 +36,13 @@ export const transactionTypeEnum = pgEnum('transaction_type', [
   'expense',
   'transfer',
 ])
+
+/**
+ * 'pending': natureza da transação ainda não confirmada pelo usuário (fila de
+ * revisão por contraparte). Definido aqui, junto de `transactionTypeEnum`, e
+ * não em `counterparty.ts`, para não criar import circular (ver nota acima).
+ */
+export const reviewStateEnum = pgEnum('review_state', ['confirmed', 'pending'])
 
 // ---------------------------------------------------------------------------
 // Tables
@@ -129,6 +142,23 @@ export const transactions = pgTable(
      * de suspeitas. Null em lançamento manual e em transação de cartão.
      */
     polpType: text('polp_type'),
+    /**
+     * FK para a contraparte que decidiu a natureza (Nível 2). Null no Nível 1.
+     * Sem `.references()` do lado do Drizzle — ver nota de import circular no
+     * topo do arquivo. O REFERENCES real já existe no banco (migração 00035).
+     */
+    counterpartyId: uuid('counterparty_id'),
+    /** Snapshot do CNPJ/CPF no momento da ingestão — sobrevive ao re-sync sobrescrever a descrição. */
+    counterpartyTaxId: text('counterparty_tax_id'),
+    /** Snapshot do nome que a Polp mandou para a contraparte. */
+    counterpartyName: text('counterparty_name'),
+    /**
+     * 'pending': natureza ainda não confirmada pelo usuário, fora das somas de
+     * orçamento/pacing/dívida. Nunca derivado de counterparties.confirmedAt —
+     * gravado, para que o único lugar que possa divergir seja a ação de
+     * confirmar.
+     */
+    reviewState: reviewStateEnum('review_state').notNull().default('confirmed'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
@@ -146,6 +176,8 @@ export const transactions = pgTable(
     idxTransactionsOrgDate: index('idx_transactions_org_date').on(table.orgId, table.date),
     idxTransactionsOrgCategory: index('idx_transactions_org_category').on(table.orgId, table.categoryId),
     idxTransactionsOrgBalanceDate: index('idx_transactions_org_balance_date').on(table.orgId, table.balanceApplied, table.date),
+    idxTransactionsOrgReviewState: index('idx_transactions_org_review_state').on(table.orgId, table.reviewState),
+    idxTransactionsCounterpartyId: index('idx_transactions_counterparty_id').on(table.counterpartyId),
   })
 )
 

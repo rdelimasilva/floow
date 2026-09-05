@@ -37,6 +37,7 @@ export const getDailySpending = cache(async function getDailySpending(
           and(
             eq(transactions.orgId, orgId),
             eq(transactions.type, 'expense'),
+            eq(transactions.reviewState, 'confirmed'),
             eq(transactions.isIgnored, false),
             gte(transactions.date, start),
             lte(transactions.date, end),

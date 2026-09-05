@@ -94,27 +94,22 @@ describe('normalizeAccountTransaction', () => {
     ).toBe(15000)
   })
 
-  it('não conta aporte em poupança como despesa', () => {
-    // TRANSFER_OUT_SAVINGS é dinheiro que só mudou de lugar. Tratado pelo
-    // débito, inflaria o orçamento com um gasto que não existiu.
+  it('category_ref não decide mais natureza sozinho — cai pendente', () => {
+    // TRANSFER_OUT_SAVINGS antes virava transferência sozinho, por
+    // category_ref. Sem o `type` do BCB confirmando, agora fica como
+    // placeholder (débito → despesa) e sinalizado como não confirmado — quem
+    // decide é a contraparte, não o rótulo da Polp.
     const t = normalizeAccountTransaction(accountTx({ category_ref: 'TRANSFER_OUT_SAVINGS' }))
-    expect(t.type).toBe('transfer')
-    expect(t.amountCents).toBe(-15000)
+    expect(t.type).toBe('expense')
+    expect(t.natureConfirmed).toBe(false)
   })
 
-  it('conta o pagamento de fatura como despesa quando o cartão não está conectado', () => {
-    // Sem o cartão conectado, este pagamento é o único registro daquele gasto.
+  it('pagamento de fatura não resolve mais sozinho por category_ref', () => {
+    // O caso que motivou o `creditCardConnected` original: agora cai pendente
+    // como qualquer outra contraparte, independente de haver cartão conectado.
     const t = normalizeAccountTransaction(accountTx({ category_ref: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT' }))
     expect(t.type).toBe('expense')
-  })
-
-  it('vira transferência quando o cartão está conectado', () => {
-    // Com o cartão conectado as compras já entraram uma a uma; contar o
-    // pagamento da fatura dobraria o mês inteiro.
-    const t = normalizeAccountTransaction(accountTx({ category_ref: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT' }), {
-      creditCardConnected: true,
-    })
-    expect(t.type).toBe('transfer')
+    expect(t.natureConfirmed).toBe(false)
   })
 
   it('marca lançamento agendado como não realizado', () => {
@@ -144,6 +139,17 @@ describe('normalizeAccountTransaction', () => {
     // counterparty chega null na primeira resposta e preenchida depois — por
     // isso o import precisa ser idempotente e capaz de atualizar.
     expect(normalizeAccountTransaction(accountTx()).description).toBe('PIX ENVIADO')
+  })
+
+  it('extrai o CNPJ/CPF da contraparte para a identidade de Nível 2', () => {
+    const t = normalizeAccountTransaction(
+      accountTx({ counterparty: { name: 'X', alias: null, tax_id: '12.345.678/0001-90', website_url: null, logo_url: null } }),
+    )
+    expect(t.counterpartyTaxId).toBe('12345678000190')
+  })
+
+  it('sem contraparte, counterpartyTaxId é null', () => {
+    expect(normalizeAccountTransaction(accountTx()).counterpartyTaxId).toBeNull()
   })
 })
 
@@ -218,6 +224,42 @@ describe('normalizeCardTransaction', () => {
   })
 })
 
+describe('camada 1 no cartão: débito fora dos 3 casos explícitos é despesa', () => {
+  it('compra comum (PAGAMENTO) é despesa confirmada, sem fila', () => {
+    const t = normalizeCardTransaction(cardTx({ transaction_type: 'PAGAMENTO', credit_debit_type: 'DEBITO' }))
+    expect(t.type).toBe('expense')
+    expect(t.natureConfirmed).toBe(true)
+  })
+
+  it('OUTROS em débito também é despesa confirmada', () => {
+    const t = normalizeCardTransaction(cardTx({ transaction_type: 'OUTROS', credit_debit_type: 'DEBITO' }))
+    expect(t.type).toBe('expense')
+    expect(t.natureConfirmed).toBe(true)
+  })
+
+  it('crédito fora dos 3 casos explícitos não resolve — cai pendente', () => {
+    // O resíduo real: estorno informal, "pagamento com saldo", crédito que
+    // não veio marcado ESTORNO nem CASHBACK. Não é despesa, não sabemos o
+    // que é — vai para a fila.
+    const t = normalizeCardTransaction(cardTx({ transaction_type: 'OUTROS', credit_debit_type: 'CREDITO' }))
+    expect(t.natureConfirmed).toBe(false)
+    expect(t.type).toBe('income')
+  })
+
+  it('os 3 casos explícitos continuam confirmados', () => {
+    expect(normalizeCardTransaction(cardTx({ transaction_type: 'PAGAMENTO_FATURA', credit_debit_type: 'CREDITO' })).natureConfirmed).toBe(true)
+    expect(normalizeCardTransaction(cardTx({ transaction_type: 'ESTORNO', credit_debit_type: 'CREDITO' })).natureConfirmed).toBe(true)
+    expect(normalizeCardTransaction(cardTx({ transaction_type: 'CASHBACK', credit_debit_type: 'CREDITO' })).natureConfirmed).toBe(true)
+  })
+
+  it('extrai tax_id da counterparty do cartão', () => {
+    const t = normalizeCardTransaction(
+      cardTx({ counterparty: { name: 'Mercado Livre', alias: null, tax_id: '03007331000141', website_url: null, logo_url: null } }),
+    )
+    expect(t.counterpartyTaxId).toBe('03007331000141')
+  })
+})
+
 describe('camada 1: natureza determinada pelo type do BCB', () => {
   it('APLICACAO_FINANCEIRA é transferência mesmo com category_ref de despesa', () => {
     const result = normalizeAccountTransaction(
@@ -257,16 +299,19 @@ describe('camada 1: natureza determinada pelo type do BCB', () => {
     expect(result.type).toBe('income')
   })
 
-  it('OUTROS não desempata: quem decide é o category_ref', () => {
-    const transferencia = normalizeAccountTransaction(
+  it('OUTROS não resolve mais por category_ref — cai pendente', () => {
+    const t = normalizeAccountTransaction(
       accountTx({ type: 'OUTROS', category_ref: 'TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS' }),
     )
-    expect(transferencia.type).toBe('transfer')
+    expect(t.natureConfirmed).toBe(false)
+    // O placeholder vem do crédito/débito, nunca de category_ref.
+    expect(t.type).toBe('expense')
+  })
 
-    const despesa = normalizeAccountTransaction(
-      accountTx({ type: 'OUTROS', category_ref: 'OTHER' }),
-    )
-    expect(despesa.type).toBe('expense')
+  it('os 4 casos explícitos do BCB continuam confirmados sem contraparte', () => {
+    const aplicacao = normalizeAccountTransaction(accountTx({ type: 'APLICACAO_FINANCEIRA' }))
+    expect(aplicacao.natureConfirmed).toBe(true)
+    expect(aplicacao.type).toBe('transfer')
   })
 
   it('polpType carrega o type cru da conta', () => {

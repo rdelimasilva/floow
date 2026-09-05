@@ -19,6 +19,8 @@ export const orgs = pgTable('orgs', {
   type: orgTypeEnum('type').notNull().default('personal'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  /** Portão da fila de revisão: setado na primeira vez que a org zera a fila. */
+  reviewGateClearedAt: timestamp('review_gate_cleared_at', { withTimezone: true }),
 })
 
 export const profiles = pgTable('profiles', {
