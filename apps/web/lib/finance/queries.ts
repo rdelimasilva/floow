@@ -58,6 +58,7 @@ async function loadMonthlyCashFlowSummary(
     from ${transactions}
     where ${transactions.orgId} = ${orgId}
       and ${transactions.isIgnored} = false
+      and ${transactions.reviewState} = 'confirmed'
       and ${transactions.balanceApplied} = ${!projected}
       and ${projected
         ? sql`${transactions.date} <= ${boundaryDateStr}::date`

@@ -58,12 +58,27 @@ describe('getReviewGateStatus', () => {
     expect(updateCalled).toBe(false)
   })
 
-  it('org travada sem nenhuma pendência destrava e grava o timestamp', async () => {
+  it('org travada sem nenhuma pendência não bloqueia, e não grava nada (leitura pura)', async () => {
     orgRow = { reviewGateClearedAt: null }
     pendingRow = []
     const status = await getReviewGateStatus(ORG)
     expect(status.blocked).toBe(false)
-    expect(updateCalled).toBe(true)
+    expect(updateCalled).toBe(false)
+  })
+
+  it('nunca grava nada, em nenhum cenário — getReviewGateStatus é leitura pura', async () => {
+    for (const scenario of [
+      { orgRow: { reviewGateClearedAt: new Date() }, pendingRow: [{ one: 1 }] },
+      { orgRow: { reviewGateClearedAt: null }, pendingRow: [{ one: 1 }] },
+      { orgRow: { reviewGateClearedAt: null }, pendingRow: [] },
+      { orgRow: undefined, pendingRow: [] },
+    ] as const) {
+      updateCalled = false
+      orgRow = scenario.orgRow
+      pendingRow = [...scenario.pendingRow]
+      await getReviewGateStatus(ORG)
+      expect(updateCalled).toBe(false)
+    }
   })
 })
 

@@ -1,8 +1,8 @@
 'use server'
 
 import { z } from 'zod'
-import { and, eq } from 'drizzle-orm'
-import { getDb, counterparties, transactions } from '@floow/db'
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { getDb, orgs, counterparties, transactions } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { createClient } from '@/lib/supabase/server'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
@@ -78,6 +78,30 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
         ),
       )
       .returning({ id: transactions.id })
+
+    // Se esta foi a última pendência resolvível da org, destrava o portão
+    // para sempre. Movido de getReviewGateStatus (achado da revisão final):
+    // gravar como efeito de leitura destravava orgs sem fila nenhuma antes
+    // do bootstrap sequer existir — agora só grava quando uma confirmação
+    // de verdade zera a fila.
+    const [stillPending] = await tx
+      .select({ one: sql`1` })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.orgId, orgId),
+          eq(transactions.reviewState, 'pending'),
+          isNotNull(transactions.counterpartyId),
+        ),
+      )
+      .limit(1)
+
+    if (!stillPending) {
+      await tx
+        .update(orgs)
+        .set({ reviewGateClearedAt: sql`coalesce(${orgs.reviewGateClearedAt}, now())` })
+        .where(eq(orgs.id, orgId))
+    }
 
     return rows.length
   })

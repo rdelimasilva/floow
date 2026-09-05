@@ -80,6 +80,7 @@ describe('confirmCounterparty', () => {
     selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
     updateQueue.push([]) // update de counterparties não retorna nada relevante
     updateQueue.push([{ id: 'tx-1' }, { id: 'tx-2' }]) // 2 transações reclassificadas
+    selectQueue.push([{ one: 1 }]) // ainda sobra pendência resolvível na org — não destrava o portão
 
     const result = await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID })
 
@@ -93,5 +94,28 @@ describe('confirmCounterparty', () => {
     await expect(
       confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null }),
     ).rejects.toThrow(/não encontrada/)
+  })
+
+  it('zera a última pendência resolvível da org: grava reviewGateClearedAt em orgs', async () => {
+    selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
+    updateQueue.push([]) // update de counterparties
+    updateQueue.push([{ id: 'tx-1' }]) // 1 transação reclassificada
+    selectQueue.push([]) // nenhuma pendência resolvível restante na org
+    updateQueue.push([]) // update de orgs.reviewGateClearedAt
+
+    await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID })
+
+    expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions', 'orgs'])
+  })
+
+  it('ainda sobra pendência resolvível na org: não grava reviewGateClearedAt', async () => {
+    selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
+    updateQueue.push([]) // update de counterparties
+    updateQueue.push([{ id: 'tx-1' }]) // 1 transação reclassificada
+    selectQueue.push([{ one: 1 }]) // ainda sobra pendência resolvível na org
+
+    await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID })
+
+    expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions'])
   })
 })

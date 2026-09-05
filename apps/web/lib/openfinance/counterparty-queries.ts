@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { getDb, orgs, transactions, counterparties } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 
@@ -7,6 +7,12 @@ import { getOrgId } from '@/lib/finance/queries'
  * fila pela primeira vez. Ligado à ORG, não à conexão: uma vez destravada,
  * conectar um segundo banco depois só empilha no balde não-bloqueante do
  * regime permanente — não reabre o portão.
+ *
+ * Leitura pura — não grava nada. Quem grava `reviewGateClearedAt` é
+ * `confirmCounterparty`, no momento em que uma confirmação de verdade zera a
+ * fila (ver achado da revisão final do branch: gravar aqui, como efeito de
+ * uma leitura que roda em todo request, destravava orgs que nunca tiveram
+ * fila nenhuma, antes do bootstrap sequer existir).
  *
  * Ver docs/superpowers/specs/2026-09-04-openfinance-counterparty-review-design.md
  */
@@ -24,17 +30,14 @@ export async function getReviewGateStatus(orgId: string): Promise<{ blocked: boo
   const [pending] = await db
     .select({ one: sql`1` })
     .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), eq(transactions.reviewState, 'pending')))
+    .where(and(
+      eq(transactions.orgId, orgId),
+      eq(transactions.reviewState, 'pending'),
+      isNotNull(transactions.counterpartyId),
+    ))
     .limit(1)
 
-  if (!pending) {
-    // Nunca teve pendência (org sem Open Finance, ou acabou de zerar a fila
-    // agora mesmo) — destrava e grava, para sempre.
-    await db.update(orgs).set({ reviewGateClearedAt: new Date() }).where(eq(orgs.id, orgId))
-    return { blocked: false }
-  }
-
-  return { blocked: true }
+  return { blocked: Boolean(pending) }
 }
 
 type ReviewGateSafeResult = { ok: true; orgId: string; blocked: boolean } | { ok: false }
