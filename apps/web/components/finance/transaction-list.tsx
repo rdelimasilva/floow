@@ -5,7 +5,6 @@ import { formatBRL } from '@floow/core-finance'
 import { deleteTransaction, toggleIgnoreTransaction, cancelRecurring, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
-import { NatureShortcutDialog } from '@/components/openfinance/nature-shortcut-dialog'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { SortableHeader } from '@/components/finance/sortable-header'
@@ -49,7 +48,6 @@ export function TransactionList({
   const [deleteTarget, setDeleteTarget] = useState<TransactionRowData | null>(null)
   const [loading, setLoading] = useState(false)
   const [ruleShortcut, setRuleShortcut] = useState<{ matchValue: string; categoryId: string } | null>(null)
-  const [natureTarget, setNatureTarget] = useState<{ id: string; accountId: string; description: string } | null>(null)
   const [cancelTarget, setCancelTarget] = useState<{ templateId: string; description: string } | null>(null)
 
   // Bulk selection
@@ -120,10 +118,6 @@ export function TransactionList({
     setRuleShortcut({ matchValue, categoryId })
   }, [])
 
-  const handleSetNature = useCallback((tx: TransactionRowData) => {
-    setNatureTarget({ id: tx.id, accountId: tx.accountId, description: tx.description })
-  }, [])
-
   const closeEdit = useCallback(() => {
     setEditingId(null)
   }, [])
@@ -135,8 +129,7 @@ export function TransactionList({
     onCancelRecurring: handleCancelRecurring,
     onCreateRule: handleCreateRule,
     onToggleSelect: toggleSelect,
-    onSetNature: handleSetNature,
-  }), [handleEdit, handleDelete, handleIgnore, handleCancelRecurring, handleCreateRule, toggleSelect, handleSetNature])
+  }), [handleEdit, handleDelete, handleIgnore, handleCancelRecurring, handleCreateRule, toggleSelect])
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 768px)')
@@ -337,8 +330,6 @@ export function TransactionList({
         categories={categories}
         prefill={ruleShortcut ?? undefined}
       />
-
-      <NatureShortcutDialog target={natureTarget} onClose={() => setNatureTarget(null)} />
 
       <ConfirmDialog
         open={!!cancelTarget}
