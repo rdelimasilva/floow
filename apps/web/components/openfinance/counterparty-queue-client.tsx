@@ -10,43 +10,45 @@ import { useToast } from '@/components/ui/toast'
 import { ItemRow } from './counterparty-item-row'
 
 type CategoryOption = { id: string; label: string; type: 'income' | 'expense' | 'transfer' }
+type AccountOption = { id: string; name: string }
 
 interface Props {
   mode: 'blocking' | 'page'
   pending: PendingGroup[]
   confirmed: ConfirmedCounterparty[]
   categoryOptions: CategoryOption[]
+  accountOptions: AccountOption[]
 }
 
 type Nature = 'income' | 'expense' | 'transfer'
 
-export function CounterpartyQueueClient({ mode, pending: initialPending, confirmed, categoryOptions }: Props) {
+export function CounterpartyQueueClient({ mode, pending: initialPending, confirmed, categoryOptions, accountOptions }: Props) {
   const { toast } = useToast()
   const [pending, setPending] = useState(initialPending)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [drafts, setDrafts] = useState<Record<string, { nature: Nature | null; categoryId: string | null }>>({})
+  const [drafts, setDrafts] = useState<Record<string, { nature: Nature | null; categoryId: string | null; transferAccountId: string | null }>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
   // Exceção por lançamento: foge do padrão do grupo sem virar regra da
   // contraparte (ver counterparty-actions.ts). Só existe entrada aqui pros
   // lançamentos que o usuário decidiu destacar — os demais seguem o padrão.
-  const [itemOverrides, setItemOverrides] = useState<Record<string, { nature: Nature; categoryId: string | null }>>({})
+  const [itemOverrides, setItemOverrides] = useState<Record<string, { nature: Nature; categoryId: string | null; transferAccountId: string | null }>>({})
 
   function draftFor(id: string) {
-    return drafts[id] ?? { nature: null, categoryId: null }
+    return drafts[id] ?? { nature: null, categoryId: null, transferAccountId: null }
   }
 
-  function setDraft(id: string, patch: Partial<{ nature: Nature | null; categoryId: string | null }>) {
+  function setDraft(id: string, patch: Partial<{ nature: Nature | null; categoryId: string | null; transferAccountId: string | null }>) {
     setDrafts((prev) => ({ ...prev, [id]: { ...draftFor(id), ...patch } }))
   }
 
-  function startOverride(itemId: string, groupDraft: { nature: Nature | null; categoryId: string | null }) {
+  function startOverride(itemId: string, groupDraft: { nature: Nature | null; categoryId: string | null; transferAccountId: string | null }) {
     setItemOverrides((prev) => ({
       ...prev,
-      [itemId]: { nature: groupDraft.nature ?? 'expense', categoryId: groupDraft.categoryId },
+      [itemId]: { nature: groupDraft.nature ?? 'expense', categoryId: groupDraft.categoryId, transferAccountId: groupDraft.transferAccountId },
     }))
   }
 
-  function setItemOverride(itemId: string, patch: Partial<{ nature: Nature; categoryId: string | null }>) {
+  function setItemOverride(itemId: string, patch: Partial<{ nature: Nature; categoryId: string | null; transferAccountId: string | null }>) {
     setItemOverrides((prev) => ({ ...prev, [itemId]: { ...prev[itemId], ...patch } }) as typeof prev)
   }
 
@@ -64,6 +66,10 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
       toast('Escolha se é receita, despesa ou transferência.', 'error')
       return
     }
+    if (draft.nature === 'transfer' && !draft.transferAccountId) {
+      toast('Escolha a conta de destino.', 'error')
+      return
+    }
     if (draft.nature !== 'transfer' && !draft.categoryId) {
       toast('Escolha uma categoria.', 'error')
       return
@@ -73,6 +79,10 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
     for (const item of group.items) {
       const override = itemOverrides[item.id]
       if (!override) continue
+      if (override.nature === 'transfer' && !override.transferAccountId) {
+        toast('Escolha a conta de destino da exceção marcada.', 'error')
+        return
+      }
       if (override.nature !== 'transfer' && !override.categoryId) {
         toast('Escolha uma categoria para a exceção marcada.', 'error')
         return
@@ -81,7 +91,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
         transactionId: item.id,
         nature: override.nature,
         categoryId: override.nature === 'transfer' ? null : override.categoryId,
-        transferAccountId: null,
+        transferAccountId: override.nature === 'transfer' ? override.transferAccountId : null,
       })
     }
 
@@ -91,7 +101,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
         counterpartyId: group.counterpartyId,
         nature: draft.nature,
         categoryId: draft.nature === 'transfer' ? null : draft.categoryId,
-        transferAccountId: null,
+        transferAccountId: draft.nature === 'transfer' ? draft.transferAccountId : null,
         exceptions,
       })
       setPending((prev) => prev.filter((g) => g.counterpartyId !== group.counterpartyId))
@@ -157,6 +167,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
                         item={item}
                         override={itemOverrides[item.id]}
                         categoryOptions={categoryOptions}
+                        accountOptions={accountOptions}
                         onStartOverride={() => startOverride(item.id, draft)}
                         onSetOverride={(patch) => setItemOverride(item.id, patch)}
                         onClearOverride={() => clearOverride(item.id)}
@@ -171,11 +182,27 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
                       key={nature}
                       type="button"
                       variant={draft.nature === nature ? 'primary' : 'outline'}
-                      onClick={() => setDraft(group.counterpartyId, { nature, categoryId: null })}
+                      onClick={() => setDraft(group.counterpartyId, { nature, categoryId: null, transferAccountId: null })}
                     >
                       {nature === 'expense' ? 'Despesa' : nature === 'income' ? 'Receita' : 'Transferência'}
                     </Button>
                   ))}
+
+                  {draft.nature === 'transfer' && (
+                    <Select
+                      value={draft.transferAccountId ?? undefined}
+                      onValueChange={(value) => setDraft(group.counterpartyId, { transferAccountId: value })}
+                    >
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Conta de destino" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accountOptions.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
 
                   {draft.nature && draft.nature !== 'transfer' && (
                     <Select
@@ -218,7 +245,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
               <li key={c.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 text-sm">
                 <span className="text-gray-900">{c.displayName}</span>
                 <span className="text-gray-500">
-                  {c.nature === 'expense' ? 'Despesa' : c.nature === 'income' ? 'Receita' : 'Transferência'}
+                  {c.nature === 'expense' ? 'Despesa' : c.nature === 'income' ? 'Receita' : `Transferência · ${c.transferAccountName ?? '?'}`}
                 </span>
               </li>
             ))}

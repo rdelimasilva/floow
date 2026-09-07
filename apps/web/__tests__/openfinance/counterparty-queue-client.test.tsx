@@ -51,6 +51,7 @@ const PENDING = [
 ]
 
 const CATEGORY_OPTIONS = [{ id: 'cat-expense', label: 'Aluguel', type: 'expense' as const }]
+const ACCOUNT_OPTIONS = [{ id: 'conta-destino', name: 'Poupança' }]
 
 beforeEach(() => {
   vi.mocked(confirmCounterparty).mockClear()
@@ -64,6 +65,7 @@ describe('CounterpartyQueueClient — exceção por lançamento', () => {
         pending: PENDING,
         confirmed: [],
         categoryOptions: CATEGORY_OPTIONS,
+        accountOptions: ACCOUNT_OPTIONS,
       })
     )
 
@@ -73,10 +75,11 @@ describe('CounterpartyQueueClient — exceção por lançamento', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Despesa' }))
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'cat-expense' } })
 
-    // o lançamento atípico foge do padrão: vira transferência
+    // o lançamento atípico foge do padrão: vira transferência pra uma conta própria
     const outlierRow = screen.getByTestId('item-tx-outlier')
     fireEvent.click(within(outlierRow).getByText('usar classificação diferente'))
     fireEvent.click(within(outlierRow).getByRole('button', { name: 'Transferência' }))
+    fireEvent.change(within(outlierRow).getByRole('combobox'), { target: { value: 'conta-destino' } })
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
@@ -87,7 +90,37 @@ describe('CounterpartyQueueClient — exceção por lançamento', () => {
       counterpartyId: 'cp-1',
       nature: 'expense',
       categoryId: 'cat-expense',
-      exceptions: [{ transactionId: 'tx-outlier', nature: 'transfer', categoryId: null }],
+      transferAccountId: null,
+      exceptions: [{ transactionId: 'tx-outlier', nature: 'transfer', categoryId: null, transferAccountId: 'conta-destino' }],
+    })
+  })
+})
+
+describe('CounterpartyQueueClient — transferência com conta de destino', () => {
+  it('confirma o grupo como transferência com a conta escolhida', async () => {
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending: PENDING,
+        confirmed: [],
+        categoryOptions: CATEGORY_OPTIONS,
+        accountOptions: ACCOUNT_OPTIONS,
+      })
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Transferência' }))
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'conta-destino' } })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    })
+
+    expect(confirmCounterparty).toHaveBeenCalledWith({
+      counterpartyId: 'cp-1',
+      nature: 'transfer',
+      categoryId: null,
+      transferAccountId: 'conta-destino',
+      exceptions: [],
     })
   })
 })

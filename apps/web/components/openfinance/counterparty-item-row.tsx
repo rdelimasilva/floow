@@ -7,12 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 type Nature = 'income' | 'expense' | 'transfer'
 type CategoryOption = { id: string; label: string; type: Nature }
-type Override = { nature: Nature; categoryId: string | null }
+type Override = { nature: Nature; categoryId: string | null; transferAccountId: string | null }
+type AccountOption = { id: string; name: string }
 
 interface Props {
   item: PendingGroupItem
   override: Override | undefined
   categoryOptions: CategoryOption[]
+  accountOptions: AccountOption[]
   onStartOverride: () => void
   onSetOverride: (patch: Partial<Override>) => void
   onClearOverride: () => void
@@ -25,7 +27,7 @@ interface Props {
  * `confirmCounterparty` em `lib/openfinance/counterparty-actions.ts` — a
  * exceção não muda a regra gravada na contraparte).
  */
-export function ItemRow({ item, override, categoryOptions, onStartOverride, onSetOverride, onClearOverride }: Props) {
+export function ItemRow({ item, override, categoryOptions, accountOptions, onStartOverride, onSetOverride, onClearOverride }: Props) {
   const categoriesForOverride = categoryOptions.filter((c) => c.type === override?.nature)
 
   return (
@@ -48,7 +50,18 @@ export function ItemRow({ item, override, categoryOptions, onStartOverride, onSe
             </Button>
           ))}
 
-          {override.nature !== 'transfer' && (
+          {override.nature === 'transfer' ? (
+            <Select value={override.transferAccountId ?? undefined} onValueChange={(value) => onSetOverride({ transferAccountId: value })}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Conta de destino" />
+              </SelectTrigger>
+              <SelectContent>
+                {accountOptions.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
             <Select value={override.categoryId ?? undefined} onValueChange={(value) => onSetOverride({ categoryId: value })}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Categoria" />
