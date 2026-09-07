@@ -2,11 +2,12 @@
 
 import { z } from 'zod'
 import { and, eq, isNotNull, notInArray, sql } from 'drizzle-orm'
-import { getDb, orgs, counterparties, transactions } from '@floow/db'
+import { getDb, orgs, counterparties, transactions, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { createClient } from '@/lib/supabase/server'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
+import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
 
 /**
  * O usuário confirma a natureza e a categoria de uma contraparte, e a
@@ -33,9 +34,10 @@ const exceptionSchema = z
     transactionId: z.string().uuid(),
     nature: z.enum(['income', 'expense', 'transfer']),
     categoryId: z.string().uuid().nullable(),
+    transferAccountId: z.string().uuid().nullable(),
   })
-  .refine((v) => (v.nature === 'transfer') === (v.categoryId === null), {
-    message: 'Categoria é obrigatória para receita e despesa, e não se aplica a transferência.',
+  .refine(natureMatchesDestination, {
+    message: 'Transferência exige conta de destino, sem categoria. Receita e despesa exigem categoria, sem conta de destino.',
   })
 
 const inputSchema = z
@@ -43,16 +45,127 @@ const inputSchema = z
     counterpartyId: z.string().uuid(),
     nature: z.enum(['income', 'expense', 'transfer']),
     categoryId: z.string().uuid().nullable(),
+    transferAccountId: z.string().uuid().nullable(),
     exceptions: z.array(exceptionSchema).default([]),
   })
-  .refine((v) => (v.nature === 'transfer') === (v.categoryId === null), {
-    message: 'Categoria é obrigatória para receita e despesa, e não se aplica a transferência.',
+  .refine(natureMatchesDestination, {
+    message: 'Transferência exige conta de destino, sem categoria. Receita e despesa exigem categoria, sem conta de destino.',
   })
+
+function natureMatchesDestination(v: { nature: string; categoryId: string | null; transferAccountId: string | null }) {
+  if (v.nature === 'transfer') return v.categoryId === null && v.transferAccountId !== null
+  return v.categoryId !== null && v.transferAccountId === null
+}
 
 // `z.input`, não `z.infer`: `exceptions` tem `.default([])`, então quem chama
 // pode omitir — só depois do `.parse()` é que o array garantidamente existe.
 export type ConfirmCounterpartyInput = z.input<typeof inputSchema>
 export type ConfirmCounterpartyException = z.infer<typeof exceptionSchema>
+
+// Mesmo padrão de `resolve-counterparty.ts`/`sync.ts`: `Db` é o tipo cheio
+// de `getDb()`, e o `tx` de dentro de `db.transaction(async (tx) => ...)` é
+// estruturalmente compatível — sem precisar de um tipo próprio pra ele.
+type Db = ReturnType<typeof getDb>
+
+/**
+ * Aplica transferência a UM lançamento pendente: natureza, sem categoria,
+ * com a conta de destino. Decide o fork do §4 da spec — segunda perna
+ * linkada quando o destino é conta manual, só metadado quando já é Open
+ * Finance. Retorna 1 se aplicou, 0 se o lançamento não estava mais pendente
+ * (corrida, ou id que não pertence a esta contraparte/org).
+ */
+async function applyTransferSingle(
+  tx: Db,
+  orgId: string,
+  input: { transactionId: string; counterpartyId: string; transferAccountId: string },
+): Promise<number> {
+  const [source] = await tx
+    .select({
+      id: transactions.id,
+      accountId: transactions.accountId,
+      amountCents: transactions.amountCents,
+      date: transactions.date,
+      externalId: transactions.externalId,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.id, input.transactionId),
+        eq(transactions.orgId, orgId),
+        eq(transactions.counterpartyId, input.counterpartyId),
+        eq(transactions.reviewState, 'pending'),
+      ),
+    )
+    .limit(1)
+
+  if (!source) return 0
+
+  if (source.accountId === input.transferAccountId) {
+    throw new Error('A conta de destino não pode ser a mesma conta do lançamento.')
+  }
+
+  const linked = await isOpenFinanceLinkedAccount(tx, orgId, input.transferAccountId)
+  const transferGroupId = linked ? null : crypto.randomUUID()
+
+  await tx
+    .update(transactions)
+    .set({
+      type: 'transfer',
+      categoryId: null,
+      transferAccountId: input.transferAccountId,
+      transferGroupId,
+      reviewState: 'confirmed',
+    })
+    .where(eq(transactions.id, source.id))
+
+  if (!linked && transferGroupId) {
+    if (!source.externalId) {
+      // Não deveria acontecer: só lançamento de origem Open Finance chega
+      // pendente na fila. Cair fora sem segunda perna é o desfecho seguro
+      // se acontecer — nunca inserir uma linha sem chave de dedupe.
+      return 1
+    }
+    await tx.insert(transactions).values(
+      buildTransferLegRow(
+        { orgId, amountCents: source.amountCents, date: source.date, externalId: source.externalId },
+        input.transferAccountId,
+        transferGroupId,
+      ),
+    )
+    await tx
+      .update(accounts)
+      .set({ balanceCents: sql`balance_cents + ${-source.amountCents}` })
+      .where(eq(accounts.id, input.transferAccountId))
+  }
+
+  return 1
+}
+
+/** Mesma lógica de `applyTransferSingle`, para todos os lançamentos pendentes do grupo (menos as exceções). */
+async function applyTransferBatch(
+  tx: Db,
+  orgId: string,
+  input: { counterpartyId: string; transferAccountId: string; excludeIds: string[] },
+): Promise<number> {
+  const conditions = [
+    eq(transactions.orgId, orgId),
+    eq(transactions.counterpartyId, input.counterpartyId),
+    eq(transactions.reviewState, 'pending'),
+  ]
+  if (input.excludeIds.length > 0) conditions.push(notInArray(transactions.id, input.excludeIds))
+
+  const pending = await tx.select({ id: transactions.id }).from(transactions).where(and(...conditions))
+
+  let count = 0
+  for (const row of pending) {
+    count += await applyTransferSingle(tx, orgId, {
+      transactionId: row.id,
+      counterpartyId: input.counterpartyId,
+      transferAccountId: input.transferAccountId,
+    })
+  }
+  return count
+}
 
 export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promise<{ reclassified: number }> {
   const input = inputSchema.parse(raw)
@@ -79,6 +192,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
       .set({
         nature: input.nature,
         categoryId: input.categoryId,
+        transferAccountId: input.transferAccountId,
         confirmedAt: new Date(),
         confirmedBy: session.user.id,
         updatedAt: new Date(),
@@ -86,39 +200,55 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
       .where(and(eq(counterparties.id, input.counterpartyId), eq(counterparties.orgId, orgId)))
 
     const exceptionIds = input.exceptions.map((e) => e.transactionId)
+    let reclassifiedCount = 0
 
-    // Chave estrangeira, não texto: todo lançamento que já apontava para
-    // esta contraparte reclassifica junto, sem depender de casamento nenhum.
-    // Os da lista de exceções ficam de fora daqui — recebem sua própria
-    // natureza/categoria logo abaixo, sem afetar a regra gravada acima.
-    const batchConditions = [
-      eq(transactions.orgId, orgId),
-      eq(transactions.counterpartyId, input.counterpartyId),
-      eq(transactions.reviewState, 'pending'),
-    ]
-    if (exceptionIds.length > 0) batchConditions.push(notInArray(transactions.id, exceptionIds))
+    if (input.nature === 'transfer') {
+      // Mesmo cast de `assertAccountOwnership(tx as unknown as Db, ...)` em
+      // `lib/finance/actions.ts`: o `tx` de dentro do callback não é
+      // diretamente atribuível ao tipo cheio de `getDb()`.
+      reclassifiedCount += await applyTransferBatch(tx as unknown as Db, orgId, {
+        counterpartyId: input.counterpartyId,
+        transferAccountId: input.transferAccountId!,
+        excludeIds: exceptionIds,
+      })
+    } else {
+      const batchConditions = [
+        eq(transactions.orgId, orgId),
+        eq(transactions.counterpartyId, input.counterpartyId),
+        eq(transactions.reviewState, 'pending'),
+      ]
+      if (exceptionIds.length > 0) batchConditions.push(notInArray(transactions.id, exceptionIds))
 
-    const rows = await tx
-      .update(transactions)
-      .set({ type: input.nature, categoryId: input.categoryId, reviewState: 'confirmed' })
-      .where(and(...batchConditions))
-      .returning({ id: transactions.id })
-
-    let reclassifiedCount = rows.length
-    for (const exception of input.exceptions) {
-      const exceptionRows = await tx
+      const rows = await tx
         .update(transactions)
-        .set({ type: exception.nature, categoryId: exception.categoryId, reviewState: 'confirmed' })
-        .where(
-          and(
-            eq(transactions.orgId, orgId),
-            eq(transactions.counterpartyId, input.counterpartyId),
-            eq(transactions.reviewState, 'pending'),
-            eq(transactions.id, exception.transactionId),
-          ),
-        )
+        .set({ type: input.nature, categoryId: input.categoryId, transferAccountId: null, reviewState: 'confirmed' })
+        .where(and(...batchConditions))
         .returning({ id: transactions.id })
-      reclassifiedCount += exceptionRows.length
+      reclassifiedCount += rows.length
+    }
+
+    for (const exception of input.exceptions) {
+      if (exception.nature === 'transfer') {
+        reclassifiedCount += await applyTransferSingle(tx as unknown as Db, orgId, {
+          transactionId: exception.transactionId,
+          counterpartyId: input.counterpartyId,
+          transferAccountId: exception.transferAccountId!,
+        })
+      } else {
+        const exceptionRows = await tx
+          .update(transactions)
+          .set({ type: exception.nature, categoryId: exception.categoryId, transferAccountId: null, reviewState: 'confirmed' })
+          .where(
+            and(
+              eq(transactions.orgId, orgId),
+              eq(transactions.counterpartyId, input.counterpartyId),
+              eq(transactions.reviewState, 'pending'),
+              eq(transactions.id, exception.transactionId),
+            ),
+          )
+          .returning({ id: transactions.id })
+        reclassifiedCount += exceptionRows.length
+      }
     }
 
     // Se esta foi a última pendência resolvível da org, destrava o portão
