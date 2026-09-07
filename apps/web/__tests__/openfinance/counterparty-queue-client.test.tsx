@@ -42,10 +42,10 @@ const PENDING = [
     displayName: 'Pix enviado Maraisa Ramos',
     keyType: 'tax_id' as const,
     count: 2,
-    totalCents: 9_075_000,
+    totalCents: -9_075_000,
     items: [
-      { id: 'tx-normal', date: '2026-01-05', description: 'Pix enviado Maraisa Ramos', amountCents: 75_000 },
-      { id: 'tx-outlier', date: '2026-01-29', description: 'Pix enviado Maraisa Ramos', amountCents: 9_000_000 },
+      { id: 'tx-normal', date: '2026-01-05', description: 'Pix enviado Maraisa Ramos', amountCents: -75_000 },
+      { id: 'tx-outlier', date: '2026-01-29', description: 'Pix enviado Maraisa Ramos', amountCents: -9_000_000 },
     ],
   },
 ]

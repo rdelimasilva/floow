@@ -41,10 +41,22 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
     setDrafts((prev) => ({ ...prev, [id]: { ...draftFor(id), ...patch } }))
   }
 
-  function startOverride(itemId: string, groupDraft: { nature: Nature | null; categoryId: string | null; transferAccountId: string | null }) {
+  function startOverride(
+    itemId: string,
+    amountCents: number,
+    groupDraft: { nature: Nature | null; categoryId: string | null; transferAccountId: string | null },
+  ) {
+    // O padrão do grupo pode ser 'expense' com o lançamento em crédito (ou
+    // vice-versa) quando a exceção é justamente pra corrigir a natureza —
+    // só herda o padrão do grupo se ele bater com a direção deste item.
+    const fallback = amountCents < 0 ? 'expense' : 'income'
+    const nature =
+      groupDraft.nature && !(groupDraft.nature === 'income' && amountCents < 0) && !(groupDraft.nature === 'expense' && amountCents > 0)
+        ? groupDraft.nature
+        : fallback
     setItemOverrides((prev) => ({
       ...prev,
-      [itemId]: { nature: groupDraft.nature ?? 'expense', categoryId: groupDraft.categoryId, transferAccountId: groupDraft.transferAccountId },
+      [itemId]: { nature, categoryId: nature === groupDraft.nature ? groupDraft.categoryId : null, transferAccountId: nature === groupDraft.nature ? groupDraft.transferAccountId : null },
     }))
   }
 
@@ -124,19 +136,22 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
     return <p className="text-sm text-gray-600">Tudo revisado — atualizando…</p>
   }
 
-  return (
-    <div className="space-y-6">
-      {pending.length === 0 ? (
-        <p className="text-sm text-gray-600">Nada pendente.</p>
-      ) : (
-        <ul className="space-y-4">
-          {pending.map((group) => {
-            const draft = draftFor(group.counterpartyId)
-            const isOpen = expanded.has(group.counterpartyId)
-            const categoriesForNature = categoryOptions.filter((c) => c.type === draft.nature)
+  function renderGroup(group: PendingGroup) {
+    const draft = draftFor(group.counterpartyId)
+    const isOpen = expanded.has(group.counterpartyId)
+    const categoriesForNature = categoryOptions.filter((c) => c.type === draft.nature)
+    // Um grupo é de entrada OU saída — direção já faz parte da chave da
+    // contraparte (mesmo tax_id de saída e de entrada nunca colidem, ver
+    // spec de 04/09). "Receita" não faz sentido pra quem só tem débito
+    // aqui, e vice-versa.
+    const availableNatures = (['expense', 'income', 'transfer'] as const).filter((nature) => {
+      if (nature === 'income' && group.totalCents < 0) return false
+      if (nature === 'expense' && group.totalCents > 0) return false
+      return true
+    })
 
-            return (
-              <li key={group.counterpartyId} className="rounded-lg border border-gray-200 p-4">
+    return (
+      <li key={group.counterpartyId} className="rounded-lg border border-gray-200 p-4">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="text-sm font-medium text-gray-900">{group.displayName}</p>
                   <p className="shrink-0 text-sm font-semibold text-gray-900">
@@ -170,7 +185,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
                         override={itemOverrides[item.id]}
                         categoryOptions={categoryOptions}
                         accountOptions={accountOptions}
-                        onStartOverride={() => startOverride(item.id, draft)}
+                        onStartOverride={() => startOverride(item.id, item.amountCents, draft)}
                         onSetOverride={(patch) => setItemOverride(item.id, patch)}
                         onClearOverride={() => clearOverride(item.id)}
                       />
@@ -179,7 +194,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
                 )}
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {(['expense', 'income', 'transfer'] as const).map((nature) => (
+                  {availableNatures.map((nature) => (
                     <Button
                       key={nature}
                       type="button"
@@ -231,9 +246,31 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
                   </Button>
                 </div>
               </li>
-            )
-          })}
-        </ul>
+    )
+  }
+
+  const entradas = pending.filter((g) => g.totalCents >= 0)
+  const saidas = pending.filter((g) => g.totalCents < 0)
+
+  return (
+    <div className="space-y-6">
+      {pending.length === 0 ? (
+        <p className="text-sm text-gray-600">Nada pendente.</p>
+      ) : (
+        <>
+          {entradas.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Entradas</h2>
+              <ul className="mt-2 space-y-4">{entradas.map(renderGroup)}</ul>
+            </div>
+          )}
+          {saidas.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Saídas</h2>
+              <ul className="mt-2 space-y-4">{saidas.map(renderGroup)}</ul>
+            </div>
+          )}
+        </>
       )}
 
       {mode === 'page' && confirmed.length > 0 && (

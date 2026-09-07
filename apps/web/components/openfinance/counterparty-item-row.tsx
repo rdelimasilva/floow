@@ -29,6 +29,13 @@ interface Props {
  */
 export function ItemRow({ item, override, categoryOptions, accountOptions, onStartOverride, onSetOverride, onClearOverride }: Props) {
   const categoriesForOverride = categoryOptions.filter((c) => c.type === override?.nature)
+  // Mesmo racional do grupo (counterparty-queue-client.tsx): um lançamento
+  // débito não pode virar "Receita", e vice-versa.
+  const availableNatures = (['expense', 'income', 'transfer'] as const).filter((nature) => {
+    if (nature === 'income' && item.amountCents < 0) return false
+    if (nature === 'expense' && item.amountCents > 0) return false
+    return true
+  })
 
   return (
     <li data-testid={`item-${item.id}`}>
@@ -39,7 +46,7 @@ export function ItemRow({ item, override, categoryOptions, accountOptions, onSta
 
       {override ? (
         <div className="mt-1 flex flex-wrap items-center gap-1">
-          {(['expense', 'income', 'transfer'] as const).map((nature) => (
+          {availableNatures.map((nature) => (
             <Button
               key={nature}
               type="button"
