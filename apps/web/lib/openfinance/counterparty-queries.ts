@@ -1,5 +1,5 @@
 import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
-import { getDb, orgs, transactions, counterparties } from '@floow/db'
+import { getDb, orgs, transactions, counterparties, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 
 /**
@@ -134,6 +134,8 @@ export interface ConfirmedCounterparty {
   displayName: string
   nature: 'income' | 'expense' | 'transfer'
   categoryId: string | null
+  transferAccountId: string | null
+  transferAccountName: string | null
   confirmedAt: string
 }
 
@@ -141,8 +143,17 @@ export interface ConfirmedCounterparty {
 export async function getConfirmedCounterparties(orgId: string): Promise<ConfirmedCounterparty[]> {
   const db = getDb()
   const rows = await db
-    .select()
+    .select({
+      id: counterparties.id,
+      displayName: counterparties.displayName,
+      nature: counterparties.nature,
+      categoryId: counterparties.categoryId,
+      transferAccountId: counterparties.transferAccountId,
+      transferAccountName: accounts.name,
+      confirmedAt: counterparties.confirmedAt,
+    })
     .from(counterparties)
+    .leftJoin(accounts, eq(accounts.id, counterparties.transferAccountId))
     .where(and(eq(counterparties.orgId, orgId), sql`${counterparties.confirmedAt} is not null`))
     .orderBy(desc(counterparties.confirmedAt))
 
@@ -151,6 +162,8 @@ export async function getConfirmedCounterparties(orgId: string): Promise<Confirm
     displayName: row.displayName,
     nature: row.nature!,
     categoryId: row.categoryId,
+    transferAccountId: row.transferAccountId,
+    transferAccountName: row.transferAccountName,
     confirmedAt: row.confirmedAt!.toISOString(),
   }))
 }

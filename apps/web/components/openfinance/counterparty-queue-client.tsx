@@ -69,7 +69,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
       return
     }
 
-    const exceptions: { transactionId: string; nature: Nature; categoryId: string | null }[] = []
+    const exceptions: { transactionId: string; nature: Nature; categoryId: string | null; transferAccountId: string | null }[] = []
     for (const item of group.items) {
       const override = itemOverrides[item.id]
       if (!override) continue
@@ -81,6 +81,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
         transactionId: item.id,
         nature: override.nature,
         categoryId: override.nature === 'transfer' ? null : override.categoryId,
+        transferAccountId: null,
       })
     }
 
@@ -90,6 +91,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
         counterpartyId: group.counterpartyId,
         nature: draft.nature,
         categoryId: draft.nature === 'transfer' ? null : draft.categoryId,
+        transferAccountId: null,
         exceptions,
       })
       setPending((prev) => prev.filter((g) => g.counterpartyId !== group.counterpartyId))
