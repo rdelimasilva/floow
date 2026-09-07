@@ -27,6 +27,12 @@ export interface TransferSourceLeg {
   date: Date
   /** Sempre presente: só lançamento de origem Open Finance passa por aqui. */
   externalId: string
+  /**
+   * Repassado direto da origem: um lançamento agendado/futuro que ainda não
+   * entrou no saldo (`balanceApplied: false`) não pode fazer a perna de
+   * destino creditar o saldo antes da hora — daria saldo errado em silêncio.
+   */
+  balanceApplied: boolean
 }
 
 /**
@@ -35,7 +41,9 @@ export interface TransferSourceLeg {
  * própria confirmação (`counterparty-actions.ts`) ou sincronização
  * (`sync.ts`). `externalId` sempre derivado do da origem: é o que torna a
  * inserção idempotente por `(external_id, account_id)`, o mesmo índice único
- * que já protege o resto da ingestão.
+ * que já protege o resto da ingestão. `balanceApplied` também herda da
+ * origem, para que uma origem ainda não aplicada (agendada/futura) não
+ * credite o destino antes da hora.
  */
 export function buildTransferLegRow(
   source: TransferSourceLeg,
@@ -52,7 +60,7 @@ export function buildTransferLegRow(
     date: source.date,
     transferGroupId,
     externalId: `${source.externalId}:transfer-dest`,
-    balanceApplied: true,
+    balanceApplied: source.balanceApplied,
     reviewState: 'confirmed',
   }
 }

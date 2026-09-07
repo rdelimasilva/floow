@@ -87,6 +87,7 @@ async function applyTransferSingle(
       amountCents: transactions.amountCents,
       date: transactions.date,
       externalId: transactions.externalId,
+      balanceApplied: transactions.balanceApplied,
     })
     .from(transactions)
     .where(
@@ -134,7 +135,13 @@ async function applyTransferSingle(
     }
     await tx.insert(transactions).values(
       buildTransferLegRow(
-        { orgId, amountCents: source.amountCents, date: source.date, externalId: source.externalId },
+        {
+          orgId,
+          amountCents: source.amountCents,
+          date: source.date,
+          externalId: source.externalId,
+          balanceApplied: source.balanceApplied,
+        },
         input.transferAccountId,
         transferGroupId,
       ),

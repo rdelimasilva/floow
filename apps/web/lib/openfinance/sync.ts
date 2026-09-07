@@ -331,7 +331,7 @@ async function persistPage(
         transferGroupId = crypto.randomUUID()
         transferLegsToInsert.push(
           buildTransferLegRow(
-            { orgId: input.orgId, amountCents: tx.amountCents, date, externalId: tx.externalId },
+            { orgId: input.orgId, amountCents: tx.amountCents, date, externalId: tx.externalId, balanceApplied: applied },
             tx.transferAccountId,
             transferGroupId,
           ),

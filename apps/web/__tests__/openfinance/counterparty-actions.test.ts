@@ -225,7 +225,7 @@ describe('confirmCounterparty', () => {
       selectQueue.push([{ id: 'tx-1' }]) // ids pendentes do grupo (applyTransferBatch)
       selectQueue.push([{ // lookup da transação de origem (applyTransferSingle)
         id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
-        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1',
+        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
       }])
       selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership: conta pertence à org
       selectQueue.push([]) // isOpenFinanceLinkedAccount: sem recurso -> conta manual
@@ -255,7 +255,7 @@ describe('confirmCounterparty', () => {
       selectQueue.push([{ id: 'tx-1' }])
       selectQueue.push([{
         id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
-        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1',
+        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
       }])
       selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership: conta pertence à org
       selectQueue.push([{ id: 'resource-1' }]) // isOpenFinanceLinkedAccount: achou recurso -> linked
@@ -281,7 +281,7 @@ describe('confirmCounterparty', () => {
       selectQueue.push([{ id: 'tx-1' }])
       selectQueue.push([{
         id: 'tx-1', accountId: TRANSFER_ACCOUNT_ID, amountCents: -50000,
-        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1',
+        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
       }])
 
       await expect(
