@@ -139,7 +139,9 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
               <li key={group.counterpartyId} className="rounded-lg border border-gray-200 p-4">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="text-sm font-medium text-gray-900">{group.displayName}</p>
-                  <p className="shrink-0 text-sm font-semibold text-gray-900">{formatBRL(Math.abs(group.totalCents))}</p>
+                  <p className="shrink-0 text-sm font-semibold text-gray-900">
+                    {group.totalCents >= 0 ? '+' : ''}{formatBRL(group.totalCents)}
+                  </p>
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
                   {group.count} lançamento{group.count > 1 ? 's' : ''} ·{' '}

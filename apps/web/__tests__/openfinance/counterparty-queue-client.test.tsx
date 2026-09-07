@@ -96,6 +96,38 @@ describe('CounterpartyQueueClient — exceção por lançamento', () => {
   })
 })
 
+describe('CounterpartyQueueClient — sinal do valor', () => {
+  it('débito mostra o total do grupo e o valor do lançamento com sinal negativo', () => {
+    const debitPending = [
+      {
+        counterpartyId: 'cp-2',
+        displayName: 'Pix enviado Fulano',
+        keyType: 'tax_id' as const,
+        count: 1,
+        totalCents: -75_000,
+        items: [{ id: 'tx-debito', date: '2026-01-05', description: 'Pix enviado Fulano', amountCents: -75_000 }],
+      },
+    ]
+
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending: debitPending,
+        confirmed: [],
+        categoryOptions: CATEGORY_OPTIONS,
+        accountOptions: ACCOUNT_OPTIONS,
+      })
+    )
+
+    // `getByText` já lança se não achar — a asserção é a própria query.
+    screen.getByText('-R$ 750,00')
+
+    fireEvent.click(screen.getByText('ver lançamentos'))
+    const row = screen.getByTestId('item-tx-debito')
+    within(row).getByText('-R$ 750,00')
+  })
+})
+
 describe('CounterpartyQueueClient — transferência com conta de destino', () => {
   it('confirma o grupo como transferência com a conta escolhida', async () => {
     render(

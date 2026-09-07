@@ -34,7 +34,7 @@ export function ItemRow({ item, override, categoryOptions, accountOptions, onSta
     <li data-testid={`item-${item.id}`}>
       <div className="flex justify-between gap-3">
         <span>{item.date.slice(0, 10)} · {item.description}</span>
-        <span>{formatBRL(Math.abs(item.amountCents))}</span>
+        <span>{item.amountCents >= 0 ? '+' : ''}{formatBRL(item.amountCents)}</span>
       </div>
 
       {override ? (
