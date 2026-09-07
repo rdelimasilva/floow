@@ -113,6 +113,14 @@ export const transactions = pgTable(
     description: text('description').notNull(),
     date: date('date', { mode: 'date' }).notNull(),
     transferGroupId: uuid('transfer_group_id'),
+    /**
+     * Conta de destino de uma transferência resolvida por contraparte
+     * (Nível 2 — `resolve-counterparty.ts`). Sempre gravado quando
+     * `type = 'transfer'` por esse caminho, com ou sem segunda linha — ver
+     * `lib/openfinance/transfer-leg.ts`. Fluxo manual não popula esta
+     * coluna: já expressa o destino via `transferGroupId` + a segunda linha.
+     */
+    transferAccountId: uuid('transfer_account_id').references(() => accounts.id, { onDelete: 'set null' }),
     importedAt: timestamp('imported_at', { withTimezone: true }),
     externalId: text('external_id'),
     isAutoCategorized: boolean('is_auto_categorized').notNull().default(false),

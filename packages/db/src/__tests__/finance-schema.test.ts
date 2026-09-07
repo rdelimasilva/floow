@@ -143,3 +143,10 @@ describe('fila de revisão por contraparte', () => {
     expect(getTableColumns(orgs).reviewGateClearedAt).toBeDefined()
   })
 })
+
+describe('transferência com conta de destino', () => {
+  it('counterparties e transactions têm transferAccountId', () => {
+    expect(getTableColumns(counterparties).transferAccountId).toBeDefined()
+    expect(getTableColumns(transactions).transferAccountId).toBeDefined()
+  })
+})

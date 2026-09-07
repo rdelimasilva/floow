@@ -30,6 +30,8 @@ export const counterparties = pgTable(
     /** NULL enquanto pendente. */
     nature: transactionTypeEnum('nature'),
     categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
+    /** Pra qual conta do usuário esta contraparte transfere, por padrão. */
+    transferAccountId: uuid('transfer_account_id').references(() => accounts.id, { onDelete: 'set null' }),
     displayName: text('display_name').notNull(),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
     confirmedBy: uuid('confirmed_by'),
