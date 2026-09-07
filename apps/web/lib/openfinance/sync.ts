@@ -22,6 +22,7 @@ import {
 import { normalizeBatch, type RejectedItem } from './normalize-batch'
 import { loadCounterpartyIndex, resolveCounterparty } from './resolve-counterparty'
 import type { ResolvedTransaction } from './resolve-counterparty'
+import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
 
 /**
  * Importação das transações de uma conexão Open Finance.
@@ -268,6 +269,8 @@ async function persistPage(
   today.setHours(23, 59, 59, 999)
 
   const toInsert: (typeof transactions.$inferInsert)[] = []
+  const transferLegsToInsert: (typeof transactions.$inferInsert)[] = []
+  const linkedAccountCache = new Map<string, boolean>()
   let updated = 0
 
   for (const tx of input.normalized) {
@@ -317,6 +320,25 @@ async function persistPage(
     const isScheduled = tx.settlement === 'scheduled'
     const applied = !isScheduled && date <= today
 
+    let transferGroupId: string | null = null
+    if (tx.reviewState === 'confirmed' && tx.type === 'transfer' && tx.transferAccountId) {
+      let linked = linkedAccountCache.get(tx.transferAccountId)
+      if (linked === undefined) {
+        linked = await isOpenFinanceLinkedAccount(db, input.orgId, tx.transferAccountId)
+        linkedAccountCache.set(tx.transferAccountId, linked)
+      }
+      if (!linked) {
+        transferGroupId = crypto.randomUUID()
+        transferLegsToInsert.push(
+          buildTransferLegRow(
+            { orgId: input.orgId, amountCents: tx.amountCents, date, externalId: tx.externalId },
+            tx.transferAccountId,
+            transferGroupId,
+          ),
+        )
+      }
+    }
+
     toInsert.push({
       orgId: input.orgId,
       accountId: input.accountId,
@@ -341,6 +363,8 @@ async function persistPage(
       counterpartyTaxId: tx.counterpartyTaxId,
       counterpartyName: tx.counterpartyName,
       reviewState: tx.reviewState,
+      transferGroupId,
+      transferAccountId: tx.transferAccountId ?? null,
     })
   }
 
@@ -365,6 +389,26 @@ async function persistPage(
         .update(accounts)
         .set({ balanceCents: sql`balance_cents + ${realDelta}` })
         .where(eq(accounts.id, input.accountId))
+    }
+
+    if (transferLegsToInsert.length > 0) {
+      const insertedLegs = await dbTx
+        .insert(transactions)
+        .values(transferLegsToInsert)
+        .onConflictDoNothing()
+        .returning({ accountId: transactions.accountId, amountCents: transactions.amountCents })
+
+      const deltaByAccount = new Map<string, number>()
+      for (const leg of insertedLegs) {
+        deltaByAccount.set(leg.accountId, (deltaByAccount.get(leg.accountId) ?? 0) + leg.amountCents)
+      }
+      for (const [destAccountId, delta] of deltaByAccount) {
+        if (delta === 0) continue
+        await dbTx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${delta}` })
+          .where(eq(accounts.id, destAccountId))
+      }
     }
 
     return inserted.length

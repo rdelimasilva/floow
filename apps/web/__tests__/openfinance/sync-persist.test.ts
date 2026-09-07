@@ -42,3 +42,31 @@ describe('categoria: contraparte é autoritativa, Nível 1 usa o caminho antigo'
     expect(id).toBe('cat-ref')
   })
 })
+
+/**
+ * Mesma extração de `resolveCategoryId` acima: a decisão "esta transferência
+ * cria segunda perna ou só metadado" isolada do resto de `persistPage`.
+ */
+function decideTransferLeg(
+  tx: { type: string; reviewState: string; transferAccountId: string | null },
+  destinationIsOpenFinanceLinked: boolean,
+): 'no-transfer' | 'metadata-only' | 'linked-leg' {
+  if (tx.type !== 'transfer' || tx.reviewState !== 'confirmed' || !tx.transferAccountId) return 'no-transfer'
+  return destinationIsOpenFinanceLinked ? 'metadata-only' : 'linked-leg'
+}
+
+describe('sync: fork da segunda perna de transferência', () => {
+  it('sem conta de destino, ou não confirmada, ou não é transferência: não cria nada', () => {
+    expect(decideTransferLeg({ type: 'expense', reviewState: 'confirmed', transferAccountId: null }, false)).toBe('no-transfer')
+    expect(decideTransferLeg({ type: 'transfer', reviewState: 'pending', transferAccountId: 'conta-1' }, false)).toBe('no-transfer')
+    expect(decideTransferLeg({ type: 'transfer', reviewState: 'confirmed', transferAccountId: null }, false)).toBe('no-transfer')
+  })
+
+  it('destino Open Finance: só metadado', () => {
+    expect(decideTransferLeg({ type: 'transfer', reviewState: 'confirmed', transferAccountId: 'conta-1' }, true)).toBe('metadata-only')
+  })
+
+  it('destino conta manual: cria a segunda perna linkada', () => {
+    expect(decideTransferLeg({ type: 'transfer', reviewState: 'confirmed', transferAccountId: 'conta-1' }, false)).toBe('linked-leg')
+  })
+})
