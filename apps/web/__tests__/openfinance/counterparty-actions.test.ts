@@ -226,6 +226,7 @@ describe('confirmCounterparty', () => {
         id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
         date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1',
       }])
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership: conta pertence à org
       selectQueue.push([]) // isOpenFinanceLinkedAccount: sem recurso -> conta manual
       updateQueue.push([]) // update da linha de origem (transferAccountId, transferGroupId)
       insertQueue.push([{ id: 'tx-1-dest' }]) // insert da segunda perna
@@ -254,6 +255,7 @@ describe('confirmCounterparty', () => {
         id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
         date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1',
       }])
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership: conta pertence à org
       selectQueue.push([{ id: 'resource-1' }]) // isOpenFinanceLinkedAccount: achou recurso -> linked
       updateQueue.push([]) // update da linha de origem, sem segunda perna
       selectQueue.push([{ one: 1 }])
@@ -287,6 +289,26 @@ describe('confirmCounterparty', () => {
           transferAccountId: TRANSFER_ACCOUNT_ID,
         }),
       ).rejects.toThrow(/mesma conta/)
+    })
+
+    it('transferAccountId de outra org rejeita', async () => {
+      selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
+      updateQueue.push([]) // update de counterparties
+      selectQueue.push([{ id: 'tx-1' }]) // ids pendentes do grupo (applyTransferBatch)
+      selectQueue.push([{ // lookup da transação de origem (applyTransferSingle)
+        id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
+        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1',
+      }])
+      selectQueue.push([]) // assertAccountOwnership: nenhuma linha -> conta de outra org
+
+      await expect(
+        confirmCounterparty({
+          counterpartyId: COUNTERPARTY_ID,
+          nature: 'transfer',
+          categoryId: null,
+          transferAccountId: TRANSFER_ACCOUNT_ID,
+        }),
+      ).rejects.toThrow(/does not belong|not found/)
     })
 
     it('exceção com natureza transferência exige sua própria transferAccountId', async () => {

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { and, eq, isNotNull, notInArray, sql } from 'drizzle-orm'
 import { getDb, orgs, counterparties, transactions, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
+import { assertAccountOwnership } from '@/lib/finance/actions'
 import { createClient } from '@/lib/supabase/server'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
@@ -103,6 +104,12 @@ async function applyTransferSingle(
   if (source.accountId === input.transferAccountId) {
     throw new Error('A conta de destino não pode ser a mesma conta do lançamento.')
   }
+
+  // Mesma cerca do fluxo manual (`lib/finance/actions.ts`): garante que a
+  // conta de destino é desta org antes de qualquer escrita — sem isso um
+  // `transferAccountId` de outra org gravaria linha e creditaria saldo
+  // cross-tenant (ver docs/superpowers/specs/2026-09-07-counterparty-transfer-account-design.md §7).
+  await assertAccountOwnership(tx, input.transferAccountId, orgId)
 
   const linked = await isOpenFinanceLinkedAccount(tx, orgId, input.transferAccountId)
   const transferGroupId = linked ? null : crypto.randomUUID()
