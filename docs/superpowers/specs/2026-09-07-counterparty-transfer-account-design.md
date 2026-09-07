@@ -35,7 +35,18 @@ classificação uma transferência, não um detalhe opcional dela.
 
 ## 3. Dado novo
 
-`counterparties` ganha `transfer_account_id uuid nullable, fk accounts`.
+`counterparties` ganha `transfer_account_id uuid nullable, fk accounts` — a
+regra: pra qual conta esta contraparte transfere, por padrão.
+
+`transactions` ganha o mesmo campo, `transfer_account_id`. Necessário
+porque, no fork do §4, o caso "destino é conta Open Finance" não cria
+segunda linha — sem essa coluna, aquele lançamento específico não teria
+onde registrar pra qual conta foi. Sempre gravado quando `type = 'transfer'`
+por este fluxo (openfinance), nos dois ramos do fork, pra "pra onde foi"
+nunca depender de saber qual ramo rodou. `createTransaction`/
+`createRecurringTemplate` (fluxo manual) não populam esta coluna — já
+expressam o destino via `transferGroupId` + a segunda linha, e não estão
+no escopo desta mudança.
 
 Validação (substitui a regra atual "`transfer` ⟺ `category_id` nulo"):
 
