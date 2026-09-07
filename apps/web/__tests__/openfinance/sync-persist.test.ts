@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { sumAppliedDeltasByAccount } from '@/lib/openfinance/sync'
 
 /**
  * `persistPage` não é exportada (é interna a sync.ts) e o resto da função
@@ -68,5 +69,40 @@ describe('sync: fork da segunda perna de transferência', () => {
 
   it('destino conta manual: cria a segunda perna linkada', () => {
     expect(decideTransferLeg({ type: 'transfer', reviewState: 'confirmed', transferAccountId: 'conta-1' }, false)).toBe('linked-leg')
+  })
+})
+
+/**
+ * `sumAppliedDeltasByAccount` é importada de verdade de `sync.ts` (não uma
+ * cópia local, ao contrário de `resolveCategoryId`/`decideTransferLeg`
+ * acima): é a mesma função que `persistPage` usa para o delta da perna de
+ * destino, então o teste cobre a implementação real, não uma reimplementação
+ * paralela dela. Achado da revisão final: a rodada anterior só testava a
+ * ORDEM das operações de DB, nunca o VALOR do delta nem o filtro por
+ * `balanceApplied` — por isso a falta de gate em `counterparty-actions.ts`
+ * (Critical 1) passou por duas revisões sem ser pega.
+ */
+describe('sumAppliedDeltasByAccount', () => {
+  it('perna com applied: false não contribui em nada para o saldo da conta', () => {
+    const delta = sumAppliedDeltasByAccount([{ accountId: 'conta-1', amountCents: 50000, applied: false }])
+    expect(delta.has('conta-1')).toBe(false)
+    expect(delta.get('conta-1')).toBeUndefined()
+  })
+
+  it('perna com applied: true contribui com o próprio valor', () => {
+    const delta = sumAppliedDeltasByAccount([{ accountId: 'conta-1', amountCents: 50000, applied: true }])
+    expect(delta.get('conta-1')).toBe(50000)
+  })
+
+  it('múltiplas pernas na mesma conta somam corretamente, ignorando as não aplicadas', () => {
+    const delta = sumAppliedDeltasByAccount([
+      { accountId: 'conta-1', amountCents: 50000, applied: true },
+      { accountId: 'conta-1', amountCents: 20000, applied: true },
+      { accountId: 'conta-1', amountCents: 999999, applied: false },
+      { accountId: 'conta-2', amountCents: -1000, applied: true },
+    ])
+    expect(delta.get('conta-1')).toBe(70000)
+    expect(delta.get('conta-2')).toBe(-1000)
+    expect(delta.size).toBe(2)
   })
 })

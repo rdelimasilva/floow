@@ -18,7 +18,7 @@ function makeChain(result: unknown[]): any {
     catch: () => chain,
     finally: () => chain,
   }
-  for (const m of ['from', 'where', 'limit', 'set', 'returning']) chain[m] = () => makeChain(result)
+  for (const m of ['from', 'where', 'limit', 'set', 'returning', 'onConflictDoNothing']) chain[m] = () => makeChain(result)
   return chain
 }
 
@@ -246,6 +246,43 @@ describe('confirmCounterparty', () => {
       expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual([
         'counterparties', 'transactions', 'accounts',
       ])
+    })
+
+    it('origem com balanceApplied: false — cria a segunda perna mas NÃO move o saldo da conta de destino', async () => {
+      // Achado da revisão final (Critical 1): a rodada anterior só corrigiu
+      // o `balanceApplied` da PRÓPRIA linha da perna de destino, mas o
+      // UPDATE de `accounts` que credita o saldo continuava incondicional —
+      // uma origem agendada/futura (`balanceApplied: false`) criava a
+      // segunda perna corretamente marcada como não aplicada, e mesmo assim
+      // movia o saldo da conta de destino na hora.
+      selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership incondicional em confirmCounterparty
+      updateQueue.push([]) // update de counterparties
+      selectQueue.push([{ id: 'tx-1' }]) // ids pendentes do grupo (applyTransferBatch)
+      selectQueue.push([{ // lookup da transação de origem (applyTransferSingle) — balanceApplied: false
+        id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
+        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: false,
+      }])
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership: conta pertence à org
+      selectQueue.push([]) // isOpenFinanceLinkedAccount: sem recurso -> conta manual
+      updateQueue.push([]) // update da linha de origem (transferAccountId, transferGroupId)
+      insertQueue.push([{ id: 'tx-1-dest' }]) // insert da segunda perna: entrou de fato
+      selectQueue.push([{ one: 1 }]) // ainda sobra pendência resolvível na org
+
+      const result = await confirmCounterparty({
+        counterpartyId: COUNTERPARTY_ID,
+        nature: 'transfer',
+        categoryId: null,
+        transferAccountId: TRANSFER_ACCOUNT_ID,
+      })
+
+      expect(result.reclassified).toBe(1)
+      // A segunda perna entra normalmente...
+      expect(ops.filter((o) => o.op === 'insert').map((o) => o.table)).toEqual(['transactions'])
+      // ...mas o UPDATE de accounts não roda, porque a origem não tinha o
+      // próprio saldo aplicado.
+      expect(ops.filter((o) => o.op === 'update' && o.table === 'accounts')).toEqual([])
+      expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions'])
     })
 
     it('destino é conta Open Finance: só grava o metadado, sem segunda perna', async () => {

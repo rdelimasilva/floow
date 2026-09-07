@@ -133,23 +133,38 @@ async function applyTransferSingle(
       // se acontecer — nunca inserir uma linha sem chave de dedupe.
       return 1
     }
-    await tx.insert(transactions).values(
-      buildTransferLegRow(
-        {
-          orgId,
-          amountCents: source.amountCents,
-          date: source.date,
-          externalId: source.externalId,
-          balanceApplied: source.balanceApplied,
-        },
-        input.transferAccountId,
-        transferGroupId,
-      ),
-    )
-    await tx
-      .update(accounts)
-      .set({ balanceCents: sql`balance_cents + ${-source.amountCents}` })
-      .where(eq(accounts.id, input.transferAccountId))
+    // `.onConflictDoNothing().returning(...)` espelha o insert equivalente em
+    // `sync.ts`: sem isso, uma colisão rara de unique constraint no
+    // `externalId` derivado (`:transfer-dest`) lançaria cru e desfaria a
+    // transação inteira — inclusive o destravamento do portão de revisão —
+    // em vez de degradar graciosamente como `sync.ts` já faz.
+    const insertedLeg = await tx
+      .insert(transactions)
+      .values(
+        buildTransferLegRow(
+          {
+            orgId,
+            amountCents: source.amountCents,
+            date: source.date,
+            externalId: source.externalId,
+            balanceApplied: source.balanceApplied,
+          },
+          input.transferAccountId,
+          transferGroupId,
+        ),
+      )
+      .onConflictDoNothing()
+      .returning({ id: transactions.id })
+
+    // Só move o saldo da conta de destino quando a linha entrou de fato E a
+    // origem tinha o próprio saldo aplicado — um lançamento agendado/futuro
+    // (`balanceApplied: false`) não pode creditar o destino antes da hora.
+    if (insertedLeg.length > 0 && source.balanceApplied) {
+      await tx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${-source.amountCents}` })
+        .where(eq(accounts.id, input.transferAccountId))
+    }
   }
 
   return 1

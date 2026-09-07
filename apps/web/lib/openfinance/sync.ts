@@ -234,6 +234,24 @@ async function loadRules(db: Db, orgId: string): Promise<CategoryRule[]> {
   return rows as CategoryRule[]
 }
 
+/**
+ * Soma o delta de saldo por conta de destino, contando só as pernas cujo
+ * `balanceApplied` é verdadeiro — a mesma regra que já vale para a perna de
+ * origem (`inserted.filter((row) => row.applied)`, algumas linhas abaixo).
+ * Extraída para ser testável sem mockar `db`: ver
+ * `__tests__/openfinance/sync-persist.test.ts`.
+ */
+export function sumAppliedDeltasByAccount(
+  legs: { accountId: string; amountCents: number; applied: boolean }[],
+): Map<string, number> {
+  const deltaByAccount = new Map<string, number>()
+  for (const leg of legs) {
+    if (!leg.applied) continue
+    deltaByAccount.set(leg.accountId, (deltaByAccount.get(leg.accountId) ?? 0) + leg.amountCents)
+  }
+  return deltaByAccount
+}
+
 interface PersistInput {
   orgId: string
   accountId: string
@@ -396,12 +414,17 @@ async function persistPage(
         .insert(transactions)
         .values(transferLegsToInsert)
         .onConflictDoNothing()
-        .returning({ accountId: transactions.accountId, amountCents: transactions.amountCents })
+        .returning({
+          accountId: transactions.accountId,
+          amountCents: transactions.amountCents,
+          applied: transactions.balanceApplied,
+        })
 
-      const deltaByAccount = new Map<string, number>()
-      for (const leg of insertedLegs) {
-        deltaByAccount.set(leg.accountId, (deltaByAccount.get(leg.accountId) ?? 0) + leg.amountCents)
-      }
+      // Só a perna cujo `balanceApplied` é verdadeiro move o saldo — uma
+      // origem agendada/futura já entra com `balanceApplied: false` em
+      // `buildTransferLegRow`, e sem este filtro o destino seria creditado
+      // antes da hora.
+      const deltaByAccount = sumAppliedDeltasByAccount(insertedLegs)
       for (const [destAccountId, delta] of deltaByAccount) {
         if (delta === 0) continue
         await dbTx

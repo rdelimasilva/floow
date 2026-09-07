@@ -31,9 +31,18 @@ BEGIN
   END IF;
 END $$;
 
+-- NOT VALID: o backfill da migração 00035 já criou linhas
+-- `nature = 'transfer', confirmed_at = now()` sem `transfer_account_id` (a
+-- coluna não existia ainda), e qualquer transferência confirmada pela fila
+-- desde então está no mesmo estado — a spec (§7) promete explicitamente que
+-- essas linhas legadas "ficam como estão". Um `ADD CONSTRAINT` validante
+-- checa TODAS as linhas existentes e falharia contra qualquer banco com uma
+-- linha assim. `NOT VALID` pula a validação do que já existe e aplica a
+-- migração sem tocar nelas, mas continua valendo para todo INSERT/UPDATE
+-- daqui pra frente — que é tudo que `confirmCounterparty` faz.
 ALTER TABLE public.counterparties
   ADD CONSTRAINT counterparties_nature_check CHECK (
     (nature = 'transfer' AND category_id IS NULL AND transfer_account_id IS NOT NULL)
     OR (nature IN ('income', 'expense') AND category_id IS NOT NULL AND transfer_account_id IS NULL)
     OR (nature IS NULL AND category_id IS NULL AND transfer_account_id IS NULL)
-  );
+  ) NOT VALID;
