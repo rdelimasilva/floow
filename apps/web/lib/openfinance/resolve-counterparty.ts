@@ -21,6 +21,7 @@ export interface CounterpartyRecord {
   accountId: string | null
   nature: 'income' | 'expense' | 'transfer' | null
   categoryId: string | null
+  transferAccountId: string | null
   confirmedAt: Date | null
 }
 
@@ -34,6 +35,8 @@ export interface ResolvedTransaction extends NormalizedPolpTransaction {
    * decidirem quando `counterpartyId` é null (Nível 1, sem contraparte).
    */
   categoryId: string | null
+  /** Autoritativa só quando `type === 'transfer'` e confirmada — ver `transfer-leg.ts`. */
+  transferAccountId: string | null
 }
 
 /** Todas as contrapartes da org, uma vez por chamada de sincronização — o
@@ -52,6 +55,7 @@ export async function loadCounterpartyIndex(db: Db, orgId: string): Promise<Map<
       accountId: row.accountId,
       nature: row.nature,
       categoryId: row.categoryId,
+      transferAccountId: row.transferAccountId,
       confirmedAt: row.confirmedAt,
     }
     index.set(compositeKey(record as CounterpartyKey), record)
@@ -72,12 +76,12 @@ export async function resolveCounterparty(
   index: Map<string, CounterpartyRecord>,
 ): Promise<ResolvedTransaction> {
   if (tx.natureConfirmed) {
-    return { ...tx, reviewState: 'confirmed', counterpartyId: null, categoryId: null }
+    return { ...tx, reviewState: 'confirmed', counterpartyId: null, categoryId: null, transferAccountId: null }
   }
 
   const key = counterpartyKeyFor(tx, accountId)
   if (!key) {
-    return { ...tx, reviewState: 'pending', counterpartyId: null, categoryId: null }
+    return { ...tx, reviewState: 'pending', counterpartyId: null, categoryId: null, transferAccountId: null }
   }
 
   const k = compositeKey(key)
@@ -106,6 +110,7 @@ export async function resolveCounterparty(
         accountId: insertedRow.accountId,
         nature: insertedRow.nature,
         categoryId: insertedRow.categoryId,
+        transferAccountId: insertedRow.transferAccountId,
         confirmedAt: insertedRow.confirmedAt,
       }
     } else {
@@ -143,6 +148,7 @@ export async function resolveCounterparty(
             accountId: existing.accountId,
             nature: existing.nature,
             categoryId: existing.categoryId,
+            transferAccountId: existing.transferAccountId,
             confirmedAt: existing.confirmedAt,
           }
         : undefined
@@ -155,7 +161,7 @@ export async function resolveCounterparty(
     // Não deveria acontecer (o insert ou o select de corrida sempre acham
     // algo), mas cair pendente sem contraparte é o desfecho seguro se
     // acontecer — nunca perder a transação.
-    return { ...tx, reviewState: 'pending', counterpartyId: null, categoryId: null }
+    return { ...tx, reviewState: 'pending', counterpartyId: null, categoryId: null, transferAccountId: null }
   }
 
   if (record.confirmedAt) {
@@ -165,8 +171,9 @@ export async function resolveCounterparty(
       reviewState: 'confirmed',
       counterpartyId: record.id,
       categoryId: record.categoryId,
+      transferAccountId: record.nature === 'transfer' ? record.transferAccountId : null,
     }
   }
 
-  return { ...tx, reviewState: 'pending', counterpartyId: record.id, categoryId: null }
+  return { ...tx, reviewState: 'pending', counterpartyId: record.id, categoryId: null, transferAccountId: null }
 }

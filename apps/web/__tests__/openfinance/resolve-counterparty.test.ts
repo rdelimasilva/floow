@@ -147,6 +147,7 @@ describe('resolveCounterparty', () => {
       accountId: null,
       nature: 'transfer',
       categoryId: null,
+      transferAccountId: null,
       confirmedAt: new Date(),
     })
 
@@ -216,5 +217,40 @@ describe('resolveCounterparty', () => {
 
     expect(resolved.reviewState).toBe('pending')
     expect(resolved.counterpartyId).toBe('cp-conta-b')
+  })
+
+  it('contraparte confirmada como transferência traz a conta de destino', async () => {
+    const db = makeDb()
+    const index = new Map<string, CounterpartyRecord>()
+    const tx = normalizedTx({ counterpartyTaxId: '999' })
+    index.set('tax_id 999 out ', {
+      id: 'cp-1',
+      keyType: 'tax_id',
+      keyValue: '999',
+      direction: 'out',
+      accountId: null,
+      nature: 'transfer',
+      categoryId: null,
+      transferAccountId: 'conta-destino',
+      confirmedAt: new Date(),
+    })
+
+    const resolved = await resolveCounterparty(db, ORG, CONTA, tx, index)
+
+    expect(resolved.transferAccountId).toBe('conta-destino')
+  })
+
+  it('contraparte pendente não carrega conta de destino nenhuma', async () => {
+    const db = makeDb()
+    insertReturns = [{
+      id: 'cp-novo', keyType: 'tax_id', keyValue: '111', direction: 'out',
+      accountId: null, nature: null, categoryId: null, transferAccountId: null, confirmedAt: null,
+    }]
+    const index = new Map<string, CounterpartyRecord>()
+    const tx = normalizedTx({ counterpartyTaxId: '111' })
+
+    const resolved = await resolveCounterparty(db, ORG, CONTA, tx, index)
+
+    expect(resolved.transferAccountId).toBeNull()
   })
 })
