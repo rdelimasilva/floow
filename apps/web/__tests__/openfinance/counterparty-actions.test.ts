@@ -4,6 +4,7 @@ import { getTableName } from 'drizzle-orm'
 const ORG = 'org-1'
 const COUNTERPARTY_ID = '11111111-1111-1111-1111-111111111111'
 const CATEGORY_ID = '22222222-2222-2222-2222-222222222222'
+const TX2_ID = '33333333-3333-3333-3333-333333333333'
 
 interface Op { op: 'select' | 'update'; table: string }
 const ops: Op[] = []
@@ -117,5 +118,46 @@ describe('confirmCounterparty', () => {
     await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID })
 
     expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions'])
+  })
+
+  it('aplica exceção a um lançamento específico, sem virar regra da contraparte', async () => {
+    selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
+    updateQueue.push([]) // update de counterparties (regra do grupo)
+    updateQueue.push([{ id: 'tx-1' }]) // lote, excluindo a exceção
+    updateQueue.push([{ id: 'tx-2' }]) // update da exceção (tx-2)
+    selectQueue.push([{ one: 1 }]) // ainda sobra pendência resolvível na org
+
+    const result = await confirmCounterparty({
+      counterpartyId: COUNTERPARTY_ID,
+      nature: 'expense',
+      categoryId: CATEGORY_ID,
+      exceptions: [{ transactionId: TX2_ID, nature: 'transfer', categoryId: null }],
+    })
+
+    expect(result.reclassified).toBe(2)
+    expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual([
+      'counterparties',
+      'transactions',
+      'transactions',
+    ])
+  })
+
+  it('rejeita exceção de despesa sem categoria', async () => {
+    // Fila completa: se a validação da exceção não bloquear, a chamada
+    // sucede normalmente — só rejeita se o schema realmente checar a exceção.
+    selectQueue.push([{ id: COUNTERPARTY_ID }])
+    updateQueue.push([])
+    updateQueue.push([{ id: 'tx-1' }])
+    updateQueue.push([{ id: 'tx-2' }])
+    selectQueue.push([{ one: 1 }])
+
+    await expect(
+      confirmCounterparty({
+        counterpartyId: COUNTERPARTY_ID,
+        nature: 'transfer',
+        categoryId: null,
+        exceptions: [{ transactionId: TX2_ID, nature: 'expense', categoryId: null }],
+      }),
+    ).rejects.toThrow()
   })
 })

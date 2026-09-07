@@ -1,7 +1,7 @@
 'use server'
 
 import { z } from 'zod'
-import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, eq, isNotNull, notInArray, sql } from 'drizzle-orm'
 import { getDb, orgs, counterparties, transactions } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { createClient } from '@/lib/supabase/server'
@@ -19,12 +19,18 @@ import { accountsTag, invalidateTag } from '@/lib/cache-tags'
  * cliente, porque a chave era texto reconstruído. Aqui é `counterparty_id`
  * gravado desde a ingestão — chave estrangeira, não há texto para divergir.
  *
+ * `exceptions` cobre o lançamento que foge do padrão do grupo (ex.: os dois
+ * Pix de valor atípico no meio de 32 recorrentes) sem virar regra: só os
+ * lançamentos listados saem com a natureza/categoria da exceção, e a
+ * contraparte grava a natureza/categoria do grupo do mesmo jeito — a próxima
+ * sincronização aplica o padrão, não a exceção pontual.
+ *
  * Ver docs/superpowers/specs/2026-09-04-openfinance-counterparty-review-design.md
  */
 
-const inputSchema = z
+const exceptionSchema = z
   .object({
-    counterpartyId: z.string().uuid(),
+    transactionId: z.string().uuid(),
     nature: z.enum(['income', 'expense', 'transfer']),
     categoryId: z.string().uuid().nullable(),
   })
@@ -32,7 +38,21 @@ const inputSchema = z
     message: 'Categoria é obrigatória para receita e despesa, e não se aplica a transferência.',
   })
 
-export type ConfirmCounterpartyInput = z.infer<typeof inputSchema>
+const inputSchema = z
+  .object({
+    counterpartyId: z.string().uuid(),
+    nature: z.enum(['income', 'expense', 'transfer']),
+    categoryId: z.string().uuid().nullable(),
+    exceptions: z.array(exceptionSchema).default([]),
+  })
+  .refine((v) => (v.nature === 'transfer') === (v.categoryId === null), {
+    message: 'Categoria é obrigatória para receita e despesa, e não se aplica a transferência.',
+  })
+
+// `z.input`, não `z.infer`: `exceptions` tem `.default([])`, então quem chama
+// pode omitir — só depois do `.parse()` é que o array garantidamente existe.
+export type ConfirmCounterpartyInput = z.input<typeof inputSchema>
+export type ConfirmCounterpartyException = z.infer<typeof exceptionSchema>
 
 export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promise<{ reclassified: number }> {
   const input = inputSchema.parse(raw)
@@ -65,19 +85,41 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
       })
       .where(and(eq(counterparties.id, input.counterpartyId), eq(counterparties.orgId, orgId)))
 
+    const exceptionIds = input.exceptions.map((e) => e.transactionId)
+
     // Chave estrangeira, não texto: todo lançamento que já apontava para
     // esta contraparte reclassifica junto, sem depender de casamento nenhum.
+    // Os da lista de exceções ficam de fora daqui — recebem sua própria
+    // natureza/categoria logo abaixo, sem afetar a regra gravada acima.
+    const batchConditions = [
+      eq(transactions.orgId, orgId),
+      eq(transactions.counterpartyId, input.counterpartyId),
+      eq(transactions.reviewState, 'pending'),
+    ]
+    if (exceptionIds.length > 0) batchConditions.push(notInArray(transactions.id, exceptionIds))
+
     const rows = await tx
       .update(transactions)
       .set({ type: input.nature, categoryId: input.categoryId, reviewState: 'confirmed' })
-      .where(
-        and(
-          eq(transactions.orgId, orgId),
-          eq(transactions.counterpartyId, input.counterpartyId),
-          eq(transactions.reviewState, 'pending'),
-        ),
-      )
+      .where(and(...batchConditions))
       .returning({ id: transactions.id })
+
+    let reclassifiedCount = rows.length
+    for (const exception of input.exceptions) {
+      const exceptionRows = await tx
+        .update(transactions)
+        .set({ type: exception.nature, categoryId: exception.categoryId, reviewState: 'confirmed' })
+        .where(
+          and(
+            eq(transactions.orgId, orgId),
+            eq(transactions.counterpartyId, input.counterpartyId),
+            eq(transactions.reviewState, 'pending'),
+            eq(transactions.id, exception.transactionId),
+          ),
+        )
+        .returning({ id: transactions.id })
+      reclassifiedCount += exceptionRows.length
+    }
 
     // Se esta foi a última pendência resolvível da org, destrava o portão
     // para sempre. Movido de getReviewGateStatus (achado da revisão final):
@@ -103,7 +145,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
         .where(eq(orgs.id, orgId))
     }
 
-    return rows.length
+    return reclassifiedCount
   })
 
   revalidateTransactionData(orgId)
