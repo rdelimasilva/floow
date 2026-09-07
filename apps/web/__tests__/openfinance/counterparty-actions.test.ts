@@ -220,6 +220,7 @@ describe('confirmCounterparty', () => {
 
     it('destino é conta manual: cria a segunda perna e atualiza o saldo dela', async () => {
       selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership incondicional em confirmCounterparty
       updateQueue.push([]) // update de counterparties
       selectQueue.push([{ id: 'tx-1' }]) // ids pendentes do grupo (applyTransferBatch)
       selectQueue.push([{ // lookup da transação de origem (applyTransferSingle)
@@ -249,6 +250,7 @@ describe('confirmCounterparty', () => {
 
     it('destino é conta Open Finance: só grava o metadado, sem segunda perna', async () => {
       selectQueue.push([{ id: COUNTERPARTY_ID }])
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership incondicional em confirmCounterparty
       updateQueue.push([])
       selectQueue.push([{ id: 'tx-1' }])
       selectQueue.push([{
@@ -274,6 +276,7 @@ describe('confirmCounterparty', () => {
 
     it('transferência pra si mesma (conta de destino igual à do lançamento) rejeita', async () => {
       selectQueue.push([{ id: COUNTERPARTY_ID }])
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership incondicional em confirmCounterparty
       updateQueue.push([])
       selectQueue.push([{ id: 'tx-1' }])
       selectQueue.push([{
@@ -293,13 +296,30 @@ describe('confirmCounterparty', () => {
 
     it('transferAccountId de outra org rejeita', async () => {
       selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
-      updateQueue.push([]) // update de counterparties
-      selectQueue.push([{ id: 'tx-1' }]) // ids pendentes do grupo (applyTransferBatch)
-      selectQueue.push([{ // lookup da transação de origem (applyTransferSingle)
-        id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
-        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1',
-      }])
-      selectQueue.push([]) // assertAccountOwnership: nenhuma linha -> conta de outra org
+      selectQueue.push([]) // assertAccountOwnership incondicional em confirmCounterparty: nenhuma linha -> conta de outra org
+
+      await expect(
+        confirmCounterparty({
+          counterpartyId: COUNTERPARTY_ID,
+          nature: 'transfer',
+          categoryId: null,
+          transferAccountId: TRANSFER_ACCOUNT_ID,
+        }),
+      ).rejects.toThrow(/does not belong|not found/)
+    })
+
+    it('sem pendências (fila já zerada) e transferAccountId de outra org: ainda assim rejeita', async () => {
+      // Cobre o gap da rodada 2 de revisão: se `applyTransferBatch` não
+      // encontrasse nenhum lançamento pendente, o loop nunca chamava
+      // `applyTransferSingle` e a checagem de posse nunca rodava —
+      // `counterparties.transferAccountId` gravava com uma conta de outra
+      // org sem nunca ter sido validada. Aqui a contraparte não tem nenhum
+      // lançamento pendente (fila do applyTransferBatch retornaria []), e a
+      // checagem incondicional em `confirmCounterparty` precisa rejeitar
+      // antes mesmo de chegar lá.
+      selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
+      selectQueue.push([]) // assertAccountOwnership incondicional: conta de outra org
+      selectQueue.push([]) // pending rows do applyTransferBatch (não deveria ser consumido: fila já zerada)
 
       await expect(
         confirmCounterparty({

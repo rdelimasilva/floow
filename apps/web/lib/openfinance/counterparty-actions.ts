@@ -194,6 +194,20 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
 
     if (!row) throw new Error('Contraparte não encontrada.')
 
+    if (input.nature === 'transfer') {
+      // Valida a posse da conta de destino incondicionalmente, ANTES de
+      // gravar `counterparties.transferAccountId` — não só dentro de
+      // `applyTransferSingle`. Sem isso, quando a fila de pendentes desta
+      // contraparte já está vazia (ou toda coberta por exceção), o loop de
+      // `applyTransferBatch` nunca roda, `applyTransferSingle` nunca roda, e
+      // um `transferAccountId` de outra org commitaria em `counterparties`
+      // sem nunca ter sido checado — campo que uma sincronização futura lê
+      // pra aplicar a regra automaticamente (ver task-3-report.md, achado da
+      // revisão: rodada 2). A checagem dentro de `applyTransferSingle`
+      // continua ali, redundante mas inofensiva, cobrindo o batch/exceções.
+      await assertAccountOwnership(tx as unknown as Db, input.transferAccountId!, orgId)
+    }
+
     await tx
       .update(counterparties)
       .set({
