@@ -20,6 +20,7 @@ import {
   HelpCircle,
   Bot,
   RefreshCw,
+  ListChecks,
   Pin,
   PinOff,
 } from 'lucide-react'
@@ -54,6 +55,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/cash-flow', label: 'Fluxo de Caixa', icon: BarChart3 },
       { href: '/transactions', label: 'Transações', icon: ArrowLeftRight },
+      { href: '/transactions/review', label: 'Revisar contrapartes', icon: ListChecks },
       { href: '/transactions/recurring', label: 'Recorrentes', icon: RefreshCw },
     ],
   },
@@ -111,14 +113,17 @@ function NavLink({
   isActive,
   pinned,
   onClick,
-  cfoBadgeCount,
+  badges,
 }: {
   item: NavItem
   isActive: boolean
   pinned: boolean
   onClick?: () => void
-  cfoBadgeCount?: number
+  /** Contadores por href. Antes era um prop só para /cfo; virou mapa quando a
+   *  fila de contrapartes passou a precisar do mesmo tratamento. */
+  badges?: Record<string, number>
 }) {
+  const badge = badges?.[item.href] ?? 0
   return (
     <Link
       href={item.href}
@@ -136,12 +141,12 @@ function NavLink({
         {item.label}
       </span>
 
-      {item.href === '/cfo' && cfoBadgeCount !== undefined && cfoBadgeCount > 0 && (
+      {badge > 0 && (
         <span className={cn(
           'ml-auto rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 whitespace-nowrap',
           !pinned && FADE_IN,
         )}>
-          {cfoBadgeCount}
+          {badge}
         </span>
       )}
     </Link>
@@ -153,12 +158,12 @@ function NavLink({
 // ---------------------------------------------------------------------------
 
 interface SidebarProps {
-  cfoBadgeCount?: number
+  badges?: Record<string, number>
   mobileOpen: boolean
   onMobileClose: () => void
 }
 
-export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarProps) {
+export function Sidebar({ badges, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const { pinned, togglePin } = useSidebar()
 
@@ -173,7 +178,13 @@ export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarPro
 
   function isActive(href: string) {
     if (pathname === href) return true
-    if (href === '/transactions') return pathname.startsWith('/transactions/') && !pathname.startsWith('/transactions/recurring')
+    if (href === '/transactions') {
+      return (
+        pathname.startsWith('/transactions/') &&
+        !pathname.startsWith('/transactions/recurring') &&
+        !pathname.startsWith('/transactions/review')
+      )
+    }
     return pathname.startsWith(href + '/')
   }
 
@@ -282,7 +293,7 @@ export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarPro
                     isActive={isActive(item.href)}
                     pinned={pinned}
                     onClick={onMobileClose}
-                    cfoBadgeCount={cfoBadgeCount}
+                    badges={badges}
                   />
                 ))}
               </div>

@@ -40,6 +40,34 @@ export async function getReviewGateStatus(orgId: string): Promise<{ blocked: boo
   return { blocked: Boolean(pending) }
 }
 
+/**
+ * Quantas contrapartes ainda esperam decisão. Alimenta o badge da sidebar.
+ *
+ * Conta contrapartes e não lançamentos porque a fila pede uma decisão por
+ * contraparte: o número útil é quantos cliques faltam, não o volume por trás
+ * deles. Agregação em vez de `getPendingCounterpartyGroups().length` porque
+ * roda no layout, em todo request, e aquela carrega os grupos inteiros com os
+ * itens de cada um.
+ */
+export async function getPendingCounterpartyCount(orgId: string): Promise<number> {
+  const db = getDb()
+
+  const [row] = await db
+    .select({ total: sql<string | null>`count(distinct ${transactions.counterpartyId})` })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.orgId, orgId),
+        eq(transactions.reviewState, 'pending'),
+        isNotNull(transactions.counterpartyId),
+      ),
+    )
+
+  // `count()` é bigint e o driver entrega em string; sem a coerção o badge
+  // renderiza texto e as comparações `> 0` mentem.
+  return Number(row?.total ?? 0)
+}
+
 type ReviewGateSafeResult = { ok: true; orgId: string; blocked: boolean } | { ok: false }
 
 /**

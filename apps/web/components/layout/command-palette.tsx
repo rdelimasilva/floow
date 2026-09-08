@@ -19,6 +19,7 @@ const COMMANDS: CommandItem[] = [
   { label: 'Fluxo de Caixa', href: '/cash-flow', icon: BarChart3, keywords: ['fluxo', 'caixa', 'grafico'] },
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight, keywords: ['extrato', 'lancamentos'] },
   { label: 'Importar Extrato', href: '/transactions/import', icon: ArrowLeftRight, keywords: ['importar', 'ofx', 'csv', 'banco'] },
+  { label: 'Revisar contrapartes', href: '/transactions/review', icon: ArrowLeftRight, keywords: ['revisar', 'contraparte', 'fila', 'pendente', 'classificar'] },
   { label: 'Meta de Gastos', href: '/budgets/spending', icon: PiggyBank, keywords: ['orcamento', 'gastos', 'limite'] },
   { label: 'Meta de Investimentos', href: '/budgets/investing', icon: Target, keywords: ['aporte', 'investir', 'meta'] },
   { label: 'Investimentos', href: '/investments', icon: TrendingUp, keywords: ['carteira', 'portfolio', 'acoes', 'fundos'] },
