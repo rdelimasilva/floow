@@ -6,7 +6,7 @@ import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/ui/toast'
 import { ReconcileProvider } from '@/components/providers/reconcile-provider'
-import { getReviewGateStatusSafe, getPendingCounterpartyCount } from '@/lib/openfinance/counterparty-queries'
+import { getReviewGateStatusSafe } from '@/lib/openfinance/counterparty-queries'
 import { ReviewGate } from '@/components/openfinance/review-gate'
 import dynamic from 'next/dynamic'
 
@@ -41,13 +41,6 @@ export default async function AppLayout({
   const cookieStore = await cookies()
   const sidebarPinned = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === 'true'
 
-  // Mesmo racional de `getReviewGateStatusSafe`: o layout não tem error
-  // boundary próprio, então uma falha aqui vazaria para o `global-error.tsx`.
-  // Badge é enfeite — sem contagem, sem badge, e a navegação continua.
-  const pendingCount = gate.ok
-    ? await getPendingCounterpartyCount(gate.orgId).catch(() => 0)
-    : 0
-
   return (
     <ToastProvider>
       <SidebarProvider defaultPinned={sidebarPinned}>
@@ -58,7 +51,6 @@ export default async function AppLayout({
               userEmail={user.email ?? ''}
               userName={meta.full_name ?? meta.name ?? null}
               avatarUrl={meta.avatar_url ?? meta.picture ?? null}
-              badges={{ '/transactions/review': pendingCount }}
             />
             <SidebarLayout>
               {children}

@@ -8,10 +8,10 @@ interface AppShellProps {
   userEmail: string
   userName: string | null
   avatarUrl: string | null
-  badges?: Record<string, number>
+  cfoBadgeCount?: number
 }
 
-export function AppShell({ userEmail, userName, avatarUrl, badges }: AppShellProps) {
+export function AppShell({ userEmail, userName, avatarUrl, cfoBadgeCount }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const handleMobileClose = useCallback(() => setMobileOpen(false), [])
 
@@ -24,7 +24,7 @@ export function AppShell({ userEmail, userName, avatarUrl, badges }: AppShellPro
         onMobileMenuOpen={() => setMobileOpen(true)}
       />
       <Sidebar
-        badges={badges}
+        cfoBadgeCount={cfoBadgeCount}
         mobileOpen={mobileOpen}
         onMobileClose={handleMobileClose}
       />
