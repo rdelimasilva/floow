@@ -56,10 +56,16 @@ async function loadMonthlyCashFlowSummary(
       coalesce(sum(case when ${transactions.type} = 'income' then ${transactions.amountCents} else 0 end), 0)::int as income,
       coalesce(sum(case when ${transactions.type} = 'expense' then ${transactions.amountCents} else 0 end), 0)::int as expense
     from ${transactions}
+    left join ${categories} on ${categories.id} = ${transactions.categoryId}
     where ${transactions.orgId} = ${orgId}
       and ${transactions.isIgnored} = false
       and ${transactions.reviewState} = 'confirmed'
       and ${transactions.balanceApplied} = ${!projected}
+      -- affects_cash_flow efetivo: o do lançamento manda quando preenchido, o
+      -- da categoria é o padrão, e o terceiro argumento cobre lançamento sem
+      -- categoria — o left join devolve NULL nos dois e o default tem que ser
+      -- o comportamento de hoje, contar.
+      and coalesce(${transactions.affectsCashFlow}, ${categories.affectsCashFlow}, true)
       and ${projected
         ? sql`${transactions.date} <= ${boundaryDateStr}::date`
         : sql`${transactions.date} >= ${boundaryDateStr}::date`}

@@ -82,6 +82,19 @@ export const categories = pgTable(
     icon: text('icon'),
     isSystem: boolean('is_system').notNull().default(false),
     /**
+     * Padrão de "conta como receita/despesa no fluxo de caixa" para os
+     * lançamentos desta categoria. `false` em categoria cuja movimentação é
+     * real mas não é resultado: aplicação/resgate de investimento, aporte,
+     * empréstimo. O lançamento continua existindo, visível e somando no
+     * saldo — só sai do relatório de fluxo de caixa.
+     *
+     * Diferente de `transactions.isIgnored`, que significa "este lançamento é
+     * errado, não existe" e o apaga também de orçamentos, dívidas e CFO.
+     *
+     * `transactions.affectsCashFlow` sobrepõe este padrão por lançamento.
+     */
+    affectsCashFlow: boolean('affects_cash_flow').notNull().default(true),
+    /**
      * Categoria pai. A taxonomia da Polp tem dois níveis
      * (FOOD_AND_DRINK -> FOOD_AND_DRINK_GROCERIES); com parent_id o usuário
      * pode orçar na raiz, somando tudo abaixo, ou numa filha específica.
@@ -128,6 +141,16 @@ export const transactions = pgTable(
     // Recurring transaction tracking
     recurringTemplateId: uuid('recurring_template_id'),
     balanceApplied: boolean('balance_applied').notNull().default(true),
+    /**
+     * Exceção por lançamento ao `categories.affectsCashFlow`. `null` — a
+     * esmagadora maioria — significa "herda da categoria", então mudar o
+     * padrão da categoria depois arrasta os lançamentos junto. Só a linha que
+     * o usuário marcou explicitamente fica parada.
+     *
+     * Mesma forma da exceção por lançamento da fila de contrapartes: a
+     * categoria define o padrão, o lançamento foge dele sem virar regra.
+     */
+    affectsCashFlow: boolean('affects_cash_flow'),
     /** Parcela atual. Recebe charge_identificator na ingestão Open Finance. */
     installmentNumber: integer('installment_number'),
     /** Total de parcelas. Recebe charge_number na ingestão Open Finance. */

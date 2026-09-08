@@ -36,6 +36,16 @@ type Db = ReturnType<typeof getDb>
 const VALID_TYPES = ['income', 'expense', 'transfer'] as const
 type CategoryType = (typeof VALID_TYPES)[number]
 
+/**
+ * Só a string exata `'false'` desliga o flag. Campo ausente devolve `true`,
+ * que é o comportamento de hoje — formulário antigo e categoria antiga
+ * continuam contando no fluxo de caixa. Checkbox HTML não envia nada quando
+ * desmarcado, então a UI manda o valor explícito num hidden.
+ */
+function parseAffectsCashFlow(formData: FormData): boolean {
+  return formData.get('affectsCashFlow') !== 'false'
+}
+
 export async function createCategory(formData: FormData) {
   const orgId = await getOrgId()
   const db = getDb()
@@ -58,6 +68,7 @@ export async function createCategory(formData: FormData) {
       type: type as CategoryType,
       color: color || null,
       icon: icon || null,
+      affectsCashFlow: parseAffectsCashFlow(formData),
     })
     .returning()
 
@@ -100,12 +111,14 @@ export async function updateCategory(formData: FormData) {
           type: type as CategoryType,
           color: color || null,
           icon: icon || null,
+          affectsCashFlow: parseAffectsCashFlow(formData),
         })
       : await applyUpdate(db, id, {
           name,
           type: type as CategoryType,
           color: color || null,
           icon: icon || null,
+          affectsCashFlow: parseAffectsCashFlow(formData),
         })
 
   revalidateCategoryData(orgId)
@@ -230,11 +243,15 @@ async function assertNameIsFree(db: Db, orgId: string, name: string, exceptId?: 
   }
 }
 
-async function applyUpdate(
-  db: Db,
-  id: string,
-  values: { name: string; type: CategoryType; color: string | null; icon: string | null },
-) {
+interface CategoryValues {
+  name: string
+  type: CategoryType
+  color: string | null
+  icon: string | null
+  affectsCashFlow: boolean
+}
+
+async function applyUpdate(db: Db, id: string, values: CategoryValues) {
   const [updated] = await db.update(categories).set(values).where(eq(categories.id, id)).returning()
   return updated
 }
@@ -252,7 +269,7 @@ async function forkSystemCategory(
   db: Db,
   orgId: string,
   system: typeof categories.$inferSelect,
-  values: { name: string; type: CategoryType; color: string | null; icon: string | null },
+  values: CategoryValues,
 ) {
   const [copy] = await db
     .insert(categories)
@@ -262,6 +279,7 @@ async function forkSystemCategory(
       type: values.type,
       color: values.color,
       icon: values.icon,
+      affectsCashFlow: values.affectsCashFlow,
       isSystem: false,
       parentId: system.parentId,
       polpRef: system.polpRef,
