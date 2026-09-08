@@ -169,6 +169,16 @@ function buildFormData(fields: Record<string, string>): FormData {
   return fd
 }
 
+// Import no nivel do modulo, e nao dentro de cada `it`: o grafo de
+// `lib/finance/actions.ts` e grande, e o carregamento a frio custava segundos
+// DENTRO do timeout de 5s do primeiro teste. Sob carga (suite cheia) ele
+// estourava, e os inserts que continuavam rodando depois do timeout vazavam
+// para o teste seguinte — a origem do `expected [ ...(4) ] to have a length
+// of 2`. Nao ha `resetModules()` aqui, entao os 6 testes ja compartilhavam a
+// mesma instancia do modulo: hoistar nao muda semantica.
+process.env.DATABASE_URL = 'postgresql://test'
+const { createTransaction } = await import('@/lib/finance/actions')
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('createTransaction', () => {
@@ -181,8 +191,6 @@ describe('createTransaction', () => {
   })
 
   it('transfer: inserts exactly two transaction rows', async () => {
-    const { createTransaction } = await import('@/lib/finance/actions')
-
     const formData = buildFormData({
       accountId: TEST_SOURCE_ACCOUNT_ID,
       type: 'transfer',
@@ -202,8 +210,6 @@ describe('createTransaction', () => {
   })
 
   it('transfer: both rows share the same non-null transferGroupId', async () => {
-    const { createTransaction } = await import('@/lib/finance/actions')
-
     // Capture the values passed to insert
     const capturedValues: Array<Record<string, unknown>> = []
     mockInsert.mockImplementation((table) => ({
@@ -238,8 +244,6 @@ describe('createTransaction', () => {
   })
 
   it('transfer: source row has negative amountCents, destination row has positive amountCents', async () => {
-    const { createTransaction } = await import('@/lib/finance/actions')
-
     const capturedValues: Array<Record<string, unknown>> = []
     mockInsert.mockImplementation((table) => ({
       values: (vals: Record<string, unknown>) => {
@@ -268,8 +272,6 @@ describe('createTransaction', () => {
   })
 
   it('transfer: source account balance decremented, destination account balance incremented', async () => {
-    const { createTransaction } = await import('@/lib/finance/actions')
-
     const capturedUpdates: Array<Record<string, unknown>> = []
     mockUpdate.mockImplementation(() => ({
       set: (setClause: Record<string, unknown>) => {
@@ -302,8 +304,6 @@ describe('createTransaction', () => {
   })
 
   it('income: inserts one row with positive amount and increments balance', async () => {
-    const { createTransaction } = await import('@/lib/finance/actions')
-
     const capturedValues: Array<Record<string, unknown>> = []
     mockInsert.mockImplementation((table) => ({
       values: (vals: Record<string, unknown>) => {
@@ -345,8 +345,6 @@ describe('createTransaction', () => {
   })
 
   it('expense: inserts one row with negative amount and decrements balance', async () => {
-    const { createTransaction } = await import('@/lib/finance/actions')
-
     const capturedValues: Array<Record<string, unknown>> = []
     mockInsert.mockImplementation((table) => ({
       values: (vals: Record<string, unknown>) => {
