@@ -7,8 +7,10 @@ import {
   budgetAdjustments,
   transactions,
   accounts,
+  categories,
 } from '@floow/db'
 import { eq, and, sql, gte, lte, isNull, or, inArray } from 'drizzle-orm'
+import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import {
   budgetEntriesTag,
   budgetGoalsTag,
@@ -143,12 +145,15 @@ export const getSpendingByCategory = cache(async function getSpendingByCategory(
           spent: sql<number>`SUM(-${transactions.amountCents})`.as('spent'),
         })
         .from(transactions)
+        .leftJoin(categories, eq(categories.id, transactions.categoryId))
         .where(
           and(
             eq(transactions.orgId, orgId),
             eq(transactions.type, 'expense'),
             eq(transactions.reviewState, 'confirmed'),
             eq(transactions.isIgnored, false),
+            // Aplicação em investimento não é gasto e não deve consumir teto.
+            effectiveAffectsCashFlow,
             gte(transactions.date, start),
             lte(transactions.date, end),
           ),

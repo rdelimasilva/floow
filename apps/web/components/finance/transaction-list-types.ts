@@ -17,6 +17,19 @@ export interface TransactionRowData {
   balanceApplied?: boolean
   installmentNumber?: number | null
   installmentTotal?: number | null
+  /**
+   * O bem que este lancamento adquiriu, quando ha vinculo em
+   * `fixed_assets.acquisition_transaction_id`. Vem por subquery e nao por
+   * join: dois bens podem apontar o mesmo lancamento, e a duplicacao de linha
+   * corromperia o `count(*) over ()` e a soma acumulada da listagem.
+   */
+  /**
+   * Excecao de fluxo de caixa deste lancamento. `null`/ausente = herda da
+   * categoria. Ver `lib/finance/affects-cash-flow-cycle.ts`.
+   */
+  affectsCashFlow?: boolean | null
+  acquiredAssetId?: string | null
+  acquiredAssetName?: string | null
 }
 
 export interface AccountOption {

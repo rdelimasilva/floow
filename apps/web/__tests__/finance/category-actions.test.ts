@@ -197,3 +197,28 @@ describe('deleteCategory', () => {
     expect(ops.some((o) => o.op === 'insert' && o.table === 'hidden_system_categories')).toBe(false)
   })
 })
+
+describe('categoria nao encontrada', () => {
+  it('loga o id e a org antes de lancar, para o erro ser diagnosticavel', async () => {
+    // Aconteceu duas vezes em 07/09 e nao deu para saber qual categoria era:
+    // a mensagem nao carrega contexto nenhum. O id nao vai para o usuario,
+    // vai para o log do servidor.
+    const erros: unknown[][] = []
+    const original = console.error
+    console.error = (...args: unknown[]) => { erros.push(args) }
+
+    selectQueue.push([]) // findVisibleCategory nao acha
+
+    try {
+      await expect(
+        updateCategory(form({ id: 'cat-fantasma', name: 'Qualquer', type: 'expense' })),
+      ).rejects.toThrow('Categoria não encontrada')
+    } finally {
+      console.error = original
+    }
+
+    const linha = erros.map((a) => a.join(' ')).join(' | ')
+    expect(linha).toContain('cat-fantasma')
+    expect(linha).toContain('org-1')
+  })
+})

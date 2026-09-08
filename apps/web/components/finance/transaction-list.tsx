@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance'
 import { deleteTransaction, toggleIgnoreTransaction, cancelRecurring, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/actions'
+import { setTransactionAffectsCashFlow } from '@/lib/finance/cash-flow-actions'
+import { nextAffectsCashFlow } from '@/lib/finance/affects-cash-flow-cycle'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -110,6 +112,28 @@ export function TransactionList({
     }
   }, [])
 
+  const handleToggleCashFlow = useCallback(async (tx: TransactionRowData) => {
+    // Cicla herda -> fora -> dentro. Action propria e nao updateTransaction:
+    // aquela recusa transferencia e refaz a matematica de saldo, que aqui nao
+    // muda — o dinheiro se moveu de verdade, so nao e resultado.
+    setLoading(true)
+    try {
+      const proximo = nextAffectsCashFlow(tx.affectsCashFlow)
+      await setTransactionAffectsCashFlow(tx.id, proximo)
+      toastRef.current(
+        proximo === null
+          ? 'Volta a seguir a categoria no fluxo de caixa'
+          : proximo
+            ? 'Sempre no fluxo de caixa'
+            : 'Fora do fluxo de caixa',
+      )
+    } catch (e) {
+      toastRef.current(e instanceof Error ? e.message : 'Não foi possível alterar o lançamento.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const handleCancelRecurring = useCallback((templateId: string, description: string) => {
     setCancelTarget({ templateId, description })
   }, [])
@@ -126,10 +150,11 @@ export function TransactionList({
     onEdit: handleEdit,
     onDelete: handleDelete,
     onIgnore: handleIgnore,
+    onToggleCashFlow: handleToggleCashFlow,
     onCancelRecurring: handleCancelRecurring,
     onCreateRule: handleCreateRule,
     onToggleSelect: toggleSelect,
-  }), [handleEdit, handleDelete, handleIgnore, handleCancelRecurring, handleCreateRule, toggleSelect])
+  }), [handleEdit, handleDelete, handleIgnore, handleToggleCashFlow, handleCancelRecurring, handleCreateRule, toggleSelect])
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 768px)')

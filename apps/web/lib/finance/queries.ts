@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules, recurringTemplates, orgMembers, hiddenSystemCategories } from '@floow/db'
+import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules, recurringTemplates, orgMembers, hiddenSystemCategories, fixedAssets } from '@floow/db'
 import { eq, and, desc, asc, isNull, or, gte, count, ilike, lte, inArray, notExists, sql } from 'drizzle-orm'
 import {
   accountsTag,
@@ -258,11 +258,26 @@ export async function getTransactionsWithCount(
       isIgnored: transactions.isIgnored,
       recurringTemplateId: transactions.recurringTemplateId,
       balanceApplied: transactions.balanceApplied,
+      affectsCashFlow: transactions.affectsCashFlow,
       installmentNumber: transactions.installmentNumber,
       installmentTotal: transactions.installmentTotal,
       categoryName: categories.name,
       categoryColor: categories.color,
       categoryIcon: categories.icon,
+      // Subquery e nao join: dois bens podem apontar o mesmo lancamento, e a
+      // linha duplicada corromperia o `count(*) over ()` logo abaixo e a soma
+      // acumulada. O filtro por org fecha o caminho de um vinculo antigo
+      // apontar para fora da org. Indice em (acquisition_transaction_id).
+      acquiredAssetId: sql<string | null>`(
+        select ${fixedAssets.id} from ${fixedAssets}
+         where ${fixedAssets.acquisitionTransactionId} = ${transactions.id}
+           and ${fixedAssets.orgId} = ${orgId}
+         limit 1)`,
+      acquiredAssetName: sql<string | null>`(
+        select ${fixedAssets.name} from ${fixedAssets}
+         where ${fixedAssets.acquisitionTransactionId} = ${transactions.id}
+           and ${fixedAssets.orgId} = ${orgId}
+         limit 1)`,
       totalCount: sql<number>`count(*) over ()`,
       totalSum: sql<number>`coalesce(sum(case when ${transactions.balanceApplied} then ${transactions.amountCents} else 0 end) over (), 0)`,
       // `rows between unbounded preceding and current row` é obrigatório. Sem

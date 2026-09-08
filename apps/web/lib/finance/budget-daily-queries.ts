@@ -1,7 +1,8 @@
 import { unstable_cache } from 'next/cache'
 import { cache } from 'react'
 import { and, eq, gte, lte, sql } from 'drizzle-orm'
-import { getDb, transactions, accounts } from '@floow/db'
+import { getDb, transactions, accounts, categories } from '@floow/db'
+import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import type { DailySpendRow } from '@floow/core-finance'
 import { budgetSpendingTag } from '@/lib/cache-tags'
 
@@ -33,12 +34,15 @@ export const getDailySpending = cache(async function getDailySpending(
         })
         .from(transactions)
         .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+        .leftJoin(categories, eq(categories.id, transactions.categoryId))
         .where(
           and(
             eq(transactions.orgId, orgId),
             eq(transactions.type, 'expense'),
             eq(transactions.reviewState, 'confirmed'),
             eq(transactions.isIgnored, false),
+            // Mesma razão de getSpendingByCategory.
+            effectiveAffectsCashFlow,
             gte(transactions.date, start),
             lte(transactions.date, end),
           ),

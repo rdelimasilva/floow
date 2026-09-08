@@ -19,8 +19,11 @@ import {
   fixedAssets,
   cfoInsights,
   cfoRuns,
+  // Aliasado: `categories` neste arquivo ja e um local de InsightCategory[].
+  categories as categoriesTable,
 } from '@floow/db'
 import { eq, and, gte, gt, desc, sql } from 'drizzle-orm'
+import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import { buildBudgetPacingInput } from './budget-pacing-input'
 import {
   aggregateCashFlow,
@@ -149,11 +152,14 @@ export async function runCfoEngine(
           categoryId: transactions.categoryId,
         })
         .from(transactions)
+        .leftJoin(categoriesTable, eq(categoriesTable.id, transactions.categoryId))
         .where(
           and(
             eq(transactions.orgId, orgId),
             eq(transactions.isIgnored, false),
             eq(transactions.reviewState, 'confirmed'),
+            // O consultor não deve chamar aplicação em investimento de gasto.
+            effectiveAffectsCashFlow,
             gte(transactions.date, new Date(thirteenMonthsAgoDate)),
           )
         )

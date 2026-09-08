@@ -99,8 +99,7 @@ export async function updateCategory(formData: FormData) {
   if (!id || !name || !type) throw new Error('ID, name, and type are required')
   if (!(VALID_TYPES as readonly string[]).includes(type)) throw new Error('Invalid category type')
 
-  const existing = await findVisibleCategory(db, orgId, id)
-  if (!existing) throw new Error('Categoria não encontrada')
+  const existing = await requireVisibleCategory(db, orgId, id, 'updateCategory')
 
   await assertNameIsFree(db, orgId, name, id)
 
@@ -140,8 +139,7 @@ export async function deleteCategory(formData: FormData) {
   const id = formData.get('id') as string
   if (!id) throw new Error('Category ID is required')
 
-  const existing = await findVisibleCategory(db, orgId, id)
-  if (!existing) throw new Error('Categoria não encontrada')
+  const existing = await requireVisibleCategory(db, orgId, id, 'deleteCategory')
 
   if (existing.orgId === null) {
     await clearOrgReferences(db, orgId, id)
@@ -167,8 +165,7 @@ export async function reassignAndDeleteCategory(formData: FormData) {
   if (!newId) throw new Error('newId is required')
   if (oldId === newId) throw new Error('A categoria de destino deve ser diferente')
 
-  const oldCat = await findVisibleCategory(db, orgId, oldId)
-  if (!oldCat) throw new Error('Categoria não encontrada')
+  const oldCat = await requireVisibleCategory(db, orgId, oldId, 'mergeCategory')
 
   const newCat = await findVisibleCategory(db, orgId, newId)
   if (!newCat) throw new Error('Categoria de destino não encontrada')
@@ -196,8 +193,7 @@ export async function getCategoryUsage(categoryId: string) {
   const orgId = await getOrgId()
   const db = getDb()
 
-  const cat = await findVisibleCategory(db, orgId, categoryId)
-  if (!cat) throw new Error('Categoria não encontrada')
+  const cat = await requireVisibleCategory(db, orgId, categoryId, 'getCategoryUsage')
 
   const rows = (await db.execute(sql`
     SELECT
@@ -222,6 +218,31 @@ export async function getCategoryUsage(categoryId: string) {
 // ---------------------------------------------------------------------------
 
 /** Categoria da org ou de sistema — as duas são visíveis para ela. */
+/**
+ * `findVisibleCategory` que lança quando não acha, com o contexto no log do
+ * servidor.
+ *
+ * A mensagem que chega ao usuário fica curta de propósito — id de categoria e
+ * de org não são informação dele. Mas sem eles no log, "Categoria não
+ * encontrada" é indiagnosticável: aconteceu duas vezes em 07/09 e não deu
+ * para saber qual categoria era, nem se o id era de outra org, nem se a lista
+ * do browser estava velha.
+ *
+ * Centralizado porque os quatro caminhos que checavam isso repetiam o mesmo
+ * `if (!x) throw` — e um deles ficaria sem log na próxima vez que alguém
+ * mexesse.
+ */
+async function requireVisibleCategory(db: Db, orgId: string, id: string, origem: string) {
+  const row = await findVisibleCategory(db, orgId, id)
+
+  if (!row) {
+    console.error(`[category] ${origem}: categoria ${id} não visível para a org ${orgId}`)
+    throw new Error('Categoria não encontrada')
+  }
+
+  return row
+}
+
 async function findVisibleCategory(db: Db, orgId: string, id: string) {
   const [row] = await db
     .select()

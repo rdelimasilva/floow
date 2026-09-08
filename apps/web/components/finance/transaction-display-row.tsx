@@ -1,14 +1,17 @@
 'use client'
 
 import { memo } from 'react'
-import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle } from 'lucide-react'
+import Link from 'next/link'
+import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, Package } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
 import { formatDate, TYPE_STYLES, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
+import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
 
 interface RowActions {
   onEdit: (tx: TransactionRowData) => void
   onDelete: (tx: TransactionRowData) => void
   onIgnore: (tx: TransactionRowData) => void
+  onToggleCashFlow: (tx: TransactionRowData) => void
   onCancelRecurring: (templateId: string, description: string) => void
   onCreateRule: (matchValue: string, categoryId: string) => void
   onToggleSelect: (id: string) => void
@@ -20,6 +23,58 @@ interface MobileCardProps {
   isSelected: boolean
   loading: boolean
   actions: RowActions
+}
+
+/**
+ * O lancamento adquiriu um bem. Existe para quem chega pelo extrato entender
+ * uma saida grande — sem isso o vinculo de
+ * `fixed_assets.acquisition_transaction_id` so era visivel a partir do ativo.
+ */
+/**
+ * Cicla a excecao de fluxo de caixa do lancamento. O rotulo curto ("herda",
+ * "fora", "dentro") cabe na linha; o `title` explica o que o proximo clique
+ * faz, porque tres estados nao se adivinham por icone.
+ */
+function CashFlowToggleButton({
+  tx, loading, onToggle,
+}: {
+  tx: TransactionRowData
+  loading: boolean
+  onToggle: (tx: TransactionRowData) => void
+}) {
+  const estado = affectsCashFlowState(tx.affectsCashFlow)
+  const herda = tx.affectsCashFlow === null || tx.affectsCashFlow === undefined
+
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(tx)}
+      disabled={loading}
+      title={estado.title}
+      className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+        herda
+          ? 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+          : tx.affectsCashFlow === false
+            ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+      }`}
+    >
+      {estado.label}
+    </button>
+  )
+}
+
+function AcquiredAssetBadge({ assetId, assetName }: { assetId: string; assetName: string }) {
+  return (
+    <Link
+      href={`/fixed-assets/${assetId}`}
+      className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-100"
+      title={`Este lancamento adquiriu ${assetName}`}
+    >
+      <Package className="h-3 w-3" />
+      {assetName}
+    </Link>
+  )
 }
 
 export const TransactionMobileCard = memo(function TransactionMobileCard({
@@ -49,6 +104,9 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
                 {tx.categoryName}
               </span>
             )}
+            {tx.acquiredAssetId && tx.acquiredAssetName && (
+              <AcquiredAssetBadge assetId={tx.acquiredAssetId} assetName={tx.acquiredAssetName} />
+            )}
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -73,6 +131,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
               <Pencil className="h-4 w-4" />
             </button>
           )}
+          <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
           {tx.externalId ? (
             <button type="button" onClick={() => actions.onIgnore(tx)} disabled={loading} className={`rounded p-1 ${tx.isIgnored ? 'text-blue-500' : 'text-gray-400'}`}>
               {tx.isIgnored ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
@@ -109,6 +168,9 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
             <Repeat className="h-3.5 w-3.5 text-blue-400 shrink-0" />
           )}
           {tx.description}
+          {tx.acquiredAssetId && tx.acquiredAssetName && (
+            <AcquiredAssetBadge assetId={tx.acquiredAssetId} assetName={tx.acquiredAssetName} />
+          )}
         </span>
       </td>
       <td className="hidden md:table-cell px-4 py-3">
@@ -169,6 +231,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
               <Pencil className="h-3.5 w-3.5" />
             </button>
           )}
+          <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
           {tx.externalId ? (
             <button
               type="button"
