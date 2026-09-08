@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getOrgId } from '@/lib/finance/queries'
-import { getFixedAssetById, getFixedAssetTypes } from '@/lib/fixed-assets/queries'
+import { getFixedAssetById, getFixedAssetTypes, getAcquisitionTransaction } from '@/lib/fixed-assets/queries'
 import { estimateAssetValue, formatBRL } from '@floow/core-finance'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,10 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
   ])
 
   if (!asset) notFound()
+
+  // O lançamento que pagou pelo bem. Existe para dar rastreabilidade da
+  // aquisição sem fazer do bem uma conta — ver migration 00040.
+  const acquisition = await getAcquisitionTransaction(orgId, asset.acquisitionTransactionId)
 
   const typeName = types.find((t) => t.id === asset.typeId)?.name ?? '—'
   const baseDate = asset.currentValueDate instanceof Date ? asset.currentValueDate : new Date(asset.currentValueDate)
@@ -79,6 +83,26 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
           </p>
         </Card>
       </div>
+
+      {acquisition && (
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Aquisição</CardTitle></CardHeader>
+          <CardContent>
+            <Link
+              href={`/transactions?q=${encodeURIComponent(acquisition.description)}`}
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm hover:underline"
+            >
+              <span className="text-gray-500">{acquisition.date.toLocaleDateString('pt-BR')}</span>
+              <span className="text-foreground">{acquisition.description}</span>
+              <span className="font-medium text-foreground">{formatBRL(acquisition.amountCents)}</span>
+            </Link>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Este lançamento pagou pelo bem. O patrimônio conta o valor do ativo, com a
+              depreciação — não o saldo de uma conta.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Optional fields */}
       {(asset.model || asset.address || asset.licensePlate) && (

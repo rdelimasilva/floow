@@ -17,6 +17,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+import { AcquisitionTransactionField } from '@/components/fixed-assets/acquisition-transaction-field'
+import type { AcquisitionCandidate } from '@/lib/fixed-assets/queries'
+
 interface AssetData {
   id: string
   name: string
@@ -27,6 +30,7 @@ interface AssetData {
   address: string
   licensePlate: string
   model: string
+  acquisitionTransactionId: string
 }
 
 interface TypeOption {
@@ -34,7 +38,7 @@ interface TypeOption {
   name: string
 }
 
-export function EditAssetForm({ asset, types }: { asset: AssetData; types: TypeOption[] }) {
+export function EditAssetForm({ asset, types, candidates }: { asset: AssetData; types: TypeOption[]; candidates: AcquisitionCandidate[] }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,6 +53,7 @@ export function EditAssetForm({ asset, types }: { asset: AssetData; types: TypeO
   const [address, setAddress] = useState(asset.address)
   const [licensePlate, setLicensePlate] = useState(asset.licensePlate)
   const [model, setModel] = useState(asset.model)
+  const [acquisitionTransactionId, setAcquisitionTransactionId] = useState(asset.acquisitionTransactionId)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -65,7 +70,7 @@ export function EditAssetForm({ asset, types }: { asset: AssetData; types: TypeO
 
       const rate = parseFloat(annualRate) / 100
       if (isNaN(rate)) {
-        setError('Taxa anual inv\u00e1lida')
+        setError('Taxa anual inválida')
         setLoading(false)
         return
       }
@@ -80,6 +85,7 @@ export function EditAssetForm({ asset, types }: { asset: AssetData; types: TypeO
       if (address) formData.append('address', address)
       if (licensePlate) formData.append('licensePlate', licensePlate)
       if (model) formData.append('model', model)
+      if (acquisitionTransactionId) formData.append('acquisitionTransactionId', acquisitionTransactionId)
 
       await updateFixedAsset(formData)
       router.push(`/fixed-assets/${asset.id}`)
@@ -140,8 +146,14 @@ export function EditAssetForm({ asset, types }: { asset: AssetData; types: TypeO
             <div className="space-y-1.5">
               <Label htmlFor="annualRate">Taxa Anual (%)</Label>
               <Input id="annualRate" value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} required />
-              <p className="text-xs text-gray-400">Positivo = valoriza\u00e7\u00e3o, negativo = deprecia\u00e7\u00e3o</p>
+              <p className="text-xs text-gray-400">Positivo = valorização, negativo = depreciação</p>
             </div>
+
+            <AcquisitionTransactionField
+              candidates={candidates}
+              value={acquisitionTransactionId}
+              onChange={setAcquisitionTransactionId}
+            />
 
             <div className="space-y-1.5">
               <Label htmlFor="model">Modelo <span className="text-gray-400 font-normal">(opcional)</span></Label>
@@ -149,7 +161,7 @@ export function EditAssetForm({ asset, types }: { asset: AssetData; types: TypeO
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="address">Endere\u00e7o <span className="text-gray-400 font-normal">(opcional)</span></Label>
+              <Label htmlFor="address">Endereço <span className="text-gray-400 font-normal">(opcional)</span></Label>
               <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
 

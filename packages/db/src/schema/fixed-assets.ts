@@ -35,11 +35,28 @@ export const fixedAssets = pgTable(
     licensePlate: text('license_plate'),
     model: text('model'),
     isActive: boolean('is_active').notNull().default(true),
+    /**
+     * O lançamento que pagou por este bem. `null` quando o bem foi cadastrado
+     * sem apontar a compra (ou quando o lançamento foi apagado depois).
+     *
+     * Existe para dar o modelo mental de "o dinheiro virou este bem" sem
+     * fazer do bem uma conta: `computeSnapshot` soma todos os saldos de conta
+     * e depois adiciona `fixedAssetValueCents` por cima, então um bem que
+     * fosse conta contaria duas vezes no patrimônio. E saldo de conta não se
+     * move sozinho, o que faria a depreciação de `estimateAssetValue` deixar
+     * de refletir.
+     *
+     * Sem `references()` no Drizzle porque `transactions` mora em
+     * `./finance`, e importar de lá aqui fecharia o ciclo que o comentário
+     * de `counterparty.ts` descreve. A FK existe no banco (migration 00040).
+     */
+    acquisitionTransactionId: uuid('acquisition_transaction_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     idxOrgId: index('idx_fixed_assets_org_id').on(table.orgId),
+    idxAcquisitionTx: index('idx_fixed_assets_acquisition_tx').on(table.acquisitionTransactionId),
   })
 )
 

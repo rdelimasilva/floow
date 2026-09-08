@@ -9,6 +9,8 @@ export const createFixedAssetSchema = z.object({
   address: z.string().max(500).optional(),
   licensePlate: z.string().max(20).optional(),
   model: z.string().max(200).optional(),
+  /** Lançamento que pagou pelo bem. Validado contra a org na action. */
+  acquisitionTransactionId: z.string().uuid().optional(),
 })
 
 export const updateFixedAssetSchema = z.object({
@@ -21,6 +23,8 @@ export const updateFixedAssetSchema = z.object({
   address: z.string().max(500).optional(),
   licensePlate: z.string().max(20).optional(),
   model: z.string().max(200).optional(),
+  /** Lançamento que pagou pelo bem. Validado contra a org na action. */
+  acquisitionTransactionId: z.string().uuid().optional(),
 })
 
 export const updateAssetValueSchema = z.object({

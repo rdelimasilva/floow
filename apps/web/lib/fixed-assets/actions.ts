@@ -1,5 +1,5 @@
 'use server'
-import { getDb, fixedAssets, fixedAssetTypes } from '@floow/db'
+import { getDb, fixedAssets, fixedAssetTypes, transactions } from '@floow/db'
 import { createFixedAssetSchema, updateFixedAssetSchema, updateAssetValueSchema } from '@floow/shared'
 import { eq, and, or, isNull, ilike } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
@@ -12,6 +12,34 @@ function revalidateFixedAssetData(orgId: string) {
 
 function revalidateFixedAssetTypeData(orgId: string) {
   invalidateTag(fixedAssetTypesTag(orgId))
+}
+
+type Db = ReturnType<typeof getDb>
+
+/**
+ * Mesma cerca de `assertAccountOwnership` em `lib/finance/actions.ts`: sem
+ * ela um `acquisitionTransactionId` de outra org gravaria referência
+ * cross-tenant, e a tela do bem exibiria o lançamento de outro cliente.
+ *
+ * Devolve `null` quando não há vínculo, para o insert/update gravar NULL em
+ * vez de deixar o valor antigo.
+ */
+async function resolveAcquisitionTransactionId(
+  db: Db,
+  orgId: string,
+  transactionId: string | undefined,
+): Promise<string | null> {
+  if (!transactionId) return null
+
+  const [row] = await db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(and(eq(transactions.id, transactionId), eq(transactions.orgId, orgId)))
+    .limit(1)
+
+  if (!row) throw new Error('Lançamento de aquisição não encontrado nesta organização.')
+
+  return row.id
 }
 
 // -- Asset Type CRUD --
@@ -94,7 +122,14 @@ export async function createFixedAsset(formData: FormData) {
     address: formData.get('address') || undefined,
     licensePlate: formData.get('licensePlate') || undefined,
     model: formData.get('model') || undefined,
+    acquisitionTransactionId: formData.get('acquisitionTransactionId') || undefined,
   })
+
+  const acquisitionTransactionId = await resolveAcquisitionTransactionId(
+    db,
+    orgId,
+    input.acquisitionTransactionId,
+  )
 
   const [asset] = await db
     .insert(fixedAssets)
@@ -110,6 +145,7 @@ export async function createFixedAsset(formData: FormData) {
       address: input.address ?? null,
       licensePlate: input.licensePlate ?? null,
       model: input.model ?? null,
+      acquisitionTransactionId,
     })
     .returning()
 
@@ -131,7 +167,14 @@ export async function updateFixedAsset(formData: FormData) {
     address: formData.get('address') || undefined,
     licensePlate: formData.get('licensePlate') || undefined,
     model: formData.get('model') || undefined,
+    acquisitionTransactionId: formData.get('acquisitionTransactionId') || undefined,
   })
+
+  const acquisitionTransactionId = await resolveAcquisitionTransactionId(
+    db,
+    orgId,
+    input.acquisitionTransactionId,
+  )
 
   await db
     .update(fixedAssets)
@@ -144,6 +187,7 @@ export async function updateFixedAsset(formData: FormData) {
       address: input.address ?? null,
       licensePlate: input.licensePlate ?? null,
       model: input.model ?? null,
+      acquisitionTransactionId,
       updatedAt: new Date(),
     })
     .where(and(eq(fixedAssets.id, input.id), eq(fixedAssets.orgId, orgId)))

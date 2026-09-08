@@ -18,6 +18,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+import { AcquisitionTransactionField } from '@/components/fixed-assets/acquisition-transaction-field'
+import type { AcquisitionCandidate } from '@/lib/fixed-assets/queries'
+
 interface TypeOption {
   id: string
   name: string
@@ -25,9 +28,10 @@ interface TypeOption {
 
 interface AssetFormProps {
   types: TypeOption[]
+  candidates: AcquisitionCandidate[]
 }
 
-export function AssetForm({ types }: AssetFormProps) {
+export function AssetForm({ types, candidates }: AssetFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,6 +46,7 @@ export function AssetForm({ types }: AssetFormProps) {
   const [address, setAddress] = useState('')
   const [licensePlate, setLicensePlate] = useState('')
   const [model, setModel] = useState('')
+  const [acquisitionTransactionId, setAcquisitionTransactionId] = useState('')
 
   const isDirty = useMemo(() => !!(name || typeId || purchaseValue || annualRate), [name, typeId, purchaseValue, annualRate])
   useUnsavedChanges(isDirty)
@@ -75,6 +80,7 @@ export function AssetForm({ types }: AssetFormProps) {
       if (address) formData.append('address', address)
       if (licensePlate) formData.append('licensePlate', licensePlate)
       if (model) formData.append('model', model)
+      if (acquisitionTransactionId) formData.append('acquisitionTransactionId', acquisitionTransactionId)
 
       await createFixedAsset(formData)
       router.push('/fixed-assets')
@@ -170,6 +176,12 @@ export function AssetForm({ types }: AssetFormProps) {
                 Positivo = valorização, negativo = depreciação
               </p>
             </div>
+
+            <AcquisitionTransactionField
+              candidates={candidates}
+              value={acquisitionTransactionId}
+              onChange={setAcquisitionTransactionId}
+            />
 
             <div className="space-y-1.5">
               <Label htmlFor="model">

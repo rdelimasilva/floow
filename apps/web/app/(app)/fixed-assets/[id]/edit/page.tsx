@@ -1,14 +1,15 @@
 import { notFound } from 'next/navigation'
 import { getOrgId } from '@/lib/finance/queries'
-import { getFixedAssetById, getFixedAssetTypes } from '@/lib/fixed-assets/queries'
+import { getFixedAssetById, getFixedAssetTypes, getAcquisitionCandidates } from '@/lib/fixed-assets/queries'
 import { EditAssetForm } from './edit-asset-form'
 
 export default async function EditFixedAssetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const orgId = await getOrgId()
-  const [asset, types] = await Promise.all([
+  const [asset, types, candidates] = await Promise.all([
     getFixedAssetById(orgId, id),
     getFixedAssetTypes(orgId),
+    getAcquisitionCandidates(orgId),
   ])
 
   if (!asset) notFound()
@@ -27,8 +28,10 @@ export default async function EditFixedAssetPage({ params }: { params: Promise<{
         address: asset.address ?? '',
         licensePlate: asset.licensePlate ?? '',
         model: asset.model ?? '',
+        acquisitionTransactionId: asset.acquisitionTransactionId ?? '',
       }}
       types={types.map((t) => ({ id: t.id, name: t.name }))}
+      candidates={candidates}
     />
   )
 }
