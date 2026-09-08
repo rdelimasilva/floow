@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Banknote, PiggyBank, TrendingUp, CreditCard, Wallet, Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,22 +12,9 @@ import { formatBRL, currencyToCents } from '@floow/core-finance'
 import { updateAccount, deleteAccount, adjustAccountBalance } from '@/lib/finance/actions'
 import { useToast } from '@/components/ui/toast'
 import type { Account } from '@floow/db'
+import { ACCOUNT_TYPE_CONFIG, ACCOUNT_TYPE_OPTIONS } from '@/lib/finance/account-types'
 
-const ACCOUNT_TYPE_CONFIG = {
-  checking: { label: 'Conta Corrente', Icon: Banknote },
-  savings: { label: 'Poupança', Icon: PiggyBank },
-  brokerage: { label: 'Corretora', Icon: TrendingUp },
-  credit_card: { label: 'Cartão de Crédito', Icon: CreditCard },
-  cash: { label: 'Dinheiro', Icon: Wallet },
-} as const
-
-const ACCOUNT_TYPES = [
-  { value: 'checking', label: 'Conta Corrente' },
-  { value: 'savings', label: 'Poupança' },
-  { value: 'brokerage', label: 'Corretora' },
-  { value: 'credit_card', label: 'Cartão de Crédito' },
-  { value: 'cash', label: 'Dinheiro' },
-] as const
+const ACCOUNT_TYPES = ACCOUNT_TYPE_OPTIONS
 
 interface AccountCardProps {
   account: Account

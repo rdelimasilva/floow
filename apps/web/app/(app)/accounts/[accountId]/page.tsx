@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Banknote, PiggyBank, TrendingUp, CreditCard, Wallet } from 'lucide-react'
+import { ArrowLeft, Banknote } from 'lucide-react'
 import { getOrgId, getAccountById, getTransactionsWithCount, getCategories } from '@/lib/finance/queries'
 import { TransactionList } from '@/components/finance/transaction-list'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
@@ -8,16 +8,10 @@ import { Pagination } from '@/components/ui/pagination'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { formatBRL } from '@floow/core-finance'
+import { ACCOUNT_TYPE_CONFIG } from '@/lib/finance/account-types'
 
 const PAGE_SIZE = 30
 
-const ACCOUNT_TYPE_CONFIG: Record<string, { label: string; Icon: typeof Banknote }> = {
-  checking: { label: 'Conta Corrente', Icon: Banknote },
-  savings: { label: 'Poupança', Icon: PiggyBank },
-  brokerage: { label: 'Corretora', Icon: TrendingUp },
-  credit_card: { label: 'Cartão de Crédito', Icon: CreditCard },
-  cash: { label: 'Dinheiro', Icon: Wallet },
-}
 
 interface Props {
   params: Promise<{ accountId: string }>

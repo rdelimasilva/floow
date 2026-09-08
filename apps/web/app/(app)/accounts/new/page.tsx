@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ACCOUNT_TYPE_OPTIONS } from '@/lib/finance/account-types'
 
 const newAccountSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100),
@@ -30,13 +31,6 @@ const newAccountSchema = z.object({
 
 type NewAccountForm = z.infer<typeof newAccountSchema>
 
-const ACCOUNT_TYPE_OPTIONS = [
-  { value: 'checking', label: 'Conta Corrente' },
-  { value: 'savings', label: 'Poupança' },
-  { value: 'brokerage', label: 'Corretora' },
-  { value: 'credit_card', label: 'Cartão de Crédito' },
-  { value: 'cash', label: 'Dinheiro em Espécie' },
-] as const
 
 export default function NewAccountPage() {
   const router = useRouter()

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
+import { ACCOUNT_TYPE_LABEL } from '@/lib/finance/account-types'
 import { createBudgetEntry, updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -162,7 +163,7 @@ export function InvestingClient({
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-3">
-              <p className="text-xs text-gray-500">O realizado será calculado automaticamente pelas transferências para contas do tipo Corretora.</p>
+              <p className="text-xs text-gray-500">O realizado será calculado automaticamente pelas transferências para contas do tipo {ACCOUNT_TYPE_LABEL.brokerage}.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Descrição</label>
