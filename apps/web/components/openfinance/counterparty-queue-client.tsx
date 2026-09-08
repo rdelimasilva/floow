@@ -7,6 +7,7 @@ import type { PendingGroup, ConfirmedCounterparty } from '@/lib/openfinance/coun
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast'
+import { transferAccountLabel } from '@/lib/openfinance/transfer-direction'
 import { ItemRow } from './counterparty-item-row'
 
 type CategoryOption = { id: string; label: string; type: 'income' | 'expense' | 'transfer' }
@@ -211,7 +212,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
                       onValueChange={(value) => setDraft(group.counterpartyId, { transferAccountId: value })}
                     >
                       <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Conta de destino" />
+                        <SelectValue placeholder={transferAccountLabel(group.totalCents)} />
                       </SelectTrigger>
                       <SelectContent>
                         {accountOptions.map((a) => (

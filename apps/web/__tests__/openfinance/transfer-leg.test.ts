@@ -35,6 +35,31 @@ describe('buildTransferLegRow', () => {
     expect(row.balanceApplied).toBe(false)
   })
 
+  it('descreve a perna como enviada quando ela debita a conta escolhida', () => {
+    // Resgate de CDB: o banco credita a conta corrente (+), então a perna vai
+    // DEBITAR a conta escolhida — ela é a origem do dinheiro, não o destino.
+    // Gravar "Transferência recebida" ali mente na lista de lançamentos.
+    const row = buildTransferLegRow(
+      { orgId: 'org-1', amountCents: 100000, date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-cdb', balanceApplied: true },
+      'conta-cdb',
+      'group-1',
+    )
+
+    expect(row.amountCents).toBe(-100000)
+    expect(row.description).toBe('Transferência enviada')
+  })
+
+  it('descreve a perna como recebida quando ela credita a conta escolhida', () => {
+    const row = buildTransferLegRow(
+      { orgId: 'org-1', amountCents: -50000, date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true },
+      'conta-destino',
+      'group-1',
+    )
+
+    expect(row.amountCents).toBe(50000)
+    expect(row.description).toBe('Transferência recebida')
+  })
+
   it('externalId derivado é determinístico — mesma origem gera sempre a mesma chave', () => {
     const date = new Date('2026-01-15T12:00:00Z')
     const a = buildTransferLegRow(

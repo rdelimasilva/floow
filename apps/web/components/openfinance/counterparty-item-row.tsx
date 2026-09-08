@@ -4,6 +4,7 @@ import { formatBRL } from '@floow/core-finance'
 import type { PendingGroupItem } from '@/lib/openfinance/counterparty-queries'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { transferAccountLabel } from '@/lib/openfinance/transfer-direction'
 
 type Nature = 'income' | 'expense' | 'transfer'
 type CategoryOption = { id: string; label: string; type: Nature }
@@ -60,7 +61,7 @@ export function ItemRow({ item, override, categoryOptions, accountOptions, onSta
           {override.nature === 'transfer' ? (
             <Select value={override.transferAccountId ?? ''} onValueChange={(value) => onSetOverride({ transferAccountId: value })}>
               <SelectTrigger className="w-40">
-                <SelectValue placeholder="Conta de destino" />
+                <SelectValue placeholder={transferAccountLabel(item.amountCents)} />
               </SelectTrigger>
               <SelectContent>
                 {accountOptions.map((a) => (

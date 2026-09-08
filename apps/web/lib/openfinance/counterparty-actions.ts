@@ -38,7 +38,7 @@ const exceptionSchema = z
     transferAccountId: z.string().uuid().nullable(),
   })
   .refine(natureMatchesDestination, {
-    message: 'Transferência exige conta de destino, sem categoria. Receita e despesa exigem categoria, sem conta de destino.',
+    message: 'Transferência exige a outra conta, sem categoria. Receita e despesa exigem categoria, sem conta.',
   })
 
 const inputSchema = z
@@ -50,7 +50,7 @@ const inputSchema = z
     exceptions: z.array(exceptionSchema).default([]),
   })
   .refine(natureMatchesDestination, {
-    message: 'Transferência exige conta de destino, sem categoria. Receita e despesa exigem categoria, sem conta de destino.',
+    message: 'Transferência exige a outra conta, sem categoria. Receita e despesa exigem categoria, sem conta.',
   })
 
 function natureMatchesDestination(v: { nature: string; categoryId: string | null; transferAccountId: string | null }) {
@@ -103,7 +103,7 @@ async function applyTransferSingle(
   if (!source) return 0
 
   if (source.accountId === input.transferAccountId) {
-    throw new Error('A conta de destino não pode ser a mesma conta do lançamento.')
+    throw new Error('A conta da transferência não pode ser a mesma conta do lançamento.')
   }
 
   // Mesma cerca do fluxo manual (`lib/finance/actions.ts`): garante que a

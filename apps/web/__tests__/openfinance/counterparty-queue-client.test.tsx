@@ -28,7 +28,7 @@ vi.mock('@/components/ui/select', () => ({
       children
     ),
   SelectTrigger: ({ children }: any) => React.createElement(React.Fragment, null, children),
-  SelectValue: () => null,
+  SelectValue: ({ placeholder }: any) => React.createElement('span', null, placeholder),
   SelectContent: ({ children }: any) => React.createElement(React.Fragment, null, children),
   SelectItem: ({ value, children }: any) => React.createElement('option', { value }, children),
 }))
@@ -154,5 +154,46 @@ describe('CounterpartyQueueClient — transferência com conta de destino', () =
       transferAccountId: 'conta-destino',
       exceptions: [],
     })
+  })
+})
+
+describe('CounterpartyQueueClient — rótulo da conta segue a direção', () => {
+  const ENTRADA = [
+    {
+      counterpartyId: 'cp-cdb',
+      displayName: 'Resgate CDB',
+      keyType: 'tax_id' as const,
+      count: 1,
+      totalCents: 100_000,
+      items: [{ id: 'tx-resgate', date: '2026-01-05', description: 'Resgate CDB', amountCents: 100_000 }],
+    },
+  ]
+
+  function renderComPendentes(pending: typeof ENTRADA) {
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending,
+        confirmed: [],
+        categoryOptions: CATEGORY_OPTIONS,
+        accountOptions: ACCOUNT_OPTIONS,
+      })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Transferência' }))
+  }
+
+  it('entrada pede conta de ORIGEM — o dinheiro veio de lá', () => {
+    // Resgate de CDB credita a conta corrente. A segunda perna debita a conta
+    // escolhida (ver transfer-leg.ts), então ela é a origem. Chamar de
+    // "destino" invertia o sentido para o usuário.
+    renderComPendentes(ENTRADA)
+
+    screen.getByText('Conta de origem')
+  })
+
+  it('saída pede conta de DESTINO — o dinheiro foi para lá', () => {
+    renderComPendentes(PENDING as unknown as typeof ENTRADA)
+
+    screen.getByText('Conta de destino')
   })
 })

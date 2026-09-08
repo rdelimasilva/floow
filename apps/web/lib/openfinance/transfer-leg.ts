@@ -59,26 +59,36 @@ export interface TransferSourceLeg {
 
 /**
  * Monta a segunda perna de uma transferência: mesma data, valor invertido,
- * na conta de destino, já confirmada — nunca passa pela fila, é gerada pela
+ * na outra conta, já confirmada — nunca passa pela fila, é gerada pela
  * própria confirmação (`counterparty-actions.ts`) ou sincronização
  * (`sync.ts`). `externalId` sempre derivado do da origem: é o que torna a
  * inserção idempotente por `(external_id, account_id)`, o mesmo índice único
  * que já protege o resto da ingestão. `balanceApplied` também herda da
  * origem, para que uma origem ainda não aplicada (agendada/futura) não
- * credite o destino antes da hora.
+ * mova o saldo da outra conta antes da hora.
+ *
+ * "Outra conta" e não "destino": quando o banco CREDITA a conta do
+ * lançamento (resgate de CDB, por exemplo), esta perna debita a conta
+ * escolhida, que é a origem do dinheiro. Ver `transfer-direction.ts`.
  */
 export function buildTransferLegRow(
   source: TransferSourceLeg,
-  destinationAccountId: string,
+  otherAccountId: string,
   transferGroupId: string,
 ): NewTransaction {
+  const legAmountCents = -source.amountCents
+
   return {
     orgId: source.orgId,
-    accountId: destinationAccountId,
+    accountId: otherAccountId,
     categoryId: null,
     type: 'transfer',
-    amountCents: -source.amountCents,
-    description: 'Transferência recebida',
+    amountCents: legAmountCents,
+    // A descrição segue o sinal da própria perna, não o da origem. Num
+    // resgate de CDB o banco credita a conta corrente, então esta perna
+    // DEBITA a conta escolhida — ela é a origem do dinheiro. Texto fixo
+    // "recebida" mentia na lista de lançamentos exatamente nesse caso.
+    description: legAmountCents < 0 ? 'Transferência enviada' : 'Transferência recebida',
     date: source.date,
     transferGroupId,
     externalId: `${source.externalId}:transfer-dest`,
