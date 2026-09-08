@@ -207,7 +207,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
 
                   {draft.nature === 'transfer' && (
                     <Select
-                      value={draft.transferAccountId ?? undefined}
+                      value={draft.transferAccountId ?? ''}
                       onValueChange={(value) => setDraft(group.counterpartyId, { transferAccountId: value })}
                     >
                       <SelectTrigger className="w-48">
@@ -223,7 +223,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
 
                   {draft.nature && draft.nature !== 'transfer' && (
                     <Select
-                      value={draft.categoryId ?? undefined}
+                      value={draft.categoryId ?? ''}
                       onValueChange={(value) => setDraft(group.counterpartyId, { categoryId: value })}
                     >
                       <SelectTrigger className="w-48">

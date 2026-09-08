@@ -58,7 +58,7 @@ export function ItemRow({ item, override, categoryOptions, accountOptions, onSta
           ))}
 
           {override.nature === 'transfer' ? (
-            <Select value={override.transferAccountId ?? undefined} onValueChange={(value) => onSetOverride({ transferAccountId: value })}>
+            <Select value={override.transferAccountId ?? ''} onValueChange={(value) => onSetOverride({ transferAccountId: value })}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Conta de destino" />
               </SelectTrigger>
@@ -69,7 +69,7 @@ export function ItemRow({ item, override, categoryOptions, accountOptions, onSta
               </SelectContent>
             </Select>
           ) : (
-            <Select value={override.categoryId ?? undefined} onValueChange={(value) => onSetOverride({ categoryId: value })}>
+            <Select value={override.categoryId ?? ''} onValueChange={(value) => onSetOverride({ categoryId: value })}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
