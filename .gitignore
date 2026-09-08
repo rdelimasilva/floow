@@ -47,3 +47,11 @@ Thumbs.db
 # distraido commita a credencial.
 .env.sentry-build-plugin
 .sentryclirc
+
+# Kit de design entregue como pacote: 87 MB entre o zip (41 MB) e a pasta
+# descompactada (46 MB), que são o mesmo conteúdo. Binário em git é
+# permanente — tirar depois exige reescrever histórico, e o GitHub avisa
+# acima de 50 MB por arquivo. Se precisar versionar, o caminho é Git LFS ou
+# um bucket, não o repo.
+/floow Design System/
+/floow Design System.zip
