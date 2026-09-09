@@ -4,7 +4,7 @@ import { memo } from 'react'
 import Link from 'next/link'
 import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, Package } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
-import { formatDate, TYPE_STYLES, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
+import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
 
 interface RowActions {
@@ -110,7 +110,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
           </div>
         </div>
         <div className="text-right shrink-0">
-          <p className={`text-sm font-semibold ${TYPE_STYLES[tx.type]}`}>
+          <p className={`text-sm font-semibold ${amountColorClass(tx.amountCents)}`}>
             {tx.amountCents >= 0 ? '+' : ''}{formatBRL(tx.amountCents)}
           </p>
           <p className={`text-xs ${balance >= 0 ? 'text-gray-500' : 'text-red-500'}`}>
@@ -194,7 +194,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
         )}
       </td>
       <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-500">{TYPE_LABELS[tx.type]}</td>
-      <td className={`whitespace-nowrap px-4 py-3 text-right text-sm font-semibold ${TYPE_STYLES[tx.type]}`}>
+      <td className={`whitespace-nowrap px-4 py-3 text-right text-sm font-semibold ${amountColorClass(tx.amountCents)}`}>
         {tx.amountCents >= 0 ? '+' : ''}{formatBRL(tx.amountCents)}
       </td>
       <td className={`hidden lg:table-cell whitespace-nowrap px-4 py-3 text-right text-sm font-medium ${balance >= 0 ? 'text-gray-700' : 'text-red-600'}`}>

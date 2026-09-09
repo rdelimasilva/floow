@@ -43,11 +43,23 @@ export interface CategoryOption {
   type: string
 }
 
-export const TYPE_STYLES = {
-  income: 'text-green-700',
-  expense: 'text-red-600',
-  transfer: 'text-blue-600',
-} as const
+/**
+ * A cor do valor segue o SINAL, não o tipo.
+ *
+ * Seguia o tipo antes — `income` verde, `expense` vermelho, `transfer` azul.
+ * Com 806 despesas (todas negativas) e 66 transferências negativas, a coluna
+ * mostrava o mesmo sinal em duas cores, vermelho e azul lado a lado: a cor
+ * codificava tipo e o leitor lia sinal.
+ *
+ * Transferência que sai da conta é dinheiro saindo daquela conta, igual a
+ * despesa, e o saldo trata as duas do mesmo jeito. Que seja transferência já
+ * está dito na coluna de tipo.
+ */
+export function amountColorClass(amountCents: number): string {
+  if (amountCents < 0) return 'text-red-600'
+  if (amountCents > 0) return 'text-green-700'
+  return 'text-gray-500'
+}
 
 export const TYPE_LABELS = {
   income: 'Receita',
