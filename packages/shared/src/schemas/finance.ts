@@ -34,6 +34,12 @@ export const updateTransactionSchema = z.object({
   amountCents: z.number().int().positive(),
   description: z.string().min(1).max(500),
   date: z.coerce.date(),
+  /**
+   * A outra conta, quando a edição converte o lançamento em transferência.
+   * O formulário já enviava este campo e o schema não o tinha, então ele era
+   * descartado no parse e a segunda perna nunca era criada.
+   */
+  destAccountId: z.string().uuid().optional(),
 })
 
 export type CreateAccountInput = z.infer<typeof createAccountSchema>

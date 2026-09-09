@@ -716,6 +716,7 @@ export async function updateTransaction(formData: FormData) {
     amountCents: parseInt(formData.get('amountCents') as string, 10),
     description: formData.get('description'),
     date: formData.get('date'),
+    destAccountId: formData.get('destAccountId') || undefined,
   })
 
   const [oldTx] = await db
@@ -729,8 +730,30 @@ export async function updateTransaction(formData: FormData) {
 
   const newSignedAmount = input.type === 'income' ? input.amountCents : -input.amountCents
 
+  // Converter em transferência exige a outra conta. Antes desta checagem o
+  // `type` virava 'transfer' com valor negativo e sem `transferGroupId`: o
+  // saldo caía e não existia contrapartida nenhuma. A perna órfã nem aparecia
+  // nos relatórios, porque transferência é neutra no fluxo de caixa.
+  const convertendoEmTransferencia = input.type === 'transfer'
+
+  if (convertendoEmTransferencia) {
+    if (!input.destAccountId) {
+      throw new Error('Transferência exige a conta de destino.')
+    }
+    if (input.destAccountId === input.accountId) {
+      throw new Error('A conta de destino não pode ser a mesma conta do lançamento.')
+    }
+  }
+
+  const transferGroupId = convertendoEmTransferencia ? crypto.randomUUID() : null
+
   await db.transaction(async (tx) => {
     await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
+    if (convertendoEmTransferencia) {
+      // Mesma cerca do createTransaction: sem ela um destino de outra org
+      // receberia crédito de saldo cross-tenant.
+      await assertAccountOwnership(tx as unknown as Db, input.destAccountId!, orgId)
+    }
 
     // Reverse old balance impact only if it was applied
     if (oldTx.balanceApplied) {
@@ -762,14 +785,42 @@ export async function updateTransaction(formData: FormData) {
       .update(transactions)
       .set({
         accountId: input.accountId,
-        categoryId: input.categoryId ?? null,
+        // Transferência não tem categoria — o próprio schema da fila de
+        // contrapartes já trata as duas coisas como mutuamente exclusivas.
+        categoryId: convertendoEmTransferencia ? null : (input.categoryId ?? null),
         type: input.type,
         amountCents: newSignedAmount,
         description: input.description,
         date: new Date(input.date),
         balanceApplied: balanceAppliedValue,
+        transferGroupId,
       })
       .where(and(eq(transactions.id, input.id), eq(transactions.orgId, orgId)))
+
+    if (convertendoEmTransferencia) {
+      // Segunda perna: valor invertido na conta de destino, mesmo grupo.
+      // `balanceApplied` acompanha a origem para uma origem futura não
+      // creditar o destino antes da hora — mesmo racional de
+      // `buildTransferLegRow` no caminho do Open Finance.
+      await tx.insert(transactions).values({
+        orgId,
+        accountId: input.destAccountId!,
+        categoryId: null,
+        type: 'transfer',
+        amountCents: input.amountCents,
+        description: input.description,
+        date: new Date(input.date),
+        transferGroupId,
+        balanceApplied: balanceAppliedValue,
+      })
+
+      if (balanceAppliedValue) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${input.amountCents}` })
+          .where(eq(accounts.id, input.destAccountId!))
+      }
+    }
   })
 
   revalidateTransactionData(orgId)

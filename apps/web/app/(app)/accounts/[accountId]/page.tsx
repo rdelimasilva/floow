@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Banknote } from 'lucide-react'
-import { getOrgId, getAccountById, getTransactionsWithCount, getCategories } from '@/lib/finance/queries'
+import { getOrgId, getAccountById, getTransactionsWithCount, getCategories, getAccounts } from '@/lib/finance/queries'
 import { TransactionList } from '@/components/finance/transaction-list'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { Pagination } from '@/components/ui/pagination'
@@ -34,9 +34,16 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
     endDate: sp.endDate,
   }
 
-  const [{ transactions, totalCount }, categories] = await Promise.all([
+  const [{ transactions, totalCount }, categories, allAccounts] = await Promise.all([
     getTransactionsWithCount(orgId, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }),
     getCategories(orgId),
+    // Todas as contas da org, e não só esta: a edição inline monta o dropdown
+    // de conta de destino a partir deste prop, filtrando a conta do próprio
+    // lançamento. Passando só a conta atual, o filtro esvaziava a lista e o
+    // select de destino ficava sem nenhuma opção. A lista de lançamentos
+    // continua restrita a esta conta pelo `filters.accountId`, que é outra
+    // coisa.
+    getAccounts(orgId),
   ])
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
@@ -89,7 +96,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
           ...t,
           date: t.date instanceof Date ? t.date.toISOString() : t.date,
         }))}
-        accounts={[{ id: account.id, name: account.name }]}
+        accounts={allAccounts.map((a) => ({ id: a.id, name: a.name }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId }))}
       />
 
