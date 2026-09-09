@@ -259,6 +259,7 @@ export async function getTransactionsWithCount(
       recurringTemplateId: transactions.recurringTemplateId,
       balanceApplied: transactions.balanceApplied,
       affectsCashFlow: transactions.affectsCashFlow,
+      matchedTransactionId: transactions.matchedTransactionId,
       installmentNumber: transactions.installmentNumber,
       installmentTotal: transactions.installmentTotal,
       categoryName: categories.name,

@@ -27,6 +27,11 @@ export interface TransactionRowData {
    * Excecao de fluxo de caixa deste lancamento. `null`/ausente = herda da
    * categoria. Ver `lib/finance/affects-cash-flow-cycle.ts`.
    */
+  /**
+   * Preenchido no lancamento PREVISTO que ja foi cumprido pelo realizado.
+   * Previsto com vinculo nunca entra no saldo.
+   */
+  matchedTransactionId?: string | null
   affectsCashFlow?: boolean | null
   acquiredAssetId?: string | null
   acquiredAssetName?: string | null

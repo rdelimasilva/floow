@@ -151,6 +151,22 @@ export const transactions = pgTable(
      * categoria define o padrão, o lançamento foge dele sem virar regra.
      */
     affectsCashFlow: boolean('affects_cash_flow'),
+    /**
+     * Aponta do lancamento PREVISTO para o REALIZADO que o cumpriu. A direcao
+     * importa: o realizado e a verdade, o previsto e a estimativa que se
+     * resolveu.
+     *
+     * Previsto com vinculo NUNCA entra no saldo —
+     * `reconcileRecurringBalances` o ignora. Sem isso o casamento nao
+     * resolveria nada: a linha continuaria sendo aplicada na data e somando
+     * junto com o realizado.
+     *
+     * Sem `references()` no Drizzle por ser auto-referencia na mesma tabela,
+     * que o builder nao aceita em declaracao circular. A FK existe no banco
+     * (migration 00042), com indice unico parcial garantindo que um realizado
+     * nao seja reivindicado por dois previstos.
+     */
+    matchedTransactionId: uuid('matched_transaction_id'),
     /** Parcela atual. Recebe charge_identificator na ingestão Open Finance. */
     installmentNumber: integer('installment_number'),
     /** Total de parcelas. Recebe charge_number na ingestão Open Finance. */

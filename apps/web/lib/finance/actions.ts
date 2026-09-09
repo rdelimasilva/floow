@@ -1226,6 +1226,10 @@ export async function reconcileRecurringBalances() {
       and(
         eq(transactions.orgId, orgId),
         eq(transactions.balanceApplied, false),
+        // Previsto ja casado com o realizado nunca entra no saldo: o
+        // realizado e que conta. Sem este filtro o casamento nao resolveria
+        // nada, porque a linha continuaria sendo aplicada na data.
+        isNull(transactions.matchedTransactionId),
         sql`${transactions.date} <= ${todayStr}::date`
       )
     )
@@ -1245,6 +1249,10 @@ export async function reconcileRecurringBalances() {
       and(
         eq(transactions.orgId, orgId),
         eq(transactions.balanceApplied, false),
+        // Previsto ja casado com o realizado nunca entra no saldo: o
+        // realizado e que conta. Sem este filtro o casamento nao resolveria
+        // nada, porque a linha continuaria sendo aplicada na data.
+        isNull(transactions.matchedTransactionId),
         sql`${transactions.date} <= ${todayStr}::date`
       )
     )

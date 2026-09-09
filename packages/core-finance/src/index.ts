@@ -15,6 +15,7 @@ export * from './succession'
 // Phase 5 — Automation foundation
 export * from './categorization'
 export * from './recurring'
+export * from './forecast-match'
 export { generateInstallmentDates } from './recurring-batch'
 // Phase 7 — Fixed assets
 export * from './asset-valuation'

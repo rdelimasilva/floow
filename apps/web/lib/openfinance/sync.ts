@@ -23,6 +23,7 @@ import { normalizeBatch, type RejectedItem } from './normalize-batch'
 import { loadCounterpartyIndex, resolveCounterparty } from './resolve-counterparty'
 import type { ResolvedTransaction } from './resolve-counterparty'
 import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
+import { matchForecastsForAccount } from '@/lib/finance/forecast-match-db'
 
 /**
  * Importação das transações de uma conexão Open Finance.
@@ -42,6 +43,8 @@ export interface SyncSummary {
   updated: number
   /** Recursos sem conta vinculada — o dado existe na Polp e não tem onde entrar. */
   skippedUnlinked: number
+  /** Previstos de template que foram vinculados ao realizado nesta passada. */
+  matchedForecasts: number
   /**
    * Itens que a ingestão não conseguiu ler. Ficam em
    * `openfinance_ingestion_issues` com o payload cru, e o recurso não avança a
@@ -67,7 +70,7 @@ export async function syncConnectionTransactions(
     loadCounterpartyIndex(db, connection.orgId),
   ])
 
-  const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0, rejected: 0 }
+  const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0, rejected: 0, matchedForecasts: 0 }
 
   for (const resource of resources) {
     if (!resource.accountId) {
@@ -132,6 +135,17 @@ export async function syncConnectionTransactions(
     }
 
     summary.rejected += rejectedHere
+
+    // Casa o previsto do template com o realizado que acabou de entrar.
+    // Depois do loop de paginas, nao dentro do persistPage: o `returning` do
+    // insert de la traz so id, valor e balanceApplied, sem data nem descricao
+    // — e e delas que o casamento depende. Falha aqui nao derruba o sync: o
+    // dado ja entrou, e o casamento roda de novo na proxima passada.
+    try {
+      summary.matchedForecasts += await matchForecastsForAccount(db, connection.orgId, resource.accountId)
+    } catch (error) {
+      console.error('[sync] falha ao casar previsto com realizado:', error)
+    }
 
     // A janela só avança quando o recurso veio inteiro. Avançar com rejeição
     // perderia aquelas transações para sempre: a próxima sincronização pediria

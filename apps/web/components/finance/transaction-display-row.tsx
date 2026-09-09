@@ -26,9 +26,9 @@ interface MobileCardProps {
 }
 
 /**
- * O lancamento adquiriu um bem. Existe para quem chega pelo extrato entender
- * uma saida grande — sem isso o vinculo de
- * `fixed_assets.acquisition_transaction_id` so era visivel a partir do ativo.
+ * O lançamento adquiriu um bem. Existe para quem chega pelo extrato entender
+ * uma saída grande — sem isso o vínculo de
+ * `fixed_assets.acquisition_transaction_id` só era visível a partir do ativo.
  */
 /**
  * Cicla a excecao de fluxo de caixa do lancamento. O rotulo curto ("herda",
@@ -64,12 +64,44 @@ function CashFlowToggleButton({
   )
 }
 
+/**
+ * Estado de previsão do lançamento.
+ *
+ * Antes o previsto tinha só `opacity-60`, e o ignorado `opacity-40`: duas
+ * linhas apagadas que ninguém distingue sem conhecer a convenção. Com o
+ * casamento previsto/realizado o estado passou a ter três valores, e
+ * opacidade não expressa três coisas.
+ */
+function ForecastBadge({ tx }: { tx: TransactionRowData }) {
+  if (tx.balanceApplied !== false) return null
+
+  if (tx.matchedTransactionId) {
+    return (
+      <span
+        className="inline-flex shrink-0 items-center rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500"
+        title="Previsão já cumprida por um lançamento do banco. Esta linha não entra no saldo."
+      >
+        conciliado
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
+      title="Lançamento previsto, ainda não aconteceu. Não entra no saldo até a data chegar."
+    >
+      previsto
+    </span>
+  )
+}
+
 function AcquiredAssetBadge({ assetId, assetName }: { assetId: string; assetName: string }) {
   return (
     <Link
       href={`/fixed-assets/${assetId}`}
       className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-100"
-      title={`Este lancamento adquiriu ${assetName}`}
+      title={`Este lançamento adquiriu ${assetName}`}
     >
       <Package className="h-3 w-3" />
       {assetName}
@@ -104,6 +136,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
                 {tx.categoryName}
               </span>
             )}
+            <ForecastBadge tx={tx} />
             {tx.acquiredAssetId && tx.acquiredAssetName && (
               <AcquiredAssetBadge assetId={tx.acquiredAssetId} assetName={tx.acquiredAssetName} />
             )}
@@ -171,6 +204,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
           {tx.acquiredAssetId && tx.acquiredAssetName && (
             <AcquiredAssetBadge assetId={tx.acquiredAssetId} assetName={tx.acquiredAssetName} />
           )}
+          <ForecastBadge tx={tx} />
         </span>
       </td>
       <td className="hidden md:table-cell px-4 py-3">
