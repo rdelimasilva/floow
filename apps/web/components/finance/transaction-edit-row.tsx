@@ -67,7 +67,8 @@ export function TransactionEditRow({
     destAccountId: '',
   })
 
-  const saveEdit = useCallback(async () => {
+  /** Resolve `true` quando a linha pode fechar: salvou, ou não havia o que salvar. */
+  const saveEdit = useCallback(async (): Promise<boolean> => {
     const s = editStateRef.current
     const init = initialStateRef.current
     const isDirty =
@@ -78,7 +79,20 @@ export function TransactionEditRow({
       s.accountId !== init.accountId ||
       s.categoryId !== init.categoryId ||
       s.destAccountId !== init.destAccountId
-    if (!isDirty) return
+    if (!isDirty) return true
+
+    // Mesma invariante que `updateTransaction` cobra no servidor
+    // (lib/finance/actions.ts): transferência sem destino não existe — ela
+    // viraria perna órfã drenando saldo sem contrapartida. Aqui a checagem
+    // existe por outro motivo: o seletor "Conta destino..." só aparece DEPOIS
+    // de escolher o tipo e nasce vazio, então um clique fora nessa janela
+    // submetia a conversão pela metade e fechava a linha, levando junto a
+    // edição do usuário. O guard do servidor continua sendo a última cerca.
+    if (s.type === 'transfer' && !s.destAccountId) {
+      toastRef.current('Transferência exige a conta de destino.', 'error')
+      return false
+    }
+
     try {
       const formData = new FormData()
       formData.append('id', tx.id)
@@ -92,19 +106,25 @@ export function TransactionEditRow({
       await updateTransaction(formData)
       router.refresh()
       toastRef.current('Transação salva')
+      return true
     } catch (e) {
       toastRef.current(
         e instanceof Error ? e.message : 'Não foi possível salvar a edição. Tente novamente.',
         'error',
       )
+      return false
     }
   }, [tx.id, tx.description, tx.amountCents, tx.date, tx.type, tx.accountId, tx.categoryId, router])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (editRowRef.current && !editRowRef.current.contains(e.target as Node)) {
-        saveEdit()
-        onClose()
+        // Fecha só depois de saber que salvou. Fechar de imediato — sem
+        // esperar o `saveEdit()` — descartava a edição sempre que o save
+        // falhava, e o toast de erro chegava com a linha já fora da tela.
+        void saveEdit().then((saved) => {
+          if (saved) onClose()
+        })
       }
     }
     function handleKeyDown(e: KeyboardEvent) {
