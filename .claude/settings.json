@@ -14,8 +14,7 @@
       "AskUserQuestion",
       "Skill",
       "WebSearch",
-      "WebFetch",
-      "Task*"
+      "WebFetch"
     ]
   }
 }
