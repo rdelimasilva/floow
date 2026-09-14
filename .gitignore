@@ -55,3 +55,6 @@ Thumbs.db
 # um bucket, não o repo.
 /floow Design System/
 /floow Design System.zip
+
+# Logs da triagem diaria do Sentry (scripts/sentry-daily.ps1)
+.claude/sentry-logs/
