@@ -5,7 +5,7 @@ import { and, eq, isNotNull, notInArray, sql } from 'drizzle-orm'
 import { getDb, orgs, counterparties, transactions, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { assertAccountOwnership } from '@/lib/finance/actions'
-import { createClient } from '@/lib/supabase/server'
+import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
 import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
@@ -201,11 +201,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
   const orgId = await getOrgId()
   const db = getDb()
 
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) throw new Error('Não autenticado.')
+  const { userId } = await requireIdentity()
 
   const reclassified = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -237,7 +233,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
         categoryId: input.categoryId,
         transferAccountId: input.transferAccountId,
         confirmedAt: new Date(),
-        confirmedBy: session.user.id,
+        confirmedBy: userId,
         updatedAt: new Date(),
       })
       .where(and(eq(counterparties.id, input.counterpartyId), eq(counterparties.orgId, orgId)))

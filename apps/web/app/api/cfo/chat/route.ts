@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getVerifiedIdentity, getOrgId } from '@/lib/auth/session'
 import { createAnthropicProvider } from '@floow/core-finance'
 import type { ChatMessage } from '@floow/core-finance'
 import { buildChatSystemPrompt } from '@/lib/cfo/chat-context'
@@ -10,32 +10,18 @@ import { getDb, cfoInsights, cfoMessages, cfoConversations, orgMembers } from '@
 import { eq, and, gte, sql, asc } from 'drizzle-orm'
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const identity = await getVerifiedIdentity()
 
-  if (!session) {
+  if (!identity) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const userId = session.user.id
-  // Decode JWT directly (supabase-js's user.app_metadata doesn't reflect hook claims)
-  let orgId: string | undefined
+  const userId = identity.userId
+
+  let orgId: string
   try {
-    const payload = session.access_token.split('.')[1]
-    const claims = JSON.parse(Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')) as { app_metadata?: { org_ids?: string[] } }
-    orgId = claims.app_metadata?.org_ids?.[0]
-  } catch {}
-  if (!orgId) {
-    const db = getDb()
-    const [member] = await db
-      .select({ orgId: orgMembers.orgId })
-      .from(orgMembers)
-      .where(eq(orgMembers.userId, userId))
-      .orderBy(asc(orgMembers.createdAt))
-      .limit(1)
-    orgId = member?.orgId
-  }
-  if (!orgId) {
+    orgId = await getOrgId()
+  } catch {
     return NextResponse.json({ error: 'No org' }, { status: 400 })
   }
 

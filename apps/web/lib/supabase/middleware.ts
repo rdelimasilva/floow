@@ -33,13 +33,16 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // getSession() validates JWT locally from cookies — no network round-trip.
-  // This is safe for route protection since the JWT signature is verified locally.
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  // getClaims() verifica a ASSINATURA do JWT — com chave assimétrica, contra o
+  // JWKS (cache global por processo, sem ida à rede por requisição); com a
+  // chave simétrica antiga, contra o servidor de Auth.
+  //
+  // getSession() NÃO faz isso: no servidor ele devolve o conteúdo do cookie sem
+  // verificar nada. Um cookie forjado passava por esta checagem e seguia para o
+  // app inteiro. Não voltar para getSession() aqui.
+  const { data, error } = await supabase.auth.getClaims()
 
-  const user = session?.user ?? null
+  const userId = error ? null : (data?.claims?.sub ?? null)
 
-  return { supabaseResponse, user }
+  return { supabaseResponse, userId }
 }

@@ -44,12 +44,12 @@ vi.mock('next/cache', () => ({
 
 // ── Mock @/lib/supabase/server ────────────────────────────────────────────────
 const mockGetUser = vi.fn()
-const mockGetSession = vi.fn()
+const mockGetClaims = vi.fn()
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
       getUser: mockGetUser,
-      getSession: mockGetSession,
+      getClaims: mockGetClaims,
     },
   })),
 }))
@@ -120,39 +120,20 @@ function setupDbMock() {
 }
 
 /**
- * Monta um access_token no formato que getOrgId realmente lê.
+ * Identidade verificada que getOrgId realmente lê.
  *
- * getOrgId (lib/finance/queries.ts) NÃO usa session.user.app_metadata — esse
- * objeto vem de auth.users.raw_app_meta_data, onde o custom_access_token_hook
- * não escreve. Ele decodifica o payload do JWT, que é o único lugar onde as
- * org_ids injetadas pelo hook existem. Só a parte do meio do token importa;
- * header e assinatura nunca são verificados na decodificação.
+ * getOrgId (lib/auth/session.ts) usa `getClaims()`, que só devolve claims
+ * depois de verificar a assinatura do JWT. Não existe mais caminho que leia o
+ * payload do token sem validar — era exatamente o furo que permitia escolher a
+ * org pelo cookie.
  */
-function makeAccessToken(orgId: string): string {
-  const payload = Buffer.from(
-    JSON.stringify({ app_metadata: { org_ids: [orgId] } }),
-    'utf8',
-  ).toString('base64url')
-  return `header.${payload}.signature`
-}
-
 function setupUserMock(orgId = 'org-test-123') {
   mockGetUser.mockResolvedValue({
-    data: {
-      user: {
-        id: 'user-test-id',
-        app_metadata: { org_ids: [orgId] },
-      },
-    },
+    data: { user: { id: 'user-test-id', app_metadata: { org_ids: [orgId] } } },
     error: null,
   })
-  mockGetSession.mockResolvedValue({
-    data: {
-      session: {
-        access_token: makeAccessToken(orgId),
-        user: { id: 'user-test-id' },
-      },
-    },
+  mockGetClaims.mockResolvedValue({
+    data: { claims: { sub: 'user-test-id', app_metadata: { org_ids: [orgId] } } },
     error: null,
   })
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getVerifiedIdentity } from '@/lib/auth/session'
 import { getOrgId } from '@/lib/finance/queries'
 import { backfillCounterparties } from '@/lib/openfinance/backfill'
 
@@ -10,12 +10,9 @@ import { backfillCounterparties } from '@/lib/openfinance/backfill'
  * agendamento, sem chamada automática — decisão do operador, feita uma vez.
  */
 export async function POST() {
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const identity = await getVerifiedIdentity()
 
-  if (!session) {
+  if (!identity) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

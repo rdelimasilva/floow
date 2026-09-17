@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/finance/queries'
+import { getAuthenticatedUser } from '@/lib/auth/session'
 import { createCheckoutSession, createPortalSession } from '@/lib/stripe/server'
 import { PlanCard } from '@/components/billing/plan-card'
 import { SubscriptionStatus } from '@/components/billing/subscription-status'
@@ -25,16 +26,15 @@ async function getSubscription(orgId: string) {
  */
 async function createCheckout(priceId: string) {
   'use server'
-  const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/auth')
+  const user = await getAuthenticatedUser()
+  if (!user) redirect('/auth')
 
   const orgId = await getOrgId()
 
   const checkoutUrl = await createCheckoutSession(
     orgId,
     priceId,
-    session.user.email ?? ''
+    user.email ?? ''
   )
 
   redirect(checkoutUrl)

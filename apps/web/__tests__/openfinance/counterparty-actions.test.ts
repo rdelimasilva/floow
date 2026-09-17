@@ -35,7 +35,14 @@ vi.mock('next/cache', () => ({
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: vi.fn(async () => ORG) }))
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
-    auth: { getSession: vi.fn(async () => ({ data: { session: { user: { id: 'user-1' } } } })) },
+    auth: {
+      // getClaims é a única porta de identidade do app — getSession não é mais
+      // consultado em lugar nenhum (ver lib/auth/session.ts).
+      getClaims: vi.fn(async () => ({
+        data: { claims: { sub: 'user-1', app_metadata: { org_ids: [ORG] } } },
+        error: null,
+      })),
+    },
   })),
 }))
 const insertQueue: unknown[][] = []

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getAuthenticatedUser } from '@/lib/auth/session'
 import { AppShell } from '@/components/layout/app-shell'
 import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
@@ -16,12 +16,9 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const user = await getAuthenticatedUser()
 
-  if (!session) {
+  if (!user) {
     redirect('/auth')
   }
 
@@ -35,7 +32,6 @@ export default async function AppLayout({
     )
   }
 
-  const user = session.user
   const meta = user.user_metadata ?? {}
 
   const cookieStore = await cookies()

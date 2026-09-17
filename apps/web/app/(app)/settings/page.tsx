@@ -1,17 +1,13 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getAuthenticatedUser } from '@/lib/auth/session'
 import { PageHeader } from '@/components/ui/page-header'
 import { SettingsForm } from './settings-form'
 
 export default async function SettingsPage() {
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const user = await getAuthenticatedUser()
 
-  if (!session) redirect('/auth')
+  if (!user) redirect('/auth')
 
-  const user = session.user
   const meta = user.user_metadata ?? {}
 
   return (

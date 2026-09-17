@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getVerifiedIdentity } from '@/lib/auth/session'
 import { reconcileRecurringBalances } from '@/lib/finance/actions'
 
 /**
@@ -10,12 +10,9 @@ import { reconcileRecurringBalances } from '@/lib/finance/actions'
  * Auth-protected: requires a valid session cookie.
  */
 export async function POST() {
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const identity = await getVerifiedIdentity()
 
-  if (!session) {
+  if (!identity) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

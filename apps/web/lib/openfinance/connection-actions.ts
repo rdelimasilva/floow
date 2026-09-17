@@ -22,7 +22,7 @@ import {
   type PolpProduct,
   type PolpResource,
 } from '@floow/core-finance'
-import { createClient } from '@/lib/supabase/server'
+import { requireIdentity } from '@/lib/auth/session'
 import { getOrgId } from '@/lib/finance/queries'
 import { accountsTag, transactionsTag, invalidateTag } from '@/lib/cache-tags'
 import { getCpfSalt, getPolpClient } from './config'
@@ -96,10 +96,7 @@ export async function startBankConnection(
     )
   }
 
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const { userId } = await requireIdentity()
 
   // A falha aqui e a mais provavel de todo o fluxo (plano, credencial, CPF
   // recusado pelo banco), e e a que o usuario le na tela. O status cru nao
@@ -137,7 +134,7 @@ export async function startBankConnection(
     .insert(openfinanceConnections)
     .values({
       orgId,
-      ownerUserId: session?.user.id ?? null,
+      ownerUserId: userId,
       polpConsentId: consent.id,
       institutionId: input.institutionId,
       institutionName: input.institutionName ?? null,

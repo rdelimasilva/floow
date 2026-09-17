@@ -28,12 +28,12 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse, user } = await updateSession(request)
+  const { supabaseResponse, userId } = await updateSession(request)
 
   const { pathname } = request.nextUrl
 
   // Not authenticated → redirect to /auth, preserving intended destination
-  if (!user && !isPublicRoute(pathname)) {
+  if (!userId && !isPublicRoute(pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth'
     url.searchParams.set('next', pathname)
@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Already authenticated → bounce away from /auth to the app
-  if (user && pathname === '/auth') {
+  if (userId && pathname === '/auth') {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     url.search = ''
