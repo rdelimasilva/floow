@@ -34,9 +34,26 @@ export function createDb(connectionString: string) {
  */
 let _db: ReturnType<typeof createDb> | null = null
 
-export function getDb(): ReturnType<typeof createDb> {
+/**
+ * Conexão de serviço: roda com o papel de DATABASE_URL, sem contexto de usuário.
+ *
+ * Hoje esse papel é dono das tabelas, então ignora RLS. Use SOMENTE onde não
+ * existe usuário na requisição e o acesso amplo é o objetivo: cron, webhook,
+ * migração, rotina administrativa. Para qualquer coisa disparada por um usuário,
+ * use withRls() (src/rls.ts), que aplica o contexto dele na transação.
+ */
+export function getServiceDb(): ReturnType<typeof createDb> {
   if (!_db) {
     _db = createDb(assertEnv('DATABASE_URL'))
   }
   return _db
+}
+
+/**
+ * @deprecated Alias histórico de getServiceDb(). Cada chamada é um ponto que
+ * roda por fora do RLS. A migração para withRls() está em
+ * docs/adr/0001-rls-no-caminho-do-app.md — não acrescente chamadas novas.
+ */
+export function getDb(): ReturnType<typeof createDb> {
+  return getServiceDb()
 }
