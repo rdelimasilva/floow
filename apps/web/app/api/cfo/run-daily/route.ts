@@ -2,15 +2,14 @@ import { NextResponse } from 'next/server'
 import { getDb, transactions } from '@floow/db'
 import { gte } from 'drizzle-orm'
 import { runCfoEngine } from '@/lib/cfo/engine'
-
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const CRON_SECRET = process.env.CRON_SECRET
+import { isAuthorizedService } from '@/lib/auth/service-auth'
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  const isServiceRole = authHeader === `Bearer ${SERVICE_ROLE_KEY}`
-  const isCron = CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`
-  if (!isServiceRole && !isCron) {
+  const authorized = isAuthorizedService(request.headers.get('authorization'), [
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.CRON_SECRET,
+  ])
+  if (!authorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

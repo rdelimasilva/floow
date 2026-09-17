@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOrgId, getTransactionsWithCount } from '@/lib/finance/queries'
+import { getTransactionsWithCount } from '@/lib/finance/queries'
+import { getVerifiedIdentity, getOrgId } from '@/lib/auth/session'
 import { formatBRL } from '@floow/core-finance'
+import { recordAudit } from '@/lib/audit/record'
 
 const TYPE_LABELS: Record<string, string> = {
   income: 'Receita',
@@ -9,6 +11,14 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 export async function GET(request: NextRequest) {
+  // Checagem explícita antes do try: sem ela, uma requisição não autenticada
+  // caía no catch genérico e voltava 500, escondendo que o problema era falta
+  // de autenticação.
+  const identity = await getVerifiedIdentity()
+  if (!identity) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const orgId = await getOrgId()
     const params = request.nextUrl.searchParams
@@ -31,6 +41,13 @@ export async function GET(request: NextRequest) {
       limit: 10000,
       offset: 0,
       ...filters,
+    })
+
+    await recordAudit({
+      action: 'transactions.export',
+      resource: 'transactions',
+      resourceCount: transactions.length,
+      metadata: { filters },
     })
 
     // Build CSV

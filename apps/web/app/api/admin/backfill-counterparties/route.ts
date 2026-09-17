@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getVerifiedIdentity } from '@/lib/auth/session'
 import { getOrgId } from '@/lib/finance/queries'
 import { backfillCounterparties } from '@/lib/openfinance/backfill'
+import { recordAudit } from '@/lib/audit/record'
 
 /**
  * POST /api/admin/backfill-counterparties
@@ -20,6 +21,13 @@ export async function POST() {
 
   try {
     const result = await backfillCounterparties(orgId)
+
+    await recordAudit({
+      action: 'admin.backfill_counterparties',
+      resource: 'counterparties',
+      metadata: { ...result },
+    })
+
     return NextResponse.json({ ok: true, ...result })
   } catch (err) {
     console.error('[backfill-counterparties] Failed:', err)

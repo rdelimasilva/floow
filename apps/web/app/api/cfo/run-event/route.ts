@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { runCfoEngine } from '@/lib/cfo/engine'
+import { isAuthorizedService } from '@/lib/auth/service-auth'
 import type { InsightCategory } from '@floow/core-finance'
 
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${SERVICE_ROLE_KEY}`) {
+  const authorized = isAuthorizedService(request.headers.get('authorization'), [
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  ])
+  if (!authorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

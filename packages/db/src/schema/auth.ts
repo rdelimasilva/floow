@@ -3,6 +3,8 @@ import {
   pgEnum,
   uuid,
   text,
+  integer,
+  jsonb,
   timestamp,
   unique,
 } from 'drizzle-orm/pg-core'
@@ -58,3 +60,24 @@ export type Profile = typeof profiles.$inferSelect
 export type NewProfile = typeof profiles.$inferInsert
 export type OrgMember = typeof orgMembers.$inferSelect
 export type NewOrgMember = typeof orgMembers.$inferInsert
+
+/**
+ * Trilha de auditoria: quem fez o quê, sobre qual recurso, em que org.
+ *
+ * Append-only. Não existe caminho de UPDATE/DELETE no app, e o RLS não dá
+ * policy de escrita ao cliente (ver 00043_security_hardening.sql).
+ */
+export const auditLog = pgTable('audit_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').references(() => orgs.id, { onDelete: 'cascade' }),
+  /** Sem FK para auth.users: a trilha sobrevive à exclusão da conta. */
+  actorUserId: uuid('actor_user_id'),
+  /** Ex.: 'transactions.export', 'openfinance.connection.create'. */
+  action: text('action').notNull(),
+  /** Ex.: 'transactions', 'counterparties'. */
+  resource: text('resource'),
+  /** Volume lido ou afetado, quando faz sentido contar. */
+  resourceCount: integer('resource_count'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})

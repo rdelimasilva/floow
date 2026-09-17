@@ -23,6 +23,7 @@ import {
   type PolpResource,
 } from '@floow/core-finance'
 import { requireIdentity } from '@/lib/auth/session'
+import { recordAudit } from '@/lib/audit/record'
 import { getOrgId } from '@/lib/finance/queries'
 import { accountsTag, transactionsTag, invalidateTag } from '@/lib/cache-tags'
 import { getCpfSalt, getPolpClient } from './config'
@@ -146,6 +147,19 @@ export async function startBankConnection(
       products,
     })
     .returning({ id: openfinanceConnections.id })
+
+  // Vínculo com conta bancária a partir de um CPF: registra sem o CPF em claro
+  // — a trilha é legível pelos membros da org.
+  await recordAudit({
+    action: 'openfinance.connection.create',
+    resource: 'openfinance_connections',
+    metadata: {
+      connectionId: connection.id,
+      institutionId: input.institutionId,
+      cpfMasked: maskCpf(input.cpf),
+      products,
+    },
+  })
 
   revalidatePath('/accounts')
 

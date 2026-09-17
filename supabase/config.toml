@@ -104,10 +104,13 @@ double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
 enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
-secure_password_change = false
+# true: um token roubado nao basta para trocar a senha e tomar a conta.
+secure_password_change = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or
 # password reset email.
-max_frequency = "1s"
+# 1s permitia usar o endpoint de reset como maquina de mandar e-mail para a
+# caixa de terceiros. 60s e o padrao do Supabase.
+max_frequency = "60s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires.
@@ -126,6 +129,20 @@ otp_expiry = 3600
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
+
+# Teto de requisicoes nas rotas de autenticacao. Sem isto nao ha nada entre um
+# atacante e um ataque de forca bruta contra /token.
+[auth.rate_limit]
+# E-mails enviados por hora (confirmacao, reset, magic link), por projeto.
+email_sent = 30
+# Tentativas de login/cadastro por IP, por 5 minutos.
+sign_in_sign_ups = 30
+# Verificacoes de OTP/token por IP, por 5 minutos.
+token_verifications = 30
+# Refresh de token por IP, por 5 minutos.
+token_refresh = 150
+# Cadastros anonimos por IP, por hora (desligados neste projeto).
+anonymous_users = 30
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
