@@ -21,13 +21,15 @@ import { sql } from 'drizzle-orm'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** Formato mínimo de que este módulo precisa — mantém os testes sem banco. */
-interface TxLike {
-  execute(query: unknown): Promise<unknown>
-}
-interface DbLike extends TxLike {
-  transaction<T>(fn: (tx: TxLike) => Promise<T>): Promise<T>
-}
+import type { createDb } from './client'
+
+/**
+ * Tipos reais do Drizzle: o callback recebe a transação com a API fluente e os
+ * tipos de resultado intactos. Uma interface mínima aqui apagaria a tipagem de
+ * toda query convertida — o `tx.select()` viraria `unknown` nos ~36 arquivos.
+ */
+type Db = ReturnType<typeof createDb>
+export type RlsTx = Parameters<Parameters<Db['transaction']>[0]>[0]
 
 export class RlsBypassError extends Error {
   constructor(role: string, motivo: string) {
@@ -47,9 +49,9 @@ export class RlsBypassError extends Error {
  * outra origem reabre, aqui embaixo, a falha que aquele módulo fechou.
  */
 export async function withRls<T>(
-  db: DbLike,
+  db: Db,
   userId: string,
-  fn: (tx: TxLike) => Promise<T>,
+  fn: (tx: RlsTx) => Promise<T>,
 ): Promise<T> {
   if (!userId) {
     throw new Error('withRls: userId é obrigatório — sem ele a transação rodaria sem contexto de RLS')
@@ -74,7 +76,7 @@ export async function withRls<T>(
  * silêncio — o app continua funcionando, só que sem rede de proteção nenhuma.
  * É a checagem que transforma uma regressão invisível em falha barulhenta.
  */
-export async function assertRlsEnforced(db: DbLike): Promise<void> {
+export async function assertRlsEnforced(db: Db): Promise<void> {
   const rows = (await db.execute(sql`
     select
       current_user as current_user,

@@ -41,6 +41,12 @@ export function windowStart(now: Date, windowSeconds: number): Date {
   return new Date(Math.floor(now.getTime() / ms) * ms)
 }
 
+/**
+ * O `db` recebido tem de ser a conexão de SERVIÇO (getServiceDb), nunca uma
+ * transação de withUserDb: rate_limits tem RLS ligado e nenhuma policy, então
+ * sob o papel `authenticated` o upsert seria negado e a trava fecharia para
+ * todo mundo.
+ */
 export async function consumeRateLimit(
   db: DbLike,
   { bucket, subject, limit, windowSeconds, now = new Date() }: RateLimitOptions,

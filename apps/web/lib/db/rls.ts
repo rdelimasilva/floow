@@ -1,7 +1,5 @@
-import { getServiceDb, withRls } from '@floow/db'
+import { getServiceDb, withRls, type RlsTx } from '@floow/db'
 import { requireIdentity } from '@/lib/auth/session'
-
-type Tx = Parameters<Parameters<typeof withRls>[2]>[0]
 
 /**
  * Roda a query sob o RLS do usuário da requisição.
@@ -14,7 +12,7 @@ type Tx = Parameters<Parameters<typeof withRls>[2]>[0]
  * Vale desde já, sem trocar o DATABASE_URL: `set_config('role','authenticated')`
  * sujeita a transação ao RLS mesmo numa conexão com BYPASSRLS.
  */
-export async function withUserDb<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+export async function withUserDb<T>(fn: (tx: RlsTx) => Promise<T>): Promise<T> {
   const { userId } = await requireIdentity()
   return withRls(getServiceDb(), userId, fn)
 }
@@ -26,6 +24,6 @@ export async function withUserDb<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
  * então lá dentro não dá para resolver a identidade — ela tem que entrar como
  * parâmetro, do mesmo jeito que o `orgId` já entra hoje.
  */
-export function withUserDbFor<T>(userId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+export function withUserDbFor<T>(userId: string, fn: (tx: RlsTx) => Promise<T>): Promise<T> {
   return withRls(getServiceDb(), userId, fn)
 }
