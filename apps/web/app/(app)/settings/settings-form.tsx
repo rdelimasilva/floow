@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import { createClient } from '@/lib/supabase/client'
+import { changePassword } from '@/lib/auth/change-password'
 import { User, Mail, KeyRound, Loader2 } from 'lucide-react'
 
 interface SettingsFormProps {
@@ -20,9 +21,12 @@ export function SettingsForm({ email, fullName, avatarUrl, provider }: SettingsF
   const [name, setName] = useState(fullName)
   const [saving, setSaving] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  // Preenchidos só quando o Supabase exige reautenticação (sessão com mais de
+  // 24h). Sessão recente troca a senha sem ver este passo.
+  const [nonceRequired, setNonceRequired] = useState(false)
+  const [nonce, setNonce] = useState('')
   const { toast } = useToast()
   const router = useRouter()
   const isOAuth = provider !== 'email'
@@ -58,19 +62,34 @@ export function SettingsForm({ email, fullName, avatarUrl, provider }: SettingsF
       return
     }
 
+    if (nonceRequired && !nonce.trim()) {
+      toast('Informe o código enviado para o seu e-mail', 'error')
+      return
+    }
+
     setChangingPassword(true)
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.updateUser({
+      const result = await changePassword(createClient(), {
         password: newPassword,
+        nonce: nonceRequired ? nonce.trim() : undefined,
       })
-      if (error) throw error
+
+      if (result.status === 'nonce_required') {
+        setNonceRequired(true)
+        toast('Enviamos um código para o seu e-mail. Informe-o para confirmar a troca.')
+        return
+      }
+
+      if (result.status === 'error') {
+        toast(result.message, 'error')
+        return
+      }
+
       toast('Senha alterada com sucesso')
-      setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-    } catch (err: any) {
-      toast(err.message || 'Erro ao alterar senha', 'error')
+      setNonce('')
+      setNonceRequired(false)
     } finally {
       setChangingPassword(false)
     }
@@ -178,14 +197,41 @@ export function SettingsForm({ email, fullName, avatarUrl, provider }: SettingsF
               />
             </div>
 
+            {nonceRequired && (
+              <div>
+                <label htmlFor="reauth-nonce" className="block text-sm font-medium mb-1.5">
+                  Código de confirmação
+                </label>
+                <Input
+                  id="reauth-nonce"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={nonce}
+                  onChange={(e) => setNonce(e.target.value)}
+                  placeholder="000000"
+                  maxLength={6}
+                />
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  Por segurança, enviamos um código para <strong>{email}</strong>. Informe-o
+                  para confirmar a troca de senha.
+                </p>
+              </div>
+            )}
+
             <div className="flex justify-end">
               <Button
                 type="submit"
                 variant="outline"
-                disabled={changingPassword || !newPassword || !confirmPassword}
+                disabled={
+                  changingPassword ||
+                  !newPassword ||
+                  !confirmPassword ||
+                  (nonceRequired && !nonce.trim())
+                }
               >
                 {changingPassword ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Alterar Senha
+                {nonceRequired ? 'Confirmar e alterar' : 'Alterar Senha'}
               </Button>
             </div>
           </form>
