@@ -6,8 +6,13 @@ import { buildChatSystemPrompt } from '@/lib/cfo/chat-context'
 import { CHAT_TOOLS } from '@/lib/cfo/chat-tools'
 import { getConversationMessages, getConversation } from '@/lib/cfo/chat-queries'
 import { createConversation, saveMessage } from '@/lib/cfo/chat-actions'
-import { getDb, cfoInsights, cfoMessages, cfoConversations, orgMembers } from '@floow/db'
-import { eq, and, gte, sql, asc } from 'drizzle-orm'
+import { getDb, cfoInsights } from '@floow/db'
+import { eq, and } from 'drizzle-orm'
+import { consumeRateLimit } from '@/lib/rate-limit/consume'
+
+/** Rajada: segura o laço. Teto horário: segura o uso sustentado. */
+const CHAT_BURST_LIMIT = Number(process.env.CFO_CHAT_BURST_LIMIT ?? 8)
+const CHAT_HOURLY_LIMIT = Number(process.env.CFO_CHAT_HOURLY_LIMIT ?? 30)
 
 export async function POST(request: Request) {
   const identity = await getVerifiedIdentity()
@@ -30,19 +35,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Chat not configured' }, { status: 503 })
   }
 
-  // Rate limiting: max 30 messages/hour per org
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+  // Trava de custo. A versão anterior contava cfo_messages e decidia — ler
+  // depois decidir não é atômico, então N requisições simultâneas liam a mesma
+  // contagem e passavam todas. O contador agora é um UPSERT atômico, e a janela
+  // curta cobre a rajada que o teto horário sozinho deixava passar.
   const db = getDb()
-  const [countRow] = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(cfoMessages)
-    .innerJoin(cfoConversations, eq(cfoMessages.conversationId, cfoConversations.id))
-    .where(and(
-      eq(cfoConversations.orgId, orgId),
-      gte(cfoMessages.createdAt, oneHourAgo),
-    ))
-  if (Number(countRow?.count ?? 0) >= 30) {
-    return NextResponse.json({ error: 'rate_limited', message: 'Limite de 30 mensagens/hora atingido.' }, { status: 429 })
+  for (const janela of [
+    { bucket: 'cfo.chat.burst', limit: CHAT_BURST_LIMIT, windowSeconds: 60 },
+    { bucket: 'cfo.chat.hour', limit: CHAT_HOURLY_LIMIT, windowSeconds: 3600 },
+  ]) {
+    const limite = await consumeRateLimit(db, { ...janela, subject: orgId })
+    if (!limite.allowed) {
+      return NextResponse.json(
+        {
+          error: 'rate_limited',
+          message: `Limite de uso do consultor atingido. Tente de novo em ${limite.retryAfterSeconds}s.`,
+        },
+        { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } },
+      )
+    }
   }
 
   const body = await request.json()

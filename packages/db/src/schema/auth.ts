@@ -7,6 +7,7 @@ import {
   jsonb,
   timestamp,
   unique,
+  primaryKey,
 } from 'drizzle-orm/pg-core'
 
 // Enums
@@ -81,3 +82,24 @@ export const auditLog = pgTable('audit_log', {
   metadata: jsonb('metadata').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
+
+/**
+ * Contador de janela fixa para travas de uso (ver lib/rate-limit/consume.ts).
+ *
+ * Infraestrutura, não dado do usuário: RLS ligado e sem policy nenhuma, então
+ * nada acessa pelo PostgREST.
+ */
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    /** Família do limite, ex.: 'cfo.chat'. */
+    bucket: text('bucket').notNull(),
+    /** Quem está sendo limitado — org_id ou user_id. */
+    subject: text('subject').notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    count: integer('count').notNull().default(0),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.bucket, table.subject, table.windowStart] }),
+  }),
+)

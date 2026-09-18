@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb, transactions } from '@floow/db'
-import { gte } from 'drizzle-orm'
+import { gte, sql } from 'drizzle-orm'
 import { runCfoEngine } from '@/lib/cfo/engine'
 import { isAuthorizedService } from '@/lib/auth/service-auth'
 
@@ -40,6 +40,12 @@ export async function POST(request: Request) {
       )
       totalInsights += results.reduce((s, n) => s + n, 0)
     }
+
+    // Janelas vencidas nao servem mais para decidir nada; sem isto a tabela so
+    // cresce. Duas casas de folga para nao tocar em janela ainda em uso.
+    await db.execute(
+      sql`delete from public.rate_limits where window_start < now() - interval '2 days'`,
+    )
 
     return NextResponse.json({ ok: true, orgs: activeOrgs.length, insights: totalInsights })
   } catch (err) {
