@@ -7,6 +7,14 @@ let updateCalled = false
 let dbShouldThrow = false
 let getOrgIdImpl: () => Promise<string> = () => Promise.resolve(ORG)
 
+// withUserDb roda a query sob o RLS do usuário e, para isso, lê cookies — que
+// não existem fora de uma requisição. O mock devolve o mesmo fake de getDb, de
+// modo que o que se testa aqui continua sendo a lógica da query.
+vi.mock('@/lib/db/rls', async () => {
+  const { getDb } = await import('@floow/db')
+  return { withUserDb: (fn: (db: unknown) => unknown) => fn(getDb()) }
+})
+
 vi.mock('@floow/db', async () => {
   const actual = await vi.importActual<typeof import('@floow/db')>('@floow/db')
   return {

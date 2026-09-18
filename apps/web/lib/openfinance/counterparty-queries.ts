@@ -1,6 +1,7 @@
 import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
-import { getDb, orgs, transactions, counterparties, accounts } from '@floow/db'
+import { orgs, transactions, counterparties, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
+import { withUserDb } from '@/lib/db/rls'
 
 /**
  * O portão bloqueia o app inteiro no lugar do dashboard, só até a org zerar a
@@ -17,27 +18,28 @@ import { getOrgId } from '@/lib/finance/queries'
  * Ver docs/superpowers/specs/2026-09-04-openfinance-counterparty-review-design.md
  */
 export async function getReviewGateStatus(orgId: string): Promise<{ blocked: boolean }> {
-  const db = getDb()
+  return withUserDb(async (db) => {
 
-  const [org] = await db
-    .select({ reviewGateClearedAt: orgs.reviewGateClearedAt })
-    .from(orgs)
-    .where(eq(orgs.id, orgId))
-    .limit(1)
+    const [org] = await db
+      .select({ reviewGateClearedAt: orgs.reviewGateClearedAt })
+      .from(orgs)
+      .where(eq(orgs.id, orgId))
+      .limit(1)
 
-  if (org?.reviewGateClearedAt) return { blocked: false }
+    if (org?.reviewGateClearedAt) return { blocked: false }
 
-  const [pending] = await db
-    .select({ one: sql`1` })
-    .from(transactions)
-    .where(and(
-      eq(transactions.orgId, orgId),
-      eq(transactions.reviewState, 'pending'),
-      isNotNull(transactions.counterpartyId),
-    ))
-    .limit(1)
+    const [pending] = await db
+      .select({ one: sql`1` })
+      .from(transactions)
+      .where(and(
+        eq(transactions.orgId, orgId),
+        eq(transactions.reviewState, 'pending'),
+        isNotNull(transactions.counterpartyId),
+      ))
+      .limit(1)
 
-  return { blocked: Boolean(pending) }
+    return { blocked: Boolean(pending) }
+  })
 }
 
 type ReviewGateSafeResult = { ok: true; orgId: string; blocked: boolean } | { ok: false }
@@ -91,42 +93,43 @@ export interface PendingGroup {
  * "R$ 92 mil" move o usuário, "12 lançamentos" não.
  */
 export async function getPendingCounterpartyGroups(orgId: string): Promise<PendingGroup[]> {
-  const db = getDb()
+  return withUserDb(async (db) => {
 
-  const rows = await db
-    .select({
-      counterpartyId: transactions.counterpartyId,
-      displayName: counterparties.displayName,
-      keyType: counterparties.keyType,
-      id: transactions.id,
-      date: transactions.date,
-      description: transactions.description,
-      amountCents: transactions.amountCents,
-    })
-    .from(transactions)
-    .innerJoin(counterparties, eq(counterparties.id, transactions.counterpartyId))
-    .where(and(eq(transactions.orgId, orgId), eq(transactions.reviewState, 'pending')))
-    .orderBy(transactions.date)
+    const rows = await db
+      .select({
+        counterpartyId: transactions.counterpartyId,
+        displayName: counterparties.displayName,
+        keyType: counterparties.keyType,
+        id: transactions.id,
+        date: transactions.date,
+        description: transactions.description,
+        amountCents: transactions.amountCents,
+      })
+      .from(transactions)
+      .innerJoin(counterparties, eq(counterparties.id, transactions.counterpartyId))
+      .where(and(eq(transactions.orgId, orgId), eq(transactions.reviewState, 'pending')))
+      .orderBy(transactions.date)
 
-  const groups = new Map<string, PendingGroup>()
-  for (const row of rows) {
-    if (!row.counterpartyId) continue
-    let group = groups.get(row.counterpartyId)
-    if (!group) {
-      group = { counterpartyId: row.counterpartyId, displayName: row.displayName, keyType: row.keyType, count: 0, totalCents: 0, items: [] }
-      groups.set(row.counterpartyId, group)
+    const groups = new Map<string, PendingGroup>()
+    for (const row of rows) {
+      if (!row.counterpartyId) continue
+      let group = groups.get(row.counterpartyId)
+      if (!group) {
+        group = { counterpartyId: row.counterpartyId, displayName: row.displayName, keyType: row.keyType, count: 0, totalCents: 0, items: [] }
+        groups.set(row.counterpartyId, group)
+      }
+      group.count++
+      group.totalCents += row.amountCents
+      group.items.push({
+        id: row.id,
+        date: row.date instanceof Date ? row.date.toISOString() : String(row.date),
+        description: row.description,
+        amountCents: row.amountCents,
+      })
     }
-    group.count++
-    group.totalCents += row.amountCents
-    group.items.push({
-      id: row.id,
-      date: row.date instanceof Date ? row.date.toISOString() : String(row.date),
-      description: row.description,
-      amountCents: row.amountCents,
-    })
-  }
 
-  return [...groups.values()].sort((a, b) => Math.abs(b.totalCents) - Math.abs(a.totalCents))
+    return [...groups.values()].sort((a, b) => Math.abs(b.totalCents) - Math.abs(a.totalCents))
+  })
 }
 
 export interface ConfirmedCounterparty {
@@ -141,29 +144,30 @@ export interface ConfirmedCounterparty {
 
 /** Contrapartes já confirmadas, para a aba editável da fila. */
 export async function getConfirmedCounterparties(orgId: string): Promise<ConfirmedCounterparty[]> {
-  const db = getDb()
-  const rows = await db
-    .select({
-      id: counterparties.id,
-      displayName: counterparties.displayName,
-      nature: counterparties.nature,
-      categoryId: counterparties.categoryId,
-      transferAccountId: counterparties.transferAccountId,
-      transferAccountName: accounts.name,
-      confirmedAt: counterparties.confirmedAt,
-    })
-    .from(counterparties)
-    .leftJoin(accounts, eq(accounts.id, counterparties.transferAccountId))
-    .where(and(eq(counterparties.orgId, orgId), sql`${counterparties.confirmedAt} is not null`))
-    .orderBy(desc(counterparties.confirmedAt))
+  return withUserDb(async (db) => {
+    const rows = await db
+      .select({
+        id: counterparties.id,
+        displayName: counterparties.displayName,
+        nature: counterparties.nature,
+        categoryId: counterparties.categoryId,
+        transferAccountId: counterparties.transferAccountId,
+        transferAccountName: accounts.name,
+        confirmedAt: counterparties.confirmedAt,
+      })
+      .from(counterparties)
+      .leftJoin(accounts, eq(accounts.id, counterparties.transferAccountId))
+      .where(and(eq(counterparties.orgId, orgId), sql`${counterparties.confirmedAt} is not null`))
+      .orderBy(desc(counterparties.confirmedAt))
 
-  return rows.map((row) => ({
-    id: row.id,
-    displayName: row.displayName,
-    nature: row.nature!,
-    categoryId: row.categoryId,
-    transferAccountId: row.transferAccountId,
-    transferAccountName: row.transferAccountName,
-    confirmedAt: row.confirmedAt!.toISOString(),
-  }))
+    return rows.map((row) => ({
+      id: row.id,
+      displayName: row.displayName,
+      nature: row.nature!,
+      categoryId: row.categoryId,
+      transferAccountId: row.transferAccountId,
+      transferAccountName: row.transferAccountName,
+      confirmedAt: row.confirmedAt!.toISOString(),
+    }))
+  })
 }

@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
-import { getDb, accounts, openfinanceConnections, openfinanceResources, transactions } from '@floow/db'
+import { accounts, openfinanceConnections, openfinanceResources, transactions } from '@floow/db'
+import { withUserDb } from '@/lib/db/rls'
 
 /**
  * Leituras da conexão Open Finance.
@@ -33,47 +34,48 @@ export interface BankConnectionSummary {
 }
 
 export async function getBankConnections(orgId: string): Promise<BankConnectionSummary[]> {
-  const db = getDb()
+  return withUserDb(async (db) => {
 
-  const connections = await db
-    .select()
-    .from(openfinanceConnections)
-    .where(and(eq(openfinanceConnections.orgId, orgId), isNull(openfinanceConnections.revokedAt)))
-    .orderBy(desc(openfinanceConnections.createdAt))
+    const connections = await db
+      .select()
+      .from(openfinanceConnections)
+      .where(and(eq(openfinanceConnections.orgId, orgId), isNull(openfinanceConnections.revokedAt)))
+      .orderBy(desc(openfinanceConnections.createdAt))
 
-  if (connections.length === 0) return []
+    if (connections.length === 0) return []
 
-  // Uma consulta para todos os recursos da org, em vez de uma por conexão: são
-  // poucas linhas e o join com accounts já traz o nome da conta vinculada.
-  const resources = await db
-    .select({
-      id: openfinanceResources.id,
-      connectionId: openfinanceResources.connectionId,
-      resourceType: openfinanceResources.resourceType,
-      status: openfinanceResources.status,
-      accountId: openfinanceResources.accountId,
-      accountName: accounts.name,
-      displayLabel: openfinanceResources.displayLabel,
-    })
-    .from(openfinanceResources)
-    .leftJoin(accounts, eq(accounts.id, openfinanceResources.accountId))
-    .where(eq(openfinanceResources.orgId, orgId))
+    // Uma consulta para todos os recursos da org, em vez de uma por conexão: são
+    // poucas linhas e o join com accounts já traz o nome da conta vinculada.
+    const resources = await db
+      .select({
+        id: openfinanceResources.id,
+        connectionId: openfinanceResources.connectionId,
+        resourceType: openfinanceResources.resourceType,
+        status: openfinanceResources.status,
+        accountId: openfinanceResources.accountId,
+        accountName: accounts.name,
+        displayLabel: openfinanceResources.displayLabel,
+      })
+      .from(openfinanceResources)
+      .leftJoin(accounts, eq(accounts.id, openfinanceResources.accountId))
+      .where(eq(openfinanceResources.orgId, orgId))
 
-  return connections.map((connection) => ({
-    id: connection.id,
-    institutionId: connection.institutionId,
-    institutionName: connection.institutionName,
-    cpfMasked: connection.cpfMasked,
-    status: connection.status,
-    executionStatus: connection.executionStatus,
-    flags: connection.flags ?? [],
-    products: connection.products ?? [],
-    lastSyncedAt: connection.lastSyncedAt,
-    createdAt: connection.createdAt,
-    resources: resources
-      .filter((r) => r.connectionId === connection.id)
-      .map(({ connectionId: _connectionId, ...rest }) => rest),
-  }))
+    return connections.map((connection) => ({
+      id: connection.id,
+      institutionId: connection.institutionId,
+      institutionName: connection.institutionName,
+      cpfMasked: connection.cpfMasked,
+      status: connection.status,
+      executionStatus: connection.executionStatus,
+      flags: connection.flags ?? [],
+      products: connection.products ?? [],
+      lastSyncedAt: connection.lastSyncedAt,
+      createdAt: connection.createdAt,
+      resources: resources
+        .filter((r) => r.connectionId === connection.id)
+        .map(({ connectionId: _connectionId, ...rest }) => rest),
+    }))
+  })
 }
 
 export async function getBankConnection(
@@ -94,20 +96,21 @@ export async function getBankConnection(
 export async function getLastTransactionDateByAccount(
   orgId: string,
 ): Promise<Record<string, string>> {
-  const db = getDb()
+  return withUserDb(async (db) => {
 
-  const rows = await db
-    .select({
-      accountId: transactions.accountId,
-      // A maior data que NÃO está no futuro: parcela e recorrência já lançadas
-      // para frente não dizem nada sobre até onde o histórico real vai.
-      last: sql<string>`max(${transactions.date}) FILTER (WHERE ${transactions.date} <= now()::date)`,
-    })
-    .from(transactions)
-    .where(eq(transactions.orgId, orgId))
-    .groupBy(transactions.accountId)
+    const rows = await db
+      .select({
+        accountId: transactions.accountId,
+        // A maior data que NÃO está no futuro: parcela e recorrência já lançadas
+        // para frente não dizem nada sobre até onde o histórico real vai.
+        last: sql<string>`max(${transactions.date}) FILTER (WHERE ${transactions.date} <= now()::date)`,
+      })
+      .from(transactions)
+      .where(eq(transactions.orgId, orgId))
+      .groupBy(transactions.accountId)
 
-  const mapa: Record<string, string> = {}
-  for (const row of rows) if (row.last) mapa[row.accountId] = row.last
-  return mapa
+    const mapa: Record<string, string> = {}
+    for (const row of rows) if (row.last) mapa[row.accountId] = row.last
+    return mapa
+  })
 }
