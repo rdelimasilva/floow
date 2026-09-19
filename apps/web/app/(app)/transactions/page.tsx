@@ -40,6 +40,9 @@ export default async function TransactionsPage({ searchParams }: Props) {
     categoryIds: params.categoryIds,
     minAmount: params.minAmount ? parseInt(params.minAmount, 10) : undefined,
     maxAmount: params.maxAmount ? parseInt(params.maxAmount, 10) : undefined,
+    // A lista abre em hoje. O futuro entra por este toggle — ver o porque em
+    // `buildTransactionConditions`.
+    includeFuture: params.future === '1',
   }
 
   const queryOpts = { limit: pageSize, offset: (page - 1) * pageSize, ...filters }
@@ -59,6 +62,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (filters.search) paginationParams.search = filters.search
   if (filters.startDate) paginationParams.startDate = filters.startDate
   if (filters.endDate) paginationParams.endDate = filters.endDate
+  if (filters.includeFuture) paginationParams.future = '1'
   if (filters.sortBy && filters.sortBy !== 'date') paginationParams.sortBy = filters.sortBy
   if (filters.sortDir && filters.sortDir !== 'desc') paginationParams.sortDir = filters.sortDir
   if (params.types) paginationParams.types = params.types
@@ -101,7 +105,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
         categories={categoryOptions}
       />
 
-      <TransactionFilters accounts={accountOptions} />
+      <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} />
 
       <div className="flex items-center justify-between gap-3">
         <PageSizeSelector current={pageSize} />

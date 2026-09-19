@@ -114,11 +114,17 @@ export const getAccountById = cache(async function getAccountById(orgId: string,
 })
 
 /** Filter options shared between getTransactions queries. */
-interface TransactionFilterOpts {
+export interface TransactionFilterOpts {
   accountId?: string; search?: string;
   startDate?: string; endDate?: string;
   types?: string; categoryIds?: string;
   minAmount?: number; maxAmount?: number;
+  /**
+   * Traz tambem a previsao com data futura. Desligado por padrao: sem isso a
+   * lista abre em 2031, por causa dos 60 meses que o template indefinido
+   * materializa de uma vez.
+   */
+  includeFuture?: boolean;
 }
 
 interface TransactionQueryOpts extends TransactionFilterOpts {
@@ -134,13 +140,30 @@ function hojeSP(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
 
-function buildTransactionConditions(orgId: string, opts?: TransactionFilterOpts) {
+export function buildTransactionConditions(orgId: string, opts?: TransactionFilterOpts) {
   const conditions = [eq(transactions.orgId, orgId)]
 
   if (opts?.accountId) conditions.push(eq(transactions.accountId, opts.accountId))
   if (opts?.search) conditions.push(ilike(transactions.description, `%${opts.search}%`))
   if (opts?.startDate) conditions.push(gte(transactions.date, new Date(opts.startDate)))
   if (opts?.endDate) conditions.push(lte(transactions.date, new Date(opts.endDate)))
+
+  // A lista abre em HOJE, nao em 2031.
+  //
+  // `generateInstallmentDates` materializa 60 meses de lancamentos de uma vez
+  // quando o template e indefinido (recurring-batch.ts:42). Com 5 templates
+  // assim, sao 263 linhas de previsao no futuro, ate 15/04/2031 — cinco
+  // paginas delas antes do primeiro lancamento real, e a coluna de saldo
+  // mostrando no topo a projecao de 2031.
+  //
+  // Cortado em hoje, o topo vira o saldo de hoje, que bate com a soma dos
+  // saldos das contas. O futuro continua a um clique, pelo filtro de periodo
+  // ou pelo toggle de previsoes.
+  //
+  // `endDate` explicito manda: quem pediu 2031 quer ver 2031.
+  if (!opts?.includeFuture && !opts?.endDate) {
+    conditions.push(lte(transactions.date, sql`${hojeSP()}::date`))
+  }
 
   if (opts?.types) {
     const typeList = opts.types.split(',').filter(Boolean) as ('income' | 'expense' | 'transfer')[]

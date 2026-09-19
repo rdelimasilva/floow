@@ -57,9 +57,11 @@ interface TransactionFiltersProps {
   accounts: AccountOption[]
   hideAccountFilter?: boolean
   baseUrl?: string
+  /** Estado atual do recorte: a lista abre em hoje e o futuro entra por opcao. */
+  includeFuture?: boolean
 }
 
-export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/transactions' }: TransactionFiltersProps) {
+export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/transactions', includeFuture = false }: TransactionFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
@@ -76,13 +78,18 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
 
   const navigate = useCallback((overrides: Record<string, string>) => {
     const params = new URLSearchParams()
-    const values = { search, accountId, startDate, endDate, ...overrides }
+    const values: Record<string, string> = {
+      search, accountId, startDate, endDate,
+      future: searchParams.get('future') ?? '',
+      ...overrides,
+    }
     if (values.search) params.set('search', values.search)
     if (values.accountId) params.set('accountId', values.accountId)
     if (values.startDate) params.set('startDate', values.startDate)
     if (values.endDate) params.set('endDate', values.endDate)
     const currentPageSize = searchParams.get('pageSize')
     if (currentPageSize) params.set('pageSize', currentPageSize)
+    if (values.future === '1') params.set('future', '1')
     params.set('page', '1')
     startTransition(() => {
       router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
@@ -124,6 +131,22 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
             {PERIOD_LABELS[key]}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => navigate({ future: includeFuture ? '' : '1' })}
+          title={
+            includeFuture
+              ? 'Ocultar o que ainda nao aconteceu'
+              : 'Incluir os lancamentos previstos com data futura'
+          }
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            includeFuture
+              ? 'bg-amber-100 border border-amber-300 text-amber-800'
+              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          previsões
+        </button>
         {hasFilters && (
           <button
             type="button"
