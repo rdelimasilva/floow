@@ -207,7 +207,7 @@ export function buildTransactionConditions(orgId: string, opts?: TransactionFilt
   return conditions
 }
 
-function buildTransactionOrder(opts?: Pick<TransactionQueryOpts, 'sortBy' | 'sortDir'>) {
+export function buildTransactionOrder(opts?: Pick<TransactionQueryOpts, 'sortBy' | 'sortDir'>) {
   const sortColumns: Record<string, any> = {
     date: transactions.date,
     description: transactions.description,
@@ -219,13 +219,29 @@ function buildTransactionOrder(opts?: Pick<TransactionQueryOpts, 'sortBy' | 'sor
   const sortCol = sortColumns[opts?.sortBy ?? 'date'] ?? transactions.date
   const sortFn = opts?.sortDir === 'asc' ? asc : desc
 
-  // `id` fecha a ordenação. Nenhuma das colunas ordenáveis é única — um extrato
-  // tem dezessete lançamentos no mesmo dia — e sem desempate o Postgres devolve
-  // a ordem que quiser dentro do empate. A mesma página trocava de ordem entre
-  // dois carregamentos, e a coluna de saldo trocava junto. É também o que torna
-  // a janela do saldo acumulado determinística: sem chave única ela não tem
-  // como somar "até esta linha".
-  return [desc(transactions.balanceApplied), sortFn(sortCol), asc(transactions.id)] as const
+  // A listagem é uma linha do tempo. Nada de separar realizado de previsto.
+  //
+  // Aqui vinha `desc(transactions.balanceApplied)` na frente de tudo (commit
+  // d8fcdd5, "sort applied transactions first"), de quando previsão não tinha
+  // selo e só se distinguia pela posição. O efeito colateral: com 892 linhas
+  // realizadas, as 263 previsões caíam na página 30 — ligar o filtro
+  // "previsões" não mudava nada do que se via. Hoje a previsão tem selo
+  // próprio e não precisa ser exilada.
+  //
+  // `id` fecha a ordenação. Nenhuma das colunas ordenáveis é única — um
+  // extrato tem dezessete lançamentos no mesmo dia — e sem desempate o
+  // Postgres devolve a ordem que quiser: a mesma página trocava de ordem
+  // entre dois carregamentos.
+  //
+  // Ele segue a DIREÇÃO do sort para a ordem exibida bater com a ordem em que
+  // o saldo acumula, que é (data, id) crescente. Com `id` sempre crescente
+  // numa lista de data decrescente, as linhas do mesmo dia correriam ao
+  // contrário do resto: o saldo de cada uma seria o da linha ABAIXO mais o
+  // valor dela, em vez de menos, e a coluna pareceria saltar a cada virada de
+  // dia. (Saldo corrido sobe e desce conforme o sinal de cada lançamento —
+  // isso é normal; o que não pode é a sequência exibida discordar da sequência
+  // acumulada.)
+  return [sortFn(sortCol), sortFn(transactions.id)] as const
 }
 
 /**
