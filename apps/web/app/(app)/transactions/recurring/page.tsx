@@ -1,4 +1,5 @@
 import { getOrgId, getRecurringTemplates, getUpcomingRecurring, getAccounts, getCategories } from '@/lib/finance/queries'
+import { contasParaLancamento } from '@/lib/finance/account-options'
 import { RecurringTemplateList } from '@/components/finance/recurring-template-list'
 import { PageHeader } from '@/components/ui/page-header'
 
@@ -11,7 +12,7 @@ export default async function RecurringPage() {
     getCategories(orgId),
   ])
 
-  const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }))
+  const accountOptions = contasParaLancamento(accounts)
   const categoryOptions = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }))
 
   return (

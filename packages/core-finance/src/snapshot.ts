@@ -1,3 +1,4 @@
+import { ehContaDeInvestimento } from './account-kind'
 /**
  * Patrimony snapshot computation — pure function only.
  *
@@ -47,6 +48,13 @@ export function computeSnapshot(
       // Credit card balance is typically negative (debt owed).
       // Liability = absolute value of the balance.
       liabilitiesCents += Math.abs(bal)
+    } else if (ehContaDeInvestimento(type)) {
+      // Fora do liquido: o investimento ja entra por `investmentValueCents`,
+      // logo abaixo, e somar os dois conta o mesmo dinheiro duas vezes. As
+      // posicoes sao a verdade porque sao marcadas a mercado; o saldo da
+      // conta de corretora e so o liquido das transferencias que passaram por
+      // ela, e nos dados reais chegou a ficar negativo em R$ 69.770,47.
+      // Continua no `breakdown` acima, que e informativo e por tipo.
     } else {
       liquidAssetsCents += bal
     }

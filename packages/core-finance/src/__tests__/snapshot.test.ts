@@ -97,3 +97,50 @@ describe('computeSnapshot', () => {
     expect(snapDate.getTime()).toBeLessThanOrEqual(after.getTime() + 1000)
   })
 })
+
+/**
+ * O mesmo investimento entrava duas vezes no patrimonio: uma pelo
+ * `balance_cents` da conta de corretora, somado em `liquidAssetsCents` junto
+ * com as contas correntes, e outra pelas posicoes que chegam em
+ * `investmentValueCents`.
+ *
+ * As posicoes sao a verdade — sao marcadas a mercado. O saldo da conta de
+ * corretora e so o resultado liquido das transferencias que passaram por ela,
+ * e nos dados reais chegou a ficar NEGATIVO (-R$ 69.770,47 numa conta),
+ * porque resgates sairam sem os aportes correspondentes terem entrado.
+ */
+describe('conta de investimento no patrimonio', () => {
+  it('saldo de corretora nao entra em liquidAssets — quem conta sao as posicoes', () => {
+    const accts: Account[] = [
+      makeAccount({ type: 'checking', balanceCents: 100_000 }),
+      makeAccount({ type: 'brokerage', balanceCents: 500_000 }),
+    ]
+
+    const result = computeSnapshot(accts, ORG_ID, 800_000)
+
+    expect(result.liquidAssetsCents).toBe(100_000 + 800_000)
+  })
+
+  it('saldo negativo de corretora tambem fica fora', () => {
+    const accts: Account[] = [
+      makeAccount({ type: 'checking', balanceCents: 100_000 }),
+      makeAccount({ type: 'brokerage', balanceCents: -6_977_047 }),
+    ]
+
+    const result = computeSnapshot(accts, ORG_ID, 800_000)
+
+    expect(result.liquidAssetsCents).toBe(100_000 + 800_000)
+  })
+
+  it('conta corrente e cartao seguem como antes', () => {
+    const accts: Account[] = [
+      makeAccount({ type: 'checking', balanceCents: 100_000 }),
+      makeAccount({ type: 'credit_card', balanceCents: -30_000 }),
+    ]
+
+    const result = computeSnapshot(accts, ORG_ID)
+
+    expect(result.liquidAssetsCents).toBe(100_000)
+    expect(result.liabilitiesCents).toBe(30_000)
+  })
+})

@@ -14,11 +14,18 @@
  * projeção, o defeito que tirou R$ 126.746,00 de estimativa do saldo real.
  */
 
+import { ehContaDeInvestimento } from '@floow/core-finance'
+
 /** Só os campos que decidem — qualquer linha da listagem serve. */
 interface LinhaProjetavel {
   balanceApplied?: boolean
   date: Date | string
   matchedTransactionId?: string | null
+  /**
+   * `accounts.type` da conta da linha. Ausente conta como transacional: dado
+   * que falta nunca deve fazer saldo sumir em silêncio.
+   */
+  accountType?: string | null
 }
 
 /** Meia-noite em São Paulo do dia da linha, para comparar dia com dia. */
@@ -28,6 +35,12 @@ function diaDe(valor: Date | string): number {
 }
 
 export function contaNoSaldoProjetado(linha: LinhaProjetavel, hoje: Date): boolean {
+  // Conta de investimento não entra nesta coluna. A perna do aporte continua
+  // na lista, porque registra o dinheiro saindo da corrente e entrando na
+  // corretora — mas somar as duas anula o aporte, e ele passa a parecer que
+  // não custou nada.
+  if (ehContaDeInvestimento(linha.accountType)) return false
+
   // Realizado: já aconteceu, já está em `accounts.balance_cents`.
   if (linha.balanceApplied !== false) return true
 

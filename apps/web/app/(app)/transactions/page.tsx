@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { getOrgId, getTransactionsWithCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
+import { contasParaLancamento } from '@/lib/finance/account-options'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
@@ -66,7 +67,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (params.maxAmount) paginationParams.maxAmount = params.maxAmount
   if (pageSize !== DEFAULT_PAGE_SIZE) paginationParams.pageSize = String(pageSize)
 
-  const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }))
+  const accountOptions = contasParaLancamento(accounts)
   const categoryOrderMap = new Map(categoryOrder.map((id, i) => [id, i]))
   const categoryOptions = categories
     .map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId }))

@@ -1,5 +1,6 @@
 // Core finance engine — Phase 2
 export * from './balance'
+export * from './account-kind'
 export * from './types'
 export * from './import/ofx'
 export * from './import/csv'

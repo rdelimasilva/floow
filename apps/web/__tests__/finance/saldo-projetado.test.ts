@@ -46,3 +46,36 @@ describe('o que entra no saldo projetado', () => {
     ).toBe(false)
   })
 })
+
+/**
+ * A perna de um aporte em conta de corretora fica na lista — ela registra que
+ * o dinheiro saiu do Itau e entrou na XP — mas nao soma na coluna de saldo.
+ *
+ * Somando as duas pernas, o aporte se anula: sai -5.000 do Itau, entra +5.000
+ * na corretora, e o saldo corrido nao se mexe. O dinheiro parece nao ter
+ * custado nada. A coluna e de conta corrente e cartao; o lado do investimento
+ * vive no modulo de investimentos.
+ */
+describe('conta de investimento na coluna de saldo', () => {
+  const real = (extra: Record<string, unknown> = {}) => ({
+    balanceApplied: true,
+    date: '2026-09-01',
+    ...extra,
+  })
+
+  it('lançamento em conta corrente conta', () => {
+    expect(contaNoSaldoProjetado(real({ accountType: 'checking' }), HOJE)).toBe(true)
+  })
+
+  it('lançamento em cartão conta', () => {
+    expect(contaNoSaldoProjetado(real({ accountType: 'credit_card' }), HOJE)).toBe(true)
+  })
+
+  it('perna de aporte em corretora não conta', () => {
+    expect(contaNoSaldoProjetado(real({ accountType: 'brokerage' }), HOJE)).toBe(false)
+  })
+
+  it('sem o tipo da conta, conta — não some saldo por dado ausente', () => {
+    expect(contaNoSaldoProjetado(real(), HOJE)).toBe(true)
+  })
+})

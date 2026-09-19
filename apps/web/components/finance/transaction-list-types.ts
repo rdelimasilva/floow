@@ -15,6 +15,11 @@ export interface TransactionRowData {
   isIgnored?: boolean
   recurringTemplateId?: string | null
   balanceApplied?: boolean
+  /**
+   * `accounts.type` da conta deste lancamento. A coluna de saldo decide por
+   * linha e precisa dele: lancamento de conta de investimento nao soma.
+   */
+  accountType?: string | null
   installmentNumber?: number | null
   installmentTotal?: number | null
   /**

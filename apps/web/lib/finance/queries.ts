@@ -2,6 +2,8 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules, recurringTemplates, hiddenSystemCategories, fixedAssets } from '@floow/db'
 import { eq, and, desc, asc, isNull, or, gte, count, ilike, lte, inArray, notExists, sql } from 'drizzle-orm'
+import { sqlValorNoSaldo } from './balance-sql'
+import { contaNoSaldoProjetado } from './projected-balance'
 import {
   accountsTag,
   categoriesTag,
@@ -127,6 +129,11 @@ interface TransactionQueryOpts extends TransactionFilterOpts {
 }
 
 /** Builds WHERE conditions for transaction queries — single source of truth. */
+/** Hoje em Sao Paulo, e nao no fuso do servidor do banco. */
+function hojeSP(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
 function buildTransactionConditions(orgId: string, opts?: TransactionFilterOpts) {
   const conditions = [eq(transactions.orgId, orgId)]
 
@@ -214,6 +221,10 @@ export async function getTransactionsWithCount(
       categoryName: categories.name,
       categoryColor: categories.color,
       categoryIcon: categories.icon,
+      // O tipo da conta viaja na linha porque a coluna de saldo decide por
+      // linha no cliente (`contaNoSaldoProjetado`) e precisa saber se aquele
+      // lancamento e de conta de investimento.
+      accountType: accounts.type,
       // Subquery e nao join: dois bens podem apontar o mesmo lancamento, e a
       // linha duplicada corromperia o `count(*) over ()` logo abaixo e a soma
       // acumulada. O filtro por org fecha o caminho de um vinculo antigo
@@ -229,7 +240,7 @@ export async function getTransactionsWithCount(
            and ${fixedAssets.orgId} = ${orgId}
          limit 1)`,
       totalCount: sql<number>`count(*) over ()`,
-      totalSum: sql<number>`coalesce(sum(case when ${transactions.balanceApplied} then ${transactions.amountCents} else 0 end) over (), 0)`,
+      totalSum: sql<number>`coalesce(sum(${sqlValorNoSaldo(hojeSP())}) over (), 0)`,
       // `rows between unbounded preceding and current row` é obrigatório. Sem
       // cláusula de frame o Postgres assume `range`, que soma os PEERS junto:
       // toda linha empatada na chave de ordenação recebe o acumulado de todas
@@ -237,10 +248,13 @@ export async function getTransactionsWithCount(
       // `sumBeforePage` sai daqui, o saldo inicial saía errado em toda página
       // cujo primeiro lançamento empatava — medido no extrato de uma org, 495
       // das 808 linhas divergiam, e o topo da página 4 errava R$ 3.725,58.
-      runningSum: sql<number>`coalesce(sum(case when ${transactions.balanceApplied} then ${transactions.amountCents} else 0 end) over (order by ${sql.join(orderBySql, sql`, `)} rows between unbounded preceding and current row), 0)`,
+      runningSum: sql<number>`coalesce(sum(${sqlValorNoSaldo(hojeSP())}) over (order by ${sql.join(orderBySql, sql`, `)} rows between unbounded preceding and current row), 0)`,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    // Many-to-one: nao duplica linha, entao o `count(*) over ()` e as somas
+    // de janela continuam validos.
+    .leftJoin(accounts, eq(transactions.accountId, accounts.id))
     .where(and(...conditions))
     .orderBy(...orderBy)
     .limit(limit)
@@ -248,8 +262,16 @@ export async function getTransactionsWithCount(
 
   const totalCount = rows[0]?.totalCount ?? 0
   const firstRow = rows[0]
+  // A subtracao tem que usar a MESMA regra das somas de janela, senao o saldo
+  // do topo da pagina sai deslocado pelo valor da primeira linha.
   const sumBeforePage = firstRow
-    ? Number(firstRow.runningSum) - (firstRow.balanceApplied ? firstRow.amountCents : 0)
+    ? Number(firstRow.runningSum) -
+      (contaNoSaldoProjetado(
+        { ...firstRow, accountType: firstRow.accountType },
+        new Date(),
+      )
+        ? firstRow.amountCents
+        : 0)
     : 0
   const startingBalance = firstRow
     ? sortDir === 'desc'

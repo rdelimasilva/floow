@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ImportForm } from '@/components/finance/import-form'
 import { getOrgId, getAccounts, getCategories } from '@/lib/finance/queries'
+import { semContasDeInvestimento } from '@/lib/finance/account-options'
 
 /**
  * Import page — allows users to upload OFX or CSV bank statements.
@@ -35,7 +36,7 @@ export default async function ImportPage() {
       </div>
 
       <ImportForm
-        accounts={accounts}
+        accounts={semContasDeInvestimento(accounts)}
         categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId }))}
       />
     </div>
