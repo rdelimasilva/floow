@@ -1,6 +1,24 @@
 import { sql } from 'drizzle-orm'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import { accounts, transactions } from '@floow/db'
 import { TIPOS_DE_INVESTIMENTO } from '@floow/core-finance'
+
+/**
+ * As tabelas que a regra le. Parametrizado porque o saldo acumulado e uma
+ * subquery correlacionada sobre a MESMA tabela da consulta externa, e sem
+ * alias proprio o `sum` interno leria as colunas da linha de fora.
+ */
+type Refs = {
+  tx: {
+    balanceApplied: AnyPgColumn
+    matchedTransactionId: AnyPgColumn
+    date: AnyPgColumn
+    amountCents: AnyPgColumn
+  }
+  acc: { type: AnyPgColumn }
+}
+
+const PADRAO: Refs = { tx: transactions, acc: accounts }
 
 /**
  * "Esta linha soma no saldo da listagem?", em SQL.
@@ -29,20 +47,20 @@ import { TIPOS_DE_INVESTIMENTO } from '@floow/core-finance'
  * `hoje` entra como parametro, e nao `CURRENT_DATE`, para o fuso ser o de Sao
  * Paulo e nao o do servidor do banco.
  */
-export function sqlContaNoSaldo(hoje: string) {
+export function sqlContaNoSaldo(hoje: string, refs: Refs = PADRAO) {
   return sql`(
-    ${accounts.type} NOT IN ${TIPOS_DE_INVESTIMENTO}
+    ${refs.acc.type} NOT IN ${TIPOS_DE_INVESTIMENTO}
     AND (
-      ${transactions.balanceApplied}
+      ${refs.tx.balanceApplied}
       OR (
-        ${transactions.matchedTransactionId} IS NULL
-        AND ${transactions.date} > ${hoje}::date
+        ${refs.tx.matchedTransactionId} IS NULL
+        AND ${refs.tx.date} > ${hoje}::date
       )
     )
   )`
 }
 
 /** O valor da linha quando ela soma, zero quando nao. */
-export function sqlValorNoSaldo(hoje: string) {
-  return sql`case when ${sqlContaNoSaldo(hoje)} then ${transactions.amountCents} else 0 end`
+export function sqlValorNoSaldo(hoje: string, refs: Refs = PADRAO) {
+  return sql`case when ${sqlContaNoSaldo(hoje, refs)} then ${refs.tx.amountCents} else 0 end`
 }

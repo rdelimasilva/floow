@@ -2,8 +2,8 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { getDb, accounts, transactions, categories, patrimonySnapshots, categoryRules, recurringTemplates, hiddenSystemCategories, fixedAssets } from '@floow/db'
 import { eq, and, desc, asc, isNull, or, gte, count, ilike, lte, inArray, notExists, sql } from 'drizzle-orm'
+import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { sqlValorNoSaldo } from './balance-sql'
-import { contaNoSaldoProjetado } from './projected-balance'
 import {
   accountsTag,
   categoriesTag,
@@ -134,6 +134,30 @@ interface TransactionQueryOpts extends TransactionFilterOpts {
   sortDir?: string
 }
 
+/**
+ * O escopo do saldo acumulado — de quem e o saldo que a coluna mostra.
+ *
+ * So organizacao e conta. Periodo, categoria, tipo, busca e valor ficam de
+ * fora de proposito: eles escolhem o que APARECE na tela, e filtro nao pode
+ * mudar saldo.
+ *
+ * O defeito que isto corrige: o saldo era uma funcao de janela sobre o
+ * conjunto ja filtrado, ou seja "soma das linhas que estou mostrando" em vez
+ * de "saldo naquela data". Filtrando "este mes" numa conta, o topo mostrava
+ * R$ 323,00 onde o saldo real era R$ 140.801,00. O filtro de conta acertava
+ * por acidente, porque somar todos os lancamentos de uma conta da o saldo
+ * dela.
+ */
+export function buildBalanceScopeConditions(
+  orgId: string,
+  opts?: TransactionFilterOpts,
+  tx: { orgId: AnyPgColumn; accountId: AnyPgColumn } = transactions,
+) {
+  const conditions = [eq(tx.orgId, orgId)]
+  if (opts?.accountId) conditions.push(eq(tx.accountId, opts.accountId))
+  return conditions
+}
+
 /** Builds WHERE conditions for transaction queries — single source of truth. */
 /** Hoje em Sao Paulo, e nao no fuso do servidor do banco. */
 function hojeSP(): string {
@@ -220,7 +244,11 @@ export async function getTransactionsWithCount(
 
   const conditions = buildTransactionConditions(orgId, opts)
   const orderBy = buildTransactionOrder(opts)
-  const orderBySql = [...orderBy]
+  const hoje = hojeSP()
+  // Alias proprio: a subquery do saldo le a MESMA tabela da consulta externa,
+  // e sem ele o `sum` interno leria as colunas da linha de fora.
+  const txSaldo = alias(transactions, 'tx_saldo')
+  const contaSaldo = alias(accounts, 'conta_saldo')
 
   const rows = await db
     .select({
@@ -263,15 +291,29 @@ export async function getTransactionsWithCount(
            and ${fixedAssets.orgId} = ${orgId}
          limit 1)`,
       totalCount: sql<number>`count(*) over ()`,
-      totalSum: sql<number>`coalesce(sum(${sqlValorNoSaldo(hojeSP())}) over (), 0)`,
-      // `rows between unbounded preceding and current row` é obrigatório. Sem
-      // cláusula de frame o Postgres assume `range`, que soma os PEERS junto:
-      // toda linha empatada na chave de ordenação recebe o acumulado de todas
-      // as outras do empate, inclusive as que vêm depois dela. Como
-      // `sumBeforePage` sai daqui, o saldo inicial saía errado em toda página
-      // cujo primeiro lançamento empatava — medido no extrato de uma org, 495
-      // das 808 linhas divergiam, e o topo da página 4 errava R$ 3.725,58.
-      runningSum: sql<number>`coalesce(sum(${sqlValorNoSaldo(hojeSP())}) over (order by ${sql.join(orderBySql, sql`, `)} rows between unbounded preceding and current row), 0)`,
+      /**
+       * O saldo APOS esta linha, em ordem cronologica.
+       *
+       * Calculado sobre o escopo da conta (`buildBalanceScopeConditions`) e
+       * nao sobre o conjunto filtrado. Era esse o defeito: as somas de janela
+       * viam so as linhas exibidas, entao "este mes" numa conta mostrava
+       * R$ 323,00 onde o saldo era R$ 140.801,00. Filtro escolhe o que
+       * aparece; nao muda saldo.
+       *
+       * Subquery correlacionada e nao janela porque a janela so enxerga o
+       * resultado da propria consulta — e e justamente o que nao serve aqui.
+       * O desempate por `id` da uma ordem total no tempo: sem ele, linhas do
+       * mesmo dia receberiam todas o acumulado do dia inteiro.
+       *
+       * Medido contra a consulta anterior: 129ms de trabalho contra 127ms, a
+       * mesma coisa depois de descontar a latencia.
+       */
+      balanceAfter: sql<number>`(
+        select coalesce(sum(${sqlValorNoSaldo(hoje, { tx: txSaldo, acc: contaSaldo })}), 0)
+          from ${transactions} ${txSaldo}
+          left join ${accounts} ${contaSaldo} on ${contaSaldo.id} = ${txSaldo.accountId}
+         where ${and(...buildBalanceScopeConditions(orgId, opts, txSaldo))}
+           and (${txSaldo.date}, ${txSaldo.id}) <= (${transactions.date}, ${transactions.id}))`,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -284,28 +326,17 @@ export async function getTransactionsWithCount(
     .offset(offset)
 
   const totalCount = rows[0]?.totalCount ?? 0
-  const firstRow = rows[0]
-  // A subtracao tem que usar a MESMA regra das somas de janela, senao o saldo
-  // do topo da pagina sai deslocado pelo valor da primeira linha.
-  const sumBeforePage = firstRow
-    ? Number(firstRow.runningSum) -
-      (contaNoSaldoProjetado(
-        { ...firstRow, accountType: firstRow.accountType },
-        new Date(),
-      )
-        ? firstRow.amountCents
-        : 0)
-    : 0
-  const startingBalance = firstRow
-    ? sortDir === 'desc'
-      ? Number(firstRow.totalSum) - sumBeforePage
-      : sumBeforePage
-    : sortDir === 'desc' ? 0 : 0
 
+  // Sem `startingBalance`: cada linha ja vem com o seu saldo, e o cliente nao
+  // acumula mais nada. O acumulo no cliente so funcionava enquanto a pagina
+  // continha TODAS as linhas relevantes — com qualquer filtro ativo ele somava
+  // por cima de uma base que nao correspondia a nenhum saldo real.
   return {
-    transactions: rows.map(({ totalCount: _totalCount, totalSum: _totalSum, runningSum: _runningSum, ...row }) => row),
+    transactions: rows.map(({ totalCount: _totalCount, balanceAfter, ...row }) => ({
+      ...row,
+      runningBalance: Number(balanceAfter),
+    })),
     totalCount,
-    startingBalance,
   }
 }
 

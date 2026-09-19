@@ -20,6 +20,12 @@ export interface TransactionRowData {
    * linha e precisa dele: lancamento de conta de investimento nao soma.
    */
   accountType?: string | null
+  /**
+   * Saldo APOS este lancamento, em ordem cronologica, calculado no servidor
+   * sobre todos os lancamentos da conta — nao sobre os desta pagina. Ver
+   * `buildBalanceScopeConditions`.
+   */
+  runningBalance?: number
   installmentNumber?: number | null
   installmentTotal?: number | null
   /**

@@ -12,10 +12,9 @@ interface Props {
   categories: Parameters<typeof TransactionList>[0]['categories']
   sortBy: string
   sortDir: 'asc' | 'desc'
-  startingBalance: number
 }
 
-export function TransactionListWrapper({ transactions, accounts, categories, sortBy, sortDir, startingBalance }: Props) {
+export function TransactionListWrapper({ transactions, accounts, categories, sortBy, sortDir }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inlineForm = useContext(InlineFormContext)
@@ -114,7 +113,6 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
       categories={categories}
       sortBy={sortBy}
       sortDir={sortDir}
-      startingBalance={startingBalance}
       activeTypes={activeTypes}
       activeCategoryIds={activeCategoryIds}
       activeMinAmount={activeMinAmount}

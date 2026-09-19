@@ -47,7 +47,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const queryOpts = { limit: pageSize, offset: (page - 1) * pageSize, ...filters }
 
-  const [{ transactions, totalCount, startingBalance }, accounts, categories, categoryOrder] =
+  const [{ transactions, totalCount }, accounts, categories, categoryOrder] =
     await Promise.all([
       getTransactionsWithCount(orgId, queryOpts),
       getAccounts(orgId),
@@ -126,7 +126,6 @@ export default async function TransactionsPage({ searchParams }: Props) {
         categories={categoryOptions}
         sortBy={filters.sortBy}
         sortDir={filters.sortDir as 'asc' | 'desc'}
-        startingBalance={startingBalance}
       />
 
       <div className="flex items-center justify-between gap-3">

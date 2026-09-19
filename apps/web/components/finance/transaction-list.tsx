@@ -23,7 +23,6 @@ interface TransactionListProps {
   categories: CategoryOption[]
   sortBy?: string
   sortDir?: 'asc' | 'desc'
-  startingBalance?: number
   activeTypes?: string[]
   activeCategoryIds?: string[]
   activeMinAmount?: string
@@ -37,7 +36,6 @@ interface TransactionListProps {
 export function TransactionList({
   transactions, accounts, categories,
   sortBy = 'date', sortDir = 'desc',
-  startingBalance = 0,
   activeTypes = [], activeCategoryIds = [],
   activeMinAmount = '', activeMaxAmount = '',
   onSort = () => {}, onFilterTypes = () => {}, onFilterCategories = () => {}, onFilterAmount = () => {},
@@ -71,27 +69,18 @@ export function TransactionList({
     else setSelected(new Set(transactions.map((t) => t.id)))
   }
 
-  // Saldo corrido — a projeção. Diferente de `accounts.balance_cents`, que é
-  // só o que aconteceu: aqui a previsão FUTURA soma, porque é o que responde
-  // "como fecho o mês". A vencida sai da conta até o extrato trazer o par.
-  // Ver `lib/finance/projected-balance.ts`.
-  const runningBalances = useMemo(() => {
-    const hoje = new Date()
-    const balances: number[] = []
-    let balance = startingBalance
-    if (sortDir === 'desc') {
-      for (let i = 0; i < transactions.length; i++) {
-        balances.push(balance)
-        if (contaNoSaldoProjetado(transactions[i], hoje)) balance -= transactions[i].amountCents
-      }
-    } else {
-      for (let i = 0; i < transactions.length; i++) {
-        if (contaNoSaldoProjetado(transactions[i], hoje)) balance += transactions[i].amountCents
-        balances.push(balance)
-      }
-    }
-    return balances
-  }, [startingBalance, transactions, sortDir])
+  // O saldo de cada linha vem pronto do servidor (`runningBalance`), calculado
+  // sobre TODOS os lançamentos da conta e não sobre os desta página.
+  //
+  // Antes era acumulado aqui, a partir de um `startingBalance`. Só funcionava
+  // enquanto a página continha todas as linhas relevantes: com "este mês" numa
+  // conta, o topo mostrava R$ 323,00 onde o saldo era R$ 140.801,00, porque a
+  // base era a soma das linhas exibidas. Filtro escolhe o que aparece; não
+  // muda saldo.
+  const runningBalances = useMemo(
+    () => transactions.map((t) => t.runningBalance ?? 0),
+    [transactions],
+  )
 
   // Stable action callbacks for memoized rows
   const handleEdit = useCallback((tx: TransactionRowData) => {
