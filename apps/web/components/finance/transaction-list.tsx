@@ -15,6 +15,7 @@ import { TransactionMobileCard, TransactionDesktopRow } from './transaction-disp
 import { TransactionEditRow } from './transaction-edit-row'
 import type { TransactionRowData, AccountOption, CategoryOption } from './transaction-list-types'
 import { toCategoryOptions } from '@/lib/finance/category-options'
+import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
 
 interface TransactionListProps {
   transactions: TransactionRowData[]
@@ -70,19 +71,22 @@ export function TransactionList({
     else setSelected(new Set(transactions.map((t) => t.id)))
   }
 
-  // Running balance — lançamentos recorrentes futuros ainda não conciliados
-  // (balanceApplied === false) não devem debitar/creditar o saldo exibido.
+  // Saldo corrido — a projeção. Diferente de `accounts.balance_cents`, que é
+  // só o que aconteceu: aqui a previsão FUTURA soma, porque é o que responde
+  // "como fecho o mês". A vencida sai da conta até o extrato trazer o par.
+  // Ver `lib/finance/projected-balance.ts`.
   const runningBalances = useMemo(() => {
+    const hoje = new Date()
     const balances: number[] = []
     let balance = startingBalance
     if (sortDir === 'desc') {
       for (let i = 0; i < transactions.length; i++) {
         balances.push(balance)
-        if (transactions[i].balanceApplied !== false) balance -= transactions[i].amountCents
+        if (contaNoSaldoProjetado(transactions[i], hoje)) balance -= transactions[i].amountCents
       }
     } else {
       for (let i = 0; i < transactions.length; i++) {
-        if (transactions[i].balanceApplied !== false) balance += transactions[i].amountCents
+        if (contaNoSaldoProjetado(transactions[i], hoje)) balance += transactions[i].amountCents
         balances.push(balance)
       }
     }

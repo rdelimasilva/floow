@@ -37,6 +37,12 @@ const PENDENTES = [
   'lib/cfo/chat-context.ts',
   'lib/cfo/queries.ts',
   'lib/finance/actions.ts',
+  // Saiu de `lib/finance/actions.ts` (tambem pendente) quando
+  // `reconcileRecurringBalances` virou `applyDueBankTransactions`: e o mesmo
+  // codigo em outro arquivo, nao superficie nova. Escrita, entao so converte
+  // depois que as politicas de escrita de `transactions` e `accounts`
+  // estiverem no ar — hoje a migracao cobre leitura.
+  'lib/finance/apply-due.ts',
   'lib/finance/budget-actions.ts',
   'lib/finance/budget-daily-queries.ts',
   'lib/finance/budget-queries.ts',

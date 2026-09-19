@@ -84,18 +84,20 @@ async function generateForTemplate(templateId: string, orgId: string): Promise<n
           description: template.description,
           date: dueDate,
           recurringTemplateId: template.id,
+          // Previsao NUNCA sensibiliza `accounts.balance_cents`. Antes esta
+          // linha omitia o campo, pegava o default `true` da coluna e somava
+          // o valor no saldo logo abaixo — 41 linhas e R$ 126.746,00 de
+          // estimativa dentro do saldo de uma conta cujo saldo real era
+          // R$ 190,84, com 21 delas contando dobrado junto com o realizado
+          // que o banco trouxe. Quem soma no saldo e o lancamento do banco;
+          // esta linha espera ser casada com ele.
+          balanceApplied: false,
           isAutoCategorized,
         })
         .onConflictDoNothing()
         .returning({ id: transactions.id })
 
-      if (result.length > 0) {
-        await tx
-          .update(accounts)
-          .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
-          .where(eq(accounts.id, template.accountId))
-        generated++
-      }
+      if (result.length > 0) generated++
     }
 
     const lastDate = overdueDates[overdueDates.length - 1]
@@ -180,8 +182,6 @@ export async function createRecurringTemplate(formData: FormData) {
   })
   if (dates.length === 0) throw new Error('Nenhuma parcela gerada')
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
   const lastDate = dates[dates.length - 1]
   const newNextDueDate = advanceByFrequency(lastDate, frequency as any)
   const signedAmount = type === 'income' ? amountCents : -amountCents
@@ -207,11 +207,12 @@ export async function createRecurringTemplate(formData: FormData) {
       })
       .returning()
 
-    // Insert all transactions for the generated dates
-    let balanceDelta = 0
+    // Insert all transactions for the generated dates.
+    // Toda parcela nasce como previsao, inclusive a de data passada. Antes a
+    // vencida nascia `balanceApplied: true` e somava no saldo — estimativa de
+    // template dentro de `accounts.balance_cents`. Quem soma no saldo e o
+    // lancamento que o banco trouxe, depois de casar com a previsao.
     const rows = dates.map((installDate, i) => {
-      const isApplied = installDate <= today
-      if (isApplied) balanceDelta += signedAmount
       return {
         orgId,
         accountId,
@@ -221,7 +222,7 @@ export async function createRecurringTemplate(formData: FormData) {
         description: total > 1 ? `${description.trim()} (${i + 1}/${total})` : description.trim(),
         date: installDate,
         recurringTemplateId: t.id,
-        balanceApplied: isApplied,
+        balanceApplied: false,
         installmentNumber: total > 1 ? i + 1 : null,
         installmentTotal: total > 1 ? total : null,
         isAutoCategorized,
@@ -229,13 +230,6 @@ export async function createRecurringTemplate(formData: FormData) {
     })
 
     await tx.insert(transactions).values(rows)
-
-    if (balanceDelta !== 0) {
-      await tx
-        .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${balanceDelta}` })
-        .where(eq(accounts.id, accountId))
-    }
 
     return t
   })

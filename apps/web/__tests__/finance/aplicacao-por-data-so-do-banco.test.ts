@@ -1,16 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getTableName } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 
 /**
- * O previsto que já foi casado com o realizado nunca pode entrar no saldo.
+ * Aplicar saldo quando a data chega é legítimo — para o lançamento do BANCO.
  *
- * Sem isto o casamento não resolve nada: `reconcileRecurringBalances` continua
- * aplicando o valor previsto quando a data chega, e o realizado que o sync
- * importou soma por cima — a dupla contagem que a feature existe para matar.
+ * Lançamento agendado ou de data futura vindo do Open Finance entra com
+ * `balance_applied = false` (`sync.ts:353`) e o caminho de update do sync não
+ * mexe nesse campo de propósito. Alguém precisa aplicá-lo quando o dia
+ * chega, senão ele nunca entra no saldo.
  *
- * O teste prende o SQL gerado, porque o filtro roda no Postgres e o valor de
- * retorno da função não revela quais linhas ela considerou.
+ * O que NÃO pode ser aplicado por data é a previsão de template. Era isso que
+ * `reconcileRecurringBalances` fazia sem distinguir: punha a estimativa no
+ * saldo e, de quebra, tirava a linha da fila de casamento — por isso a
+ * conciliação só funcionava com extrato adiantado.
+ *
+ * O teste prende o SQL porque o filtro roda no Postgres: o valor de retorno
+ * da função não revela quais linhas ela considerou.
  */
 
 const selectQueue: unknown[][] = []
@@ -60,31 +65,41 @@ vi.mock('@/lib/finance/revalidate', () => ({
   revalidateAccountData: vi.fn(),
   revalidateSnapshotData: vi.fn(),
   revalidateCategoryData: vi.fn(),
+  revalidateInvestmentData: vi.fn(),
 }))
 
-const { reconcileRecurringBalances } = await import('@/lib/finance/actions')
+const { applyDueBankTransactions } = await import('@/lib/finance/apply-due')
 
 beforeEach(() => {
   selectQueue.length = 0
   sqlCapturado.length = 0
 })
 
-describe('reconcileRecurringBalances', () => {
-  it('ignora previsto que já tem vínculo com o realizado', async () => {
-    // Curto-circuito: sem pendente a funcao retorna antes de tudo, e o SQL do
-    // curto-circuito e justamente o que precisa ter o filtro.
+describe('applyDueBankTransactions', () => {
+  it('só considera lançamento que veio do banco', async () => {
+    // Curto-circuito: sem pendente a funcao retorna cedo, e o SQL do
+    // curto-circuito e justamente onde o filtro precisa estar.
     selectQueue.push([])
 
-    await reconcileRecurringBalances()
+    await applyDueBankTransactions()
 
     const query = sqlCapturado.join(' | ').toLowerCase()
-    expect(query).toContain('"matched_transaction_id" is null')
+    expect(query).toContain('"external_id" is not null')
   })
 
-  it('mantém os filtros que já existiam — balance_applied e a data', async () => {
+  it('nunca aplica previsão de template por data', async () => {
     selectQueue.push([])
 
-    await reconcileRecurringBalances()
+    await applyDueBankTransactions()
+
+    const query = sqlCapturado.join(' | ').toLowerCase()
+    expect(query).toContain('"recurring_template_id" is null')
+  })
+
+  it('mantém os filtros de pendência e de data', async () => {
+    selectQueue.push([])
+
+    await applyDueBankTransactions()
 
     const query = sqlCapturado.join(' | ').toLowerCase()
     expect(query).toContain('"balance_applied" =')

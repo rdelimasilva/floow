@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import React from 'react'
 
@@ -57,6 +57,19 @@ function renderRow(extra: Record<string, unknown> = {}) {
   )
 }
 
+/**
+ * Data fixa para os selos nao dependerem do relogio: o estado "previsto" vs.
+ * "nao conciliado" e decidido comparando a data da linha com hoje, e um teste
+ * que envelhece muda de resultado sozinho.
+ */
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-09-19T12:00:00-03:00'))
+})
+afterAll(() => {
+  vi.useRealTimers()
+})
+
 describe('selo de previsto', () => {
   it('lançamento previsto e sem vínculo mostra "previsto"', () => {
     renderRow({ balanceApplied: false })
@@ -76,5 +89,72 @@ describe('selo de previsto', () => {
 
     expect(screen.queryByText('previsto')).toBeNull()
     expect(screen.queryByText('conciliado')).toBeNull()
+  })
+})
+
+/**
+ * O terceiro estado, que faltava e e a razao desta mudanca.
+ *
+ * A previsao cuja data chegou e que o extrato nao confirmou nao tem mais como
+ * se esconder: ela nao soma em saldo nenhum e precisa aparecer, porque
+ * depende de uma decisao do usuario. Antes ela era somada no saldo e nao
+ * tinha selo — indistinguivel de um lancamento de verdade.
+ */
+describe('selo de nao conciliado', () => {
+  it('previsao vencida sem par do banco mostra "nao conciliado"', () => {
+    renderRow({ balanceApplied: false, date: '2026-08-15' })
+
+    screen.getByText('não conciliado')
+    expect(screen.queryByText('previsto')).toBeNull()
+  })
+
+  it('previsao vencida ja casada mostra "conciliado", nao "nao conciliado"', () => {
+    renderRow({ balanceApplied: false, date: '2026-08-15', matchedTransactionId: 'real-1' })
+
+    screen.getByText('conciliado')
+    expect(screen.queryByText('não conciliado')).toBeNull()
+  })
+
+  it('previsao que vence hoje ja conta como nao conciliada', () => {
+    renderRow({ balanceApplied: false, date: '2026-09-19' })
+
+    screen.getByText('não conciliado')
+  })
+})
+
+/**
+ * A linha de previsao e desenhada com `opacity-60`, para o previsto futuro
+ * pesar menos que o lancamento de verdade. Aplicar a mesma opacidade na
+ * previsao NAO CONCILIADA apagaria justamente a linha que exige acao — selo
+ * vermelho em texto desbotado.
+ */
+describe('opacidade da linha', () => {
+  function classesDaLinha(extra: Record<string, unknown>) {
+    const { container } = render(
+      React.createElement(
+        'table',
+        null,
+        React.createElement(
+          'tbody',
+          null,
+          React.createElement(TransactionDesktopRow, {
+            tx: { ...BASE, ...extra } as never,
+            balance: 0,
+            isSelected: false,
+            loading: false,
+            actions: ACOES,
+          }),
+        ),
+      ),
+    )
+    return container.querySelector('tr')!.className
+  }
+
+  it('previsao futura fica apagada', () => {
+    expect(classesDaLinha({ balanceApplied: false, date: '2026-10-15' })).toContain('opacity-60')
+  })
+
+  it('previsao nao conciliada NAO fica apagada', () => {
+    expect(classesDaLinha({ balanceApplied: false, date: '2026-08-15' })).not.toContain('opacity-60')
   })
 })

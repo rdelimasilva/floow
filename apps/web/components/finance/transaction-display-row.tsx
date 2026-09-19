@@ -6,6 +6,7 @@ import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, Package } from 'luci
 import { formatBRL } from '@floow/core-finance'
 import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
+import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
 
 interface RowActions {
   onEdit: (tx: TransactionRowData) => void
@@ -65,12 +66,20 @@ function CashFlowToggleButton({
 }
 
 /**
- * Estado de previsão do lançamento.
+ * Estado de conciliação do lançamento, em três valores.
  *
- * Antes o previsto tinha só `opacity-60`, e o ignorado `opacity-40`: duas
- * linhas apagadas que ninguém distingue sem conhecer a convenção. Com o
- * casamento previsto/realizado o estado passou a ter três valores, e
- * opacidade não expressa três coisas.
+ * Antes eram dois, e o terceiro — o que importa — era invisível: a previsão
+ * cuja data chegou e que o banco nunca confirmou. Ela era somada no saldo da
+ * conta e ficava sem selo nenhum, idêntica a um lançamento de verdade. Em
+ * produção isso pôs R$ 126.746,00 de estimativa de template dentro do saldo
+ * de uma conta cujo saldo real era R$ 190,84, com 21 linhas contando dobrado
+ * junto com o realizado.
+ *
+ * Agora a previsão nunca entra em `accounts.balance_cents`, e a vencida sem
+ * par sai também do saldo projetado da listagem. Ela não soma em lugar
+ * nenhum — então precisa aparecer, porque depende de uma decisão do usuário.
+ * Daí o âmbar do "previsto" (informativo, vai acontecer) contra o vermelho do
+ * "não conciliado" (pendente, exige ação).
  */
 function ForecastBadge({ tx }: { tx: TransactionRowData }) {
   if (tx.balanceApplied !== false) return null
@@ -86,14 +95,35 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
     )
   }
 
+  if (!contaNoSaldoProjetado(tx, new Date())) {
+    return (
+      <span
+        className="inline-flex shrink-0 items-center rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
+        title="A data chegou e o banco não trouxe o lançamento correspondente. Não entra em saldo nenhum até ser conciliada."
+      >
+        não conciliado
+      </span>
+    )
+  }
+
   return (
     <span
       className="inline-flex shrink-0 items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
-      title="Lançamento previsto, ainda não aconteceu. Não entra no saldo até a data chegar."
+      title="Lançamento previsto, ainda não aconteceu. Conta no saldo projetado, não no saldo da conta."
     >
       previsto
     </span>
   )
+}
+
+/**
+ * A previsao pesa menos que o lancamento de verdade — menos a que exige acao.
+ * Apagar a linha "nao conciliada" seria por selo vermelho em texto desbotado.
+ */
+function classeDeOpacidade(tx: TransactionRowData): string {
+  if (tx.balanceApplied !== false) return ''
+  if (!tx.matchedTransactionId && !contaNoSaldoProjetado(tx, new Date())) return ''
+  return 'opacity-60'
 }
 
 function AcquiredAssetBadge({ assetId, assetName }: { assetId: string; assetName: string }) {
@@ -114,7 +144,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
 }: MobileCardProps) {
   return (
     <div
-      className={`rounded-lg border bg-white p-3 ${isSelected ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'} ${tx.isIgnored ? 'opacity-40' : ''} ${tx.balanceApplied === false ? 'opacity-60' : ''}`}
+      className={`rounded-lg border bg-white p-3 ${isSelected ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'} ${tx.isIgnored ? 'opacity-40' : ''} ${classeDeOpacidade(tx)}`}
     >
       <div className="flex items-start justify-between gap-2">
         <input type="checkbox" checked={isSelected} onChange={() => actions.onToggleSelect(tx.id)} className="mt-1 h-4 w-4 rounded border-gray-300 shrink-0" />
@@ -192,7 +222,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
   tx, balance, isSelected, loading, actions,
 }: DesktopRowProps) {
   return (
-    <tr className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/50' : ''} ${tx.isIgnored ? 'opacity-40 line-through' : ''} ${tx.balanceApplied === false ? 'opacity-60' : ''}`}>
+    <tr className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/50' : ''} ${tx.isIgnored ? 'opacity-40 line-through' : ''} ${classeDeOpacidade(tx)}`}>
       <td className="px-4 py-3"><input type="checkbox" checked={isSelected} onChange={() => actions.onToggleSelect(tx.id)} className="h-4 w-4 rounded border-gray-300" /></td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{formatDate(tx.date)}</td>
       <td className="px-4 py-3 text-sm font-medium text-gray-900">

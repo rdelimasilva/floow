@@ -2,7 +2,7 @@
 import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules, recurringTemplates, budgetEntries, debts } from '@floow/db'
 import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema, createRecurringTransactionSchema } from '@floow/shared'
 import { computeSnapshot, matchCategory, generateInstallmentDates, advanceByFrequency } from '@floow/core-finance'
-import { eq, sql, and, or, desc, isNull, ilike, count, max, inArray } from 'drizzle-orm'
+import { eq, sql, and, or, desc, isNull, isNotNull, ilike, count, max, inArray } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { escapeLikePattern } from './sql-utils'
 import { getPositions } from '@/lib/investments/queries'
@@ -1205,92 +1205,10 @@ export async function cancelRecurring(formData: FormData) {
   revalidateAccountData(orgId)
 }
 
-/**
- * Reconciles balance for recurring transactions whose date has arrived.
- * Called from the app layout — short-circuits if no pending transactions exist.
- * Finds all transactions with balance_applied = false AND date <= today,
- * groups by account, and applies the cumulative balance delta.
- * Uses getOrgId() internally for authentication — safe to expose as server action.
- */
-export async function reconcileRecurringBalances() {
-  const orgId = await getOrgId()
-  const db = getDb()
-
-  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-
-  // Short-circuit: check if any pending transactions exist
-  const pending = await db
-    .select({ id: transactions.id })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.balanceApplied, false),
-        // Previsto ja casado com o realizado nunca entra no saldo: o
-        // realizado e que conta. Sem este filtro o casamento nao resolveria
-        // nada, porque a linha continuaria sendo aplicada na data.
-        isNull(transactions.matchedTransactionId),
-        sql`${transactions.date} <= ${todayStr}::date`
-      )
-    )
-    .limit(1)
-
-  if (pending.length === 0) return
-
-  // Fetch all pending transactions to reconcile
-  const pendingTxs = await db
-    .select({
-      id: transactions.id,
-      accountId: transactions.accountId,
-      amountCents: transactions.amountCents,
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.balanceApplied, false),
-        // Previsto ja casado com o realizado nunca entra no saldo: o
-        // realizado e que conta. Sem este filtro o casamento nao resolveria
-        // nada, porque a linha continuaria sendo aplicada na data.
-        isNull(transactions.matchedTransactionId),
-        sql`${transactions.date} <= ${todayStr}::date`
-      )
-    )
-
-  // Group by account and apply in bulk to avoid N update statements.
-  const deltaByAccount = new Map<string, number>()
-  const txIds: string[] = []
-  for (const tx of pendingTxs) {
-    deltaByAccount.set(tx.accountId, (deltaByAccount.get(tx.accountId) ?? 0) + tx.amountCents)
-    txIds.push(tx.id)
-  }
-
-  await db.transaction(async (dbTx) => {
-    const deltas = Array.from(deltaByAccount.entries())
-    if (deltas.length > 0) {
-      const cases = sql.join(
-        deltas.map(([accountId, delta]) => sql`WHEN ${accounts.id} = ${accountId} THEN ${delta}`),
-        sql.raw(' ')
-      )
-      const ids = deltas.map(([accountId]) => accountId)
-
-      await dbTx
-        .update(accounts)
-        .set({ balanceCents: sql`${accounts.balanceCents} + CASE ${cases} ELSE 0 END` })
-        .where(inArray(accounts.id, ids))
-    }
-
-    await dbTx
-      .update(transactions)
-      .set({ balanceApplied: true })
-      .where(inArray(transactions.id, txIds))
-  })
-
-  revalidateTransactionData(orgId)
-  revalidateAccountData(orgId)
-  revalidateSnapshotData(orgId)
-  revalidateInvestmentData(orgId)
-}
+// `applyDueBankTransactions` vive em `./apply-due`. Aqui ficava
+// `reconcileRecurringBalances`, que aplicava no saldo QUALQUER linha pendente
+// cuja data tivesse chegado — previsao de template inclusive. Ver o modulo
+// para o porque de a versao que sobrou so olhar lancamento do banco.
 
 // ---------------------------------------------------------------------------
 // Bulk operations

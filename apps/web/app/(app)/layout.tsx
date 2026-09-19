@@ -5,9 +5,9 @@ import { AppShell } from '@/components/layout/app-shell'
 import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/ui/toast'
-import { ReconcileProvider } from '@/components/providers/reconcile-provider'
 import { getReviewGateStatusSafe } from '@/lib/openfinance/counterparty-queries'
 import { ReviewGate } from '@/components/openfinance/review-gate'
+import { ApplyDueProvider } from '@/components/providers/apply-due-provider'
 import dynamic from 'next/dynamic'
 
 const CommandPalette = dynamic(() => import('@/components/layout/command-palette').then(m => ({ default: m.CommandPalette })))
@@ -40,7 +40,7 @@ export default async function AppLayout({
   return (
     <ToastProvider>
       <SidebarProvider defaultPinned={sidebarPinned}>
-        <ReconcileProvider>
+        <ApplyDueProvider>
           <div className="min-h-screen bg-gray-50">
             <CommandPalette />
             <AppShell
@@ -52,7 +52,7 @@ export default async function AppLayout({
               {children}
             </SidebarLayout>
           </div>
-        </ReconcileProvider>
+        </ApplyDueProvider>
       </SidebarProvider>
     </ToastProvider>
   )
