@@ -13,7 +13,7 @@ import { accountsTag, investmentsTag, invalidateTag } from '@/lib/cache-tags'
  * pendente — inclusive a previsao de template. Duas consequencias: punha
  * estimativa dentro de `accounts.balance_cents`, e, ao virar
  * `balance_applied = true`, tirava a previsao da fila de casamento, porque
- * `matchForecastsForAccount` so olha previsto aberto. Por isso a conciliacao
+ * `criarPropostasDeConciliacao` so olha previsto aberto. Por isso a conciliacao
  * so funcionava quando o extrato vinha ADIANTADO: chegando no dia ou depois,
  * a previsao ja tinha saido da fila e os dois lancamentos contavam.
  *

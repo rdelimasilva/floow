@@ -1,5 +1,5 @@
-import { and, eq, gte, isNotNull, isNull, lte } from 'drizzle-orm'
-import { getDb, transactions } from '@floow/db'
+import { and, eq, gte, isNotNull, isNull, lte, notExists, sql } from 'drizzle-orm'
+import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { matchForecast, type ForecastCandidate } from '@floow/core-finance'
 
 type Db = ReturnType<typeof getDb>
@@ -14,25 +14,22 @@ const JANELA_BUSCA_DIAS = 10
 const DIA_EM_MS = 24 * 60 * 60 * 1000
 
 /**
- * Vincula, nesta conta, cada previsto aberto ao realizado que o cumpriu.
+ * Propõe, nesta conta, o par previsto×realizado que o casamento encontrar.
  *
- * Roda depois da importação e não dentro do `persistPage` do sync: o
- * `returning` do insert de lá traz só id, valor e `balanceApplied`, sem data
- * nem descrição — e é delas que o casamento depende. Como passo separado
- * também cobre o caso inverso, o realizado que chegou antes de o previsto
- * existir.
+ * Antes esta função GRAVAVA o vínculo (`matched_transaction_id`) e a previsão
+ * era declarada cumprida sem ninguém olhar. Casar errado esconde um lançamento
+ * de verdade: a previsão sai da fila e o realizado fica sozinho no saldo, sem
+ * nada apontando que o par era mentira. Agora ela só propõe — quem efetiva é
+ * `aprovarProposta`.
  *
- * Só previsto ABERTO entra (`balance_applied = false`, sem vínculo). Quem já
- * foi aplicado no saldo é o problema do passado — em produção são 5 casos com
- * par identificado — e consertá-lo é decisão separada.
+ * `onConflictDoNothing` cobre os dois casos que não são erro: o par já foi
+ * recusado (barrado pelo único em (previsão, realizado)) ou a previsão já tem
+ * proposta aberta. Sem ele, a segunda rodada de sync estouraria.
  *
- * O vínculo é um-para-um nos dois sentidos: `matchedTransactionId` é uma
- * coluna só (um previsto aponta para um realizado) e o índice único parcial
- * da migration 00042 impede dois previstos reivindicarem o mesmo realizado.
- * O `reivindicados` abaixo garante isso já em memória, para não depender de
- * o banco estourar.
+ * O filtro de previsão aberta é o mesmo de antes — `balance_applied = false`,
+ * sem vínculo, de template, não ignorada.
  */
-export async function matchForecastsForAccount(
+export async function criarPropostasDeConciliacao(
   db: Db,
   orgId: string,
   accountId: string,
@@ -53,6 +50,18 @@ export async function matchForecastsForAccount(
         eq(transactions.balanceApplied, false),
         isNull(transactions.matchedTransactionId),
         eq(transactions.isIgnored, false),
+        // Previsão com proposta aberta não é proposta de novo. O índice único
+        // parcial barraria, mas gastar uma tentativa de insert por rodada de
+        // sync para descobrir isso é desperdício.
+        //
+        // SQL cru na subconsulta, e não `db.select(...)`: para montar
+        // `.where(and(...))`, o JS avalia os argumentos antes de chamar
+        // `.where()` — então um `notExists(db.select()...)` aqui dispararia
+        // uma SEGUNDA chamada a `db.select()` já na construção da consulta de
+        // `previstos`, antes até dela rodar. `sql` evita essa chamada extra.
+        notExists(
+          sql`select 1 from ${forecastMatchProposals} where ${forecastMatchProposals.forecastTransactionId} = ${transactions.id} and ${forecastMatchProposals.status} = 'pending'`,
+        ),
       ),
     )
 
@@ -95,7 +104,7 @@ export async function matchForecastsForAccount(
   }))
 
   const reivindicados = new Set<string>()
-  let vinculados = 0
+  let criadas = 0
 
   for (const realizado of realizados) {
     const disponiveis = abertos.filter((p) => !reivindicados.has(p.id))
@@ -114,13 +123,19 @@ export async function matchForecastsForAccount(
 
     reivindicados.add(casado.id)
 
-    await db
-      .update(transactions)
-      .set({ matchedTransactionId: realizado.id })
-      .where(and(eq(transactions.id, casado.id), eq(transactions.orgId, orgId)))
+    const inserida = await db
+      .insert(forecastMatchProposals)
+      .values({
+        orgId,
+        forecastTransactionId: casado.id,
+        realizedTransactionId: realizado.id,
+        status: 'pending',
+      })
+      .onConflictDoNothing()
+      .returning({ id: forecastMatchProposals.id })
 
-    vinculados++
+    if (inserida.length > 0) criadas++
   }
 
-  return vinculados
+  return criadas
 }
