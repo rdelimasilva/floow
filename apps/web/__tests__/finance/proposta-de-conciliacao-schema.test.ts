@@ -52,7 +52,7 @@ describe('migration 00047', () => {
     expect(SQL).toContain('public.get_user_org_ids()')
   })
 
-  it('nao cria proposta retroativa para o que ja esta casado', () => {
+  it('não cria proposta retroativa para o que já está casado', () => {
     // O passado e fato consumado (spec §4). Um INSERT ... SELECT aqui poria a
     // org em mutirao no primeiro deploy.
     expect(SQL).not.toContain('insert into public.forecast_match_proposals')

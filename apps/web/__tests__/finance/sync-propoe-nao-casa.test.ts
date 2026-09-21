@@ -66,7 +66,7 @@ describe('criarPropostasDeConciliacao', () => {
     })
   })
 
-  it('NUNCA grava o vinculo — quem efetiva e o usuario', async () => {
+  it('NUNCA grava o vínculo — quem efetiva é o usuário', async () => {
     selectQueue.push([PREVISTO], [REALIZADO])
 
     await criarPropostasDeConciliacao(db, 'org-1', 'conta-1')
@@ -74,7 +74,7 @@ describe('criarPropostasDeConciliacao', () => {
     expect(ops.some((o) => o.op === 'update')).toBe(false)
   })
 
-  it('sem previsao aberta, nao consulta realizado nem insere', async () => {
+  it('sem previsão aberta, não consulta realizado nem insere', async () => {
     selectQueue.push([])
 
     const criadas = await criarPropostasDeConciliacao(db, 'org-1', 'conta-1')
@@ -84,7 +84,7 @@ describe('criarPropostasDeConciliacao', () => {
     expect(ops.some((o) => o.op === 'insert')).toBe(false)
   })
 
-  it('valor fora de tolerancia nao vira proposta', async () => {
+  it('valor fora de tolerância não vira proposta', async () => {
     selectQueue.push([PREVISTO], [{ ...REALIZADO, amountCents: -500000 }])
 
     const criadas = await criarPropostasDeConciliacao(db, 'org-1', 'conta-1')
@@ -93,7 +93,7 @@ describe('criarPropostasDeConciliacao', () => {
     expect(ops.some((o) => o.op === 'insert')).toBe(false)
   })
 
-  it('duas previsoes nao reivindicam o mesmo realizado na mesma rodada', async () => {
+  it('duas previsões não reivindicam o mesmo realizado na mesma rodada', async () => {
     selectQueue.push([PREVISTO, { ...PREVISTO, id: 'prev-2' }], [REALIZADO])
 
     const criadas = await criarPropostasDeConciliacao(db, 'org-1', 'conta-1')

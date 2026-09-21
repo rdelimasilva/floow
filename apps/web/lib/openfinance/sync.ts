@@ -138,10 +138,10 @@ export async function syncConnectionTransactions(
 
     // Propõe o par previsto x realizado com o que acabou de entrar. Quem
     // efetiva é o usuário, na aprovação — o sync não decide mais.
-    // Depois do loop de paginas, nao dentro do persistPage: o `returning` do
-    // insert de la traz so id, valor e balanceApplied, sem data nem descricao
-    // — e e delas que o casamento depende. Falha aqui nao derruba o sync: o
-    // dado ja entrou, e a proposta e criada de novo na proxima passada.
+    // Depois do loop de paginas, não dentro do persistPage: o `returning` do
+    // insert de lá traz só id, valor e balanceApplied, sem data nem descrição
+    // — e é delas que o casamento depende. Falha aqui não derruba o sync: o
+    // dado já entrou, e a proposta é criada de novo na próxima passada.
     try {
       summary.propostasDeConciliacao += await criarPropostasDeConciliacao(db, connection.orgId, resource.accountId)
     } catch (error) {

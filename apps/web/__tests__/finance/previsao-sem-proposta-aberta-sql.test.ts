@@ -22,12 +22,12 @@ import { condicaoDePrevisaoSemPropostaAberta } from '@/lib/finance/forecast-matc
 const dialect = new PgDialect()
 const sqlGerado = dialect.sqlToQuery(condicaoDePrevisaoSemPropostaAberta()).sql.toLowerCase()
 
-describe('condicao de previsao sem proposta aberta', () => {
-  it('abre parenteses logo depois do not exists', () => {
+describe('condição de previsão sem proposta aberta', () => {
+  it('abre parênteses logo depois do not exists', () => {
     expect(sqlGerado).toContain('not exists (select 1 from "forecast_match_proposals"')
   })
 
-  it('compara a previsao pelo id da transacao e pelo status pendente', () => {
+  it('compara a previsão pelo id da transação e pelo status pendente', () => {
     expect(sqlGerado).toContain('"forecast_transaction_id"')
     expect(sqlGerado).toContain("'pending'")
   })
