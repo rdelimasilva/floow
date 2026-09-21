@@ -50,7 +50,17 @@ const PENDENTES = [
   'lib/finance/category-actions.ts',
   'lib/finance/debt-actions.ts',
   'lib/finance/import-actions.ts',
-  'lib/finance/queries.ts',
+  // `lib/finance/queries.ts` era uma entrada só, de 590 linhas. Virou fachada
+  // de reexport — não chama mais `getDb()` — e os seis módulos abaixo herdaram
+  // as consultas como estavam. Seis entradas no lugar de uma é a mesma dívida
+  // contada com mais precisão: agora dá para converter conta sem mexer em
+  // recorrência.
+  'lib/finance/queries-accounts.ts',
+  'lib/finance/queries-cash-flow.ts',
+  'lib/finance/queries-categories.ts',
+  'lib/finance/queries-recurring.ts',
+  'lib/finance/queries-snapshots.ts',
+  'lib/finance/queries-transactions.ts',
   'lib/finance/recurring-actions.ts',
   'lib/fixed-assets/actions.ts',
   'lib/fixed-assets/queries.ts',

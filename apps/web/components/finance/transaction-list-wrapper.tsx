@@ -26,7 +26,9 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
       if (value) params.set(key, value)
       else params.delete(key)
     }
-    params.set('page', '1')
+    // Sem `page`: o servidor reabre na página da data mais recente quando a
+    // ordem é crescente (`paginaQueAbre`). Fixar 1 aqui jogava em 2019.
+    params.delete('page')
     startTransition(() => {
       router.replace(`/transactions?${params.toString()}`, { scroll: false })
     })
@@ -42,7 +44,8 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
     if (createdTransactions.length === 0) return transactions
 
     const matchesFilters = (transaction: InlineCreatedTransaction) => {
-      const accountId = searchParams.get('accountId')
+      // Uma conta ou várias, separadas por vírgula — mesmo parâmetro.
+      const accountIds = (searchParams.get('accountId') ?? '').split(',').filter(Boolean)
       const search = searchParams.get('search')?.toLowerCase()
       const startDate = searchParams.get('startDate')
       const endDate = searchParams.get('endDate')
@@ -53,7 +56,7 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
         : transaction.date.toISOString().split('T')[0]
       const amountAbs = Math.abs(transaction.amountCents)
 
-      if (accountId && transaction.accountId !== accountId) return false
+      if (accountIds.length > 0 && !accountIds.includes(transaction.accountId)) return false
       if (search && !transaction.description.toLowerCase().includes(search)) return false
       if (startDate && dateKey < startDate) return false
       if (endDate && dateKey > endDate) return false
@@ -65,11 +68,12 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
       return true
     }
 
+    // Mesma ordem do servidor, e nada de exilar previsão para o fim: aqui
+    // havia um desempate por `balanceApplied` que o SQL já tinha abandonado
+    // (ver `buildTransactionOrder`), então criar um lançamento pela linha
+    // rápida reembaralhava a lista que acabara de ser carregada.
     const compare = (a: Props['transactions'][number], b: Props['transactions'][number]) => {
       const direction = sortDir === 'asc' ? 1 : -1
-      if ((a.balanceApplied ?? true) !== (b.balanceApplied ?? true)) {
-        return (a.balanceApplied === false ? 1 : -1) - (b.balanceApplied === false ? 1 : -1)
-      }
 
       switch (sortBy) {
         case 'description':

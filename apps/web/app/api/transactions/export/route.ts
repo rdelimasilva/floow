@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
       startDate: params.get('startDate') || undefined,
       endDate: params.get('endDate') || undefined,
       sortBy: params.get('sortBy') || 'date',
-      sortDir: params.get('sortDir') || 'desc',
+      // Crescente como na tela: o CSV é a mesma lista, salva em arquivo.
+      sortDir: params.get('sortDir') || 'asc',
       types: params.get('types') || undefined,
       categoryIds: params.get('categoryIds') || undefined,
       minAmount: params.get('minAmount') ? parseInt(params.get('minAmount')!, 10) : undefined,

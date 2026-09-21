@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Banknote } from 'lucide-react'
-import { getOrgId, getAccountById, getTransactionsWithCount, getCategories, getAccounts } from '@/lib/finance/queries'
+import { getOrgId, getAccountById, getTransactionsWithCount, getTransactionCount, getCategories, getAccounts } from '@/lib/finance/queries'
+import { paginaQueAbre } from '@/lib/finance/pagination'
 import { TransactionList } from '@/components/finance/transaction-list'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { Pagination } from '@/components/ui/pagination'
@@ -26,7 +27,6 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   const account = await getAccountById(orgId, accountId)
   if (!account) notFound()
 
-  const page = Math.max(1, parseInt(sp.page ?? '1', 10) || 1)
   const filters = {
     accountId,
     search: sp.search,
@@ -36,6 +36,14 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
     // mexia na URL: a página nunca lia `future`, então a lista não mudava.
     includeFuture: sp.future === '1',
   }
+
+  // O extrato da conta corre do mais antigo para o mais novo, como o de
+  // transações, e abre na última página — onde está a data mais recente.
+  const page = paginaQueAbre({
+    pageParam: sp.page,
+    totalCount: sp.page ? 0 : await getTransactionCount(orgId, filters),
+    pageSize: PAGE_SIZE,
+  })
 
   const [{ transactions, totalCount }, categories, allAccounts] = await Promise.all([
     getTransactionsWithCount(orgId, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }),
@@ -107,6 +115,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
         }))}
         accounts={allAccounts.map((a) => ({ id: a.id, name: a.name }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId }))}
+        sortDir="asc"
       />
 
       {/* Pagination */}

@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
-import { getOrgId, getTransactionsWithCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
+import { redirect } from 'next/navigation'
+import { getOrgId, getTransactionsWithCount, getTransactionCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
+import { paginaQueAbre } from '@/lib/finance/pagination'
 import { contasParaLancamento } from '@/lib/finance/account-options'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
@@ -22,20 +24,39 @@ export default async function TransactionsPage({ searchParams }: Props) {
   const params = await searchParams
   const orgId = await getOrgId()
 
-  const page = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
   // Resolution order: URL param → cookie (persisted across sessions) → default
-  const cookiePageSize = (await cookies()).get('tx-page-size')?.value
+  const jar = await cookies()
+  const cookiePageSize = jar.get('tx-page-size')?.value
   const requestedSize = parseInt(params.pageSize ?? cookiePageSize ?? '', 10)
   const pageSize = (PAGE_SIZE_OPTIONS as readonly number[]).includes(requestedSize)
     ? requestedSize
     : DEFAULT_PAGE_SIZE
+
+  // A conta escolhida sobrevive à troca de menu: o filtro grava em
+  // `tx-accounts` e aqui o cookie reabre o que estava marcado.
+  //
+  // Redireciona em vez de só aplicar por baixo porque a URL é a fonte única de
+  // verdade do recorte — dela vivem os links de paginação, o export CSV e o
+  // casamento das linhas criadas na hora. Aplicar sem redirecionar deixaria a
+  // lista filtrada e o resto da tela achando que não havia filtro.
+  const contasDoCookie = jar.get('tx-accounts')?.value
+  if (params.accountId === undefined && contasDoCookie) {
+    const destino = new URLSearchParams(
+      Object.entries(params).filter((e): e is [string, string] => e[1] !== undefined),
+    )
+    destino.set('accountId', contasDoCookie)
+    redirect(`/transactions?${destino.toString()}`)
+  }
+
   const filters = {
     accountId: params.accountId,
     search: params.search,
     startDate: params.startDate,
     endDate: params.endDate,
     sortBy: params.sortBy ?? 'date',
-    sortDir: params.sortDir ?? 'desc',
+    // Do mais antigo para o mais novo, como um extrato — ver
+    // `buildTransactionOrder`.
+    sortDir: params.sortDir ?? 'asc',
     types: params.types,
     categoryIds: params.categoryIds,
     minAmount: params.minAmount ? parseInt(params.minAmount, 10) : undefined,
@@ -44,6 +65,17 @@ export default async function TransactionsPage({ searchParams }: Props) {
     // `buildTransactionConditions`.
     includeFuture: params.future === '1',
   }
+
+  // A data mais recente está na ÚLTIMA página quando a ordem é crescente, e é
+  // lá que a lista abre. O total custa uma contagem a mais, e só quando a URL
+  // não diz a página — navegando, ele já vem de graça na consulta das linhas.
+  const page = paginaQueAbre({
+    pageParam: params.page,
+    totalCount: params.page ? 0 : await getTransactionCount(orgId, filters),
+    pageSize,
+    sortBy: filters.sortBy,
+    sortDir: filters.sortDir,
+  })
 
   const queryOpts = { limit: pageSize, offset: (page - 1) * pageSize, ...filters }
 
@@ -64,7 +96,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (filters.endDate) paginationParams.endDate = filters.endDate
   if (filters.includeFuture) paginationParams.future = '1'
   if (filters.sortBy && filters.sortBy !== 'date') paginationParams.sortBy = filters.sortBy
-  if (filters.sortDir && filters.sortDir !== 'desc') paginationParams.sortDir = filters.sortDir
+  if (filters.sortDir && filters.sortDir !== 'asc') paginationParams.sortDir = filters.sortDir
   if (params.types) paginationParams.types = params.types
   if (params.categoryIds) paginationParams.categoryIds = params.categoryIds
   if (params.minAmount) paginationParams.minAmount = params.minAmount

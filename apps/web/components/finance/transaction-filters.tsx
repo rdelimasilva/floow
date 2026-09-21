@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useCallback, useRef, useEffect, useTransition } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { AccountFilter } from './account-filter'
 
 type PeriodKey = 'today' | 'month' | 'quarter' | 'semester' | 'year'
 
@@ -60,6 +61,21 @@ interface TransactionFiltersProps {
   includeFuture?: boolean
 }
 
+/**
+ * A escolha de conta atravessa a troca de menu.
+ *
+ * Só a URL não bastava: sair para o Dashboard e voltar em Transações voltava
+ * para "todas as contas", e quem trabalha numa conta refazia o filtro a cada
+ * volta. O cookie é escrito a TODA mudança, inclusive quando esvazia — senão
+ * "todas as contas" seria impossível de pedir, porque o servidor leria o
+ * cookie antigo e ressuscitaria a conta recém-desmarcada.
+ */
+const ACCOUNTS_COOKIE = 'tx-accounts'
+
+function persistirContas(ids: string[]) {
+  document.cookie = `${ACCOUNTS_COOKIE}=${ids.join(',')}; path=/; max-age=31536000; SameSite=Lax`
+}
+
 const PILL_BASE = 'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors'
 const PILL_OFF = 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
 
@@ -77,7 +93,9 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   const [, startTransition] = useTransition()
 
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
-  const [accountId, setAccountId] = useState(searchParams.get('accountId') ?? '')
+  const [accountIds, setAccountIds] = useState<string[]>(
+    (searchParams.get('accountId') ?? '').split(',').filter(Boolean),
+  )
   const [startDate, setStartDate] = useState(searchParams.get('startDate') ?? '')
   const [endDate, setEndDate] = useState(searchParams.get('endDate') ?? '')
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -89,7 +107,8 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   const navigate = useCallback((overrides: Record<string, string>) => {
     const params = new URLSearchParams()
     const values: Record<string, string> = {
-      search, accountId, startDate, endDate,
+      search, startDate, endDate,
+      accountId: accountIds.join(','),
       future: searchParams.get('future') ?? '',
       ...overrides,
     }
@@ -100,11 +119,13 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     const currentPageSize = searchParams.get('pageSize')
     if (currentPageSize) params.set('pageSize', currentPageSize)
     if (values.future === '1') params.set('future', '1')
-    params.set('page', '1')
+    // Sem `page`: quem decide onde a lista abre é o servidor (`paginaQueAbre`),
+    // e na ordem cronológica isso é a ÚLTIMA página. Fixar `page=1` aqui jogava
+    // o usuário em 2019 a cada mudança de filtro.
     startTransition(() => {
       router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
     })
-  }, [router, baseUrl, search, accountId, startDate, endDate, searchParams, startTransition])
+  }, [router, baseUrl, search, accountIds, startDate, endDate, searchParams, startTransition])
 
   /** Clicar na pílula ativa é o gesto de soltar o recorte, não de reaplicá-lo. */
   function togglePeriod(key: PeriodKey) {
@@ -122,7 +143,13 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     navigate({ search: '' })
   }
 
-  const hasFilters = search || accountId || startDate || endDate
+  function trocarContas(ids: string[]) {
+    setAccountIds(ids)
+    persistirContas(ids)
+    navigate({ accountId: ids.join(',') })
+  }
+
+  const hasFilters = search || accountIds.length > 0 || startDate || endDate
 
   return (
     <div className="space-y-2">
@@ -207,23 +234,9 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
           )}
         </div>
 
-        {/* Account — "Todas as contas" é o próprio desmarcar */}
+        {/* Contas — várias de uma vez, e a marcada se desmarca no clique */}
         {!hideAccountFilter && (
-          <select
-            value={accountId}
-            aria-label="Conta"
-            onChange={(e) => { setAccountId(e.target.value); navigate({ accountId: e.target.value }) }}
-            className={`h-8 rounded-lg border px-3 text-xs ${
-              accountId
-                ? 'border-gray-900 bg-gray-900 text-white'
-                : 'border-gray-200 bg-white text-gray-600'
-            }`}
-          >
-            <option value="" className="bg-white text-gray-600">Todas as contas</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id} className="bg-white text-gray-600">{a.name}</option>
-            ))}
-          </select>
+          <AccountFilter accounts={accounts} selected={accountIds} onChange={trocarContas} />
         )}
 
         {/* Date range — cada ponta se solta pelo × ao lado dela */}
