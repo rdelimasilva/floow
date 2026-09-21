@@ -102,4 +102,30 @@ describe('fila de conciliação', () => {
 
     expect(screen.queryByRole('button', { name: /todas/i })).toBeNull()
   })
+
+  it('aprovar proposta já decidida em outra aba sai da tela sem mentir no toast', async () => {
+    aprovarProposta.mockResolvedValueOnce({ efetivada: false })
+    renderFila()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'É o mesmo' }))
+    })
+
+    expect(screen.queryByTestId('proposta-prop-1')).toBeNull()
+    expect(screen.queryByText('Conciliado')).toBeNull()
+    screen.getByText(/já havia sido decidida em outra aba/)
+  })
+
+  it('recusar proposta já decidida em outra aba sai da tela sem mentir no toast', async () => {
+    recusarProposta.mockResolvedValueOnce({ recusada: false })
+    renderFila()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'São diferentes' }))
+    })
+
+    expect(screen.queryByTestId('proposta-prop-1')).toBeNull()
+    expect(screen.queryByText('Marcados como lançamentos diferentes')).toBeNull()
+    screen.getByText(/já havia sido decidida em outra aba/)
+  })
 })

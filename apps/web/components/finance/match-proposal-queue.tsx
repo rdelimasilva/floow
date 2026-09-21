@@ -23,13 +23,28 @@ export function MatchProposalQueue({ propostas: iniciais }: { propostas: Propost
   const [propostas, setPropostas] = useState(iniciais)
   const [decidindo, setDecidindo] = useState<string | null>(null)
 
+  /**
+   * A action devolve `false` quando a proposta não está mais pendente — duas
+   * abas, dois cliques, o sync já tendo decidido por trás. Não é erro, mas
+   * também não é o que o clique pediu: se o toast dissesse "Conciliado" ou
+   * "Marcados como diferentes" sem checar o retorno, mentiria sobre qual
+   * decisão realmente valeu. O cartão sai da tela nos dois casos — a linha
+   * já está velha de qualquer jeito — mas a mensagem muda.
+   */
   async function decidir(proposta: PropostaPendente, eOMesmo: boolean) {
     setDecidindo(proposta.id)
     try {
-      if (eOMesmo) await aprovarProposta(proposta.id)
-      else await recusarProposta(proposta.id)
+      const decidiuAgora = eOMesmo
+        ? (await aprovarProposta(proposta.id)).efetivada
+        : (await recusarProposta(proposta.id)).recusada
+
       setPropostas((prev) => prev.filter((p) => p.id !== proposta.id))
-      toast(eOMesmo ? 'Conciliado' : 'Marcados como lançamentos diferentes')
+
+      if (decidiuAgora) {
+        toast(eOMesmo ? 'Conciliado' : 'Marcados como lançamentos diferentes')
+      } else {
+        toast('Esta conciliação já havia sido decidida em outra aba', 'info')
+      }
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Não foi possível decidir', 'error')
     } finally {
