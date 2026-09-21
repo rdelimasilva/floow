@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance'
-import { deleteTransaction, toggleIgnoreTransaction, cancelRecurring, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/actions'
+import { deleteTransaction, toggleIgnoreTransaction, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/actions'
+import { cancelRecurring } from '@/lib/finance/recurring-cancel'
 import { setTransactionAffectsCashFlow } from '@/lib/finance/cash-flow-actions'
 import { nextAffectsCashFlow } from '@/lib/finance/affects-cash-flow-cycle'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -51,6 +52,9 @@ export function TransactionList({
   const [loading, setLoading] = useState(false)
   const [ruleShortcut, setRuleShortcut] = useState<{ matchValue: string; categoryId: string } | null>(null)
   const [cancelTarget, setCancelTarget] = useState<{ templateId: string; description: string } | null>(null)
+  // Desligado por padrão: cancelar a recorrência não pode levar histórico sem
+  // ser pedido, porque apagar lançamento é irreversível.
+  const [limparVencidas, setLimparVencidas] = useState(false)
 
   // Bulk selection
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -182,9 +186,17 @@ export function TransactionList({
     try {
       const formData = new FormData()
       formData.append('templateId', cancelTarget.templateId)
-      await cancelRecurring(formData)
+      if (limparVencidas) formData.append('removeOverdue', '1')
+      const { futurasRemovidas, vencidasRemovidas } = await cancelRecurring(formData)
       setCancelTarget(null)
-      toast('Recorrência cancelada — parcelas futuras removidas')
+      setLimparVencidas(false)
+      // Diz quantas linhas sairam: "parcelas futuras removidas" era a mesma
+      // frase apagando 2 ou 40 delas.
+      toast(
+        vencidasRemovidas > 0
+          ? `Recorrência cancelada — ${futurasRemovidas} parcela(s) futura(s) e ${vencidasRemovidas} vencida(s) não conciliada(s) removidas`
+          : `Recorrência cancelada — ${futurasRemovidas} parcela(s) futura(s) removida(s)`,
+      )
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Não foi possível cancelar a recorrência.', 'error')
     } finally {
@@ -350,13 +362,32 @@ export function TransactionList({
 
       <ConfirmDialog
         open={!!cancelTarget}
-        onClose={() => setCancelTarget(null)}
+        onClose={() => { setCancelTarget(null); setLimparVencidas(false) }}
         onConfirm={confirmCancelRecurring}
         title="Cancelar recorrência"
-        description={`Tem certeza que deseja cancelar a recorrência "${cancelTarget?.description ?? ''}"? Todas as parcelas futuras serão removidas. Parcelas já vencidas permanecem.`}
+        description={`Tem certeza que deseja cancelar a recorrência "${cancelTarget?.description ?? ''}"? Todas as parcelas futuras serão removidas.`}
         confirmLabel="Cancelar recorrência"
         loading={loading}
-      />
+      >
+        {/* As vencidas e não conciliadas ficavam para trás para sempre: não
+            entram em saldo nenhum e, com o template já desativado, nem este
+            cancelamento as alcançava de novo. */}
+        <label className="flex items-start gap-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={limparVencidas}
+            onChange={(e) => setLimparVencidas(e.target.checked)}
+            className="mt-0.5 rounded border-gray-300"
+          />
+          <span>
+            Remover também as parcelas vencidas e não conciliadas
+            <span className="mt-0.5 block text-xs text-gray-500">
+              Não mexe em saldo — elas nunca entraram em nenhum. Lançamento já conciliado
+              com o banco fica.
+            </span>
+          </span>
+        </label>
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={bulkDeleteOpen}

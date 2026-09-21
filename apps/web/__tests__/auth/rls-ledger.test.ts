@@ -62,6 +62,10 @@ const PENDENTES = [
   'lib/finance/queries-snapshots.ts',
   'lib/finance/queries-transactions.ts',
   'lib/finance/recurring-actions.ts',
+  // Saiu de `lib/finance/actions.ts` (também pendente): `cancelRecurring`
+  // ganhou a opção de limpar as parcelas vencidas, e aquele arquivo já tem
+  // 1250 linhas. Mesmo código em outro lugar, não superfície nova.
+  'lib/finance/recurring-cancel.ts',
   'lib/fixed-assets/actions.ts',
   'lib/fixed-assets/queries.ts',
   'lib/investments/actions.ts',

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, type ReactNode } from 'react'
 import { Button } from './button'
 
 interface ConfirmDialogProps {
@@ -11,6 +11,13 @@ interface ConfirmDialogProps {
   description: string
   confirmLabel?: string
   loading?: boolean
+  /**
+   * Controle extra entre a descrição e os botões — uma opção que muda o que a
+   * confirmação vai fazer. Existe para o "remover também as parcelas vencidas
+   * não conciliadas" do cancelamento de recorrência: é decisão do mesmo gesto,
+   * e um segundo diálogo em cima do primeiro seria pior.
+   */
+  children?: ReactNode
 }
 
 export function ConfirmDialog({
@@ -21,6 +28,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = 'Confirmar',
   loading = false,
+  children,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
 
@@ -40,6 +48,7 @@ export function ConfirmDialog({
       <div className="w-[400px] p-6">
         <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
         <p className="mt-2 text-sm text-gray-600">{description}</p>
+        {children && <div className="mt-4">{children}</div>}
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancelar

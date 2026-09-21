@@ -2,6 +2,7 @@
 import { getDb, accounts, transactions, patrimonySnapshots, categories, categoryRules, recurringTemplates, budgetEntries, debts } from '@floow/db'
 import { createAccountSchema, createTransactionSchema, updateAccountSchema, updateTransactionSchema, createRecurringTransactionSchema } from '@floow/shared'
 import { computeSnapshot, matchCategory, generateInstallmentDates, advanceByFrequency } from '@floow/core-finance'
+
 import { eq, sql, and, or, desc, isNull, isNotNull, ilike, count, max, inArray } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { escapeLikePattern } from './sql-utils'
@@ -1159,52 +1160,12 @@ export async function bulkRecategorize(formData: FormData): Promise<{ updated: n
   return { updated: updated.length }
 }
 
-/**
- * Server action: cancel a recurring transaction series.
- * Deletes all future transactions (date > today) and marks template inactive.
- * Uses date > today (strictly greater) — today's transactions may already be reconciled.
- */
-export async function cancelRecurring(formData: FormData) {
-  const orgId = await getOrgId()
-  const db = getDb()
-
-  const templateId = formData.get('templateId') as string
-  if (!templateId) throw new Error('Template ID is required')
-
-  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-
-  await db.transaction(async (tx) => {
-    // Verify template belongs to org
-    const [template] = await tx
-      .select({ id: recurringTemplates.id })
-      .from(recurringTemplates)
-      .where(and(eq(recurringTemplates.id, templateId), eq(recurringTemplates.orgId, orgId)))
-      .limit(1)
-
-    if (!template) throw new Error('Template não encontrado')
-
-    // Delete future transactions (balance_applied is false for these, no balance reversal needed)
-    await tx
-      .delete(transactions)
-      .where(
-        and(
-          eq(transactions.recurringTemplateId, templateId),
-          eq(transactions.orgId, orgId),
-          sql`${transactions.date} > ${todayStr}::date`
-        )
-      )
-
-    // Mark template inactive
-    await tx
-      .update(recurringTemplates)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(and(eq(recurringTemplates.id, templateId), eq(recurringTemplates.orgId, orgId)))
-  })
-
-  revalidateTransactionData(orgId)
-  revalidateAccountData(orgId)
-}
-
+// `cancelRecurring` mudou de casa: vive em `./recurring-cancel`, de onde quem
+// usa importa direto — reexportar daqui nao da, porque arquivo "use server" so
+// exporta funcao async declarada nele. Este aqui tem 1250 linhas com o limite
+// do projeto em 500, e a funcao ganhou a opcao de limpar as parcelas vencidas:
+// codigo novo entra em modulo focado, nao no deposito.
+//
 // `applyDueBankTransactions` vive em `./apply-due`. Aqui ficava
 // `reconcileRecurringBalances`, que aplicava no saldo QUALQUER linha pendente
 // cuja data tivesse chegado — previsao de template inclusive. Ver o modulo
