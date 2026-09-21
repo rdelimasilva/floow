@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
-import { getDb, accounts, transactions, categories, fixedAssets } from '@floow/db'
+import { getDb, accounts, transactions, categories, fixedAssets, forecastMatchProposals } from '@floow/db'
 import { eq, and, desc, asc, count, gte, ilike, lte, inArray, sql } from 'drizzle-orm'
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { sqlValorNoSaldo } from './balance-sql'
@@ -252,6 +252,19 @@ export async function getTransactionsWithCount(
          where ${fixedAssets.acquisitionTransactionId} = ${transactions.id}
            and ${fixedAssets.orgId} = ${orgId}
          limit 1)`,
+      /**
+       * Existe proposta de conciliação esperando decisão para esta previsão.
+       *
+       * Subquery e não join: a proposta é 0-ou-1 por previsão (índice único
+       * parcial da 00047), mas um join a mais nesta consulta duplicaria linha
+       * se aquela garantia caísse, e linha duplicada corrompe o
+       * `count(*) over ()` e o saldo acumulado.
+       */
+      hasPendingMatchProposal: sql<boolean>`exists (
+        select 1 from ${forecastMatchProposals}
+         where ${forecastMatchProposals.forecastTransactionId} = ${transactions.id}
+           and ${forecastMatchProposals.orgId} = ${orgId}
+           and ${forecastMatchProposals.status} = 'pending')`,
       totalCount: sql<number>`count(*) over ()`,
       /**
        * O saldo APOS esta linha, em ordem cronologica.

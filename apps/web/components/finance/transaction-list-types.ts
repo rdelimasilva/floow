@@ -55,6 +55,12 @@ export interface TransactionRowData {
   categoryAffectsCashFlow?: boolean | null
   acquiredAssetId?: string | null
   acquiredAssetName?: string | null
+  /**
+   * Ha proposta de conciliacao esperando decisao para esta previsao. Muda o
+   * selo: o vermelho "nao conciliado" quer dizer "exige decisao sua", e com
+   * proposta aberta a decisao esta na fila.
+   */
+  hasPendingMatchProposal?: boolean
 }
 
 export interface AccountOption {
