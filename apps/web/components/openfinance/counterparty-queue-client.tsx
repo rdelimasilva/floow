@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance'
 import { confirmCounterparty } from '@/lib/openfinance/counterparty-actions'
 import type { PendingGroup, ConfirmedCounterparty } from '@/lib/openfinance/counterparty-queries'
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast'
 import { transferAccountLabel } from '@/lib/openfinance/transfer-direction'
+import { avisoDeContaDeDestino } from '@/lib/openfinance/transfer-conflict'
 import { ItemRow } from './counterparty-item-row'
 
 type CategoryOption = { id: string; label: string; type: 'income' | 'expense' | 'transfer' }
@@ -87,6 +89,14 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
       toast('Escolha uma categoria.', 'error')
       return
     }
+    // Rede de segurança: o botão já fica desabilitado com aviso na tela, mas
+    // enviar um lote que o servidor vai recusar inteiro não pode depender só
+    // do estado do botão.
+    const conflito = avisoDoGrupo(group) ?? avisoDasExcecoes(group)
+    if (conflito) {
+      toast(conflito, 'error')
+      return
+    }
 
     const exceptions: { transactionId: string; nature: Nature; categoryId: string | null; transferAccountId: string | null }[] = []
     for (const item of group.items) {
@@ -137,10 +147,39 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
     return <p className="text-sm text-gray-600">Tudo revisado — atualizando…</p>
   }
 
+  /**
+   * O aviso de "destino igual à conta do lançamento", quando houver.
+   *
+   * Só olha os lançamentos que seguem o padrão do grupo: quem tem exceção
+   * própria não é afetado pela conta do grupo — o mesmo recorte que o servidor
+   * faz entre `applyTransferBatch` e as exceções.
+   */
+  function avisoDoGrupo(group: PendingGroup): string | null {
+    const draft = draftFor(group.counterpartyId)
+    if (draft.nature !== 'transfer') return null
+    const semExcecao = group.items.filter((item) => !itemOverrides[item.id])
+    return avisoDeContaDeDestino(semExcecao, draft.transferAccountId, accountOptions)
+  }
+
+  /** Exceção que aponta para a própria conta do lançamento dela. */
+  function avisoDasExcecoes(group: PendingGroup): string | null {
+    for (const item of group.items) {
+      const override = itemOverrides[item.id]
+      if (!override || override.nature !== 'transfer') continue
+      const aviso = avisoDeContaDeDestino([item], override.transferAccountId, accountOptions)
+      if (aviso) {
+        const nome = accountOptions.find((a) => a.id === item.accountId)?.name
+        return `A exceção de "${item.description}" aponta para ${nome ?? 'a própria conta'}, que é a conta do próprio lançamento. Escolha outra conta de destino.`
+      }
+    }
+    return null
+  }
+
   function renderGroup(group: PendingGroup) {
     const draft = draftFor(group.counterpartyId)
     const isOpen = expanded.has(group.counterpartyId)
     const categoriesForNature = categoryOptions.filter((c) => c.type === draft.nature)
+    const aviso = avisoDoGrupo(group) ?? avisoDasExcecoes(group)
     // Um grupo é de entrada OU saída — direção já faz parte da chave da
     // contraparte (mesmo tax_id de saída e de entrada nunca colidem, ver
     // spec de 04/09). "Receita" não faz sentido pra quem só tem débito
@@ -240,12 +279,22 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
 
                   <Button
                     type="button"
-                    disabled={savingId !== null}
+                    disabled={savingId !== null || aviso !== null}
                     onClick={() => confirm(group)}
                   >
                     {savingId === group.counterpartyId ? 'Salvando…' : 'Confirmar'}
                   </Button>
                 </div>
+
+                {/* O servidor recusa destino igual à conta de origem. O aviso
+                    vem aqui, antes do envio, em vez de o lote inteiro morrer
+                    com a mensagem crua da exceção. */}
+                {aviso && (
+                  <p className="mt-2 flex items-start gap-1.5 text-xs text-red-600" role="alert">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    {aviso}
+                  </p>
+                )}
               </li>
     )
   }

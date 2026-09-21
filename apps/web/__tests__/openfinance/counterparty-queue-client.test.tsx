@@ -44,14 +44,19 @@ const PENDING = [
     count: 2,
     totalCents: -9_075_000,
     items: [
-      { id: 'tx-normal', date: '2026-01-05', description: 'Pix enviado Maraisa Ramos', amountCents: -75_000 },
-      { id: 'tx-outlier', date: '2026-01-29', description: 'Pix enviado Maraisa Ramos', amountCents: -9_000_000 },
+      { id: 'tx-normal', date: '2026-01-05', description: 'Pix enviado Maraisa Ramos', amountCents: -75_000, accountId: 'conta-origem' },
+      { id: 'tx-outlier', date: '2026-01-29', description: 'Pix enviado Maraisa Ramos', amountCents: -9_000_000, accountId: 'conta-origem' },
     ],
   },
 ]
 
 const CATEGORY_OPTIONS = [{ id: 'cat-expense', label: 'Aluguel', type: 'expense' as const }]
-const ACCOUNT_OPTIONS = [{ id: 'conta-destino', name: 'Poupança' }]
+const ACCOUNT_OPTIONS = [
+  { id: 'conta-destino', name: 'Poupança' },
+  // A conta onde os próprios lançamentos estão. O seletor a oferece, e é daí
+  // que vinha o erro de produção de 16/09/2026.
+  { id: 'conta-origem', name: 'Itaú' },
+]
 
 beforeEach(() => {
   vi.mocked(confirmCounterparty).mockClear()
@@ -105,7 +110,7 @@ describe('CounterpartyQueueClient — sinal do valor', () => {
         keyType: 'tax_id' as const,
         count: 1,
         totalCents: -75_000,
-        items: [{ id: 'tx-debito', date: '2026-01-05', description: 'Pix enviado Fulano', amountCents: -75_000 }],
+        items: [{ id: 'tx-debito', date: '2026-01-05', description: 'Pix enviado Fulano', amountCents: -75_000, accountId: 'conta-origem' }],
       },
     ]
 
@@ -165,7 +170,7 @@ describe('CounterpartyQueueClient — rótulo da conta segue a direção', () =>
       keyType: 'tax_id' as const,
       count: 1,
       totalCents: 100_000,
-      items: [{ id: 'tx-resgate', date: '2026-01-05', description: 'Resgate CDB', amountCents: 100_000 }],
+      items: [{ id: 'tx-resgate', date: '2026-01-05', description: 'Resgate CDB', amountCents: 100_000, accountId: 'conta-origem' }],
     },
   ]
 
@@ -195,5 +200,80 @@ describe('CounterpartyQueueClient — rótulo da conta segue a direção', () =>
     renderComPendentes(PENDING as unknown as typeof ENTRADA)
 
     screen.getByText('Conta de destino')
+  })
+})
+
+/**
+ * O servidor recusa transferência cuja conta de destino é a própria conta do
+ * lançamento (`applyTransferSingle`, counterparty-actions.ts:106) — e está
+ * certo. O problema era a fila oferecer essa escolha e o lote inteiro morrer
+ * com a mensagem crua da exceção depois de enviado. Em produção, 16/09/2026.
+ */
+describe('CounterpartyQueueClient — destino igual à conta do lançamento', () => {
+  function renderFila() {
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending: PENDING,
+        confirmed: [],
+        categoryOptions: CATEGORY_OPTIONS,
+        accountOptions: ACCOUNT_OPTIONS,
+      })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Transferência' }))
+  }
+
+  const escolherConta = (id: string) =>
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: id } })
+
+  const botaoConfirmar = () => screen.getByRole('button', { name: 'Confirmar' }) as HTMLButtonElement
+
+  it('avisa na tela quando a conta escolhida é a dos lançamentos', () => {
+    renderFila()
+    escolherConta('conta-origem')
+
+    screen.getByRole('alert')
+    screen.getByText('Os 2 lançamentos desta contraparte estão no Itaú. Escolha outra conta de destino.')
+  })
+
+  it('desabilita o Confirmar enquanto o conflito existe', () => {
+    renderFila()
+    escolherConta('conta-origem')
+
+    expect(botaoConfirmar().disabled).toBe(true)
+  })
+
+  it('escolhendo outra conta, o aviso sai e o Confirmar volta', () => {
+    renderFila()
+    escolherConta('conta-origem')
+    escolherConta('conta-destino')
+
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(botaoConfirmar().disabled).toBe(false)
+  })
+
+  it('nem tenta enviar o lote que o servidor recusaria', async () => {
+    renderFila()
+    escolherConta('conta-origem')
+
+    await act(async () => {
+      fireEvent.click(botaoConfirmar())
+    })
+
+    expect(confirmCounterparty).not.toHaveBeenCalled()
+  })
+
+  it('a exceção de um lançamento também é checada', () => {
+    renderFila()
+    escolherConta('conta-destino')
+    fireEvent.click(screen.getByText('ver lançamentos'))
+
+    const linha = screen.getByTestId('item-tx-outlier')
+    fireEvent.click(within(linha).getByText('usar classificação diferente'))
+    fireEvent.click(within(linha).getByRole('button', { name: 'Transferência' }))
+    fireEvent.change(within(linha).getByRole('combobox'), { target: { value: 'conta-origem' } })
+
+    screen.getByRole('alert')
+    expect(botaoConfirmar().disabled).toBe(true)
   })
 })

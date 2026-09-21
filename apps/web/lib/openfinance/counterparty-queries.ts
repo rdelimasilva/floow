@@ -76,6 +76,15 @@ export interface PendingGroupItem {
   date: string
   description: string
   amountCents: number
+  /**
+   * Em que conta este lançamento está.
+   *
+   * Viaja para a tela porque o seletor de conta de destino da transferência
+   * precisa saber: escolher a própria conta do lançamento é o que o servidor
+   * recusa em `applyTransferSingle`, e sem este campo o aviso só podia vir
+   * depois de o lote já ter sido enviado.
+   */
+  accountId: string
 }
 
 export interface PendingGroup {
@@ -104,6 +113,7 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
         date: transactions.date,
         description: transactions.description,
         amountCents: transactions.amountCents,
+        accountId: transactions.accountId,
       })
       .from(transactions)
       .innerJoin(counterparties, eq(counterparties.id, transactions.counterpartyId))
@@ -125,6 +135,7 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
         date: row.date instanceof Date ? row.date.toISOString() : String(row.date),
         description: row.description,
         amountCents: row.amountCents,
+        accountId: row.accountId,
       })
     }
 
