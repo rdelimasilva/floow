@@ -187,7 +187,16 @@ export function Sidebar({ cfoBadgeCount, matchBadgeCount, mobileOpen, onMobileCl
 
   function isActive(href: string) {
     if (pathname === href) return true
-    if (href === '/transactions') return pathname.startsWith('/transactions/') && !pathname.startsWith('/transactions/recurring')
+    // 'Transações' é o pai de tudo em /transactions/, exceto as sub-rotas que
+    // ganharam item próprio no menu — cada uma entra aqui como exceção, ou
+    // fica destacada junto com o item que a representa de verdade.
+    if (href === '/transactions') {
+      return (
+        pathname.startsWith('/transactions/') &&
+        !pathname.startsWith('/transactions/recurring') &&
+        !pathname.startsWith('/transactions/matches')
+      )
+    }
     return pathname.startsWith(href + '/')
   }
 

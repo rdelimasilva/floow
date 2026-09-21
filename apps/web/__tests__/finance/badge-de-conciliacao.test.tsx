@@ -8,12 +8,15 @@ import React from 'react'
  * sempre.
  */
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard' }))
+const usePathnameMock = vi.fn(() => '/dashboard')
+vi.mock('next/navigation', () => ({ usePathname: () => usePathnameMock() }))
 vi.mock('@/components/layout/sidebar-context', () => ({
   useSidebar: () => ({ pinned: true, togglePin: () => {} }),
 }))
 
 const { Sidebar } = await import('@/components/layout/sidebar')
+
+const ATIVO = 'bg-gray-100 text-foreground'
 
 describe('badge de conciliações no menu', () => {
   it('mostra o item e a contagem', () => {
@@ -28,5 +31,19 @@ describe('badge de conciliações no menu', () => {
 
     screen.getByText('Conciliações')
     expect(screen.queryByText('0')).toBeNull()
+  })
+
+  it('em /transactions/matches, só Conciliações fica ativo, não Transações', () => {
+    usePathnameMock.mockReturnValue('/transactions/matches')
+
+    render(React.createElement(Sidebar, { matchBadgeCount: 1, mobileOpen: false, onMobileClose: () => {} }))
+
+    const conciliacoes = screen.getByText('Conciliações').closest('a')
+    const transacoes = screen.getByText('Transações').closest('a')
+
+    expect(conciliacoes?.className).toContain(ATIVO)
+    expect(transacoes?.className).not.toContain(ATIVO)
+
+    usePathnameMock.mockReturnValue('/dashboard')
   })
 })
