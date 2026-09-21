@@ -34,11 +34,19 @@ export default async function AppLayout({
   }
 
   // Sem org resolvida (o `gate` já falhou "para aberto"), o menu fica sem
-  // número em vez de derrubar o layout: este arquivo não tem error boundary
-  // próprio — ver o comentário de `getReviewGateStatusSafe`.
-  const matchBadgeCount = gate.ok
-    ? await contagemDeConciliacoesPendentes(gate.orgId)
-    : undefined
+  // número em vez de derrubar o layout — e o mesmo vale se a própria consulta
+  // falhar: este arquivo não tem error boundary próprio, então um erro
+  // lançado aqui vira tela branca em vez da tela de "tentar de novo" do
+  // segmento (mesmo espírito "fail open" do `getReviewGateStatusSafe`, ver o
+  // comentário dele).
+  let matchBadgeCount: number | undefined
+  if (gate.ok) {
+    try {
+      matchBadgeCount = await contagemDeConciliacoesPendentes(gate.orgId, user.id)
+    } catch (error) {
+      console.error('[match-badge] falha ao contar propostas pendentes, seguindo sem numero:', error)
+    }
+  }
 
   const meta = user.user_metadata ?? {}
 

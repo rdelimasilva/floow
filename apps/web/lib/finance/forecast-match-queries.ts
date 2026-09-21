@@ -1,7 +1,7 @@
 import { and, asc, count, eq, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { accounts, forecastMatchProposals, transactions } from '@floow/db'
-import { withUserDb } from '@/lib/db/rls'
+import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 
 export interface LadoDoPar {
   id: string
@@ -86,9 +86,16 @@ export async function getPropostasPendentes(orgId: string): Promise<PropostaPend
   })
 }
 
-/** Quantas propostas esperam decisão — alimenta o badge do menu. */
-export async function contarPropostasPendentes(orgId: string): Promise<number> {
-  return withUserDb(async (db) => {
+/**
+ * Quantas propostas esperam decisão — alimenta o badge do menu.
+ *
+ * Recebe o `userId` em vez de resolvê-lo da requisição: quem chama esta
+ * função é `contagemDeConciliacoesPendentes`, de dentro do callback de um
+ * `unstable_cache` — e esse callback não pode ler cookies. `withUserDbFor`
+ * existe exatamente para isso; ver o docblock dele em `lib/db/rls.ts`.
+ */
+export async function contarPropostasPendentes(orgId: string, userId: string): Promise<number> {
+  return withUserDbFor(userId, async (db) => {
     const [row] = await db
       .select({ total: count() })
       .from(forecastMatchProposals)
