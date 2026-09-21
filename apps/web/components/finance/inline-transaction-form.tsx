@@ -25,6 +25,13 @@ export interface InlineCreatedTransaction {
   categoryName: string | null
   categoryColor: string | null
   categoryIcon: string | null
+  /**
+   * O que a categoria escolhida diz sobre fluxo de caixa. Viaja junto porque
+   * o botao da linha mostra a resposta que vale ("no fluxo" / "fora do
+   * fluxo"): sem isto, o lancamento recem-criado de uma categoria que nao
+   * conta apareceria como "no fluxo" ate a pagina recarregar.
+   */
+  categoryAffectsCashFlow?: boolean | null
 }
 
 export const InlineFormContext = createContext<{
@@ -79,7 +86,7 @@ export function InlineTransactionFormButton() {
 
 interface InlineTransactionFormPanelProps {
   accounts: Pick<Account, 'id' | 'name'>[]
-  categories: Pick<Category, 'id' | 'name' | 'type'>[]
+  categories: Pick<Category, 'id' | 'name' | 'type' | 'affectsCashFlow'>[]
 }
 
 export function InlineTransactionFormPanel({ accounts, categories }: InlineTransactionFormPanelProps) {
@@ -114,6 +121,7 @@ export function InlineTransactionFormPanel({ accounts, categories }: InlineTrans
             categoryName: category?.name ?? null,
             categoryColor: null,
             categoryIcon: null,
+            categoryAffectsCashFlow: category?.affectsCashFlow ?? null,
           }
         })
       )

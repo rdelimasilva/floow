@@ -44,6 +44,15 @@ export interface TransactionRowData {
    */
   matchedTransactionId?: string | null
   affectsCashFlow?: boolean | null
+  /**
+   * O que a CATEGORIA deste lancamento diz sobre fluxo de caixa.
+   *
+   * Viaja na linha porque o botao mostra a resposta que vale ("no fluxo" /
+   * "fora do fluxo") e nao o mecanismo: sem isto, a linha sabia apenas que
+   * herdava, e nao o que herdava. `null`/ausente = sem categoria, e o padrao
+   * e contar.
+   */
+  categoryAffectsCashFlow?: boolean | null
   acquiredAssetId?: string | null
   acquiredAssetName?: string | null
 }

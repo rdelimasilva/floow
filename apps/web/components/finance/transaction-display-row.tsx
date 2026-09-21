@@ -44,8 +44,7 @@ function CashFlowToggleButton({
   loading: boolean
   onToggle: (tx: TransactionRowData) => void
 }) {
-  const estado = affectsCashFlowState(tx.affectsCashFlow)
-  const herda = tx.affectsCashFlow === null || tx.affectsCashFlow === undefined
+  const estado = affectsCashFlowState(tx.affectsCashFlow, tx.categoryAffectsCashFlow)
 
   return (
     <button
@@ -54,14 +53,16 @@ function CashFlowToggleButton({
       disabled={loading}
       title={estado.title}
       className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
-        herda
-          ? 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-          : tx.affectsCashFlow === false
-            ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+        estado.excecao
+          ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
       }`}
     >
       {estado.label}
+      {/* O ponto marca decisão tomada nesta linha. Sem ele, "no fluxo" por
+          herança e "no fluxo" por exceção seriam indistinguíveis — e a
+          diferença é que a segunda ignora a categoria de agora em diante. */}
+      {estado.excecao && <span aria-hidden="true"> •</span>}
     </button>
   )
 }

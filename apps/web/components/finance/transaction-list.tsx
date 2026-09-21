@@ -116,14 +116,14 @@ export function TransactionList({
     // muda — o dinheiro se moveu de verdade, so nao e resultado.
     setLoading(true)
     try {
-      const proximo = nextAffectsCashFlow(tx.affectsCashFlow)
+      const proximo = nextAffectsCashFlow(tx.affectsCashFlow, tx.categoryAffectsCashFlow)
       await setTransactionAffectsCashFlow(tx.id, proximo)
       toastRef.current(
         proximo === null
-          ? 'Volta a seguir a categoria no fluxo de caixa'
+          ? `Volta a seguir a categoria${tx.categoryName ? ` ${tx.categoryName}` : ''} no fluxo de caixa`
           : proximo
-            ? 'Sempre no fluxo de caixa'
-            : 'Fora do fluxo de caixa',
+            ? 'No fluxo de caixa, só este lançamento'
+            : 'Fora do fluxo de caixa, só este lançamento',
       )
     } catch (e) {
       toastRef.current(e instanceof Error ? e.message : 'Não foi possível alterar o lançamento.', 'error')

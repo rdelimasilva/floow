@@ -230,6 +230,10 @@ export async function getTransactionsWithCount(
       categoryName: categories.name,
       categoryColor: categories.color,
       categoryIcon: categories.icon,
+      // O que a categoria diz sobre fluxo de caixa. Vai para a linha porque o
+      // botao mostra a resposta que vale, e nao "herda": sem isto a tela sabia
+      // que herdava, mas nao o que herdava.
+      categoryAffectsCashFlow: categories.affectsCashFlow,
       // O tipo da conta viaja na linha porque a coluna de saldo decide por
       // linha no cliente (`contaNoSaldoProjetado`) e precisa saber se aquele
       // lancamento e de conta de investimento.

@@ -106,7 +106,9 @@ export default async function TransactionsPage({ searchParams }: Props) {
   const accountOptions = contasParaLancamento(accounts)
   const categoryOrderMap = new Map(categoryOrder.map((id, i) => [id, i]))
   const categoryOptions = categories
-    .map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId }))
+    // `affectsCashFlow` vai junto para a linha recem-criada pela linha rapida
+    // saber mostrar "no fluxo" ou "fora do fluxo" sem esperar recarregar.
+    .map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId, affectsCashFlow: c.affectsCashFlow }))
     .sort((a, b) => {
       const aIdx = categoryOrderMap.get(a.id) ?? 999
       const bIdx = categoryOrderMap.get(b.id) ?? 999
