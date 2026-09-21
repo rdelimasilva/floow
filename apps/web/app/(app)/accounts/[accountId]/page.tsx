@@ -32,6 +32,9 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
     search: sp.search,
     startDate: sp.startDate,
     endDate: sp.endDate,
+    // O toggle "Lançamentos futuros" também vive aqui, e antes o clique só
+    // mexia na URL: a página nunca lia `future`, então a lista não mudava.
+    includeFuture: sp.future === '1',
   }
 
   const [{ transactions, totalCount }, categories, allAccounts] = await Promise.all([
@@ -52,6 +55,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   if (sp.search) paginationParams.search = sp.search
   if (sp.startDate) paginationParams.startDate = sp.startDate
   if (sp.endDate) paginationParams.endDate = sp.endDate
+  if (filters.includeFuture) paginationParams.future = '1'
 
   const config = ACCOUNT_TYPE_CONFIG[account.type] ?? { label: account.type, Icon: Banknote }
   const { Icon, label } = config
@@ -83,7 +87,12 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
       </div>
 
       {/* Filters (without account selector) */}
-      <TransactionFilters accounts={[]} hideAccountFilter baseUrl={`/accounts/${accountId}`} />
+      <TransactionFilters
+        accounts={[]}
+        hideAccountFilter
+        baseUrl={`/accounts/${accountId}`}
+        includeFuture={filters.includeFuture}
+      />
 
       {/* Transaction count */}
       <p className="text-sm text-gray-500">
