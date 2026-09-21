@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
-import { accounts, transactions } from '@floow/db'
+import { accounts, forecastMatchProposals, transactions } from '@floow/db'
 import { TIPOS_DE_INVESTIMENTO } from '@floow/core-finance'
 
 /**
@@ -10,6 +10,12 @@ import { TIPOS_DE_INVESTIMENTO } from '@floow/core-finance'
  */
 type Refs = {
   tx: {
+    /**
+     * Precisa vir junto porque a regra correlaciona uma subconsulta em
+     * `forecast_match_proposals` com a linha: "existe proposta aberta para
+     * ESTA previsao?".
+     */
+    id: AnyPgColumn
     balanceApplied: AnyPgColumn
     matchedTransactionId: AnyPgColumn
     date: AnyPgColumn
@@ -33,7 +39,7 @@ const PADRAO: Refs = { tx: transactions, acc: accounts }
  * errada e nada quebra. Mexeu numa, mexa na outra — `regra-de-saldo-sql.test.ts`
  * e `saldo-projetado.test.ts` descrevem os mesmos criterios de proposito.
  *
- * Os tres criterios:
+ * Os criterios:
  *
  *  1. Conta de investimento nao soma. A perna do aporte fica na lista, porque
  *     registra o dinheiro saindo da corrente e entrando na corretora, mas
@@ -43,6 +49,17 @@ const PADRAO: Refs = { tx: transactions, acc: accounts }
  *     o mes". Previsao vencida nao soma, porque dali em diante quem diz o que
  *     aconteceu e o extrato. Previsao ja casada tambem nao, porque quem soma
  *     nesse caso e o realizado.
+ *  4. Previsao com proposta de conciliacao ABERTA nao soma. O realizado que a
+ *     proposta aponta ja entrou no saldo, e o vinculo so e gravado quando o
+ *     usuario aprova na fila: e o salario adiantado — previsao de R$ 32.500 no
+ *     dia 15, o banco credita R$ 32.638,85 no dia 13 porque o dia 15 caiu no
+ *     sabado, hoje e 14. Somar as duas linhas conta o mesmo dinheiro duas
+ *     vezes.
+ *
+ * Os parenteses do `NOT EXISTS` vao escritos no template. O `notExists()` do
+ * drizzle so os adiciona sozinho quando recebe um query builder — com
+ * fragmento cru o Postgres recusaria a consulta inteira, e nenhum teste com
+ * `db` mockado pegaria isso.
  *
  * `hoje` entra como parametro, e nao `CURRENT_DATE`, para o fuso ser o de Sao
  * Paulo e nao o do servidor do banco.
@@ -55,6 +72,9 @@ export function sqlContaNoSaldo(hoje: string, refs: Refs = PADRAO) {
       OR (
         ${refs.tx.matchedTransactionId} IS NULL
         AND ${refs.tx.date} > ${hoje}::date
+        AND NOT EXISTS (select 1 from ${forecastMatchProposals}
+           where ${forecastMatchProposals.forecastTransactionId} = ${refs.tx.id}
+             and ${forecastMatchProposals.status} = 'pending')
       )
     )
   )`

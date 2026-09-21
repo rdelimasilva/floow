@@ -45,6 +45,46 @@ describe('o que entra no saldo projetado', () => {
       contaNoSaldoProjetado(previsao({ date: '2026-10-15', matchedTransactionId: 'real-1' }), HOJE),
     ).toBe(false)
   })
+
+  /**
+   * O salário adiantado. A previsão é de R$ 32.500 no dia 15; o dia 15 caiu no
+   * sábado e o banco creditou R$ 32.638,85 no dia 13. Hoje é 14.
+   *
+   * O realizado já está em `accounts.balance_cents` e soma aqui também. A
+   * previsão ainda não venceu, e antes do gate de aprovação ela já teria saído
+   * da projeção no mesmo request do sync, porque o vínculo era gravado ali.
+   * Agora o vínculo espera a fila — e enquanto espera, somar as duas linhas
+   * conta o MESMO dinheiro duas vezes: a coluna de saldo ficaria R$ 32.500
+   * acima do real até alguém decidir.
+   *
+   * A direção é conservadora: sai a estimativa, fica o que o banco pagou.
+   */
+  it('previsão futura com proposta aberta não conta — senão o dinheiro conta em dobro', () => {
+    expect(
+      contaNoSaldoProjetado(
+        previsao({ date: '2026-10-15', hasPendingMatchProposal: true }),
+        HOJE,
+      ),
+    ).toBe(false)
+  })
+
+  it('previsão futura sem proposta aberta continua contando', () => {
+    expect(
+      contaNoSaldoProjetado(
+        previsao({ date: '2026-10-15', hasPendingMatchProposal: false }),
+        HOJE,
+      ),
+    ).toBe(true)
+  })
+
+  it('realizado com proposta aberta continua contando — quem sai é a previsão', () => {
+    expect(
+      contaNoSaldoProjetado(
+        { balanceApplied: true, date: '2026-10-13', hasPendingMatchProposal: true },
+        HOJE,
+      ),
+    ).toBe(true)
+  })
 })
 
 /**
