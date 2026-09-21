@@ -1,0 +1,20 @@
+import { unstable_cache } from 'next/cache'
+import { transactionsTag } from '@/lib/cache-tags'
+import { contarPropostasPendentes } from './forecast-match-queries'
+
+/**
+ * A contagem do badge, cacheada pela tag de transações.
+ *
+ * O `(app)/layout.tsx` roda em toda navegação do app, e hoje não faz consulta
+ * nenhuma para o menu — `cfoBadgeCount` existe no `Sidebar` e ninguém o
+ * alimenta. Sem cache, o badge custaria uma ida ao banco por página para
+ * mostrar um número que muda poucas vezes por dia. O sync e as decisões da
+ * fila já invalidam essa tag.
+ */
+export async function contagemDeConciliacoesPendentes(orgId: string): Promise<number> {
+  return unstable_cache(
+    async () => contarPropostasPendentes(orgId),
+    ['conciliacoes-pendentes', orgId],
+    { tags: [transactionsTag(orgId)], revalidate: 300 },
+  )()
+}

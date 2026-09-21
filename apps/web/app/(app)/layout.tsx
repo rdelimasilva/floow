@@ -8,6 +8,7 @@ import { ToastProvider } from '@/components/ui/toast'
 import { getReviewGateStatusSafe } from '@/lib/openfinance/counterparty-queries'
 import { ReviewGate } from '@/components/openfinance/review-gate'
 import { ApplyDueProvider } from '@/components/providers/apply-due-provider'
+import { contagemDeConciliacoesPendentes } from '@/lib/finance/forecast-match-badge'
 import dynamic from 'next/dynamic'
 
 const CommandPalette = dynamic(() => import('@/components/layout/command-palette').then(m => ({ default: m.CommandPalette })))
@@ -32,6 +33,13 @@ export default async function AppLayout({
     )
   }
 
+  // Sem org resolvida (o `gate` já falhou "para aberto"), o menu fica sem
+  // número em vez de derrubar o layout: este arquivo não tem error boundary
+  // próprio — ver o comentário de `getReviewGateStatusSafe`.
+  const matchBadgeCount = gate.ok
+    ? await contagemDeConciliacoesPendentes(gate.orgId)
+    : undefined
+
   const meta = user.user_metadata ?? {}
 
   const cookieStore = await cookies()
@@ -47,6 +55,7 @@ export default async function AppLayout({
               userEmail={user.email ?? ''}
               userName={meta.full_name ?? meta.name ?? null}
               avatarUrl={meta.avatar_url ?? meta.picture ?? null}
+              matchBadgeCount={matchBadgeCount}
             />
             <SidebarLayout>
               {children}
