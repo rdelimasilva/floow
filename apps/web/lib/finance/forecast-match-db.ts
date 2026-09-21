@@ -14,6 +14,30 @@ const JANELA_BUSCA_DIAS = 10
 const DIA_EM_MS = 24 * 60 * 60 * 1000
 
 /**
+ * Verdadeiro quando a previsão (a linha de `transactions` sendo filtrada) NÃO
+ * tem proposta pendente aberta em `forecast_match_proposals`.
+ *
+ * SQL cru, e não `notExists(db.select(...))`: para montar
+ * `.where(and(...))`, o JS avalia os argumentos antes de chamar `.where()` —
+ * um `notExists(db.select()...)` aqui dispararia uma SEGUNDA chamada a
+ * `db.select()` já na construção da consulta de `previstos`, antes até dela
+ * rodar, o que quebra o mock de banco dos testes (cada `db.select()` consome
+ * uma fixture da fila).
+ *
+ * Os parênteses em volta do `select` são obrigatórios — `NOT EXISTS` exige
+ * uma subconsulta parenteizada, e `notExists()` do drizzle só os adiciona
+ * sozinho quando recebe um query builder, não um fragmento `sql` cru. Sem
+ * eles o Postgres recusa a consulta inteira, e nenhum teste com `db` mockado
+ * pega isso — só a renderização real do SQL pega, por isso a função é
+ * exportada e testada em `previsao-sem-proposta-aberta-sql.test.ts`.
+ */
+export function condicaoDePrevisaoSemPropostaAberta() {
+  return notExists(
+    sql`(select 1 from ${forecastMatchProposals} where ${forecastMatchProposals.forecastTransactionId} = ${transactions.id} and ${forecastMatchProposals.status} = 'pending')`,
+  )
+}
+
+/**
  * Propõe, nesta conta, o par previsto×realizado que o casamento encontrar.
  *
  * Antes esta função GRAVAVA o vínculo (`matched_transaction_id`) e a previsão
@@ -53,15 +77,7 @@ export async function criarPropostasDeConciliacao(
         // Previsão com proposta aberta não é proposta de novo. O índice único
         // parcial barraria, mas gastar uma tentativa de insert por rodada de
         // sync para descobrir isso é desperdício.
-        //
-        // SQL cru na subconsulta, e não `db.select(...)`: para montar
-        // `.where(and(...))`, o JS avalia os argumentos antes de chamar
-        // `.where()` — então um `notExists(db.select()...)` aqui dispararia
-        // uma SEGUNDA chamada a `db.select()` já na construção da consulta de
-        // `previstos`, antes até dela rodar. `sql` evita essa chamada extra.
-        notExists(
-          sql`select 1 from ${forecastMatchProposals} where ${forecastMatchProposals.forecastTransactionId} = ${transactions.id} and ${forecastMatchProposals.status} = 'pending'`,
-        ),
+        condicaoDePrevisaoSemPropostaAberta(),
       ),
     )
 
