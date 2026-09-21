@@ -6,6 +6,7 @@ import { deleteTransaction, toggleIgnoreTransaction, cancelRecurring, bulkDelete
 import { setTransactionAffectsCashFlow } from '@/lib/finance/cash-flow-actions'
 import { nextAffectsCashFlow } from '@/lib/finance/affects-cash-flow-cycle'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { textoDeRemocao } from '@/lib/finance/delete-copy'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
@@ -332,13 +333,11 @@ export function TransactionList({
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-        title="Remover transação"
-        description={
-          deleteTarget?.transferGroupId
-            ? 'Tem certeza que deseja remover esta transferência? Ambas as pernas serão removidas e os saldos revertidos.'
-            : `Tem certeza que deseja remover "${deleteTarget?.description ?? ''}"? O saldo da conta será revertido.`
-        }
-        confirmLabel="Remover"
+        // O texto depende do que está sendo removido: previsão não mexe em
+        // saldo nenhum, e apagar uma parcela não cancela a recorrência.
+        title={textoDeRemocao(deleteTarget).title}
+        description={textoDeRemocao(deleteTarget).description}
+        confirmLabel="Excluir"
         loading={loading}
       />
 

@@ -7,6 +7,7 @@ import { formatBRL } from '@floow/core-finance'
 import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
 import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
+import { rotuloDeRemocao } from '@/lib/finance/delete-copy'
 
 interface RowActions {
   onEdit: (tx: TransactionRowData) => void
@@ -185,22 +186,22 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
         <span className="text-[10px] text-gray-400 uppercase">{TYPE_LABELS[tx.type]}</span>
         <div className="flex gap-1">
           {tx.recurringTemplateId && (
-            <button type="button" title="Cancelar recorrência" onClick={() => actions.onCancelRecurring(tx.recurringTemplateId!, tx.description)} className="rounded p-1 text-gray-400 hover:text-orange-600">
+            <button type="button" title="Cancelar recorrência" aria-label="Cancelar recorrência" onClick={() => actions.onCancelRecurring(tx.recurringTemplateId!, tx.description)} className="rounded p-1 text-gray-400 hover:text-orange-600">
               <XCircle className="h-4 w-4" />
             </button>
           )}
           {!tx.transferGroupId && (
-            <button type="button" onClick={() => actions.onEdit(tx)} className="rounded p-1 text-gray-400 hover:text-gray-700">
+            <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-1 text-gray-400 hover:text-gray-700">
               <Pencil className="h-4 w-4" />
             </button>
           )}
           <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
           {tx.externalId ? (
-            <button type="button" onClick={() => actions.onIgnore(tx)} disabled={loading} className={`rounded p-1 ${tx.isIgnored ? 'text-blue-500' : 'text-gray-400'}`}>
+            <button type="button" title={tx.isIgnored ? 'Restaurar transação' : 'Ignorar transação'} aria-label={tx.isIgnored ? 'Restaurar transação' : 'Ignorar transação'} onClick={() => actions.onIgnore(tx)} disabled={loading} className={`rounded p-1 ${tx.isIgnored ? 'text-blue-500' : 'text-gray-400'}`}>
               {tx.isIgnored ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             </button>
           ) : (
-            <button type="button" onClick={() => actions.onDelete(tx)} className="rounded p-1 text-gray-400 hover:text-red-600">
+            <button type="button" title={rotuloDeRemocao(tx)} aria-label={rotuloDeRemocao(tx)} onClick={() => actions.onDelete(tx)} className="rounded p-1 text-gray-400 hover:text-red-600">
               <Trash2 className="h-4 w-4" />
             </button>
           )}
@@ -270,6 +271,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
             <button
               type="button"
               title="Cancelar recorrência"
+              aria-label="Cancelar recorrência"
               onClick={() => actions.onCancelRecurring(tx.recurringTemplateId!, tx.description)}
               className="rounded p-1 text-gray-400 hover:bg-orange-50 hover:text-orange-600"
             >
@@ -280,6 +282,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
             <button
               type="button"
               title="Categorizar todas como esta"
+              aria-label="Categorizar todas como esta"
               onClick={() => actions.onCreateRule(tx.description, tx.categoryId!)}
               className="rounded p-1 text-gray-400 hover:bg-yellow-50 hover:text-yellow-600"
             >
@@ -289,6 +292,8 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
           {!tx.transferGroupId && (
             <button
               type="button"
+              title="Editar lançamento"
+              aria-label="Editar lançamento"
               onClick={() => actions.onEdit(tx)}
               className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
             >
@@ -309,6 +314,8 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
           ) : (
             <button
               type="button"
+              title={rotuloDeRemocao(tx)}
+              aria-label={rotuloDeRemocao(tx)}
               onClick={() => actions.onDelete(tx)}
               className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
             >
