@@ -39,6 +39,33 @@ export function condicaoDePrevisaoSemPropostaAberta() {
 }
 
 /**
+ * A proposta, dentro da org, ainda pendente. O filtro das duas actions da fila
+ * (`aprovarProposta` e `recusarProposta`).
+ *
+ * Função exportada por causa do escopo de org: as actions rodam sob `getDb()`,
+ * que conecta como dono das tabelas e IGNORA as policies de RLS, então este
+ * `org_id` é a única barreira entre organizações — um id de proposta alheio
+ * efetivaria conciliação de outra org. O mock de query-builder dos testes de
+ * action descarta os argumentos de `.where()` e passaria igual sem o filtro;
+ * `escopo-de-org-nas-actions.test.ts` renderiza a condição e trava o `org_id`.
+ *
+ * Mora aqui, e não em `forecast-match-actions.ts`, porque aquele arquivo é
+ * `'use server'` e só pode exportar função async.
+ */
+export function condicaoDePropostaPendenteDaOrg(propostaId: string, orgId: string) {
+  return and(
+    eq(forecastMatchProposals.id, propostaId),
+    eq(forecastMatchProposals.orgId, orgId),
+    eq(forecastMatchProposals.status, 'pending'),
+  )
+}
+
+/** A transação, dentro da org. Mesmo motivo da função acima. */
+export function condicaoDaTransacaoDaOrg(transacaoId: string, orgId: string) {
+  return and(eq(transactions.id, transacaoId), eq(transactions.orgId, orgId))
+}
+
+/**
  * A subconsulta de "quem já reivindicou este realizado" lê a MESMA tabela da
  * consulta externa, e por isso precisa de alias próprio: sem ele,
  * `transactions.id` dentro dela apontaria para a linha de dentro e o

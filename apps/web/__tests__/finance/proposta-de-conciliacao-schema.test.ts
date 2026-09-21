@@ -53,8 +53,8 @@ describe('migration 00047', () => {
   })
 
   it('não cria proposta retroativa para o que já está casado', () => {
-    // O passado e fato consumado (spec §4). Um INSERT ... SELECT aqui poria a
-    // org em mutirao no primeiro deploy.
+    // O passado é fato consumado (spec §4). Um INSERT ... SELECT aqui poria a
+    // org em mutirão no primeiro deploy.
     expect(SQL).not.toContain('insert into public.forecast_match_proposals')
   })
 })

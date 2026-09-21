@@ -54,7 +54,7 @@ describe('fila de conciliação', () => {
     within(cartao).getByText('Itaú')
   })
 
-  it('mostra o porque do par', () => {
+  it('mostra o porquê do par', () => {
     renderFila()
 
     screen.getByText(/2 dias de diferença/)

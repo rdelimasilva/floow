@@ -2,6 +2,7 @@
 
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { and, eq, inArray } from 'drizzle-orm'
+import { condicaoDaTransacaoDaOrg, condicaoDePropostaPendenteDaOrg } from './forecast-match-db'
 import { getOrgId } from './queries'
 import { revalidateTransactionData } from './revalidate'
 
@@ -46,13 +47,7 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
         realizedTransactionId: forecastMatchProposals.realizedTransactionId,
       })
       .from(forecastMatchProposals)
-      .where(
-        and(
-          eq(forecastMatchProposals.id, propostaId),
-          eq(forecastMatchProposals.orgId, orgId),
-          eq(forecastMatchProposals.status, 'pending'),
-        ),
-      )
+      .where(condicaoDePropostaPendenteDaOrg(propostaId, orgId))
       .limit(1)
 
     if (!proposta) return false
@@ -96,12 +91,7 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
     await tx
       .update(transactions)
       .set({ matchedTransactionId: proposta.realizedTransactionId })
-      .where(
-        and(
-          eq(transactions.id, proposta.forecastTransactionId),
-          eq(transactions.orgId, orgId),
-        ),
-      )
+      .where(condicaoDaTransacaoDaOrg(proposta.forecastTransactionId, orgId))
 
     await tx
       .update(forecastMatchProposals)
@@ -132,13 +122,7 @@ export async function recusarProposta(propostaId: string): Promise<{ recusada: b
     const [proposta] = await tx
       .select({ id: forecastMatchProposals.id })
       .from(forecastMatchProposals)
-      .where(
-        and(
-          eq(forecastMatchProposals.id, propostaId),
-          eq(forecastMatchProposals.orgId, orgId),
-          eq(forecastMatchProposals.status, 'pending'),
-        ),
-      )
+      .where(condicaoDePropostaPendenteDaOrg(propostaId, orgId))
       .limit(1)
 
     if (!proposta) return false
