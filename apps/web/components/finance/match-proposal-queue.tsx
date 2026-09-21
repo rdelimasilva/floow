@@ -24,12 +24,20 @@ export function MatchProposalQueue({ propostas: iniciais }: { propostas: Propost
   const [decidindo, setDecidindo] = useState<string | null>(null)
 
   /**
-   * A action devolve `false` quando a proposta não está mais pendente — duas
-   * abas, dois cliques, o sync já tendo decidido por trás. Não é erro, mas
-   * também não é o que o clique pediu: se o toast dissesse "Conciliado" ou
-   * "Marcados como diferentes" sem checar o retorno, mentiria sobre qual
-   * decisão realmente valeu. O cartão sai da tela nos dois casos — a linha
-   * já está velha de qualquer jeito — mas a mensagem muda.
+   * A action devolve `false` por mais de um motivo: a proposta não está mais
+   * pendente (duas abas, dois cliques) ou uma ponta do par ficou inelegível na
+   * janela entre propor e aprovar — o realizado marcado como ignorado, a
+   * previsão que ganhou vínculo por outro caminho.
+   *
+   * Não é erro, mas também não é o que o clique pediu: se o toast dissesse
+   * "Conciliado" ou "Marcados como diferentes" sem checar o retorno, mentiria
+   * sobre qual decisão realmente valeu. O cartão sai da tela nos dois casos —
+   * a linha já está velha de qualquer jeito — mas a mensagem muda.
+   *
+   * A mensagem é genérica de propósito: ela cobre os dois motivos sem afirmar
+   * qual foi. "Decidida em outra aba" mentiria quando o motivo foi a ponta
+   * inelegível, e distinguir os dois pediria um terceiro caminho de código para
+   * uma diferença que não muda o que o usuário faz em seguida: reler a fila.
    */
   async function decidir(proposta: PropostaPendente, eOMesmo: boolean) {
     setDecidindo(proposta.id)
@@ -43,7 +51,7 @@ export function MatchProposalQueue({ propostas: iniciais }: { propostas: Propost
       if (decidiuAgora) {
         toast(eOMesmo ? 'Conciliado' : 'Marcados como lançamentos diferentes')
       } else {
-        toast('Esta conciliação já havia sido decidida em outra aba', 'info')
+        toast('Esta conciliação não está mais válida. A fila foi atualizada.', 'info')
       }
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Não foi possível decidir', 'error')

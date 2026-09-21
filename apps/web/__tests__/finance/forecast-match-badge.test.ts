@@ -13,6 +13,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
  * teste quebra.
  */
 
+/**
+ * A contagem junta as duas pontas do par (previsão e realizado) para ler a
+ * mesma condição da fila — badge que conta o que a tela não mostra manda o
+ * usuário procurar decisão que não existe. Daqui o `innerJoin` no encadeado.
+ */
+const encadeado: Record<string, unknown> = {
+  then: (r: (v: unknown) => unknown) => Promise.resolve([{ total: 3 }]).then(r),
+}
+for (const m of ['from', 'innerJoin', 'where']) encadeado[m] = () => encadeado
+
 const h = vi.hoisted(() => ({
   withRls: vi.fn(),
   getServiceDb: vi.fn(() => ({ marca: 'service-db' })),
@@ -41,11 +51,7 @@ beforeEach(() => {
   h.getServiceDb.mockReturnValue({ marca: 'service-db' })
   h.withRls.mockImplementation(async (_db, _userId, fn) =>
     fn({
-      select: () => ({
-        from: () => ({
-          where: () => Promise.resolve([{ total: 3 }]),
-        }),
-      }),
+      select: () => encadeado,
     }),
   )
 })

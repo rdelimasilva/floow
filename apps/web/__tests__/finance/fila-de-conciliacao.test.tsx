@@ -3,6 +3,12 @@ import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import React from 'react'
 
 /**
+ * `efetivada: false` / `recusada: false` tem mais de um motivo: dois cliques,
+ * duas abas, ou uma ponta do par que ficou inelegível na janela entre propor e
+ * aprovar (realizado ignorado, previsão que ganhou vínculo). A mensagem é
+ * genérica de propósito — ela cobre os dois sem afirmar qual foi, e afirmar
+ * "decidida em outra aba" seria mentira no caso da ponta inelegível.
+ *
  * A fila mostra os dois lados e o PORQUÊ do par — dias de diferença e
  * diferença de valor. Sem isso, "é o mesmo?" é uma pergunta sem informação:
  * `matchForecast` aceita até 7 dias de janela e 8% de diferença com palavra em
@@ -103,7 +109,7 @@ describe('fila de conciliação', () => {
     expect(screen.queryByRole('button', { name: /todas/i })).toBeNull()
   })
 
-  it('aprovar proposta já decidida em outra aba sai da tela sem mentir no toast', async () => {
+  it('aprovar proposta que não vale mais sai da tela sem mentir no toast', async () => {
     aprovarProposta.mockResolvedValueOnce({ efetivada: false })
     renderFila()
 
@@ -113,10 +119,10 @@ describe('fila de conciliação', () => {
 
     expect(screen.queryByTestId('proposta-prop-1')).toBeNull()
     expect(screen.queryByText('Conciliado')).toBeNull()
-    screen.getByText(/já havia sido decidida em outra aba/)
+    screen.getByText(/não está mais válida/)
   })
 
-  it('recusar proposta já decidida em outra aba sai da tela sem mentir no toast', async () => {
+  it('recusar proposta que não vale mais sai da tela sem mentir no toast', async () => {
     recusarProposta.mockResolvedValueOnce({ recusada: false })
     renderFila()
 
@@ -126,6 +132,6 @@ describe('fila de conciliação', () => {
 
     expect(screen.queryByTestId('proposta-prop-1')).toBeNull()
     expect(screen.queryByText('Marcados como lançamentos diferentes')).toBeNull()
-    screen.getByText(/já havia sido decidida em outra aba/)
+    screen.getByText(/não está mais válida/)
   })
 })

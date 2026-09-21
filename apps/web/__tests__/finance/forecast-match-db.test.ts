@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import type { SQL } from 'drizzle-orm'
 
 /**
  * O passo que PROPÕE, nesta conta, o par previsto×realizado que o casamento
@@ -19,13 +21,27 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const selectQueue: unknown[][] = []
 const inserts: { payload?: Record<string, unknown> }[] = []
 const updates: { payload?: Record<string, unknown> }[] = []
+/**
+ * As condições que cada `.where()` recebeu, na ordem: [0] previstos abertos,
+ * [1] realizados candidatos. O mock não tem banco, então a única forma de
+ * provar um FILTRO é olhar a condição que foi montada — renderizada com
+ * `PgDialect`, como em `previsao-sem-proposta-aberta-sql.test.ts`.
+ */
+const wheres: SQL[] = []
+
+const dialect = new PgDialect()
+const sqlDoWhere = (i: number) => dialect.sqlToQuery(wheres[i]).sql.toLowerCase()
 
 function chain(result: unknown[], current?: { payload?: Record<string, unknown> }): any {
   const c: any = {
     then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
   }
-  for (const m of ['from', 'where', 'limit', 'returning', 'orderBy', 'onConflictDoNothing']) {
+  for (const m of ['from', 'limit', 'returning', 'orderBy', 'onConflictDoNothing']) {
     c[m] = () => chain(result, current)
+  }
+  c.where = (condicao: SQL) => {
+    wheres.push(condicao)
+    return chain(result, current)
   }
   c.set = (payload: Record<string, unknown>) => {
     if (current) current.payload = payload
@@ -79,12 +95,13 @@ beforeEach(() => {
   selectQueue.length = 0
   inserts.length = 0
   updates.length = 0
+  wheres.length = 0
 })
 
 describe('criarPropostasDeConciliacao', () => {
   it('propõe o par previsto×realizado que o casamento encontrou', async () => {
     selectQueue.push([PREVISTO_SALARIO]) // previstos abertos
-    selectQueue.push([REAL_SALARIO]) // realizados sem vínculo
+    selectQueue.push([REAL_SALARIO]) // realizados que nenhuma previsão reivindicou
 
     const total = await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)
 
@@ -98,6 +115,40 @@ describe('criarPropostasDeConciliacao', () => {
     })
     // O vínculo continua intocado: quem efetiva é a aprovação, não o sync.
     expect(updates).toHaveLength(0)
+  })
+
+  /**
+   * O realizado que JÁ é alvo de um vínculo sai da lista de candidatos.
+   *
+   * Os índices da 00047 não fecham isso: `uq_fmp_realizado_pendente` é parcial
+   * em `status = 'pending'`, então a proposta aprovada sai do índice e um
+   * segundo previsto pode ser proposto para o mesmo realizado. Templates
+   * "Aluguel" R$ 1.200 dia 01 e "Condomínio" R$ 1.200 dia 05, um débito de
+   * R$ 1.200 no dia 03: aprovada a proposta (Aluguel, R), o sync seguinte
+   * propõe (Condomínio, R) — e na fila "É o mesmo" viola
+   * `idx_transactions_matched_unique` da 00042, a action estoura, e a proposta
+   * fica presa na fila e no contador do badge para sempre. O `Set` de
+   * `reivindicados` não cobre: ele só protege dentro de uma rodada, e só do
+   * lado da previsão.
+   */
+  it('realizado que uma previsão já reivindicou não vira proposta', async () => {
+    selectQueue.push([PREVISTO_SALARIO])
+    selectQueue.push([REAL_SALARIO])
+
+    await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)
+
+    const realizados = sqlDoWhere(1)
+    expect(realizados).toContain('not exists (select 1 from "transactions"')
+    expect(realizados).toContain('"matched_transaction_id" = "transactions"."id"')
+  })
+
+  it('previsão com proposta aberta não vira candidata de novo', async () => {
+    selectQueue.push([PREVISTO_SALARIO])
+    selectQueue.push([REAL_SALARIO])
+
+    await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)
+
+    expect(sqlDoWhere(0)).toContain('not exists (select 1 from "forecast_match_proposals"')
   })
 
   it('não escreve nada quando não há previsto aberto', async () => {

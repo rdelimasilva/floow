@@ -1,4 +1,5 @@
 import { and, eq, gte, isNotNull, isNull, lte, notExists, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { matchForecast, type ForecastCandidate } from '@floow/core-finance'
 
@@ -34,6 +35,41 @@ const DIA_EM_MS = 24 * 60 * 60 * 1000
 export function condicaoDePrevisaoSemPropostaAberta() {
   return notExists(
     sql`(select 1 from ${forecastMatchProposals} where ${forecastMatchProposals.forecastTransactionId} = ${transactions.id} and ${forecastMatchProposals.status} = 'pending')`,
+  )
+}
+
+/**
+ * A subconsulta de "quem já reivindicou este realizado" lê a MESMA tabela da
+ * consulta externa, e por isso precisa de alias próprio: sem ele,
+ * `transactions.id` dentro dela apontaria para a linha de dentro e o
+ * `NOT EXISTS` nunca seria verdadeiro.
+ */
+const jaVinculado = alias(transactions, 'ja_vinculado')
+
+/**
+ * Verdadeiro quando NENHUMA transação aponta para este realizado (a linha de
+ * `transactions` sendo filtrada) em `matched_transaction_id`.
+ *
+ * Sem este filtro, o realizado que já cumpriu uma previsão continua na lista
+ * de candidatos. Os índices da 00047 não fecham o caso:
+ * `uq_fmp_realizado_pendente` é parcial em `status = 'pending'`, então quando
+ * a proposta é aprovada a linha sai do índice e um segundo previsto pode ser
+ * proposto para o mesmo realizado. Templates "Aluguel" R$ 1.200 dia 01 e
+ * "Condomínio" R$ 1.200 dia 05, um débito de R$ 1.200 no dia 03: aprovada a
+ * proposta (Aluguel, R), o sync seguinte propõe (Condomínio, R) — e na fila
+ * "É o mesmo" viola `idx_transactions_matched_unique` da 00042, a action
+ * estoura, e a proposta fica presa na fila e no contador do badge para sempre.
+ *
+ * O `Set` de `reivindicados` não cobre isso: ele só protege dentro de uma
+ * rodada de sync, e só do lado da previsão.
+ *
+ * SQL cru e parênteses escritos à mão, pelos mesmos dois motivos de
+ * `condicaoDePrevisaoSemPropostaAberta` acima. Testada em
+ * `realizado-ja-reivindicado-sql.test.ts`.
+ */
+export function condicaoDeRealizadoSemVinculo() {
+  return notExists(
+    sql`(select 1 from ${transactions} ${jaVinculado} where ${jaVinculado.matchedTransactionId} = ${transactions.id})`,
   )
 }
 
@@ -89,7 +125,8 @@ export async function criarPropostasDeConciliacao(
 
   // Realizado é o que veio do banco: tem `external_id` e não nasceu de
   // template. `isIgnored` fora porque lançamento marcado como errado não
-  // cumpriu previsão nenhuma.
+  // cumpriu previsão nenhuma, e realizado já reivindicado por outra previsão
+  // também fora — propor de novo geraria proposta impossível de aprovar.
   const realizados = await db
     .select({
       id: transactions.id,
@@ -107,6 +144,7 @@ export async function criarPropostasDeConciliacao(
         eq(transactions.isIgnored, false),
         gte(transactions.date, inicio),
         lte(transactions.date, fim),
+        condicaoDeRealizadoSemVinculo(),
       ),
     )
 

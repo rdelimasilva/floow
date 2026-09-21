@@ -8,6 +8,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
  *
  * Recusar não toca na previsão: ela segue aberta e elegível a outra proposta
  * num sync futuro. O par recusado é barrado pelo índice único, não aqui.
+ *
+ * Aprovar também RECONFERE as duas pontas antes de gravar. A janela entre
+ * propor e aprovar é aberta por desenho — a fila não bloqueia o app — e nela o
+ * usuário pode marcar o realizado como ignorado, o que reverte
+ * `accounts.balance_cents`. Aprovar depois disso faria a previsão sair do
+ * saldo projetado com o realizado já fora do saldo da conta: o lançamento
+ * desapareceria dos dois saldos, com o selo "conciliado" afirmando que quem
+ * soma é o realizado.
  */
 
 const ops: { op: string; payload?: Record<string, unknown> }[] = []
@@ -31,7 +39,7 @@ const tx = {
 
 vi.mock('@floow/db', () => ({
   getDb: () => ({ transaction: async (fn: (t: typeof tx) => unknown) => fn(tx) }),
-  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', matchedTransactionId: 'matched_transaction_id' },
+  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', matchedTransactionId: 'matched_transaction_id', balanceApplied: 'balance_applied', isIgnored: 'is_ignored' },
   forecastMatchProposals: { _: { name: 'forecast_match_proposals' }, id: 'id', orgId: 'org_id', status: 'status', decidedAt: 'decided_at', forecastTransactionId: 'forecast_transaction_id', realizedTransactionId: 'realized_transaction_id' },
 }))
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: () => Promise.resolve('org-1') }))
@@ -50,6 +58,21 @@ const PENDENTE = {
   status: 'pending',
 }
 
+/** As duas pontas como estavam quando a proposta nasceu. */
+const PREVISAO_ABERTA = {
+  id: 'prev-1',
+  matchedTransactionId: null,
+  balanceApplied: false,
+  isIgnored: false,
+}
+const REALIZADO_VALENDO = {
+  id: 'real-1',
+  matchedTransactionId: null,
+  balanceApplied: true,
+  isIgnored: false,
+}
+const PONTAS_ELEGIVEIS = [PREVISAO_ABERTA, REALIZADO_VALENDO]
+
 beforeEach(() => {
   ops.length = 0
   selectQueue.length = 0
@@ -58,6 +81,7 @@ beforeEach(() => {
 describe('aprovarProposta', () => {
   it('grava o vínculo na previsão e fecha a proposta', async () => {
     selectQueue.push([PENDENTE])
+    selectQueue.push(PONTAS_ELEGIVEIS)
 
     const { efetivada } = await aprovarProposta('prop-1')
 
@@ -67,6 +91,49 @@ describe('aprovarProposta', () => {
     const naProposta = ops.find((o) => o.op === 'update:forecast_match_proposals')
     expect(naProposta?.payload).toMatchObject({ status: 'approved' })
     expect(naProposta?.payload?.decidedAt).toBeInstanceOf(Date)
+  })
+
+  it('realizado marcado como ignorado na janela não é efetivado', async () => {
+    selectQueue.push([PENDENTE])
+    selectQueue.push([PREVISAO_ABERTA, { ...REALIZADO_VALENDO, isIgnored: true }])
+
+    const { efetivada } = await aprovarProposta('prop-1')
+
+    expect(efetivada).toBe(false)
+    expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
+  })
+
+  it('previsão que já ganhou vínculo na janela não é efetivada de novo', async () => {
+    selectQueue.push([PENDENTE])
+    selectQueue.push([
+      { ...PREVISAO_ABERTA, matchedTransactionId: 'outro-real' },
+      REALIZADO_VALENDO,
+    ])
+
+    const { efetivada } = await aprovarProposta('prop-1')
+
+    expect(efetivada).toBe(false)
+    expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
+  })
+
+  it('previsão que virou realizada na janela não é efetivada', async () => {
+    selectQueue.push([PENDENTE])
+    selectQueue.push([{ ...PREVISAO_ABERTA, balanceApplied: true }, REALIZADO_VALENDO])
+
+    const { efetivada } = await aprovarProposta('prop-1')
+
+    expect(efetivada).toBe(false)
+    expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
+  })
+
+  it('ponta apagada entre propor e aprovar não é efetivada', async () => {
+    selectQueue.push([PENDENTE])
+    selectQueue.push([PREVISAO_ABERTA])
+
+    const { efetivada } = await aprovarProposta('prop-1')
+
+    expect(efetivada).toBe(false)
+    expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
   })
 
   it('proposta que não está pendente não faz nada — clique duplo não é erro', async () => {
