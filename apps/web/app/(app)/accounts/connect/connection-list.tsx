@@ -69,11 +69,11 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
 
         toast(
           result.pendingResourceCount > 0
-            ? 'Atualizado. O banco ainda está preparando parte das contas.'
-            : 'Conexão atualizada.',
+            ? 'Contas atualizadas. O banco ainda está preparando parte delas.'
+            : 'Contas atualizadas.',
         )
       } catch (error) {
-        toast(error instanceof Error ? error.message : 'Não foi possível atualizar', 'error')
+        toast(error instanceof Error ? error.message : 'Não foi possível buscar as contas', 'error')
       } finally {
         setBusyId(null)
       }
@@ -105,7 +105,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
           summary.rejected === 0 ? undefined : 'error',
         )
       } catch (error) {
-        toast(error instanceof Error ? error.message : 'Não foi possível sincronizar', 'error')
+        toast(error instanceof Error ? error.message : 'Não foi possível importar os lançamentos', 'error')
       } finally {
         setBusyId(null)
       }
@@ -171,7 +171,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
                   onClick={() => handleSync(connection.id)}
                   disabled={pending && busyId === connection.id}
                 >
-                  Sincronizar
+                  Importar lançamentos
                 </Button>
               ) : (
                 <Button
@@ -189,7 +189,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
                 onClick={() => handleRefresh(connection.id)}
                 disabled={pending && busyId === connection.id}
               >
-                Atualizar
+                Buscar contas
               </Button>
               <Button
                 size="sm"
@@ -240,7 +240,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
           {connection.status === 'AUTHORISED' && connection.resources.length === 0 && (
             <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
               Nenhuma conta disponível ainda. O banco pode levar alguns minutos para enviar os dados
-              — use Atualizar.
+              — use Buscar contas.
             </p>
           )}
         </article>

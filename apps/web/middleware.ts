@@ -20,6 +20,7 @@ const PUBLIC_ROUTE_PREFIXES = [
   '/api/cfo/run-daily',  // Cron job — uses CRON_SECRET / SERVICE_ROLE_KEY
   '/api/cfo/run-event',  // Event trigger — uses SERVICE_ROLE_KEY
   '/api/reconcile',      // Background job — auth enforced internally
+  '/api/openfinance/import-transactions', // Cron 3x/dia — usa CRON_SECRET / SERVICE_ROLE_KEY
 ]
 
 function isPublicRoute(pathname: string): boolean {

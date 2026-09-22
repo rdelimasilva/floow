@@ -25,6 +25,8 @@ const SERVICO: Record<string, string> = {
   'app/api/cfo/run-daily/route.ts': 'cron: varre todas as orgs, sem usuário na requisição',
   'lib/cfo/engine.ts': 'só é chamado por run-daily e run-event, ambas autenticadas por segredo',
   'lib/audit/record.ts': 'audit_log não tem policy de INSERT por desenho — só o backend escreve',
+  'lib/openfinance/importacao-agendada.ts':
+    'cron 3x/dia: varre as conexões de todas as orgs, sem usuário na requisição',
 }
 
 /** Ainda não convertidos. Esta lista só pode encolher. */
