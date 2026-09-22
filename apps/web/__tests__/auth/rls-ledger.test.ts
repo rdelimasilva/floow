@@ -49,6 +49,10 @@ const PENDENTES = [
   'lib/finance/cash-flow-actions.ts',
   'lib/finance/category-actions.ts',
   'lib/finance/debt-actions.ts',
+  // Escreve em `transactions` (o vínculo da conciliação), e as políticas de
+  // ESCRITA daquela tabela ainda não estão no ar — a migração de RLS cobre
+  // leitura. Mesma razão de `apply-due.ts`.
+  'lib/finance/forecast-match-actions.ts',
   'lib/finance/import-actions.ts',
   // `lib/finance/queries.ts` era uma entrada só, de 590 linhas. Virou fachada
   // de reexport — não chama mais `getDb()` — e os seis módulos abaixo herdaram

@@ -157,9 +157,22 @@ Com proposta pendente, a decisão existe e está em outro lugar. O selo passa a
 previsão que não tem nem proposta — aquela em que o banco simplesmente não
 trouxe nada.
 
-Saldo: nada muda. Previsão nunca entrou em `accounts.balance_cents` (migration
-00046) e a vencida sem par também não conta no saldo projetado
-(`contaNoSaldoProjetado`). Proposta pendente não move nenhum dos dois.
+Saldo da conta: nada muda. Previsão nunca entrou em `accounts.balance_cents`
+(migration 00046), e nenhuma decisão da fila toca essa coluna.
+
+Saldo **projetado** da listagem muda: a previsão com proposta aberta sai dele.
+A janela de `matchForecast` é simétrica, então o realizado chega antes da data
+prevista com frequência — salário antecipado porque o dia 15 caiu no sábado,
+débito automático adiantado, boleto pago antes. Antes deste gate o vínculo era
+gravado no mesmo request do sync e a previsão saía da projeção na hora; agora
+ela fica sem vínculo até a aprovação, e somá-la junto com o realizado que já
+entrou no saldo conta o **mesmo dinheiro duas vezes** (previsão de R$ 32.500 no
+dia 15 mais o crédito de R$ 32.638,85 no dia 13 = R$ 32.500 de saldo a mais até
+alguém decidir). A direção do desempate é conservadora: sai a estimativa, fica
+o que o banco pagou. As duas metades da regra — `contaNoSaldoProjetado` no
+cliente e `sqlContaNoSaldo` no Postgres — mudam juntas, sempre.
+
+A previsão vencida sem par também continua fora do saldo projetado.
 
 ## 7. Testes
 

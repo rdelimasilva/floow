@@ -55,6 +55,17 @@ export interface TransactionRowData {
   categoryAffectsCashFlow?: boolean | null
   acquiredAssetId?: string | null
   acquiredAssetName?: string | null
+  /**
+   * Há proposta de conciliação esperando decisão para esta previsão.
+   *
+   * Muda o selo: o vermelho "não conciliado" quer dizer "exige decisão sua", e
+   * com proposta aberta a decisão está na fila.
+   *
+   * Muda também a coluna de saldo. O realizado que a proposta aponta já
+   * entrou, e o vínculo só é gravado na aprovação — somar as duas linhas
+   * contaria o mesmo dinheiro duas vezes. Ver `contaNoSaldoProjetado`.
+   */
+  hasPendingMatchProposal?: boolean
 }
 
 export interface AccountOption {

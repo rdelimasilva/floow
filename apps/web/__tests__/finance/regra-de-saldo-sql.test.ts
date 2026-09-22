@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { PgDialect } from 'drizzle-orm/pg-core'
+import { PgDialect, alias } from 'drizzle-orm/pg-core'
+import { accounts, transactions } from '@floow/db'
 import { sqlContaNoSaldo } from '@/lib/finance/balance-sql'
 
 /**
@@ -40,5 +41,39 @@ describe('regra de saldo no SQL', () => {
 
   it('exclui previsao ja casada com o realizado', () => {
     expect(gerado).toContain('"matched_transaction_id" is null')
+  })
+
+  /**
+   * O salario adiantado: previsao de R$ 32.500 no dia 15, banco credita
+   * R$ 32.638,85 no dia 13 porque o dia 15 caiu no sabado, hoje e 14.
+   *
+   * O realizado ja soma (`balance_applied`). A previsao ainda nao venceu e
+   * somaria tambem, porque o vinculo so e gravado quando o usuario aprova na
+   * fila — as duas linhas contariam o MESMO dinheiro. Previsao com proposta
+   * aberta sai da projecao.
+   */
+  it('exclui previsao com proposta de conciliacao aberta', () => {
+    expect(gerado).toContain('not exists (select 1 from "forecast_match_proposals"')
+    expect(gerado).toContain('"forecast_transaction_id"')
+    expect(gerado).toContain("'pending'")
+  })
+
+  /**
+   * Em `getTransactionsWithCount` a regra roda dentro de uma subquery
+   * correlacionada sobre a MESMA tabela da consulta externa, com alias
+   * proprio. A subconsulta de proposta precisa correlacionar com a linha do
+   * ALIAS: apontando para `"transactions"."id"` ela leria a linha de fora, e
+   * uma unica previsao com proposta aberta tiraria do saldo todas as linhas
+   * da pagina.
+   */
+  it('correlaciona a proposta pelo alias da linha, nao pela tabela de fora', () => {
+    const txSaldo = alias(transactions, 'tx_saldo')
+    const contaSaldo = alias(accounts, 'conta_saldo')
+    const comAlias = dialect
+      .sqlToQuery(sqlContaNoSaldo('2026-09-19', { tx: txSaldo, acc: contaSaldo }))
+      .sql.toLowerCase()
+
+    expect(comAlias).toContain('= "tx_saldo"."id"')
+    expect(comAlias).not.toContain('"transactions"."id"')
   })
 })

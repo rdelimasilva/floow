@@ -1620,6 +1620,6 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ## Depois de executar
 
-Aplique a migration no banco antes de considerar a feature no ar: `00047` cria a tabela de que todas as consultas dependem, e o app sobe sem ela (a tabela só é lida) até alguém abrir a fila. Ordem segura de deploy: migration primeiro, código depois.
+A migration `00047` é **pré-requisito do deploy do código**, e não um passo que pode vir depois. A subquery do selo (`hasPendingMatchProposal`) entra na consulta principal da listagem, `getTransactionsWithCount`, que não é cacheada — e a regra de saldo (`sqlContaNoSaldo`) também lê a tabela. Sem ela, o Postgres recusa a consulta e caem, nesta ordem, `/transactions`, `/dashboard` e `/accounts/[accountId]`: as três telas quebram antes de qualquer um abrir a fila. Ordem obrigatória: migration primeiro, código depois.
 
 Não há backfill. Os casamentos já feitos continuam valendo; o gate vale do deploy para frente (spec §4).
