@@ -106,3 +106,23 @@ describe('applyDueBankTransactions', () => {
     expect(query).toContain('<=')
   })
 })
+
+/**
+ * Lancamento agendado entra do Open Finance com `is_ignored = true` e
+ * `balance_applied = false` (`sync.ts:386`) — visivel para o usuario, fora das
+ * somas, "senao vira gasto que ninguem fez". Sem este filtro, quando a data
+ * chegava o saldo o aplicava assim mesmo e o lancamento virava exatamente isso:
+ * pesava no saldo continuando marcado como ignorado, invisivel para todo
+ * relatorio que filtra `is_ignored`. Na conta real isso deixou R$ 256,55 de
+ * conta de luz dentro do saldo do Itau.
+ */
+describe('applyDueBankTransactions e o lançamento ignorado', () => {
+  it('não aplica no saldo lançamento marcado como ignorado', async () => {
+    selectQueue.push([])
+
+    await applyDueBankTransactions()
+
+    const query = sqlCapturado.join(' | ').toLowerCase()
+    expect(query).toContain('"is_ignored" =')
+  })
+})

@@ -40,6 +40,13 @@ export async function applyDueBankTransactions() {
     // exigir os dois deixa a intencao explicita para quem ler o SQL.
     isNotNull(transactions.externalId),
     isNull(transactions.recurringTemplateId),
+    // Agendado entra do sync com `is_ignored = true` e `balance_applied =
+    // false` (`sync.ts:386`): visivel para o usuario, fora das somas. Aplicar
+    // por data sem olhar esta coluna fazia dele o "gasto que ninguem fez" que
+    // o proprio sync diz evitar — dentro do saldo, e escondido de todo
+    // relatorio que filtra `is_ignored`. Quem tira um lancamento do ignorado e
+    // `toggleIgnoreTransaction`, que ja aplica o valor no saldo na hora.
+    eq(transactions.isIgnored, false),
     sql`${transactions.date} <= ${todayStr}::date`,
   )
 
