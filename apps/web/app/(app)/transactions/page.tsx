@@ -12,6 +12,10 @@ import { Pagination } from '@/components/ui/pagination'
 import { PageSizeSelector } from '@/components/ui/page-size-selector'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
+import { PendingQueuesNotice } from '@/components/finance/pending-queues-notice'
+import { contarDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
+import { contarPropostasPendentes } from '@/lib/finance/forecast-match-queries'
+import { getAuthenticatedUser } from '@/lib/auth/session'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const
 const DEFAULT_PAGE_SIZE = 30
@@ -79,12 +83,25 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const queryOpts = { limit: pageSize, offset: (page - 1) * pageSize, ...filters }
 
-  const [{ transactions, totalCount }, accounts, categories, categoryOrder] =
+  // As contagens das filas entram no mesmo `Promise.all`: sao duas consultas
+  // baratas e serializa-las custaria dois round-trips a mais na tela mais
+  // visitada do app.
+  //
+  // Falha nelas nao derruba a lista — o aviso some, os lancamentos ficam. E o
+  // mesmo "fail open" que o contador tinha no layout: um controle nao pode
+  // custar a tela que ele existe para melhorar.
+  // Sem usuario resolvido a pagina nao renderiza de qualquer forma (o layout
+  // ja redireciona); aqui o `null` so apaga o aviso, em vez de estourar.
+  const usuario = await getAuthenticatedUser()
+  const userId = usuario?.id ?? null
+  const [{ transactions, totalCount }, accounts, categories, categoryOrder, duplicatasPendentes, conciliacoesPendentes] =
     await Promise.all([
       getTransactionsWithCount(orgId, queryOpts),
       getAccounts(orgId),
       getCategories(orgId),
       getCategoryUsageOrder(orgId),
+      userId === null ? 0 : contarDuplicatasPendentes(orgId, userId).catch(() => 0),
+      userId === null ? 0 : contarPropostasPendentes(orgId, userId).catch(() => 0),
     ])
 
   const totalPages = Math.ceil(totalCount / pageSize)
@@ -138,6 +155,12 @@ export default async function TransactionsPage({ searchParams }: Props) {
         accounts={accountOptions}
         categories={categoryOptions}
       />
+
+      {/* As filas moram aqui, e nao no menu: item fixo ocupa lugar permanente
+          para uma decisao que aparece poucas vezes por mes, e some do campo de
+          visao de quem esta olhando os lancamentos — que e onde o assunto
+          surge. Fila vazia nao renderiza nada. */}
+      <PendingQueuesNotice duplicatas={duplicatasPendentes} conciliacoes={conciliacoesPendentes} />
 
       <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} />
 

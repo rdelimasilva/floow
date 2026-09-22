@@ -1,7 +1,7 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, count, eq, sql } from 'drizzle-orm'
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { accounts, duplicateProposals, transactions } from '@floow/db'
-import { withUserDb } from '@/lib/db/rls'
+import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 
 export interface LadoDaDuplicata {
   id: string
@@ -98,5 +98,29 @@ export async function getDuplicatasPendentes(orgId: string): Promise<DuplicataPe
       contaNome: row.contaNome,
       horasEntreEmissoes: row.minutosEntreEmissoes / MINUTOS_POR_HORA,
     }))
+  })
+}
+
+/**
+ * Quantas propostas esperam decisão.
+ *
+ * Usa a MESMA condição da fila: contador que anuncia o que a tela não mostra
+ * manda o usuário procurar decisão que não existe.
+ *
+ * `userId` explícito porque quem chama vem de um callback cacheado, fora do
+ * escopo de request, onde `withUserDb` não consegue ler cookies — mesma razão
+ * de `contarPropostasPendentes`.
+ */
+export async function contarDuplicatasPendentes(orgId: string, userId: string): Promise<number> {
+  return withUserDbFor(userId, async (db) => {
+    const duplicata = alias(transactions, 'duplicata')
+
+    const [row] = await db
+      .select({ total: count() })
+      .from(duplicateProposals)
+      .innerJoin(duplicata, eq(duplicata.id, duplicateProposals.duplicataTransactionId))
+      .where(condicaoDeDuplicataAberta(orgId, duplicata))
+
+    return Number(row?.total ?? 0)
   })
 }

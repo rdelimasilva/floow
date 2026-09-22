@@ -17,6 +17,7 @@ type Refs = {
      */
     id: AnyPgColumn
     balanceApplied: AnyPgColumn
+    isIgnored: AnyPgColumn
     matchedTransactionId: AnyPgColumn
     date: AnyPgColumn
     amountCents: AnyPgColumn
@@ -44,12 +45,17 @@ const PADRAO: Refs = { tx: transactions, acc: accounts }
  *  1. Conta de investimento nao soma. A perna do aporte fica na lista, porque
  *     registra o dinheiro saindo da corrente e entrando na corretora, mas
  *     somar as duas anula o aporte.
- *  2. O que ja foi aplicado no saldo soma — e o realizado.
- *  3. Previsao AINDA POR VENCER soma: e a projecao, o que responde "como fecho
+ *  2. Lancamento ignorado nao soma. `is_ignored` significa "este lancamento e
+ *     errado, nao existe", e `toggleIgnoreTransaction` ja estornou
+ *     `accounts.balance_cents` quando o usuario marcou. Sem este criterio a
+ *     coluna continuava somando o que a conta ja tinha devolvido: na conta
+ *     real deu -R$ 4.290,37 onde o saldo era R$ 6.151,18.
+ *  3. O que ja foi aplicado no saldo soma — e o realizado.
+ *  4. Previsao AINDA POR VENCER soma: e a projecao, o que responde "como fecho
  *     o mes". Previsao vencida nao soma, porque dali em diante quem diz o que
  *     aconteceu e o extrato. Previsao ja casada tambem nao, porque quem soma
  *     nesse caso e o realizado.
- *  4. Previsao com proposta de conciliacao ABERTA nao soma. O realizado que a
+ *  5. Previsao com proposta de conciliacao ABERTA nao soma. O realizado que a
  *     proposta aponta ja entrou no saldo, e o vinculo so e gravado quando o
  *     usuario aprova na fila: e o salario adiantado — previsao de R$ 32.500 no
  *     dia 15, o banco credita R$ 32.638,85 no dia 13 porque o dia 15 caiu no
@@ -67,6 +73,7 @@ const PADRAO: Refs = { tx: transactions, acc: accounts }
 export function sqlContaNoSaldo(hoje: string, refs: Refs = PADRAO) {
   return sql`(
     ${refs.acc.type} NOT IN ${TIPOS_DE_INVESTIMENTO}
+    AND NOT ${refs.tx.isIgnored}
     AND (
       ${refs.tx.balanceApplied}
       OR (

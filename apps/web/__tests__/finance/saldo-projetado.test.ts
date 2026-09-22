@@ -119,3 +119,51 @@ describe('conta de investimento na coluna de saldo', () => {
     expect(contaNoSaldoProjetado(real(), HOJE)).toBe(true)
   })
 })
+
+/**
+ * Par do teste de `regra-de-saldo-sql.test.ts`: as duas regras precisam dizer
+ * a mesma coisa sobre o ignorado, ou o topo da pagina vem de uma e os
+ * incrementos da outra.
+ *
+ * `is_ignored` significa "este lancamento e errado, nao existe", e o saldo da
+ * conta ja foi estornado quando o usuario marcou. Somar aqui mostra dinheiro
+ * que a conta nao tem.
+ */
+describe('contaNoSaldoProjetado e o lancamento ignorado', () => {
+  const HOJE = new Date('2026-09-22T12:00:00-03:00')
+
+  it('nao conta realizado ignorado', () => {
+    expect(
+      contaNoSaldoProjetado(
+        { balanceApplied: true, isIgnored: true, date: '2026-09-16', accountType: 'checking' },
+        HOJE,
+      ),
+    ).toBe(false)
+  })
+
+  it('nao conta previsao futura ignorada', () => {
+    expect(
+      contaNoSaldoProjetado(
+        { balanceApplied: false, isIgnored: true, date: '2026-10-16', accountType: 'checking' },
+        HOJE,
+      ),
+    ).toBe(false)
+  })
+
+  it('continua contando o realizado normal', () => {
+    expect(
+      contaNoSaldoProjetado(
+        { balanceApplied: true, isIgnored: false, date: '2026-09-16', accountType: 'checking' },
+        HOJE,
+      ),
+    ).toBe(true)
+  })
+
+  it('trata isIgnored ausente como nao ignorado', () => {
+    // Dado que falta nunca deve fazer saldo sumir em silencio — mesma escolha
+    // que `accountType` ausente ja faz neste arquivo.
+    expect(
+      contaNoSaldoProjetado({ balanceApplied: true, date: '2026-09-16', accountType: 'checking' }, HOJE),
+    ).toBe(true)
+  })
+})

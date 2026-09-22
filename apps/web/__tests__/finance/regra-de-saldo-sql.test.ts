@@ -77,3 +77,35 @@ describe('regra de saldo no SQL', () => {
     expect(comAlias).not.toContain('"transactions"."id"')
   })
 })
+
+/**
+ * Lancamento ignorado nao soma em saldo nenhum.
+ *
+ * `is_ignored` significa "este lancamento e errado, nao existe", e
+ * `toggleIgnoreTransaction` ja estorna `accounts.balance_cents` quando o
+ * usuario marca. A regra desta coluna nao olhava a flag, entao a listagem
+ * continuava somando o que a conta ja tinha devolvido: na conta real a coluna
+ * mostrou -R$ 4.290,37 onde o saldo era R$ 6.151,18, R$ 10.441,55 de
+ * diferenca — exatamente as tres linhas ignoradas.
+ *
+ * O comentario de `contaNoSaldoProjetado` dizia "realizado: ja esta em
+ * accounts.balance_cents". Para o ignorado essa premissa e falsa, e era dela
+ * que a regra dependia.
+ */
+describe('sqlContaNoSaldo e o lancamento ignorado', () => {
+  it('tira da soma o lancamento marcado como ignorado', () => {
+    const gerado = dialect.sqlToQuery(sqlContaNoSaldo('2026-09-22')).sql.toLowerCase()
+
+    expect(gerado).toContain('"is_ignored"')
+  })
+
+  it('le a flag do alias da linha, nao da tabela de fora', () => {
+    const txSaldo = alias(transactions, 'tx_saldo')
+    const contaSaldo = alias(accounts, 'conta_saldo')
+    const comAlias = dialect
+      .sqlToQuery(sqlContaNoSaldo('2026-09-22', { tx: txSaldo, acc: contaSaldo }))
+      .sql.toLowerCase()
+
+    expect(comAlias).toContain('"tx_saldo"."is_ignored"')
+  })
+})

@@ -9,10 +9,9 @@ interface AppShellProps {
   userName: string | null
   avatarUrl: string | null
   cfoBadgeCount?: number
-  matchBadgeCount?: number
 }
 
-export function AppShell({ userEmail, userName, avatarUrl, cfoBadgeCount, matchBadgeCount }: AppShellProps) {
+export function AppShell({ userEmail, userName, avatarUrl, cfoBadgeCount }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const handleMobileClose = useCallback(() => setMobileOpen(false), [])
 
@@ -26,7 +25,6 @@ export function AppShell({ userEmail, userName, avatarUrl, cfoBadgeCount, matchB
       />
       <Sidebar
         cfoBadgeCount={cfoBadgeCount}
-        matchBadgeCount={matchBadgeCount}
         mobileOpen={mobileOpen}
         onMobileClose={handleMobileClose}
       />

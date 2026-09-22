@@ -22,8 +22,6 @@ import {
   RefreshCw,
   Pin,
   PinOff,
-  CopyCheck,
-  GitCompareArrows,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from './sidebar-context'
@@ -57,8 +55,6 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/cash-flow', label: 'Fluxo de Caixa', icon: BarChart3 },
       { href: '/transactions', label: 'Transações', icon: ArrowLeftRight },
       { href: '/transactions/recurring', label: 'Recorrentes', icon: RefreshCw },
-      { href: '/transactions/matches', label: 'Conciliações', icon: GitCompareArrows },
-      { href: '/transactions/duplicates', label: 'Duplicatas', icon: CopyCheck },
     ],
   },
   {
@@ -116,14 +112,12 @@ function NavLink({
   pinned,
   onClick,
   cfoBadgeCount,
-  matchBadgeCount,
 }: {
   item: NavItem
   isActive: boolean
   pinned: boolean
   onClick?: () => void
   cfoBadgeCount?: number
-  matchBadgeCount?: number
 }) {
   return (
     <Link
@@ -151,14 +145,6 @@ function NavLink({
         </span>
       )}
 
-      {item.href === '/transactions/matches' && matchBadgeCount !== undefined && matchBadgeCount > 0 && (
-        <span className={cn(
-          'ml-auto rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 whitespace-nowrap',
-          !pinned && FADE_IN,
-        )}>
-          {matchBadgeCount}
-        </span>
-      )}
     </Link>
   )
 }
@@ -169,12 +155,11 @@ function NavLink({
 
 interface SidebarProps {
   cfoBadgeCount?: number
-  matchBadgeCount?: number
   mobileOpen: boolean
   onMobileClose: () => void
 }
 
-export function Sidebar({ cfoBadgeCount, matchBadgeCount, mobileOpen, onMobileClose }: SidebarProps) {
+export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const { pinned, togglePin } = useSidebar()
 
@@ -195,8 +180,7 @@ export function Sidebar({ cfoBadgeCount, matchBadgeCount, mobileOpen, onMobileCl
     if (href === '/transactions') {
       return (
         pathname.startsWith('/transactions/') &&
-        !pathname.startsWith('/transactions/recurring') &&
-        !pathname.startsWith('/transactions/matches')
+        !pathname.startsWith('/transactions/recurring')
       )
     }
     return pathname.startsWith(href + '/')
@@ -308,7 +292,6 @@ export function Sidebar({ cfoBadgeCount, matchBadgeCount, mobileOpen, onMobileCl
                     pinned={pinned}
                     onClick={onMobileClose}
                     cfoBadgeCount={cfoBadgeCount}
-                    matchBadgeCount={matchBadgeCount}
                   />
                 ))}
               </div>

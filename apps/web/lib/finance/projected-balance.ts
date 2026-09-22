@@ -30,6 +30,13 @@ import { ehContaDeInvestimento } from '@floow/core-finance'
 /** Só os campos que decidem — qualquer linha da listagem serve. */
 interface LinhaProjetavel {
   balanceApplied?: boolean
+  /**
+   * "Este lancamento e errado, nao existe". O saldo da conta ja foi estornado
+   * quando o usuario marcou, entao somar aqui mostra dinheiro que a conta nao
+   * tem. Ausente conta como nao ignorado — dado que falta nunca deve fazer
+   * saldo sumir em silencio, mesma escolha de `accountType`.
+   */
+  isIgnored?: boolean
   date: Date | string
   matchedTransactionId?: string | null
   /**
@@ -56,6 +63,11 @@ export function contaNoSaldoProjetado(linha: LinhaProjetavel, hoje: Date): boole
   // corretora — mas somar as duas anula o aporte, e ele passa a parecer que
   // não custou nada.
   if (ehContaDeInvestimento(linha.accountType)) return false
+
+  // Ignorado não soma em saldo nenhum: `toggleIgnoreTransaction` já estornou
+  // `accounts.balance_cents`. Vem ANTES do teste de realizado porque é
+  // justamente lá que a premissa "já está no balance_cents" deixa de valer.
+  if (linha.isIgnored === true) return false
 
   // Realizado: já aconteceu, já está em `accounts.balance_cents`.
   if (linha.balanceApplied !== false) return true
