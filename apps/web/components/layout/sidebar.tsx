@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Pin,
   PinOff,
+  CopyCheck,
   GitCompareArrows,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -57,6 +58,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/transactions', label: 'Transações', icon: ArrowLeftRight },
       { href: '/transactions/recurring', label: 'Recorrentes', icon: RefreshCw },
       { href: '/transactions/matches', label: 'Conciliações', icon: GitCompareArrows },
+      { href: '/transactions/duplicates', label: 'Duplicatas', icon: CopyCheck },
     ],
   },
   {

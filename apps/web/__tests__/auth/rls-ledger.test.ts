@@ -53,6 +53,12 @@ const PENDENTES = [
   // ESCRITA daquela tabela ainda não estão no ar — a migração de RLS cobre
   // leitura. Mesma razão de `apply-due.ts`.
   'lib/finance/forecast-match-actions.ts',
+  // Aprovar uma duplicata marca `is_ignored` em `transactions` e estorna
+  // `accounts.balance_cents`: as duas tabelas cuja policy de ESCRITA ainda não
+  // existe, exatamente como em `forecast-match-actions.ts`. Entra na lista com
+  // a mesma dívida, e sai junto com ela — a leitura da fila
+  // (`duplicata-queries.ts`) já nasceu em `withUserDb`.
+  'lib/finance/duplicata-actions.ts',
   'lib/finance/import-actions.ts',
   // `lib/finance/queries.ts` era uma entrada só, de 590 linhas. Virou fachada
   // de reexport — não chama mais `getDb()` — e os seis módulos abaixo herdaram

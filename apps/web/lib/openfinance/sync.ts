@@ -23,7 +23,9 @@ import { normalizeBatch, type RejectedItem } from './normalize-batch'
 import { loadCounterpartyIndex, resolveCounterparty } from './resolve-counterparty'
 import type { ResolvedTransaction } from './resolve-counterparty'
 import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
+import { registrarSaldoDoBanco } from './conferir-saldo'
 import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
+import { criarPropostasDeDuplicata } from '@/lib/finance/duplicata-db'
 
 /**
  * Importação das transações de uma conexão Open Finance.
@@ -45,6 +47,8 @@ export interface SyncSummary {
   skippedUnlinked: number
   /** Propostas de conciliação previsto×realizado criadas nesta passada. */
   propostasDeConciliacao: number
+  /** Propostas de duplicata — mesmo evento reemitido pela fonte com outro id. */
+  propostasDeDuplicata: number
   /**
    * Itens que a ingestão não conseguiu ler. Ficam em
    * `openfinance_ingestion_issues` com o payload cru, e o recurso não avança a
@@ -70,7 +74,7 @@ export async function syncConnectionTransactions(
     loadCounterpartyIndex(db, connection.orgId),
   ])
 
-  const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0, rejected: 0, propostasDeConciliacao: 0 }
+  const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0, rejected: 0, propostasDeConciliacao: 0, propostasDeDuplicata: 0 }
 
   for (const resource of resources) {
     if (!resource.accountId) {
@@ -147,6 +151,22 @@ export async function syncConnectionTransactions(
     } catch (error) {
       console.error('[sync] falha ao propor conciliacao de previsto com realizado:', error)
     }
+
+    // O dedupe da ingestao e o indice unico `(external_id, account_id)`, que
+    // nao protege quando a fonte REEMITE o mesmo evento com outro id. Propor
+    // e separado de importar: o par so existe depois das duas linhas dentro.
+    // Falha aqui nao derruba o sync — o dado ja entrou, e a proposta volta a
+    // ser criada na proxima passada.
+    try {
+      summary.propostasDeDuplicata += await criarPropostasDeDuplicata(db, connection.orgId, resource.accountId)
+    } catch (error) {
+      console.error('[sync] falha ao propor duplicata:', error)
+    }
+
+    // O saldo do banco vale como conferencia do que ACABOU de entrar, entao
+    // e lido depois da importacao. Nao entra no `try` da conciliacao: sao
+    // controles independentes, e um nao deve mascarar a falha do outro.
+    await registrarSaldoDoBanco(db, client, resource)
 
     // A janela só avança quando o recurso veio inteiro. Avançar com rejeição
     // perderia aquelas transações para sempre: a próxima sincronização pediria

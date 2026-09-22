@@ -1,4 +1,5 @@
 import {
+  accountsTag,
   budgetSpendingTag,
   categoriesTag,
   futureTransactionsTag,
@@ -26,6 +27,17 @@ export function revalidateTransactionData(orgId: string) {
   // /budgets/spending, /budgets/pacing e o dashboard servem números defasados
   // por até 300s após uma edição.
   invalidateTag(budgetSpendingTag(orgId))
+}
+
+/**
+ * O saldo da conta mudou.
+ *
+ * Existem duas copias locais desta funcao — em `actions.ts` e em
+ * `recurring-cancel.ts` — anteriores a este modulo. Elas fazem o mesmo e
+ * podem migrar para ca; codigo novo usa esta, para nao criar uma terceira.
+ */
+export function revalidateAccountData(orgId: string) {
+  invalidateTag(accountsTag(orgId))
 }
 
 export function revalidateCategoryData(orgId: string) {

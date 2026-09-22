@@ -18,7 +18,7 @@
  */
 export { getOrgId } from '@/lib/auth/session'
 
-export { getAccounts, getAccountById } from './queries-accounts'
+export { getAccounts, getAccountById, getSaldosDoBanco } from './queries-accounts'
 
 export {
   type TransactionFilterOpts,

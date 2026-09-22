@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { getOrgId } from '@/lib/finance/queries'
-import { getAccounts } from '@/lib/finance/queries'
+import { getAccounts, getOrgId, getSaldosDoBanco } from '@/lib/finance/queries'
+import { BankDivergenceAlert } from '@/components/finance/bank-divergence-alert'
 import { AccountCard } from '@/components/finance/account-card'
 import { formatBRL } from '@floow/core-finance'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,17 @@ import { PageHeader } from '@/components/ui/page-header'
 export default async function AccountsPage() {
   const orgId = await getOrgId()
   const accounts = await getAccounts(orgId)
+  // O saldo aqui e derivado da soma dos lancamentos; o banco tem o proprio
+  // numero. Conferir os dois e o que pega o lancamento duplicado, o que
+  // faltou, e o erro nosso — sem precisar saber de antemao qual foi.
+  const saldosDoBanco = await getSaldosDoBanco(orgId)
+  const conferidas = accounts.map((a) => ({
+    accountId: a.id,
+    nome: a.name,
+    saldoLocalCents: a.balanceCents,
+    saldoBancoCents: saldosDoBanco.get(a.id)?.bankBalanceCents ?? null,
+    apuradoEm: saldosDoBanco.get(a.id)?.bankBalanceAt ?? null,
+  }))
 
   const totalBalanceCents = accounts.reduce((sum, a) => sum + a.balanceCents, 0)
 
@@ -31,6 +42,8 @@ export default async function AccountsPage() {
           {formatBRL(totalBalanceCents)}
         </p>
       )}
+
+      <BankDivergenceAlert divergencias={conferidas} />
 
       {/* Account grid */}
       {accounts.length === 0 ? (

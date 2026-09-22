@@ -11,6 +11,7 @@ import {
   pgTable,
   uuid,
   text,
+  integer,
   timestamp,
   jsonb,
   date,
@@ -96,6 +97,18 @@ export const openfinanceResources = pgTable(
     /** Chaves vistas no payload do detalhe, sem valores. Diagnostico da forma. */
     detailKeys: text('detail_keys').array(),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    /**
+     * Saldo que o BANCO informou na ultima sincronizacao, para conferir contra
+     * o nosso `accounts.balance_cents`, que e derivado da soma dos lancamentos.
+     *
+     * NULL quando a fonte nao responde saldo — `CREDIT_CARD_ACCOUNT` traz
+     * `limits` e nunca `balance`, porque fatura e limite usado nao sao a mesma
+     * pergunta que saldo — ou quando a leitura do detalhe falhou. A ausencia e
+     * honesta: um zero fingiria conferencia que nao houve. Ver migration 00048.
+     */
+    bankBalanceCents: integer('bank_balance_cents'),
+    /** Quando o banco APUROU o saldo, nao quando gravamos. Ver migration 00048. */
+    bankBalanceAt: timestamp('bank_balance_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

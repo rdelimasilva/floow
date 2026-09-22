@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
-import { getDb, accounts } from '@floow/db'
-import { eq, and } from 'drizzle-orm'
+import { getDb, accounts, openfinanceResources } from '@floow/db'
+import { eq, and, isNotNull } from 'drizzle-orm'
 import { accountsTag } from '@/lib/cache-tags'
 
 /**
@@ -36,4 +36,34 @@ export const getAccountById = cache(async function getAccountById(orgId: string,
     .limit(1)
 
   return account ?? null
+})
+
+/**
+ * Saldo que o banco informou, por conta do floow.
+ *
+ * Query separada, e nao um join em `getAccounts`, de proposito: o tipo
+ * `Account` e consumido por dezenas de telas que nao tem nada a ver com
+ * conferencia, e alargar o retorno de `getAccounts` arrastaria todas elas.
+ * Quem quer conferir pede a conferencia.
+ *
+ * So volta linha de conta com Open Finance vinculado e saldo ja lido — cartao
+ * de credito nunca aparece, porque seu detalhe traz `limits` e nao `balance`.
+ */
+export const getSaldosDoBanco = cache(async function getSaldosDoBanco(orgId: string) {
+  const db = getDb()
+  const linhas = await db
+    .select({
+      accountId: openfinanceResources.accountId,
+      bankBalanceCents: openfinanceResources.bankBalanceCents,
+      bankBalanceAt: openfinanceResources.bankBalanceAt,
+    })
+    .from(openfinanceResources)
+    .where(and(eq(openfinanceResources.orgId, orgId), isNotNull(openfinanceResources.bankBalanceCents)))
+
+  const porConta = new Map<string, { bankBalanceCents: number; bankBalanceAt: Date | null }>()
+  for (const l of linhas) {
+    if (l.accountId === null || l.bankBalanceCents === null) continue
+    porConta.set(l.accountId, { bankBalanceCents: l.bankBalanceCents, bankBalanceAt: l.bankBalanceAt })
+  }
+  return porConta
 })
