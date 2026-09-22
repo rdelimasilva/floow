@@ -59,7 +59,7 @@ function renderRow(extra: Record<string, unknown> = {}) {
 
 /**
  * Data fixa para os selos nao dependerem do relogio: o estado "previsto" vs.
- * "nao conciliado" e decidido comparando a data da linha com hoje, e um teste
+ * "nao confirmado" e decidido comparando a data da linha com hoje, e um teste
  * que envelhece muda de resultado sozinho.
  */
 beforeAll(() => {
@@ -77,10 +77,10 @@ describe('selo de previsto', () => {
     screen.getByText('previsto')
   })
 
-  it('previsto já casado com o realizado mostra "conciliado", não "previsto"', () => {
+  it('previsto já casado com o realizado mostra "confirmado", não "previsto"', () => {
     renderRow({ balanceApplied: false, matchedTransactionId: 'real-1' })
 
-    screen.getByText('conciliado')
+    screen.getByText('confirmado')
     expect(screen.queryByText('previsto')).toBeNull()
   })
 
@@ -88,7 +88,7 @@ describe('selo de previsto', () => {
     renderRow({ balanceApplied: true })
 
     expect(screen.queryByText('previsto')).toBeNull()
-    expect(screen.queryByText('conciliado')).toBeNull()
+    expect(screen.queryByText('confirmado')).toBeNull()
   })
 })
 
@@ -100,25 +100,25 @@ describe('selo de previsto', () => {
  * depende de uma decisao do usuario. Antes ela era somada no saldo e nao
  * tinha selo — indistinguivel de um lancamento de verdade.
  */
-describe('selo de nao conciliado', () => {
-  it('previsao vencida sem par do banco mostra "nao conciliado"', () => {
+describe('selo de nao confirmado', () => {
+  it('previsao vencida sem par do banco mostra "nao confirmado"', () => {
     renderRow({ balanceApplied: false, date: '2026-08-15' })
 
-    screen.getByText('não conciliado')
+    screen.getByText('não confirmado')
     expect(screen.queryByText('previsto')).toBeNull()
   })
 
-  it('previsao vencida ja casada mostra "conciliado", nao "nao conciliado"', () => {
+  it('previsao vencida ja casada mostra "confirmado", nao "nao confirmado"', () => {
     renderRow({ balanceApplied: false, date: '2026-08-15', matchedTransactionId: 'real-1' })
 
-    screen.getByText('conciliado')
-    expect(screen.queryByText('não conciliado')).toBeNull()
+    screen.getByText('confirmado')
+    expect(screen.queryByText('não confirmado')).toBeNull()
   })
 
-  it('previsao que vence hoje ja conta como nao conciliada', () => {
+  it('previsao que vence hoje ja conta como nao confirmada', () => {
     renderRow({ balanceApplied: false, date: '2026-09-19' })
 
-    screen.getByText('não conciliado')
+    screen.getByText('não confirmado')
   })
 })
 

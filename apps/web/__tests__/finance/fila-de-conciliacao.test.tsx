@@ -100,7 +100,7 @@ describe('fila de conciliação', () => {
   it('fila vazia diz que não há nada', () => {
     renderFila([])
 
-    screen.getByText('Nenhuma conciliação esperando.')
+    screen.getByText('Nenhuma previsão esperando confirmação.')
   })
 
   it('não oferece aprovar todas — a decisão é par por par', () => {

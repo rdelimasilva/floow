@@ -6,7 +6,7 @@ import { and } from 'drizzle-orm'
 import { buildTransactionConditions } from '@/lib/finance/queries'
 
 /**
- * O vermelho "não conciliado" significa "exige decisão sua". Com proposta
+ * O vermelho "não confirmado" significa "exige decisão sua". Com proposta
  * pendente a decisão existe e está na fila — manter o vermelho manda o usuário
  * procurar o que fazer no lugar errado.
  */
@@ -44,29 +44,29 @@ function renderRow(extra: Record<string, unknown> = {}) {
 }
 
 describe('selo da previsão vencida', () => {
-  it('com proposta pendente, diz "conciliar?" e não o vermelho', () => {
+  it('com proposta pendente, diz "confirmar?" e não o vermelho', () => {
     renderRow({ hasPendingMatchProposal: true })
 
-    screen.getByText('conciliar?')
-    expect(screen.queryByText('não conciliado')).toBeNull()
+    screen.getByText('confirmar?')
+    expect(screen.queryByText('não confirmado')).toBeNull()
   })
 
   it('sem proposta, segue o vermelho de sempre', () => {
     renderRow({ hasPendingMatchProposal: false })
 
-    screen.getByText('não conciliado')
+    screen.getByText('não confirmado')
   })
 
-  it('previsão já conciliada não muda', () => {
+  it('previsão já confirmada não muda', () => {
     renderRow({ matchedTransactionId: 'real-1', hasPendingMatchProposal: false })
 
-    screen.getByText('conciliado')
+    screen.getByText('confirmado')
   })
 
-  it('o selo de conciliar leva a fila', () => {
+  it('o selo de confirmar leva a fila', () => {
     renderRow({ hasPendingMatchProposal: true })
 
-    expect(screen.getByRole('link', { name: 'conciliar?' }).getAttribute('href'))
+    expect(screen.getByRole('link', { name: 'confirmar?' }).getAttribute('href'))
       .toBe('/transactions/matches')
   })
 })

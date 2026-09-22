@@ -10,8 +10,8 @@ export default async function MatchesPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Conciliações"
-        description="Pares que o floow encontrou entre a previsão e o que o banco trouxe. Nada é conciliado sem você aprovar."
+        title="Confirmar previsões"
+        description="Previsões suas que parecem já ter acontecido, com o lançamento do banco que as cumpriu. Nada é confirmado sem você aprovar."
       />
       <MatchProposalQueue propostas={propostas} />
     </div>

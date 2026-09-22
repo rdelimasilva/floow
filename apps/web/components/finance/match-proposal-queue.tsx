@@ -51,7 +51,7 @@ export function MatchProposalQueue({ propostas: iniciais }: { propostas: Propost
       if (decidiuAgora) {
         toast(eOMesmo ? 'Conciliado' : 'Marcados como lançamentos diferentes')
       } else {
-        toast('Esta conciliação não está mais válida. A fila foi atualizada.', 'info')
+        toast('Esta previsão não está mais válida. A fila foi atualizada.', 'info')
       }
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Não foi possível decidir', 'error')
@@ -61,7 +61,7 @@ export function MatchProposalQueue({ propostas: iniciais }: { propostas: Propost
   }
 
   if (propostas.length === 0) {
-    return <p className="text-sm text-gray-600">Nenhuma conciliação esperando.</p>
+    return <p className="text-sm text-gray-600">Nenhuma previsão esperando confirmação.</p>
   }
 
   const dia = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/')

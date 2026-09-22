@@ -9,8 +9,8 @@ export default async function ReviewPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Revisão de contrapartes"
-        description="Lançamentos do Open Finance que o floow ainda não sabe classificar sozinho."
+        title="Classificar lançamentos"
+        description="Lançamentos que vieram do banco e o floow ainda não sabe classificar sozinho. Você decide uma vez e vale para os próximos."
       />
       <Suspense fallback={null}>
         <CounterpartyQueue orgId={orgId} mode="page" />

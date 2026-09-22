@@ -327,7 +327,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
         <div>
           <h2 className="text-sm font-semibold text-gray-900">Já confirmadas</h2>
           <p className="mt-1 text-xs text-gray-500">
-            Lista das contrapartes já confirmadas, para conferência.
+            Quem você já classificou. Vale para os lançamentos futuros também.
           </p>
           <ul className="mt-3 space-y-2">
             {confirmed.map((c) => (

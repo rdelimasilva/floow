@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { PendingQueuesNotice } from '@/components/finance/pending-queues-notice'
 import { contarDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
 import { contarPropostasPendentes } from '@/lib/finance/forecast-match-queries'
+import { contarLancamentosAClassificar } from '@/lib/openfinance/counterparty-queries'
 import { getAuthenticatedUser } from '@/lib/auth/session'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const
@@ -94,7 +95,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   // ja redireciona); aqui o `null` so apaga o aviso, em vez de estourar.
   const usuario = await getAuthenticatedUser()
   const userId = usuario?.id ?? null
-  const [{ transactions, totalCount }, accounts, categories, categoryOrder, duplicatasPendentes, conciliacoesPendentes] =
+  const [{ transactions, totalCount }, accounts, categories, categoryOrder, duplicatasPendentes, conciliacoesPendentes, aClassificar] =
     await Promise.all([
       getTransactionsWithCount(orgId, queryOpts),
       getAccounts(orgId),
@@ -102,6 +103,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
       getCategoryUsageOrder(orgId),
       userId === null ? 0 : contarDuplicatasPendentes(orgId, userId).catch(() => 0),
       userId === null ? 0 : contarPropostasPendentes(orgId, userId).catch(() => 0),
+      contarLancamentosAClassificar(orgId).catch(() => 0),
     ])
 
   const totalPages = Math.ceil(totalCount / pageSize)
@@ -146,7 +148,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
           <Link href="/transactions/import">Importar</Link>
         </Button>
         <Button asChild variant="outline">
-          <Link href="/transactions/review">Revisar contrapartes</Link>
+          <Link href="/transactions/review">Classificar lançamentos</Link>
         </Button>
         <InlineTransactionFormButton />
       </PageHeader>
@@ -160,7 +162,11 @@ export default async function TransactionsPage({ searchParams }: Props) {
           para uma decisao que aparece poucas vezes por mes, e some do campo de
           visao de quem esta olhando os lancamentos — que e onde o assunto
           surge. Fila vazia nao renderiza nada. */}
-      <PendingQueuesNotice duplicatas={duplicatasPendentes} conciliacoes={conciliacoesPendentes} />
+      <PendingQueuesNotice
+        repetidos={duplicatasPendentes}
+        classificar={aClassificar}
+        previsoes={conciliacoesPendentes}
+      />
 
       <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} />
 

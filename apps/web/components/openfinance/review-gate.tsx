@@ -12,8 +12,8 @@ export function ReviewGate({ orgId }: { orgId: string }) {
       <div className="mx-auto max-w-2xl">
         <h1 className="text-xl font-semibold text-gray-900">Antes de continuar</h1>
         <p className="mt-1 text-sm text-gray-600">
-          O banco mandou lançamentos que o floow não sabe classificar sozinho. Revise cada
-          contraparte uma vez — as próximas sincronizações não perguntam de novo.
+          O banco mandou lançamentos que o floow não sabe classificar sozinho. Classifique
+          cada um uma vez — as próximas importações não perguntam de novo.
         </p>
         <div className="mt-6">
           <Suspense fallback={null}>

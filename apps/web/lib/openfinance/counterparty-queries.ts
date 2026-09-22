@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { orgs, transactions, counterparties, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { withUserDb } from '@/lib/db/rls'
@@ -101,6 +101,33 @@ export interface PendingGroup {
  * Ordenada por dinheiro — o mesmo princípio que o detector antigo já validou:
  * "R$ 92 mil" move o usuário, "12 lançamentos" não.
  */
+/**
+ * Quantos lancamentos esperam classificacao.
+ *
+ * Mesma condicao do gate (`getReviewGateStatus`): `review_state = 'pending'`
+ * com contraparte ja identificada. Contador que anuncia o que a tela nao
+ * mostra manda o usuario procurar decisao que nao existe.
+ *
+ * Conta LANCAMENTOS, nao contrapartes: e o numero que a faixa mostra, e
+ * "5 lancamentos para classificar" e o que o usuario ve na lista. A fila
+ * agrupa por contraparte para decidir de uma vez, mas isso e detalhe da tela
+ * de la.
+ */
+export async function contarLancamentosAClassificar(orgId: string): Promise<number> {
+  return withUserDb(async (db) => {
+    const [row] = await db
+      .select({ total: count() })
+      .from(transactions)
+      .where(and(
+        eq(transactions.orgId, orgId),
+        eq(transactions.reviewState, 'pending'),
+        isNotNull(transactions.counterpartyId),
+      ))
+
+    return Number(row?.total ?? 0)
+  })
+}
+
 export async function getPendingCounterpartyGroups(orgId: string): Promise<PendingGroup[]> {
   return withUserDb(async (db) => {
 

@@ -92,7 +92,7 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
         className="inline-flex shrink-0 items-center rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500"
         title="Previsão já cumprida por um lançamento do banco. Esta linha não entra no saldo."
       >
-        conciliado
+        confirmado
       </span>
     )
   }
@@ -102,9 +102,9 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
       <Link
         href="/transactions/matches"
         className="inline-flex shrink-0 items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-100"
-        title="O floow encontrou um lançamento do banco que pode ser este. Decida na fila de conciliações."
+        title="O floow encontrou um lançamento do banco que pode ser este. Decida em Confirmar previsões."
       >
-        conciliar?
+        confirmar?
       </Link>
     )
   }
@@ -113,9 +113,9 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
     return (
       <span
         className="inline-flex shrink-0 items-center rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
-        title="A data chegou e o banco não trouxe o lançamento correspondente. Não entra em saldo nenhum até ser conciliada."
+        title="A data chegou e o banco não trouxe o lançamento correspondente. Não entra em saldo nenhum até ser confirmada."
       >
-        não conciliado
+        não confirmado
       </span>
     )
   }
