@@ -6,15 +6,13 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
-import { createBudgetEntry, updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
-import { createCategory } from '@/lib/finance/category-actions'
+import { updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { formatBRL } from '@floow/core-finance'
 import { RecurringEntriesList } from './recurring-entries-list'
-import { toCategoryOptions } from '@/lib/finance/category-options'
+import { BudgetEntryDialog } from '@/components/finance/budget-entry-dialog'
 
 interface CategoryOption {
   id: string
@@ -74,17 +72,7 @@ export function SpendingClient({
   const [editEndMonth, setEditEndMonth] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  // New entry form state
-  const [newCategoryId, setNewCategoryId] = useState('')
-  const [newPlannedCents, setNewPlannedCents] = useState('')
-  const [newStartMonth, setNewStartMonth] = useState(selectedMonth)
-  const [newEndMonth, setNewEndMonth] = useState('')
-
-  // Inline category creation
   const [categories, setCategories] = useState(initialCategories)
-  const [showNewCategory, setShowNewCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [creatingCategory, setCreatingCategory] = useState(false)
 
   const spendingMap = new Map(spending.map((s) => [s.categoryId, s.spent]))
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
@@ -109,54 +97,8 @@ export function SpendingClient({
     (c) => c.type === 'expense' && !usedCategoryIds.has(c.id),
   )
 
-  async function handleCreateCategory() {
-    if (!newCategoryName.trim()) return
-    setCreatingCategory(true)
-    try {
-      const fd = new FormData()
-      fd.append('name', newCategoryName.charAt(0).toUpperCase() + newCategoryName.slice(1))
-      fd.append('type', 'expense')
-      const created = await createCategory(fd)
-      setCategories((prev) => [
-        ...prev,
-        { id: created.id, name: created.name, type: created.type, color: created.color, icon: created.icon },
-      ])
-      setNewCategoryId(created.id)
-      setNewCategoryName('')
-      setShowNewCategory(false)
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao criar categoria. Tente novamente.', 'error')
-    } finally {
-      setCreatingCategory(false)
-    }
-  }
-
   function navigateMonth(delta: number) {
     router.push(`/budgets/spending?month=${shiftMonth(selectedMonth, delta)}`)
-  }
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      const cents = Math.round(parseFloat(newPlannedCents.replace(',', '.')) * 100)
-      const fd = new FormData()
-      fd.set('type', 'spending')
-      fd.set('categoryId', newCategoryId)
-      fd.set('plannedCents', String(cents))
-      fd.set('startMonth', newStartMonth)
-      if (newEndMonth) fd.set('endMonth', newEndMonth)
-      await createBudgetEntry(fd)
-      toast('Lançamento criado')
-      setShowAdd(false)
-      setNewCategoryId('')
-      setNewPlannedCents('')
-      setNewEndMonth('')
-    } catch {
-      toast('Erro ao criar lançamento', 'error')
-    } finally {
-      setSaving(false)
-    }
   }
 
   function startEdit(entry: AllEntry) {
@@ -217,97 +159,6 @@ export function SpendingClient({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-
-      {/* Add new recurring entry */}
-      {showAdd && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Novo Lançamento Recorrente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreate} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Categoria</label>
-                  <select
-                    value={newCategoryId}
-                    onChange={(e) => setNewCategoryId(e.target.value)}
-                    required
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                  >
-                    <option value="">Selecione...</option>
-                    {toCategoryOptions(availableCategories).map((c) => (
-                      <option key={c.id} value={c.id}>{c.label}</option>
-                    ))}
-                  </select>
-                  {!showNewCategory ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowNewCategory(true)}
-                      className="text-xs text-blue-600 hover:text-blue-800"
-                    >
-                      + Criar nova categoria
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={newCategoryName}
-                        onChange={(e) => setNewCategoryName(e.target.value)}
-                        placeholder="Nova categoria de despesa"
-                        className="h-8 text-sm flex-1"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            handleCreateCategory()
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="primary"
-                        onClick={handleCreateCategory}
-                        disabled={creatingCategory || !newCategoryName.trim()}
-                        className="h-8"
-                      >
-                        {creatingCategory ? '...' : 'Criar'}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setShowNewCategory(false)
-                          setNewCategoryName('')
-                        }}
-                        className="h-8"
-                      >
-                        Cancelar
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Valor mensal (R$)</label>
-                  <Input type="text" inputMode="decimal" value={newPlannedCents} onChange={(e) => setNewPlannedCents(e.target.value)} required placeholder="Ex: 800,00" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">A partir de</label>
-                  <Input type="month" value={newStartMonth.slice(0, 7)} onChange={(e) => setNewStartMonth(e.target.value + '-01')} required />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Até (vazio = para sempre)</label>
-                  <Input type="month" value={newEndMonth ? newEndMonth.slice(0, 7) : ''} onChange={(e) => setNewEndMonth(e.target.value ? e.target.value + '-01' : '')} />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
-                <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Criar'}</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Summary */}
       {entriesForMonth.length > 0 && (
@@ -462,6 +313,15 @@ export function SpendingClient({
         onCancelEdit={() => setEditingId(null)}
         onDelete={(id) => setDeleteConfirm(id)}
         formatMonth={formatMonth}
+      />
+
+      <BudgetEntryDialog
+        type="spending"
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        availableCategories={availableCategories}
+        onCategoryCreated={(created) => setCategories((prev) => [...prev, created])}
+        defaultStartMonth={selectedMonth}
       />
 
       <ConfirmDialog

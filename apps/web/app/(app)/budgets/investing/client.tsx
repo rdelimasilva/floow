@@ -8,11 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
-import { ACCOUNT_TYPE_LABEL } from '@/lib/finance/account-types'
-import { createBudgetEntry, updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
+import { updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { formatBRL } from '@floow/core-finance'
+import { BudgetEntryDialog } from '@/components/finance/budget-entry-dialog'
 
 interface EntryForMonth {
   id: string
@@ -62,38 +62,10 @@ export function InvestingClient({
   const [editEndMonth, setEditEndMonth] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  // New entry form
-  const [newName, setNewName] = useState('Aporte mensal')
-  const [newPlanned, setNewPlanned] = useState('')
-  const [newStartMonth, setNewStartMonth] = useState(selectedMonth)
-  const [newEndMonth, setNewEndMonth] = useState('')
-
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
 
   function navigateMonth(delta: number) {
     router.push(`/budgets/investing?month=${shiftMonth(selectedMonth, delta)}`)
-  }
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      const cents = Math.round(parseFloat(newPlanned.replace(',', '.')) * 100)
-      const fd = new FormData()
-      fd.set('type', 'investing')
-      fd.set('name', newName)
-      fd.set('plannedCents', String(cents))
-      fd.set('startMonth', newStartMonth)
-      if (newEndMonth) fd.set('endMonth', newEndMonth + '-01')
-      await createBudgetEntry(fd)
-      toast('Lançamento criado')
-      setShowAdd(false)
-      setNewPlanned('')
-    } catch {
-      toast('Erro ao criar lançamento', 'error')
-    } finally {
-      setSaving(false)
-    }
   }
 
   function startEdit(entry: AllEntry) {
@@ -154,42 +126,6 @@ export function InvestingClient({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-
-      {/* Add new entry */}
-      {showAdd && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Novo Lançamento Recorrente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreate} className="space-y-3">
-              <p className="text-xs text-gray-500">O realizado será calculado automaticamente pelas transferências para contas do tipo {ACCOUNT_TYPE_LABEL.brokerage}.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Descrição</label>
-                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Ex: Aporte mensal" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Valor mensal (R$)</label>
-                  <Input type="text" inputMode="decimal" value={newPlanned} onChange={(e) => setNewPlanned(e.target.value)} required placeholder="Ex: 2.000,00" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">A partir de</label>
-                  <Input type="month" value={newStartMonth.slice(0, 7)} onChange={(e) => setNewStartMonth(e.target.value + '-01')} required />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Até (vazio = para sempre)</label>
-                  <Input type="month" value={newEndMonth} onChange={(e) => setNewEndMonth(e.target.value)} />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
-                <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Criar'}</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Summary */}
       {entriesForMonth.length > 0 && (
@@ -387,6 +323,13 @@ export function InvestingClient({
           </CardContent>
         </Card>
       )}
+
+      <BudgetEntryDialog
+        type="investing"
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        defaultStartMonth={selectedMonth}
+      />
 
       <ConfirmDialog
         open={!!deleteConfirm}
