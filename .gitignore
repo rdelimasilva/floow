@@ -62,3 +62,4 @@ Thumbs.db
 # Retratos da migracao de regiao: contem nomes de contas
 baseline-*.json
 .migracao/
+.migracao-novo.env

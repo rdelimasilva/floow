@@ -31,6 +31,14 @@ const relatorio = {
   hookExiste:
     (await sql`SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
                 WHERE n.nspname='public' AND p.proname='custom_access_token_hook'`).length === 1,
+  // Quem pode EXECUTAR o hook — não basta ele existir. No restore a função
+  // chegou sem `supabase_auth_admin` (quem de fato a executa) e com PUBLIC,
+  // anon e authenticated sobrando. Sem o primeiro o hook não roda e toda
+  // consulta com RLS volta vazia, sem erro nenhum; os outros são exposição
+  // que o original não tem.
+  hookAcl: (await sql`SELECT COALESCE(proacl::text, '(sem ACL)') acl FROM pg_proc p
+                       JOIN pg_namespace n ON n.oid=p.pronamespace
+                       WHERE n.nspname='public' AND p.proname='custom_access_token_hook'`)[0]?.acl,
   // Tabela a tabela, e nao a contagem: o banco tem 40 com RLS e UMA sem
   // (`category_rules`). Uma opcao do projeto novo que ligue RLS sozinha
   // criaria divergencia que a contagem de policies nao pegaria.
