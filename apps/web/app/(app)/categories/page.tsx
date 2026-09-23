@@ -3,6 +3,7 @@ import { CategoryList } from '@/components/finance/category-list'
 import { RuleList } from '@/components/finance/rule-list'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
+import { RepararHierarquia } from '@/components/finance/reparar-hierarquia'
 
 export default async function CategoriesPage() {
   const orgId = await getOrgId()
@@ -32,6 +33,7 @@ export default async function CategoriesPage() {
           <TabsTrigger value="rules">Regras</TabsTrigger>
         </TabsList>
         <TabsContent value="categories">
+          <RepararHierarquia />
           <CategoryList categories={categories} />
         </TabsContent>
         <TabsContent value="rules">

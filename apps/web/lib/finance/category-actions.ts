@@ -17,7 +17,7 @@
  * para as demais.
  */
 
-import { and, eq, ilike, isNull, or, sql } from 'drizzle-orm'
+import { and, eq, ilike, isNull, notExists, or, sql } from 'drizzle-orm'
 import {
   getDb,
   categories,
@@ -30,6 +30,7 @@ import {
 } from '@floow/db'
 import { getOrgId } from './queries'
 import { revalidateCategoryData, revalidateTransactionData } from './revalidate'
+import { planejarHierarquia } from './category-hierarchy'
 
 type Db = ReturnType<typeof getDb>
 
@@ -120,10 +121,32 @@ export async function updateCategory(formData: FormData) {
           affectsCashFlow: parseAffectsCashFlow(formData),
         })
 
+  // A original de sistema ficou escondida: as filhas dela passam para a cópia,
+  // senão caem debaixo de outra mãe qualquer na árvore.
+  if (existing.orgId === null) {
+    await aplicarHierarquia(db, orgId, new Map([[existing.id, updated.id]]))
+  }
+
   revalidateCategoryData(orgId)
   revalidateTransactionData(orgId)
 
   return updated
+}
+
+/**
+ * Conserta filhas que ficaram apontando para uma mãe de sistema escondida —
+ * herança de renames feitos antes de `updateCategory` levar as filhas junto.
+ * Idempotente e barato quando não há o que consertar; a tela de categorias
+ * chama ao abrir. Devolve quantas filhas mudaram.
+ */
+export async function repararHierarquiaDeCategorias() {
+  const orgId = await getOrgId()
+  const alteradas = await aplicarHierarquia(getDb(), orgId)
+  if (alteradas > 0) {
+    revalidateCategoryData(orgId)
+    revalidateTransactionData(orgId)
+  }
+  return alteradas
 }
 
 /**
@@ -291,6 +314,7 @@ async function forkSystemCategory(
   orgId: string,
   system: typeof categories.$inferSelect,
   values: CategoryValues,
+  parentId: string | null = system.parentId,
 ) {
   const [copy] = await db
     .insert(categories)
@@ -302,7 +326,7 @@ async function forkSystemCategory(
       icon: values.icon,
       affectsCashFlow: values.affectsCashFlow,
       isSystem: false,
-      parentId: system.parentId,
+      parentId,
       polpRef: system.polpRef,
     })
     .returning()
@@ -313,6 +337,63 @@ async function forkSystemCategory(
   await hideForOrg(db, orgId, system.id)
 
   return copy
+}
+
+/**
+ * Pendura na cópia da org as filhas que apontavam para a original escondida
+ * (ver `category-hierarchy`). Filha da org é reapontada; filha de sistema
+ * ganha a cópia dela — a linha de sistema é de todas as orgs.
+ */
+async function aplicarHierarquia(db: Db, orgId: string, copiasConhecidas?: Map<string, string>) {
+  const [visiveis, escondidas] = await Promise.all([
+    db
+      .select()
+      .from(categories)
+      .where(
+        and(
+          or(eq(categories.orgId, orgId), isNull(categories.orgId)),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(hiddenSystemCategories)
+              .where(and(eq(hiddenSystemCategories.orgId, orgId), eq(hiddenSystemCategories.categoryId, categories.id))),
+          ),
+        ),
+      ),
+    db
+      .select({ id: categories.id, orgId: categories.orgId, parentId: categories.parentId, polpRef: categories.polpRef })
+      .from(hiddenSystemCategories)
+      .innerJoin(categories, eq(categories.id, hiddenSystemCategories.categoryId))
+      .where(eq(hiddenSystemCategories.orgId, orgId)),
+  ])
+
+  const plano = planejarHierarquia({ orgId, visiveis, escondidas, copiasConhecidas })
+
+  for (const { categoriaId, parentId } of plano.reapontar) {
+    await db
+      .update(categories)
+      .set({ parentId })
+      .where(and(eq(categories.id, categoriaId), eq(categories.orgId, orgId)))
+  }
+  for (const { categoriaId, parentId } of plano.copiar) {
+    const filha = visiveis.find((c) => c.id === categoriaId)
+    if (!filha) continue
+    await forkSystemCategory(
+      db,
+      orgId,
+      filha,
+      {
+        name: filha.name,
+        type: filha.type,
+        color: filha.color,
+        icon: filha.icon,
+        affectsCashFlow: filha.affectsCashFlow,
+      },
+      parentId,
+    )
+  }
+
+  return plano.reapontar.length + plano.copiar.length
 }
 
 async function hideForOrg(db: Db, orgId: string, categoryId: string) {

@@ -10,6 +10,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 interface Op {
   op: 'select' | 'insert' | 'update' | 'delete'
   table: string
+  /** O que foi para `.values()` / `.set()`. */
+  payload?: unknown
 }
 
 const ops: Op[] = []
@@ -17,7 +19,7 @@ const selectQueue: unknown[][] = []
 const insertQueue: unknown[][] = []
 
 /** Encadeável e thenable: cobre .from().where().limit(), .values().returning() etc. */
-function makeChain(result: unknown[]): any {
+function makeChain(result: unknown[], op?: Op): any {
   const chain: any = {
     then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
     catch: () => chain,
@@ -35,7 +37,10 @@ function makeChain(result: unknown[]): any {
     'leftJoin',
     'innerJoin',
   ]) {
-    chain[method] = () => makeChain(result)
+    chain[method] = (arg?: unknown) => {
+      if (op && (method === 'values' || method === 'set')) op.payload = arg
+      return makeChain(result, op)
+    }
   }
   return chain
 }
@@ -46,12 +51,14 @@ const mockDb = {
     return makeChain(selectQueue.shift() ?? [])
   },
   insert: (t: { _table: string }) => {
-    ops.push({ op: 'insert', table: t._table })
-    return makeChain(insertQueue.shift() ?? [])
+    const op: Op = { op: 'insert', table: t._table }
+    ops.push(op)
+    return makeChain(insertQueue.shift() ?? [], op)
   },
   update: (t: { _table: string }) => {
-    ops.push({ op: 'update', table: t._table })
-    return makeChain([])
+    const op: Op = { op: 'update', table: t._table }
+    ops.push(op)
+    return makeChain([], op)
   },
   delete: (t: { _table: string }) => {
     ops.push({ op: 'delete', table: t._table })
@@ -80,7 +87,7 @@ vi.mock('@/lib/finance/revalidate', () => ({
   revalidateSnapshotData: vi.fn(),
 }))
 
-const { updateCategory, deleteCategory } = await import('@/lib/finance/category-actions')
+const { updateCategory, deleteCategory, repararHierarquiaDeCategorias } = await import('@/lib/finance/category-actions')
 
 const CATEGORIA_DE_SISTEMA = {
   id: 'sys-1',
@@ -151,6 +158,67 @@ describe('updateCategory numa categoria de sistema', () => {
     await updateCategory(form({ id: 'sys-1', name: 'Carro', type: 'expense' }))
 
     expect(ops.some((o) => o.op === 'insert' && o.table === 'hidden_system_categories')).toBe(true)
+  })
+})
+
+describe('filhas da mãe de sistema renomeada', () => {
+  // Antes, as filhas ficavam apontando para a original escondida e, na árvore,
+  // caíam recuadas debaixo de outra mãe — "mudou a mãe sozinho".
+  const MAE = { ...CATEGORIA_DE_SISTEMA, id: 'sys-food', name: 'Alimentação', polpRef: 'FOOD_AND_DRINK' }
+  const FILHA_SISTEMA = {
+    ...CATEGORIA_DE_SISTEMA,
+    id: 'sys-groceries',
+    name: 'Mercado',
+    parentId: 'sys-food',
+    polpRef: 'FOOD_AND_DRINK_GROCERIES',
+  }
+  const COPIA_MAE = { ...MAE, id: 'org-comida', orgId: 'org-1', isSystem: false, name: 'Comida' }
+
+  it('filha de sistema ganha cópia da org pendurada na mãe renomeada', async () => {
+    selectQueue.push([MAE]) // findVisibleCategory
+    selectQueue.push([]) // assertNameIsFree
+    selectQueue.push([COPIA_MAE, FILHA_SISTEMA]) // visíveis
+    selectQueue.push([]) // subconsulta notExists das visíveis (o mock também a conta)
+    selectQueue.push([{ id: 'sys-food', orgId: null, parentId: null, polpRef: 'FOOD_AND_DRINK' }]) // escondidas
+    insertQueue.push([COPIA_MAE]) // cópia da mãe
+    insertQueue.push([]) // esconde a mãe
+    insertQueue.push([{ ...FILHA_SISTEMA, id: 'org-mercado', orgId: 'org-1' }]) // cópia da filha
+
+    await updateCategory(form({ id: 'sys-food', name: 'Comida', type: 'expense' }))
+
+    const copias = ops.filter((o) => o.op === 'insert' && o.table === 'categories')
+    expect(copias).toHaveLength(2)
+    expect(copias[1].payload).toMatchObject({ name: 'Mercado', orgId: 'org-1', parentId: 'org-comida' })
+    // A filha de sistema também sai de vista para a org, senão ela veria duas
+    const escondidas = ops.filter((o) => o.op === 'insert' && o.table === 'hidden_system_categories')
+    expect(escondidas.map((o) => o.payload)).toEqual([
+      { orgId: 'org-1', categoryId: 'sys-food' },
+      { orgId: 'org-1', categoryId: 'sys-groceries' },
+    ])
+    // E nenhuma linha de sistema foi alterada
+    expect(ops.filter((o) => o.op === 'update' && o.table === 'categories')).toEqual([])
+  })
+
+  it('o reparo reaponta a filha da org que ficou órfã num rename antigo', async () => {
+    const FILHA_DA_ORG = { ...FILHA_SISTEMA, id: 'org-mercado', orgId: 'org-1', isSystem: false }
+    selectQueue.push([COPIA_MAE, FILHA_DA_ORG]) // visíveis
+    selectQueue.push([]) // subconsulta notExists
+    selectQueue.push([{ id: 'sys-food', orgId: null, parentId: null, polpRef: 'FOOD_AND_DRINK' }]) // escondidas
+
+    const alteradas = await repararHierarquiaDeCategorias()
+
+    expect(alteradas).toBe(1)
+    const updates = ops.filter((o) => o.op === 'update' && o.table === 'categories')
+    expect(updates.map((o) => o.payload)).toEqual([{ parentId: 'org-comida' }])
+  })
+
+  it('o reparo não grava nada quando a árvore está sã', async () => {
+    selectQueue.push([MAE, FILHA_SISTEMA])
+    selectQueue.push([]) // subconsulta notExists
+    selectQueue.push([])
+
+    expect(await repararHierarquiaDeCategorias()).toBe(0)
+    expect(ops.filter((o) => o.op !== 'select')).toEqual([])
   })
 })
 
