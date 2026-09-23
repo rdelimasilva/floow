@@ -8,6 +8,7 @@ import type { PacingStatus } from '@floow/core-finance'
 import { buildBudgetPacingInput } from '@/lib/cfo/budget-pacing-input'
 import { sendEmail } from './send-email'
 import type { PacingEmailDeps } from './pacing-email-job'
+import { getAppUrl } from '@/lib/app-url'
 
 export function defaultPacingEmailDeps(): PacingEmailDeps {
   const db = getDb()
@@ -47,7 +48,7 @@ export function defaultPacingEmailDeps(): PacingEmailDeps {
         })
     },
 
-    appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    appUrl: getAppUrl(),
     secret: process.env.CRON_SECRET,
   }
 }

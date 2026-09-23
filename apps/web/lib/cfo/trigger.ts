@@ -1,4 +1,5 @@
 import type { InsightCategory } from '@floow/core-finance'
+import { getAppUrl } from '@/lib/app-url'
 
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
@@ -11,7 +12,7 @@ export function triggerCfoAnalysis(
   event: string,
   analyzers: InsightCategory[],
 ) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const baseUrl = getAppUrl()
 
   fetch(`${baseUrl}/api/cfo/run-event`, {
     method: 'POST',

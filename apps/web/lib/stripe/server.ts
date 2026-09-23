@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { assertEnv } from '@floow/shared'
 import { createClient } from '@/lib/supabase/server'
+import { getAppUrl } from '@/lib/app-url'
 
 /**
  * Lazy Stripe client factory.
@@ -61,7 +62,7 @@ export async function createCheckoutSession(
     .eq('org_id', orgId)
     .single()
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = getAppUrl()
 
   const stripeClient = getStripeServer()
 
@@ -91,7 +92,7 @@ export async function createCheckoutSession(
 export async function createPortalSession(
   stripeCustomerId: string
 ): Promise<string> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = getAppUrl()
 
   const session = await getStripeServer().billingPortal.sessions.create({
     customer: stripeCustomerId,
