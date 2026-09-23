@@ -1,4 +1,24 @@
-# Migração do banco Supabase para sa-east-1 — Plano de Execução
+# Migração do banco Supabase para sa-east-1 — CONCLUÍDA em 22/09/2026
+
+> **Resultado:** 126 ms → 7 ms por consulta. A página de Transações saiu de
+> ~1.754 ms para ~142 ms de espera de banco. Comparação antes/depois:
+> IDENTICOS em 14 dimensões, 1.342 lançamentos conferidos por conta e por mês.
+>
+> **Três coisas não viajaram no dump e precisaram de correção manual:**
+> 1. o trigger `on_auth_user_created` (vive em `auth`, e só `public` foi dumpado);
+> 2. a ACL do hook — chegou sem `supabase_auth_admin` e com PUBLIC/anon/authenticated sobrando;
+> 3. o registro do hook em Authentication → Hooks, que é configuração do projeto.
+>
+> **Dois erros do plano original, corrigidos durante a execução:**
+> `--table` anula `--schema` no `pg_dump` (os dados de `public` não vieram na
+> primeira tentativa), e o baseline não cobria a ACL do hook — o ponto cego
+> exato onde o defeito apareceu.
+>
+> **Obstáculos do ambiente:** a conexão direta do projeto novo é IPv6-only e não
+> resolve nesta rede — o caminho foi o Session Pooler (`aws-0-sa-east-1`, 5432).
+> A senha tem `@`, que precisa virar `%40` na URL.
+
+## Plano executado
 
 > **Para quem executa:** cada passo tem checkbox. Não pule a verificação entre tarefas — a falha mais provável desta migração é silenciosa (ver Tarefa 6).
 
@@ -152,14 +172,14 @@ Esperado: `pg_dump (PostgreSQL) 17.x` — se vier 16 ou menor, o dump do servido
 
 ### Tarefa 2: Criar o projeto em São Paulo
 
-- [ ] **Passo 1: Criar**
+- [x] **Passo 1: Criar**
 
 https://supabase.com/dashboard → New project
 - Region: **South America (São Paulo)** — `sa-east-1`
 - Postgres: **17.x** (mesma major do atual)
 - Guardar a senha do banco em lugar seguro
 
-- [ ] **Passo 2: Anotar as credenciais novas**
+- [x] **Passo 2: Anotar as credenciais novas**
 
 Settings → API e Settings → Database. Anote, sem colar em chat:
 - Project URL
@@ -168,7 +188,7 @@ Settings → API e Settings → Database. Anote, sem colar em chat:
 - Connection string **direta** (porta 5432)
 - Connection string do **Transaction Pooler** (porta 6543) — esta vira a `DATABASE_URL` da aplicação
 
-- [ ] **Passo 3: Habilitar as extensões**
+- [x] **Passo 3: Habilitar as extensões**
 
 Database → Extensions. Habilite, se não vierem por padrão: `pg_trgm`, `pgcrypto`, `uuid-ossp`, `supabase_vault`, `pg_stat_statements`.
 
@@ -176,13 +196,13 @@ Database → Extensions. Habilite, se não vierem por padrão: `pg_trgm`, `pgcry
 
 ### Tarefa 3: Congelar escritas
 
-- [ ] **Passo 1: Avisar os 3 usuários** que o app ficará indisponível por ~15 min.
+- [x] **Passo 1: Avisar os 3 usuários** que o app ficará indisponível por ~15 min.
 
-- [ ] **Passo 2: Garantir que o cron não dispare no meio**
+- [x] **Passo 2: Garantir que o cron não dispare no meio**
 
 O cron roda às 8h (Brasília). Se a janela for perto desse horário, adie a migração — um sync no meio do dump grava no banco antigo e a escrita se perde.
 
-- [ ] **Passo 3: Confirmar que ninguém está escrevendo**
+- [x] **Passo 3: Confirmar que ninguém está escrevendo**
 
 ```bash
 cd /c/DEV/floow
@@ -206,25 +226,25 @@ Confirme que não é de segundos atrás.
 
 **Atenção:** use a conexão **direta** (5432) do projeto ANTIGO. Com o Transaction Pooler (6543) o dump falha ou sai incompleto.
 
-- [ ] **Passo 1: Preparar o diretório**
+- [x] **Passo 1: Preparar o diretório**
 
 ```bash
 mkdir -p /c/DEV/floow/.migracao && cd /c/DEV/floow/.migracao
 ```
 
-- [ ] **Passo 2: Exportar a conexão direta antiga**
+- [x] **Passo 2: Exportar a conexão direta antiga**
 
 ```bash
 export ANTIGO="postgresql://postgres:[SENHA]@db.tkmdogzsvjoomwphxusr.supabase.co:5432/postgres"
 ```
 
-- [ ] **Passo 3: Dump das roles**
+- [x] **Passo 3: Dump das roles**
 
 ```bash
 /c/pgsql/bin/pg_dumpall --dbname "$ANTIGO" --roles-only --no-role-passwords -f roles.sql
 ```
 
-- [ ] **Passo 4: Dump do schema**
+- [x] **Passo 4: Dump do schema**
 
 ```bash
 /c/pgsql/bin/pg_dump --dbname "$ANTIGO" --schema-only --no-owner --no-privileges \
@@ -235,7 +255,7 @@ Só `public`. O schema `auth` tem 27 tabelas que o Supabase cria e gerencia — 
 já existem no projeto novo, e restaurar a definição delas produz uma enxurrada de
 "already exists". De `auth` só os DADOS interessam, no passo seguinte.
 
-- [ ] **Passo 5: Dump dos dados**
+- [x] **Passo 5: Dump dos dados**
 
 ```bash
 /c/pgsql/bin/pg_dump --dbname "$ANTIGO" --data-only --no-owner --no-privileges \
@@ -246,7 +266,7 @@ já existem no projeto novo, e restaurar a definição delas produz uma enxurrad
 `sessions` e `refresh_tokens` ficam de fora de propósito: as sessões morrem de
 qualquer forma quando o JWT secret muda, e carregá-las só traria lixo.
 
-- [ ] **Passo 6: Conferir que os arquivos têm conteúdo**
+- [x] **Passo 6: Conferir que os arquivos têm conteúdo**
 
 ```bash
 ls -la roles.sql schema.sql data.sql
@@ -260,13 +280,13 @@ Esperado: `CREATE POLICY` ≈ 140, e `custom_access_token_hook` ≥ 1. Se o hook
 
 ### Tarefa 5: Restore
 
-- [ ] **Passo 1: Exportar a conexão direta NOVA**
+- [x] **Passo 1: Exportar a conexão direta NOVA**
 
 ```bash
 export NOVO="postgresql://postgres:[SENHA_NOVA]@db.[REF_NOVO].supabase.co:5432/postgres"
 ```
 
-- [ ] **Passo 2: Restaurar**
+- [x] **Passo 2: Restaurar**
 
 ```bash
 cd /c/DEV/floow/.migracao
@@ -278,7 +298,7 @@ cd /c/DEV/floow/.migracao
 
 `session_replication_role = replica` desliga os triggers durante a carga — sem isso, triggers de auditoria e criptografia reprocessam dados já processados.
 
-- [ ] **Passo 3: Conferir erros**
+- [x] **Passo 3: Conferir erros**
 
 ```bash
 grep -iE "^ERROR|^FATAL" restore.log | head -20
@@ -292,14 +312,14 @@ Erros sobre `supabase_admin`, `cli_login_postgres` ou role já existente são es
 
 **Esta é a falha silenciosa.** As 140 policies chamam `public.get_user_org_ids()`, que lê `org_ids` das claims do JWT. A função viaja no dump; o **registro dela como hook é configuração do projeto** e não viaja. Sem este passo o app sobe, o login funciona, e toda consulta com RLS volta vazia — sem erro nenhum.
 
-- [ ] **Passo 1: Registrar o hook**
+- [x] **Passo 1: Registrar o hook**
 
 No projeto NOVO: Authentication → Hooks → **Customize Access Token (JWT) Claims**
 - Habilitar
 - Selecionar `public.custom_access_token_hook`
 - Salvar
 
-- [ ] **Passo 2: Conferir que a função existe e tem permissão**
+- [x] **Passo 2: Conferir que a função existe e tem permissão**
 
 ```bash
 /c/pgsql/bin/psql --dbname "$NOVO" -c "\df public.custom_access_token_hook"
@@ -316,7 +336,7 @@ GRANT EXECUTE ON FUNCTION public.custom_access_token_hook TO supabase_auth_admin
 
 ### Tarefa 7: Role, publication e comparação estrutural
 
-- [ ] **Passo 1: Resetar a senha da role `floow_app`**
+- [x] **Passo 1: Resetar a senha da role `floow_app`**
 
 O dump usou `--no-role-passwords`, então ela veio sem senha.
 
@@ -324,7 +344,7 @@ O dump usou `--no-role-passwords`, então ela veio sem senha.
 /c/pgsql/bin/psql --dbname "$NOVO" -c "ALTER ROLE floow_app WITH LOGIN PASSWORD '[SENHA]'"
 ```
 
-- [ ] **Passo 2: Reativar a publication do Realtime**
+- [x] **Passo 2: Reativar a publication do Realtime**
 
 ```bash
 /c/pgsql/bin/psql --dbname "$NOVO" -c "SELECT pubname FROM pg_publication"
@@ -336,7 +356,7 @@ Se `supabase_realtime` não existir:
 CREATE PUBLICATION supabase_realtime;
 ```
 
-- [ ] **Passo 3: Gerar o baseline do banco NOVO e comparar**
+- [x] **Passo 3: Gerar o baseline do banco NOVO e comparar**
 
 ```bash
 cd /c/DEV/floow
@@ -353,7 +373,7 @@ Esperado: **IDENTICOS**. Qualquer diferença em `saldos`, `somaPorConta`, `trans
 
 ### Tarefa 8: Cutover
 
-- [ ] **Passo 1: Atualizar o `.env` local**
+- [x] **Passo 1: Atualizar o `.env` local**
 
 Trocar os quatro valores em `/c/DEV/floow/.env` e `/c/DEV/floow/apps/web/.env.local`:
 - `NEXT_PUBLIC_SUPABASE_URL`
@@ -361,7 +381,7 @@ Trocar os quatro valores em `/c/DEV/floow/.env` e `/c/DEV/floow/apps/web/.env.lo
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `DATABASE_URL` → **Transaction Pooler novo (6543)**, mantendo `?pgbouncer=true`
 
-- [ ] **Passo 2: Medir o ganho**
+- [x] **Passo 2: Medir o ganho**
 
 ```bash
 node "/c/Users/rdeli/AppData/Local/Temp/claude/C--DEV-floow/079ec9b4-b45b-4e54-814d-33f14923dbcb/scratchpad/latencia.mjs"
@@ -369,11 +389,11 @@ node "/c/Users/rdeli/AppData/Local/Temp/claude/C--DEV-floow/079ec9b4-b45b-4e54-8
 
 Esperado: de ~126 ms para algo entre 5 e 20 ms. **Se continuar acima de 100 ms, a `DATABASE_URL` não foi trocada** — pare e confira.
 
-- [ ] **Passo 3: Atualizar as variáveis na Vercel**
+- [x] **Passo 3: Atualizar as variáveis na Vercel**
 
 https://vercel.com/rdelimasilvas-projects/floow-web/settings/environment-variables — as mesmas quatro, em Production.
 
-- [ ] **Passo 4: Redeploy**
+- [x] **Passo 4: Redeploy**
 
 Deployments → `...` → Redeploy.
 
@@ -383,19 +403,19 @@ Deployments → `...` → Redeploy.
 
 Estrutura igual não prova que o app funciona. O hook só se prova entrando.
 
-- [ ] **Passo 1: Login**
+- [x] **Passo 1: Login**
 
 Abra https://floow-web.vercel.app e faça login. A sessão antiga caiu (o JWT secret mudou), então é esperado precisar autenticar de novo.
 
-- [ ] **Passo 2: O teste do hook — o mais importante**
+- [x] **Passo 2: O teste do hook — o mais importante**
 
 Abra `/transactions`. **Se a lista aparecer com dados, o hook está funcionando.** Lista vazia com login bem-sucedido = hook não registrado → volte à Tarefa 6.
 
-- [ ] **Passo 3: Conferir os saldos na tela**
+- [x] **Passo 3: Conferir os saldos na tela**
 
 `/accounts` deve mostrar Itaú **R$ 6.151,18** e Master **R$ 18.074,70**. Nenhum aviso de divergência deve aparecer.
 
-- [ ] **Passo 4: Testar a importação**
+- [x] **Passo 4: Testar a importação**
 
 ```bash
 curl -s -X POST https://floow-web.vercel.app/api/openfinance/import-transactions \
@@ -404,7 +424,7 @@ curl -s -X POST https://floow-web.vercel.app/api/openfinance/import-transactions
 
 Esperado: `{"ok":true,"conexoes":1,...}` sem `falhas`.
 
-- [ ] **Passo 5: Sentir a diferença**
+- [x] **Passo 5: Sentir a diferença**
 
 Navegue por Transações e Contas. A melhora de ~1,6 s por página deve ser perceptível.
 
@@ -412,7 +432,7 @@ Navegue por Transações e Contas. A melhora de ~1,6 s por página deve ser perc
 
 ### Tarefa 10: Encerramento
 
-- [ ] **Passo 1: Limpar os artefatos da migração**
+- [x] **Passo 1: Limpar os artefatos da migração**
 
 ```bash
 cd /c/DEV/floow && rm -rf .migracao baseline-antes.json baseline-depois.json
@@ -420,11 +440,11 @@ cd /c/DEV/floow && rm -rf .migracao baseline-antes.json baseline-depois.json
 
 Os dumps contêm todos os dados financeiros em texto puro. Não deixe no disco.
 
-- [ ] **Passo 2: Pausar (não apagar) o projeto antigo**
+- [x] **Passo 2: Pausar (não apagar) o projeto antigo**
 
 Deixe pausado por pelo menos uma semana. É o rollback.
 
-- [ ] **Passo 3: Commit**
+- [x] **Passo 3: Commit**
 
 ```bash
 git add -A && git commit -m "chore(infra): banco migrado para sa-east-1"
