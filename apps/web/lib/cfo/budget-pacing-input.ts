@@ -11,6 +11,7 @@ import { computeBudgetPacing, buildParentIndex, rollUpToBudgetedCategories } fro
 import type { AccountKind, DailySpendRow } from '@floow/core-finance'
 import type { BudgetPacingAnalyzerInput } from '@floow/core-finance'
 import { saoPauloToday, monthStartUTC, monthEndUTC, monthKeyUTC } from '@/lib/finance/sp-date'
+import { somenteRealizado } from '@/lib/finance/realized-spending'
 
 export async function buildBudgetPacingInput(
   orgId: string,
@@ -55,6 +56,7 @@ export async function buildBudgetPacingInput(
         eq(transactions.type, 'expense'),
         eq(transactions.reviewState, 'confirmed'),
         eq(transactions.isIgnored, false),
+        somenteRealizado,
         gte(transactions.date, monthStart),
         lte(transactions.date, monthEnd),
       ),

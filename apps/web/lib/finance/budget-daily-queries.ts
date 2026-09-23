@@ -5,6 +5,7 @@ import { getDb, transactions, accounts, categories } from '@floow/db'
 import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import type { DailySpendRow } from '@floow/core-finance'
 import { budgetSpendingTag } from '@/lib/cache-tags'
+import { somenteRealizado } from '@/lib/finance/realized-spending'
 
 /**
  * Gasto diário agregado por dia, tipo de conta e categoria, no intervalo dado.
@@ -41,6 +42,7 @@ export const getDailySpending = cache(async function getDailySpending(
             eq(transactions.type, 'expense'),
             eq(transactions.reviewState, 'confirmed'),
             eq(transactions.isIgnored, false),
+            somenteRealizado,
             // Mesma razão de getSpendingByCategory.
             effectiveAffectsCashFlow,
             gte(transactions.date, start),

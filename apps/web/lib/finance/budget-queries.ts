@@ -11,6 +11,7 @@ import {
 } from '@floow/db'
 import { eq, and, sql, gte, lte, isNull, or, inArray } from 'drizzle-orm'
 import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
+import { somenteRealizado } from '@/lib/finance/realized-spending'
 import {
   budgetEntriesTag,
   budgetGoalsTag,
@@ -152,6 +153,7 @@ export const getSpendingByCategory = cache(async function getSpendingByCategory(
             eq(transactions.type, 'expense'),
             eq(transactions.reviewState, 'confirmed'),
             eq(transactions.isIgnored, false),
+            somenteRealizado,
             // Aplicação em investimento não é gasto e não deve consumir teto.
             effectiveAffectsCashFlow,
             gte(transactions.date, start),

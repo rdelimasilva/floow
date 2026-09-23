@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import { getDb, transactions, accounts, categories } from '@floow/db'
 import { getOrgId } from './queries'
 import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
+import { somenteRealizado } from '@/lib/finance/realized-spending'
 
 export interface PacingTransaction {
   id: string
@@ -57,6 +58,7 @@ export async function getPacingCategoryTransactions(
         eq(transactions.type, 'expense'),
         eq(transactions.reviewState, 'confirmed'),
         eq(transactions.isIgnored, false),
+        somenteRealizado,
         effectiveAffectsCashFlow,
         inArray(transactions.categoryId, ids),
         gte(transactions.date, start),
