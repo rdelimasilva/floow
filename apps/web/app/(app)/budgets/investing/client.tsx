@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
-import { MonthNavigator } from '@/components/finance/month-navigator'
+import {
+  MonthNavigator,
+  useMonthNavigation,
+  pendingDimClass,
+} from '@/components/finance/month-navigator'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -42,11 +45,6 @@ function formatMonth(monthStr: string): string {
   return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
-function shiftMonth(monthStr: string, delta: number): string {
-  const [y, m] = monthStr.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
-}
 
 export function InvestingClient({
   entriesForMonth,
@@ -54,7 +52,7 @@ export function InvestingClient({
   totalContributed,
   selectedMonth,
 }: InvestingClientProps) {
-  const router = useRouter()
+  const nav = useMonthNavigation(selectedMonth, '/budgets/investing')
   const { toast } = useToast()
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -65,10 +63,6 @@ export function InvestingClient({
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
-
-  function navigateMonth(delta: number) {
-    router.push(`/budgets/investing?month=${shiftMonth(selectedMonth, delta)}`)
-  }
 
   function startEdit(entry: AllEntry) {
     setEditingId(entry.id)
@@ -112,14 +106,14 @@ export function InvestingClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${pendingDimClass(nav.isPending)}`} aria-busy={nav.isPending}>
       <PageHeader title="Meta de Investimentos" description="Orçado vs Realizado — Aportes para corretora">
         <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" /> Novo lançamento
         </Button>
       </PageHeader>
 
-      <MonthNavigator label={formatMonth(selectedMonth)} onShift={navigateMonth} />
+      <MonthNavigator label={formatMonth(nav.month)} onShift={nav.shift} />
 
       {/* Summary */}
       {entriesForMonth.length > 0 && (

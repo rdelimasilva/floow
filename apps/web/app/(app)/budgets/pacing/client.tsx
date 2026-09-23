@@ -1,11 +1,14 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { AlertTriangle, TrendingUp, Check, List } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
-import { MonthNavigator } from '@/components/finance/month-navigator'
+import {
+  MonthNavigator,
+  useMonthNavigation,
+  pendingDimClass,
+} from '@/components/finance/month-navigator'
 import { BudgetPacingChart } from '@/components/finance/budget-pacing-chart'
 import { PacingTransactionsDialog } from '@/components/finance/pacing-transactions-dialog'
 import { formatBRL } from '@floow/core-finance'
@@ -54,14 +57,9 @@ function formatMonth(monthStr: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
-function shiftMonth(monthStr: string, delta: number): string {
-  const [y, m] = monthStr.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
-}
 
 export function PacingClient({ result, categoryNames, memberIds, selectedMonth }: Props) {
-  const router = useRouter()
+  const nav = useMonthNavigation(selectedMonth, '/budgets/pacing')
   const [openCategory, setOpenCategory] = useState<{
     id: string
     name: string
@@ -81,18 +79,14 @@ export function PacingClient({ result, categoryNames, memberIds, selectedMonth }
       b.projectedCents - a.projectedCents,
   )
 
-  function go(delta: number) {
-    router.push(`/budgets/pacing?month=${shiftMonth(selectedMonth, delta)}`)
-  }
-
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${pendingDimClass(nav.isPending)}`} aria-busy={nav.isPending}>
       <PageHeader
         title="Ritmo de gastos"
         description="Quanto você já gastou no mês, por onde saiu, e onde isso deve fechar."
       />
 
-      <MonthNavigator label={formatMonth(selectedMonth)} onShift={go}>
+      <MonthNavigator label={formatMonth(nav.month)} onShift={nav.shift}>
         {total.daysElapsed > 0 && (
           <span className="ml-2 text-sm" style={{ color: '#6E6E6E' }}>
             dia {total.daysElapsed} de {total.daysInMonth}
