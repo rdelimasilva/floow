@@ -1,5 +1,5 @@
 import { getOrgId, getCategories } from '@/lib/finance/queries'
-import { getBudgetEntriesForMonth } from '@/lib/finance/budget-queries'
+import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { getDailySpending } from '@/lib/finance/budget-daily-queries'
 import {
   computeBudgetPacing,
@@ -30,7 +30,7 @@ export default async function BudgetPacingPage({ searchParams }: Props) {
 
   const [categories, budgetEntries, daily] = await Promise.all([
     getCategories(orgId),
-    getBudgetEntriesForMonth(orgId, monthStart, 'spending'),
+    getSpendingPlanForMonth(orgId, monthStart, monthEnd),
     getDailySpending(orgId, monthStart, monthEnd),
   ])
 

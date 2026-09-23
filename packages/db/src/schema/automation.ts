@@ -58,6 +58,8 @@ export const recurringTemplates = pgTable(
     nextDueDate: date('next_due_date', { mode: 'date' }).notNull(),
     isActive: boolean('is_active').notNull().default(true),
     notes: text('notes'),
+    /** Parcelas do mês contam como piso da meta de gasto da categoria. */
+    countsAsBudget: boolean('counts_as_budget').notNull().default(false),
     endMode: text('end_mode').notNull().$type<'count' | 'end_date' | 'indefinite'>(),
     installmentCount: integer('installment_count'),
     endDate: date('end_date', { mode: 'date' }),

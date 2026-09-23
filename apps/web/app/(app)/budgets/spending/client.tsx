@@ -14,6 +14,8 @@ import { useToast } from '@/components/ui/toast'
 import { formatBRL, currencyToCents } from '@floow/core-finance'
 import { RecurringEntriesList } from './recurring-entries-list'
 import { BudgetEntryDialog } from '@/components/finance/budget-entry-dialog'
+import type { LinhaDeMeta } from '@/lib/finance/recurring-budget'
+import { RecorrentesNaLinha } from './recorrentes-na-linha'
 
 interface CategoryOption {
   id: string
@@ -21,12 +23,6 @@ interface CategoryOption {
   type: string
   color: string | null
   icon: string | null
-}
-
-interface EntryForMonth {
-  id: string
-  categoryId: string | null
-  plannedCents: number
 }
 
 interface AllEntry {
@@ -39,7 +35,8 @@ interface AllEntry {
 
 interface SpendingClientProps {
   categories: CategoryOption[]
-  entriesForMonth: EntryForMonth[]
+  /** Metas manuais já combinadas com as recorrentes-meta do mês. */
+  entriesForMonth: LinhaDeMeta[]
   allEntries: AllEntry[]
   spending: { categoryId: string | null; spent: number }[]
   selectedMonth: string
@@ -185,12 +182,13 @@ export function SpendingClient({
               const isOver = actual > entry.plannedCents
 
               return (
-                <Card key={entry.categoryId}>
+                <Card key={entry.entryId ?? `rec-${entry.categoryId}`}>
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-900">
                         {cat?.color && <span className="inline-block h-2 w-2 rounded-full mr-2 align-middle" style={{ backgroundColor: cat.color }} />}
                         {cat?.name ?? '—'}
+                        <RecorrentesNaLinha linha={entry} />
                       </p>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pct > 100 ? 'bg-red-100 text-red-700' : pct > 80 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
                         {pct}%
@@ -246,10 +244,11 @@ export function SpendingClient({
                       const isOver = actual > entry.plannedCents
 
                       return (
-                        <tr key={entry.categoryId} className="hover:bg-gray-50">
+                        <tr key={entry.entryId ?? `rec-${entry.categoryId}`} className="hover:bg-gray-50">
                           <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
                             {cat?.color && <span className="inline-block h-2 w-2 rounded-full mr-2 align-middle" style={{ backgroundColor: cat.color }} />}
                             {cat?.name ?? '—'}
+                            <RecorrentesNaLinha linha={entry} />
                           </td>
                           <td className="px-4 py-2.5 text-sm text-right text-gray-600">{formatBRL(entry.plannedCents)}</td>
                           <td className="px-4 py-2.5 text-sm text-right text-gray-900 font-medium">{formatBRL(actual)}</td>

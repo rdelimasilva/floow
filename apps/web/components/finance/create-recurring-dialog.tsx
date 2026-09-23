@@ -41,6 +41,7 @@ interface CreateRecurringDialogProps {
     // Próxima parcela em aberto ('YYYY-MM-DD'); é a data que a edição move
     proximaParcela?: string | null
     notes: string | null
+    countsAsBudget?: boolean
   }
   // Optional — cria uma recorrência nova partindo dos dados de uma existente
   cloneFrom?: RecurringPrefill
@@ -48,7 +49,7 @@ interface CreateRecurringDialogProps {
 
 type RecurringPrefill = Pick<
   NonNullable<CreateRecurringDialogProps['editTemplate']>,
-  'accountId' | 'categoryId' | 'type' | 'amountCents' | 'description' | 'frequency' | 'notes'
+  'accountId' | 'categoryId' | 'type' | 'amountCents' | 'description' | 'frequency' | 'notes' | 'countsAsBudget'
 >
 
 const FREQUENCY_OPTIONS = [
@@ -102,6 +103,7 @@ export function CreateRecurringDialog({
   const [frequency, setFrequency] = useState(base?.frequency ?? 'monthly')
   const [nextDueDate, setNextDueDate] = useState(dataInicial)
   const [notes, setNotes] = useState(base?.notes ?? '')
+  const [metaDeGasto, setMetaDeGasto] = useState(base?.countsAsBudget ?? false)
 
   // Duration controls
   const [endMode, setEndMode] = useState<EndMode>('count')
@@ -124,6 +126,7 @@ export function CreateRecurringDialog({
     setFrequency(base?.frequency ?? 'monthly')
     setNextDueDate(dataInicial())
     setNotes(base?.notes ?? '')
+    setMetaDeGasto(base?.countsAsBudget ?? false)
     setShowNewCategory(false)
     setNewCategoryName('')
     // Duration controls only apply on create — keep defaults on edit
@@ -150,6 +153,9 @@ export function CreateRecurringDialog({
 
   // Filter categories by type (income categories for income, expense for expense)
   const filteredCategories = categories.filter((c) => c.type === type)
+
+  // Meta de gasto precisa de categoria onde entrar, e receita não é gasto.
+  const podeSerMeta = type === 'expense' && !!categoryId
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
     if (e.target === dialogRef.current) {
@@ -200,6 +206,7 @@ export function CreateRecurringDialog({
       formData.append('frequency', frequency)
       formData.append('nextDueDate', nextDueDate)
       formData.append('notes', notes)
+      formData.append('countsAsBudget', String(podeSerMeta && metaDeGasto))
 
       if (editTemplate) {
         formData.append('id', editTemplate.id)
@@ -360,6 +367,17 @@ export function CreateRecurringDialog({
                     Cancelar
                   </Button>
                 </div>
+              )}
+              {podeSerMeta && (
+                <label className="mt-2 flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={metaDeGasto}
+                    onChange={(e) => setMetaDeGasto(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  Contar como meta de gasto
+                </label>
               )}
             </div>
 

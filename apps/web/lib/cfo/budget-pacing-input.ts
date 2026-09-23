@@ -12,6 +12,8 @@ import type { AccountKind, DailySpendRow } from '@floow/core-finance'
 import type { BudgetPacingAnalyzerInput } from '@floow/core-finance'
 import { saoPauloToday, monthStartUTC, monthEndUTC, monthKeyUTC } from '@/lib/finance/sp-date'
 import { somenteRealizado } from '@/lib/finance/realized-spending'
+import { buscarOcorrenciasDeRecorrentes } from '@/lib/finance/recurring-budget-queries'
+import { combinarMetasDoMes, somarRecorrentesPorCategoria } from '@/lib/finance/recurring-budget'
 
 export async function buildBudgetPacingInput(
   orgId: string,
@@ -23,7 +25,7 @@ export async function buildBudgetPacingInput(
 
   // Tetos ativos no mês corrente (mesma regra de getBudgetEntriesForMonth).
   const capRows = await db
-    .select({ categoryId: budgetEntries.categoryId, plannedCents: budgetEntries.plannedCents })
+    .select({ id: budgetEntries.id, categoryId: budgetEntries.categoryId, plannedCents: budgetEntries.plannedCents })
     .from(budgetEntries)
     .where(
       and(
@@ -34,7 +36,9 @@ export async function buildBudgetPacingInput(
       ),
     )
 
-  const budgets = capRows
+  // Recorrentes marcadas como meta entram como piso, igual à tela de metas.
+  const ocorrencias = await buscarOcorrenciasDeRecorrentes(db, orgId, monthStart, monthEnd)
+  const budgets = combinarMetasDoMes(capRows, somarRecorrentesPorCategoria(ocorrencias))
     .filter((r): r is typeof r & { categoryId: string } => r.categoryId !== null)
     .map((r) => ({ categoryId: r.categoryId, plannedCents: r.plannedCents }))
 
