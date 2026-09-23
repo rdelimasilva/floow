@@ -8,6 +8,7 @@ import {
   timestamp,
   unique,
   primaryKey,
+  boolean,
 } from 'drizzle-orm/pg-core'
 
 // Enums
@@ -32,6 +33,8 @@ export const profiles = pgTable('profiles', {
   email: text('email').notNull(),
   fullName: text('full_name'),
   avatarUrl: text('avatar_url'),
+  /** E-mail de alerta de ritmo de gasto. Ligado por padrão; o rodapé do e-mail desliga. */
+  emailPacingAlerts: boolean('email_pacing_alerts').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })

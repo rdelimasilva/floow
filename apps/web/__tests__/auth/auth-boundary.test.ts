@@ -68,6 +68,8 @@ describe('toda route handler tem guarda de autenticação', () => {
       'troca o code do OAuth/magic link por sessão; é o passo que autentica',
     'app/api/webhooks/stripe/route.ts':
       'autentica por assinatura HMAC do Stripe (constructEvent)',
+    'app/api/email/unsubscribe/route.ts':
+      'link do rodapé do e-mail, aberto sem login; autoriza por token HMAC e só desliga a própria preferência',
   }
 
   const AUTH_GUARDS = [
