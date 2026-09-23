@@ -58,3 +58,7 @@ Thumbs.db
 
 # Logs da triagem diaria do Sentry (scripts/sentry-daily.ps1)
 .claude/sentry-logs/
+
+# Retratos da migracao de regiao: contem nomes de contas
+baseline-*.json
+.migracao/
