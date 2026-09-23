@@ -17,6 +17,7 @@ import { contarDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
 import { contarPropostasPendentes } from '@/lib/finance/forecast-match-queries'
 import { contarLancamentosAClassificar } from '@/lib/openfinance/counterparty-queries'
 import { getAuthenticatedUser } from '@/lib/auth/session'
+import { FILTERS_COOKIE, restaurarFiltros, temFiltroNaUrl } from '@/lib/finance/filtros-lembrados'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const
 const DEFAULT_PAGE_SIZE = 30
@@ -36,6 +37,18 @@ export default async function TransactionsPage({ searchParams }: Props) {
   const pageSize = (PAGE_SIZE_OPTIONS as readonly number[]).includes(requestedSize)
     ? requestedSize
     : DEFAULT_PAGE_SIZE
+
+  // A tela reabre com os filtros do último uso (`lib/finance/filtros-lembrados`).
+  // Só quando a URL chega sem recorte nenhum: link que já traz filtro é escolha
+  // de quem chegou. Cookie vazio é "o usuário limpou tudo" — não restaura.
+  const filtrosDoCookie = jar.get(FILTERS_COOKIE)?.value
+  if (filtrosDoCookie && !temFiltroNaUrl(params)) {
+    const destino = restaurarFiltros(filtrosDoCookie)
+    if (destino.toString()) {
+      if (params.pageSize) destino.set('pageSize', params.pageSize)
+      redirect(`/transactions?${destino.toString()}`)
+    }
+  }
 
   // A conta escolhida sobrevive à troca de menu: o filtro grava em
   // `tx-accounts` e aqui o cookie reabre o que estava marcado.

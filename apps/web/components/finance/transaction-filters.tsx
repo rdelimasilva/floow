@@ -4,49 +4,17 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useCallback, useRef, useEffect, useTransition } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
+import {
+  PERIOD_LABELS,
+  type PeriodKey,
+  getPeriodDates,
+  detectActivePeriod,
+  lembrarFiltros,
+} from '@/lib/finance/filtros-lembrados'
 
-type PeriodKey = 'today' | 'month' | 'quarter' | 'semester' | 'year'
-
-const PERIOD_LABELS: Record<PeriodKey, string> = {
-  today: 'Hoje',
-  month: 'Este mês',
-  quarter: 'Este trimestre',
-  semester: 'Este semestre',
-  year: 'Este ano',
-}
-
-function getPeriodDates(key: PeriodKey): { startDate: string; endDate: string } {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = now.getMonth()
-
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
-
-  switch (key) {
-    case 'today':
-      return { startDate: fmt(now), endDate: fmt(now) }
-    case 'month':
-      return { startDate: fmt(new Date(y, m, 1)), endDate: fmt(new Date(y, m + 1, 0)) }
-    case 'quarter': {
-      const q = Math.floor(m / 3)
-      return { startDate: fmt(new Date(y, q * 3, 1)), endDate: fmt(new Date(y, q * 3 + 3, 0)) }
-    }
-    case 'semester': {
-      const s = m < 6 ? 0 : 1
-      return { startDate: fmt(new Date(y, s * 6, 1)), endDate: fmt(new Date(y, s * 6 + 6, 0)) }
-    }
-    case 'year':
-      return { startDate: fmt(new Date(y, 0, 1)), endDate: fmt(new Date(y, 11, 31)) }
-  }
-}
-
-function detectActivePeriod(startDate: string, endDate: string): PeriodKey | null {
-  for (const key of Object.keys(PERIOD_LABELS) as PeriodKey[]) {
-    const { startDate: s, endDate: e } = getPeriodDates(key)
-    if (s === startDate && e === endDate) return key
-  }
-  return null
-}
+// Filtros de coluna e ordenação vivem na tabela; trocar período, busca ou
+// conta não pode levá-los embora.
+const PARAMS_DA_TABELA = ['types', 'categoryIds', 'minAmount', 'maxAmount', 'sortBy', 'sortDir'] as const
 
 interface AccountOption {
   id: string
@@ -102,6 +70,21 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }, [])
 
+  // Os campos acompanham a URL: seleção restaurada do último uso, pílula ou
+  // qualquer outra navegação aparece nas datas e na conta, não só a digitada.
+  const urlStart = searchParams.get('startDate') ?? ''
+  const urlEnd = searchParams.get('endDate') ?? ''
+  const urlAccounts = searchParams.get('accountId') ?? ''
+  useEffect(() => { setStartDate(urlStart) }, [urlStart])
+  useEffect(() => { setEndDate(urlEnd) }, [urlEnd])
+  useEffect(() => { setAccountIds(urlAccounts.split(',').filter(Boolean)) }, [urlAccounts])
+
+  // Quem chega por link com filtro (do Dashboard, de um aviso) também conta
+  // como último uso.
+  useEffect(() => {
+    if (baseUrl === '/transactions') lembrarFiltros(new URLSearchParams(searchParams.toString()))
+  }, [baseUrl, searchParams])
+
   const activePeriod = detectActivePeriod(startDate, endDate)
 
   const navigate = useCallback((overrides: Record<string, string>) => {
@@ -119,9 +102,16 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     const currentPageSize = searchParams.get('pageSize')
     if (currentPageSize) params.set('pageSize', currentPageSize)
     if (values.future === '1') params.set('future', '1')
+    for (const key of PARAMS_DA_TABELA) {
+      const v = searchParams.get(key)
+      if (v) params.set(key, v)
+    }
     // Sem `page`: quem decide onde a lista abre é o servidor (`paginaQueAbre`),
     // e na ordem cronológica isso é a ÚLTIMA página. Fixar `page=1` aqui jogava
     // o usuário em 2019 a cada mudança de filtro.
+    // Na tela de Transações a seleção fica lembrada para a próxima visita; a
+    // página da conta usa este mesmo componente e não entra nessa memória.
+    if (baseUrl === '/transactions') lembrarFiltros(params)
     startTransition(() => {
       router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
     })

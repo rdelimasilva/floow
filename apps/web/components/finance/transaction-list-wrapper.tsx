@@ -5,6 +5,7 @@ import { useCallback, useContext, useMemo, useTransition } from 'react'
 import { TransactionList } from './transaction-list'
 import { currencyToCents } from '@floow/core-finance'
 import { InlineFormContext, type InlineCreatedTransaction } from './inline-transaction-form'
+import { lembrarFiltros } from '@/lib/finance/filtros-lembrados'
 
 interface Props {
   transactions: Parameters<typeof TransactionList>[0]['transactions']
@@ -29,6 +30,7 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
     // Sem `page`: o servidor reabre na página da data mais recente quando a
     // ordem é crescente (`paginaQueAbre`). Fixar 1 aqui jogava em 2019.
     params.delete('page')
+    lembrarFiltros(params)
     startTransition(() => {
       router.replace(`/transactions?${params.toString()}`, { scroll: false })
     })
