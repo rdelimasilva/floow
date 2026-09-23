@@ -49,11 +49,6 @@ function StatusBadge({ status }: { status: PacingStatus }) {
   )
 }
 
-function formatMonth(monthStr: string): string {
-  const [y, m] = monthStr.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-}
-
 function shiftMonth(monthStr: string, delta: number): string {
   const [y, m] = monthStr.split('-').map(Number)
   const d = new Date(y, m - 1 + delta, 1)
@@ -92,7 +87,7 @@ export function PacingClient({ result, categoryNames, memberIds, selectedMonth }
         description="Quanto você já gastou no mês, por onde saiu, e onde isso deve fechar."
       />
 
-      <MonthNavigator label={formatMonth(selectedMonth)} onShift={go}>
+      <MonthNavigator month={selectedMonth} onShift={go}>
         {total.daysElapsed > 0 && (
           <span className="ml-2 text-sm" style={{ color: '#6E6E6E' }}>
             dia {total.daysElapsed} de {total.daysInMonth}

@@ -119,7 +119,7 @@ export function InvestingClient({
         </Button>
       </PageHeader>
 
-      <MonthNavigator label={formatMonth(selectedMonth)} onShift={navigateMonth} />
+      <MonthNavigator month={selectedMonth} onShift={navigateMonth} />
 
       {/* Summary */}
       {entriesForMonth.length > 0 && (
