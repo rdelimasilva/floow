@@ -31,6 +31,13 @@ const relatorio = {
   hookExiste:
     (await sql`SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
                 WHERE n.nspname='public' AND p.proname='custom_access_token_hook'`).length === 1,
+  // Tabela a tabela, e nao a contagem: o banco tem 40 com RLS e UMA sem
+  // (`category_rules`). Uma opcao do projeto novo que ligue RLS sozinha
+  // criaria divergencia que a contagem de policies nao pegaria.
+  rlsPorTabela: (await sql`
+    SELECT c.relname, c.relrowsecurity FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace
+    WHERE ns.nspname='public' AND c.relkind='r' ORDER BY c.relname`)
+    .map((t) => `${t.relname}|${t.relrowsecurity ? 'on' : 'off'}`),
   saldos: (await sql`SELECT name, type, balance_cents FROM accounts ORDER BY name, id`)
     .map((a) => `${a.name}|${a.type}|${a.balance_cents}`),
   // Soma dos lançamentos por conta: se ela bater dos dois lados, nenhum
