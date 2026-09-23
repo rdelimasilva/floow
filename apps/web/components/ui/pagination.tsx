@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Button } from './button'
+import { PaginationJump } from './pagination-jump'
 
 interface PaginationProps {
   currentPage: number
@@ -18,20 +19,37 @@ export function Pagination({ currentPage, totalPages, baseUrl, searchParams }: P
   }
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-gray-500">
         Página {currentPage} de {totalPages}
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* `key` reinicia o campo com a página nova a cada navegação */}
+        <PaginationJump
+          key={currentPage}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          hrefBase={buildUrl(currentPage)}
+        />
         {currentPage > 1 && (
-          <Button asChild variant="outline" size="sm">
-            <Link href={buildUrl(currentPage - 1)}>Anterior</Link>
-          </Button>
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link href={buildUrl(1)}>Primeira</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href={buildUrl(currentPage - 1)}>Anterior</Link>
+            </Button>
+          </>
         )}
         {currentPage < totalPages && (
-          <Button asChild variant="outline" size="sm">
-            <Link href={buildUrl(currentPage + 1)}>Próxima</Link>
-          </Button>
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link href={buildUrl(currentPage + 1)}>Próxima</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href={buildUrl(totalPages)}>Última</Link>
+            </Button>
+          </>
         )}
       </div>
     </div>
