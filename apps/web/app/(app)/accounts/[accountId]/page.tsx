@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Banknote } from 'lucide-react'
 import { getOrgId, getAccountById, getTransactionsWithCount, getTransactionCount, getCategories, getAccounts } from '@/lib/finance/queries'
-import { paginaQueAbre } from '@/lib/finance/pagination'
+import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
+import { hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 import { TransactionList } from '@/components/finance/transaction-list'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { Pagination } from '@/components/ui/pagination'
@@ -39,9 +40,19 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   // O extrato da conta corre do mais antigo para o mais novo, como o de
   // transações, e abre na última página — onde está a data mais recente.
+  // Com futuros ligados, abre na página de hoje, não na da parcela mais distante.
+  const [totalParaAbrir, totalAteHoje] = sp.page
+    ? [0, undefined]
+    : await Promise.all([
+        getTransactionCount(orgId, filters),
+        filters.includeFuture
+          ? getTransactionCount(orgId, filtrosAteHoje(filters, hojeEmSaoPaulo()))
+          : undefined,
+      ])
   const page = paginaQueAbre({
     pageParam: sp.page,
-    totalCount: sp.page ? 0 : await getTransactionCount(orgId, filters),
+    totalCount: totalParaAbrir,
+    totalAteHoje,
     pageSize: PAGE_SIZE,
   })
 

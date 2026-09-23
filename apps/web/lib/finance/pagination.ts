@@ -2,6 +2,12 @@ interface PaginaQueAbreOpts {
   /** O `page` da URL, se veio. */
   pageParam?: string
   totalCount: number
+  /**
+   * Com futuros ligados: quantos lançamentos vão até hoje. A última página
+   * deixa de ser "hoje" e vira a parcela mais distante (até 60 meses à frente),
+   * então a abertura mira a página de hoje por esta contagem.
+   */
+  totalAteHoje?: number
   pageSize: number
   sortBy?: string
   sortDir?: string
@@ -27,6 +33,7 @@ interface PaginaQueAbreOpts {
 export function paginaQueAbre({
   pageParam,
   totalCount,
+  totalAteHoje,
   pageSize,
   sortBy = 'date',
   sortDir = 'asc',
@@ -37,5 +44,17 @@ export function paginaQueAbre({
   const cronologicaCrescente = sortBy === 'date' && sortDir !== 'desc'
   if (!cronologicaCrescente) return 1
 
-  return Math.max(1, Math.ceil(totalCount / pageSize))
+  return Math.max(1, Math.ceil((totalAteHoje ?? totalCount) / pageSize))
+}
+
+/**
+ * Os filtros da contagem "até hoje": os mesmos da lista, sem os futuros e com
+ * a data final cortada em hoje (a que já está no passado fica como está).
+ */
+export function filtrosAteHoje<T extends { endDate?: string; includeFuture?: boolean }>(
+  filters: T,
+  hoje: string,
+): Omit<T, 'endDate' | 'includeFuture'> & { endDate: string; includeFuture: false } {
+  const endDate = filters.endDate && filters.endDate < hoje ? filters.endDate : hoje
+  return { ...filters, includeFuture: false, endDate }
 }

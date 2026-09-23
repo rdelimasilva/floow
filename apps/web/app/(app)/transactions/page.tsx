@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getOrgId, getTransactionsWithCount, getTransactionCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
-import { paginaQueAbre } from '@/lib/finance/pagination'
+import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
 import { contasParaLancamento } from '@/lib/finance/account-options'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
@@ -17,7 +17,7 @@ import { contarDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
 import { contarPropostasPendentes } from '@/lib/finance/forecast-match-queries'
 import { contarLancamentosAClassificar } from '@/lib/openfinance/counterparty-queries'
 import { getAuthenticatedUser } from '@/lib/auth/session'
-import { FILTERS_COOKIE, restaurarFiltros, temFiltroNaUrl } from '@/lib/finance/filtros-lembrados'
+import { FILTERS_COOKIE, restaurarFiltros, temFiltroNaUrl, hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const
 const DEFAULT_PAGE_SIZE = 30
@@ -87,9 +87,20 @@ export default async function TransactionsPage({ searchParams }: Props) {
   // A data mais recente está na ÚLTIMA página quando a ordem é crescente, e é
   // lá que a lista abre. O total custa uma contagem a mais, e só quando a URL
   // não diz a página — navegando, ele já vem de graça na consulta das linhas.
+  // Com futuros ligados a última página é a parcela mais distante (2031), então
+  // conta-se também até hoje para abrir na página de hoje.
+  const [totalParaAbrir, totalAteHoje] = params.page
+    ? [0, undefined]
+    : await Promise.all([
+        getTransactionCount(orgId, filters),
+        filters.includeFuture
+          ? getTransactionCount(orgId, filtrosAteHoje(filters, hojeEmSaoPaulo()))
+          : undefined,
+      ])
   const page = paginaQueAbre({
     pageParam: params.page,
-    totalCount: params.page ? 0 : await getTransactionCount(orgId, filters),
+    totalCount: totalParaAbrir,
+    totalAteHoje,
     pageSize,
     sortBy: filters.sortBy,
     sortDir: filters.sortDir,
