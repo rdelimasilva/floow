@@ -5,7 +5,7 @@ import { orgs } from './auth'
  * Último status de ritmo enviado por e-mail, por categoria e mês.
  *
  * Existe para o e-mail sair só quando o status piora. Sem policy de RLS: só o
- * cron lê e escreve (ver 00050_alerta_ritmo_por_email.sql).
+ * cron lê e escreve (ver 00051_alerta_ritmo_por_email.sql).
  */
 export const pacingAlertState = pgTable(
   'pacing_alert_state',
