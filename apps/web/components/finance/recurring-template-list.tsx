@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2, Pause, Play, RefreshCw } from 'lucide-react'
+import { Pencil, Copy, Trash2, Pause, Play, RefreshCw } from 'lucide-react'
 import {
   deleteRecurringTemplate,
   toggleRecurringActive,
@@ -85,6 +85,7 @@ export function RecurringTemplateList({
   const { toast } = useToast()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<RecurringTemplate | null>(null)
+  const [cloningTemplate, setCloningTemplate] = useState<RecurringTemplate | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<RecurringTemplate | null>(null)
   const [generating, setGenerating] = useState<string | null>(null)
   const [loadingToggle, setLoadingToggle] = useState<string | null>(null)
@@ -220,7 +221,7 @@ export function RecurringTemplateList({
                   <TableHead>Próxima parcela</TableHead>
                   <TableHead>Última parcela</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-32">Ações</TableHead>
+                  <TableHead className="w-40">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -285,6 +286,14 @@ export function RecurringTemplateList({
                           </button>
                           <button
                             type="button"
+                            onClick={() => setCloningTemplate(t)}
+                            title="Clonar"
+                            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setDeleteTarget(t)}
                             title="Excluir"
                             className="rounded p-1 text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
@@ -317,6 +326,15 @@ export function RecurringTemplateList({
         accounts={accounts}
         categories={categories}
         editTemplate={editingTemplate ?? undefined}
+      />
+
+      {/* Clone dialog — nova recorrência já preenchida com os dados da escolhida */}
+      <CreateRecurringDialog
+        open={cloningTemplate !== null}
+        onClose={() => setCloningTemplate(null)}
+        accounts={accounts}
+        categories={categories}
+        cloneFrom={cloningTemplate ?? undefined}
       />
 
       {/* Delete confirmation */}

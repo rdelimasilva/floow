@@ -6,10 +6,10 @@ import { createCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { currencyToCents, generateInstallmentDates, formatBRL } from '@floow/core-finance'
-import type { RecurringFrequency } from '@floow/core-finance'
+import { currencyToCents } from '@floow/core-finance'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 import { dataDeCalendario } from '@/lib/finance/recurring-dates'
+import { RecurringDurationFields, type EndMode } from '@/components/finance/recurring-duration-fields'
 
 interface AccountOption {
   id: string
@@ -42,7 +42,14 @@ interface CreateRecurringDialogProps {
     proximaParcela?: string | null
     notes: string | null
   }
+  // Optional — cria uma recorrência nova partindo dos dados de uma existente
+  cloneFrom?: RecurringPrefill
 }
+
+type RecurringPrefill = Pick<
+  NonNullable<CreateRecurringDialogProps['editTemplate']>,
+  'accountId' | 'categoryId' | 'type' | 'amountCents' | 'description' | 'frequency' | 'notes'
+>
 
 const FREQUENCY_OPTIONS = [
   { value: 'daily', label: 'Diário' },
@@ -63,6 +70,11 @@ function dataEditavel(t: CreateRecurringDialogProps['editTemplate']): string {
   return dataDeCalendario(t?.proximaParcela ?? t?.nextDueDate)
 }
 
+// A cópia é uma série nova: começa hoje, não continua as datas da original.
+function hojeEmSaoPaulo(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
 function centsToInput(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',')
 }
@@ -73,26 +85,25 @@ export function CreateRecurringDialog({
   accounts,
   categories: initialCategories,
   editTemplate,
+  cloneFrom,
 }: CreateRecurringDialogProps) {
   const { toast } = useToast()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [loading, setLoading] = useState(false)
 
-  // Form state
-  const [description, setDescription] = useState(editTemplate?.description ?? '')
-  const [accountId, setAccountId] = useState(editTemplate?.accountId ?? '')
-  const [categoryId, setCategoryId] = useState(editTemplate?.categoryId ?? '')
-  const initType = editTemplate?.type === 'income' ? 'income' : 'expense'
-  const [type, setType] = useState<'income' | 'expense'>(initType)
-  const [amount, setAmount] = useState(
-    editTemplate ? centsToInput(editTemplate.amountCents) : '',
-  )
-  const [frequency, setFrequency] = useState(editTemplate?.frequency ?? 'monthly')
-  const [nextDueDate, setNextDueDate] = useState(dataEditavel(editTemplate))
-  const [notes, setNotes] = useState(editTemplate?.notes ?? '')
+  // Form state — na edição vem do template; ao clonar, da recorrência copiada
+  const base = editTemplate ?? cloneFrom
+  const dataInicial = () => (editTemplate ? dataEditavel(editTemplate) : cloneFrom ? hojeEmSaoPaulo() : '')
+  const [description, setDescription] = useState(base?.description ?? '')
+  const [accountId, setAccountId] = useState(base?.accountId ?? '')
+  const [categoryId, setCategoryId] = useState(base?.categoryId ?? '')
+  const [type, setType] = useState<'income' | 'expense'>(base?.type === 'income' ? 'income' : 'expense')
+  const [amount, setAmount] = useState(base ? centsToInput(base.amountCents) : '')
+  const [frequency, setFrequency] = useState(base?.frequency ?? 'monthly')
+  const [nextDueDate, setNextDueDate] = useState(dataInicial)
+  const [notes, setNotes] = useState(base?.notes ?? '')
 
   // Duration controls
-  type EndMode = 'count' | 'end_date' | 'indefinite'
   const [endMode, setEndMode] = useState<EndMode>('count')
   const [installmentCount, setInstallmentCount] = useState('12')
   const [recurringEndDate, setRecurringEndDate] = useState('')
@@ -103,16 +114,16 @@ export function CreateRecurringDialog({
   const [newCategoryName, setNewCategoryName] = useState('')
   const [creatingCategory, setCreatingCategory] = useState(false)
 
-  // Sync form values when editTemplate prop changes
+  // Sync form values when editTemplate/cloneFrom props change
   useEffect(() => {
-    setDescription(editTemplate?.description ?? '')
-    setAccountId(editTemplate?.accountId ?? '')
-    setCategoryId(editTemplate?.categoryId ?? '')
-    setType(editTemplate?.type === 'income' ? 'income' : 'expense')
-    setAmount(editTemplate ? centsToInput(editTemplate.amountCents) : '')
-    setFrequency(editTemplate?.frequency ?? 'monthly')
-    setNextDueDate(dataEditavel(editTemplate))
-    setNotes(editTemplate?.notes ?? '')
+    setDescription(base?.description ?? '')
+    setAccountId(base?.accountId ?? '')
+    setCategoryId(base?.categoryId ?? '')
+    setType(base?.type === 'income' ? 'income' : 'expense')
+    setAmount(base ? centsToInput(base.amountCents) : '')
+    setFrequency(base?.frequency ?? 'monthly')
+    setNextDueDate(dataInicial())
+    setNotes(base?.notes ?? '')
     setShowNewCategory(false)
     setNewCategoryName('')
     // Duration controls only apply on create — keep defaults on edit
@@ -121,7 +132,8 @@ export function CreateRecurringDialog({
       setInstallmentCount('12')
       setRecurringEndDate('')
     }
-  }, [editTemplate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- base/dataInicial derivam destas duas props
+  }, [editTemplate, cloneFrom])
 
   // Sync categories when prop changes
   useEffect(() => {
@@ -382,92 +394,17 @@ export function CreateRecurringDialog({
 
             {/* Duration controls — only on create */}
             {!isEdit && (
-              <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <label className="block text-sm font-medium text-gray-700">Duração</label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="endMode"
-                      value="count"
-                      checked={endMode === 'count'}
-                      onChange={() => setEndMode('count')}
-                      className="border-gray-300"
-                    />
-                    <span className="text-sm">Número de parcelas</span>
-                  </label>
-                  {endMode === 'count' && (
-                    <Input
-                      type="number"
-                      min={1}
-                      max={120}
-                      value={installmentCount}
-                      onChange={(e) => setInstallmentCount(e.target.value)}
-                      placeholder="Ex: 12"
-                      className="ml-6 w-32"
-                    />
-                  )}
-
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="endMode"
-                      value="end_date"
-                      checked={endMode === 'end_date'}
-                      onChange={() => setEndMode('end_date')}
-                      className="border-gray-300"
-                    />
-                    <span className="text-sm">Até uma data</span>
-                  </label>
-                  {endMode === 'end_date' && (
-                    <Input
-                      type="date"
-                      value={recurringEndDate}
-                      onChange={(e) => setRecurringEndDate(e.target.value)}
-                      className="ml-6 w-48"
-                    />
-                  )}
-
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="endMode"
-                      value="indefinite"
-                      checked={endMode === 'indefinite'}
-                      onChange={() => setEndMode('indefinite')}
-                      className="border-gray-300"
-                    />
-                    <span className="text-sm">Sem fim (máx. 60 meses)</span>
-                  </label>
-                </div>
-
-                {(() => {
-                  if (!nextDueDate) return null
-                  try {
-                    const start = new Date(nextDueDate)
-                    start.setHours(0, 0, 0, 0)
-                    const cents = amount ? currencyToCents(amount) : 0
-                    const dates = generateInstallmentDates({
-                      startDate: start,
-                      frequency: frequency as RecurringFrequency,
-                      endMode,
-                      installmentCount: endMode === 'count' ? parseInt(installmentCount) || 1 : undefined,
-                      endDate: endMode === 'end_date' && recurringEndDate ? new Date(recurringEndDate) : undefined,
-                    })
-                    if (dates.length === 0) return null
-                    const first = dates[0].toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
-                    const last = dates[dates.length - 1].toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
-                    const amountStr = cents > 0 ? formatBRL(cents) : 'R$ 0,00'
-                    return (
-                      <p className="text-xs text-gray-500 bg-white rounded px-3 py-2 border border-gray-100">
-                        Serão geradas {dates.length} transações de {amountStr}, de {first} a {last}.
-                      </p>
-                    )
-                  } catch {
-                    return null
-                  }
-                })()}
-              </div>
+              <RecurringDurationFields
+                endMode={endMode}
+                onEndModeChange={setEndMode}
+                installmentCount={installmentCount}
+                onInstallmentCountChange={setInstallmentCount}
+                endDate={recurringEndDate}
+                onEndDateChange={setRecurringEndDate}
+                startDate={nextDueDate}
+                frequency={frequency}
+                amount={amount}
+              />
             )}
 
             <div>
