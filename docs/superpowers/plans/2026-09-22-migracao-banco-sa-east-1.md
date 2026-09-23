@@ -21,14 +21,14 @@
 
 ---
 
-### Tarefa 0: Baseline de verificação
+### Tarefa 0: Baseline de verificação — CONCLUÍDA
 
 O que provará que a migração deu certo. Sem isto, "parece que funcionou" é a única validação disponível.
 
 **Files:**
 - Create: `scripts/migracao/baseline.mjs`
 
-- [ ] **Passo 1: Criar o script de baseline**
+- [x] **Passo 1: Criar o script de baseline**
 
 ```javascript
 // scripts/migracao/baseline.mjs
@@ -68,7 +68,7 @@ console.log(JSON.stringify(relatorio, null, 2))
 await sql.end()
 ```
 
-- [ ] **Passo 2: Gerar o baseline do banco ATUAL**
+- [x] **Passo 2: Gerar o baseline do banco ATUAL**
 
 ```bash
 cd /c/DEV/floow
@@ -78,7 +78,7 @@ cat baseline-antes.json
 
 Esperado: 41 tabelas, 140 policies, 34 funções, 9 triggers, 3 usuários, `hookExiste: true`, 12 contas em `saldos`.
 
-- [ ] **Passo 3: Criar o comparador**
+- [x] **Passo 3: Criar o comparador**
 
 ```javascript
 // scripts/migracao/comparar.mjs
@@ -113,7 +113,7 @@ console.log(divergencias === 0 ? '\nIDENTICOS — pode seguir' : `\n${divergenci
 process.exit(divergencias === 0 ? 0 : 1)
 ```
 
-- [ ] **Passo 4: Commit**
+- [x] **Passo 4: Commit**
 
 ```bash
 git add scripts/migracao/baseline.mjs scripts/migracao/comparar.mjs
@@ -124,20 +124,22 @@ git commit -m "chore(migracao): baseline e comparador para a mudanca de regiao"
 
 ---
 
-### Tarefa 1: Instalar pg_dump e psql 17.x (sem Docker)
+### Tarefa 1: Instalar pg_dump e psql 17.x (sem Docker) — CONCLUÍDA
+
+> Feito via ZIP de binários da EnterpriseDB extraído em `C:\pgsql` — sem instalador, sem admin, sem Docker. Versão confirmada: 17.6, igual à do servidor.
 
 A CLI do Supabase exige Docker Desktop, que não está instalado. Os binários nativos fazem o mesmo trabalho sem essa dependência.
 
-- [ ] **Passo 1: Baixar os binários**
+- [x] **Passo 1: Baixar os binários**
 
 Baixe o ZIP "PostgreSQL 17.x Windows x86-64 binaries" em:
 https://www.enterprisedb.com/download-postgresql-binaries
 
-- [ ] **Passo 2: Extrair**
+- [x] **Passo 2: Extrair**
 
 Extraia para `C:\pgsql` (o ZIP contém uma pasta `pgsql/`).
 
-- [ ] **Passo 3: Verificar a versão**
+- [x] **Passo 3: Verificar a versão**
 
 ```bash
 /c/pgsql/bin/pg_dump --version
