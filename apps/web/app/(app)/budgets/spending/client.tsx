@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { MonthNavigator } from '@/components/finance/month-navigator'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -151,16 +152,7 @@ export function SpendingClient({
         </Button>
       </PageHeader>
 
-      {/* Month navigator */}
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => navigateMonth(-1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm font-semibold capitalize">{formatMonth(selectedMonth)}</span>
-        <Button variant="ghost" size="sm" onClick={() => navigateMonth(1)}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <MonthNavigator label={formatMonth(selectedMonth)} onShift={navigateMonth} />
 
       {/* Summary */}
       {entriesForMonth.length > 0 && (

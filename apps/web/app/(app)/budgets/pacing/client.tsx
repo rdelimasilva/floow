@@ -2,17 +2,10 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  ChevronLeft,
-  ChevronRight,
-  AlertTriangle,
-  TrendingUp,
-  Check,
-  List,
-} from 'lucide-react'
+import { AlertTriangle, TrendingUp, Check, List } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { MonthNavigator } from '@/components/finance/month-navigator'
 import { BudgetPacingChart } from '@/components/finance/budget-pacing-chart'
 import { PacingTransactionsDialog } from '@/components/finance/pacing-transactions-dialog'
 import { formatBRL } from '@floow/core-finance'
@@ -99,22 +92,13 @@ export function PacingClient({ result, categoryNames, memberIds, selectedMonth }
         description="Quanto você já gastou no mês, por onde saiu, e onde isso deve fechar."
       />
 
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" onClick={() => go(-1)} aria-label="Mês anterior">
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="min-w-44 text-center text-sm font-medium capitalize">
-          {formatMonth(selectedMonth)}
-        </span>
-        <Button variant="outline" size="icon" onClick={() => go(1)} aria-label="Próximo mês">
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+      <MonthNavigator label={formatMonth(selectedMonth)} onShift={go}>
         {total.daysElapsed > 0 && (
           <span className="ml-2 text-sm" style={{ color: '#6E6E6E' }}>
             dia {total.daysElapsed} de {total.daysInMonth}
           </span>
         )}
-      </div>
+      </MonthNavigator>
 
       <Card style={{ borderRadius: 14 }}>
         <CardContent className="space-y-5 pt-6">
