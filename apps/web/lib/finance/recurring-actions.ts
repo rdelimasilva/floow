@@ -15,6 +15,7 @@ import {
   getOverdueDates,
   generateInstallmentDates,
 } from '@floow/core-finance'
+import type { RecurringFrequency } from '@floow/core-finance'
 import { eq, and, sql } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { assertAccountOwnership, refreshSnapshot } from './actions'
@@ -31,6 +32,8 @@ import {
   invalidateTag,
 } from '@/lib/cache-tags'
 import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
+import { revalidateTransactionData } from './revalidate'
+import { reagendarParcelasPendentes } from './recurring-reschedule'
 
 type Db = ReturnType<typeof getDb>
 
@@ -294,18 +297,49 @@ export async function updateRecurringTemplate(formData: FormData) {
     setObj.frequency = frequency
   }
 
-  const nextDueDateStr = formData.get('nextDueDate') as string | null
-  if (nextDueDateStr !== null) setObj.nextDueDate = new Date(nextDueDateStr)
-
   const notes = formData.get('notes') as string | null
   if (notes !== null) setObj.notes = notes || null
 
-  await db
-    .update(recurringTemplates)
-    .set(setObj)
-    .where(and(eq(recurringTemplates.id, id), eq(recurringTemplates.orgId, orgId)))
+  // A data editada é a da próxima parcela em aberto: as pendentes se movem
+  // junto. Sem parcela pendente, a data vai direto para o template.
+  const nextDueDateStr = (formData.get('nextDueDate') as string | null) || null
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  let movidas = 0
 
+  await db.transaction(async (tx) => {
+    const [atual] = await tx
+      .select({ frequency: recurringTemplates.frequency })
+      .from(recurringTemplates)
+      .where(and(eq(recurringTemplates.id, id), eq(recurringTemplates.orgId, orgId)))
+      .limit(1)
+    if (!atual) throw new Error('Recorrência não encontrada')
+
+    if (nextDueDateStr) {
+      const novaFrequencia = (frequency ?? atual.frequency) as RecurringFrequency
+      const r = await reagendarParcelasPendentes(tx, {
+        orgId,
+        templateId: id,
+        novaData: nextDueDateStr,
+        frequencia: novaFrequencia,
+        frequenciaMudou: novaFrequencia !== atual.frequency,
+        hojeStr: todayStr,
+      })
+      movidas = r.movidas
+      if (r.pendentes === 0) setObj.nextDueDate = new Date(nextDueDateStr)
+      else if (r.nextDueDate) setObj.nextDueDate = r.nextDueDate
+    }
+
+    await tx
+      .update(recurringTemplates)
+      .set(setObj)
+      .where(and(eq(recurringTemplates.id, id), eq(recurringTemplates.orgId, orgId)))
+  })
+
+  if (movidas > 0) revalidateTransactionData(orgId)
   revalidatePath('/transactions/recurring')
+  revalidatePath('/transactions')
+
+  return { movidas }
 }
 
 // ---------------------------------------------------------------------------

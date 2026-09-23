@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { currencyToCents, generateInstallmentDates, formatBRL } from '@floow/core-finance'
 import type { RecurringFrequency } from '@floow/core-finance'
 import { toCategoryOptions } from '@/lib/finance/category-options'
+import { dataDeCalendario } from '@/lib/finance/recurring-dates'
 
 interface AccountOption {
   id: string
@@ -37,6 +38,8 @@ interface CreateRecurringDialogProps {
     description: string
     frequency: string
     nextDueDate: Date | string
+    // Próxima parcela em aberto ('YYYY-MM-DD'); é a data que a edição move
+    proximaParcela?: string | null
     notes: string | null
   }
 }
@@ -55,13 +58,9 @@ const TYPE_LABELS: Record<'income' | 'expense', string> = {
   expense: 'Despesa',
 }
 
-function toDateInputValue(date: Date | string | undefined): string {
-  if (!date) return ''
-  const d = date instanceof Date ? date : new Date(date)
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+// Sem parcela em aberto, a data editável é a do próprio template.
+function dataEditavel(t: CreateRecurringDialogProps['editTemplate']): string {
+  return dataDeCalendario(t?.proximaParcela ?? t?.nextDueDate)
 }
 
 function centsToInput(cents: number): string {
@@ -89,7 +88,7 @@ export function CreateRecurringDialog({
     editTemplate ? centsToInput(editTemplate.amountCents) : '',
   )
   const [frequency, setFrequency] = useState(editTemplate?.frequency ?? 'monthly')
-  const [nextDueDate, setNextDueDate] = useState(toDateInputValue(editTemplate?.nextDueDate))
+  const [nextDueDate, setNextDueDate] = useState(dataEditavel(editTemplate))
   const [notes, setNotes] = useState(editTemplate?.notes ?? '')
 
   // Duration controls
@@ -112,7 +111,7 @@ export function CreateRecurringDialog({
     setType(editTemplate?.type === 'income' ? 'income' : 'expense')
     setAmount(editTemplate ? centsToInput(editTemplate.amountCents) : '')
     setFrequency(editTemplate?.frequency ?? 'monthly')
-    setNextDueDate(toDateInputValue(editTemplate?.nextDueDate))
+    setNextDueDate(dataEditavel(editTemplate))
     setNotes(editTemplate?.notes ?? '')
     setShowNewCategory(false)
     setNewCategoryName('')
@@ -192,8 +191,8 @@ export function CreateRecurringDialog({
 
       if (editTemplate) {
         formData.append('id', editTemplate.id)
-        await updateRecurringTemplate(formData)
-        toast('Recorrência atualizada')
+        const { movidas } = await updateRecurringTemplate(formData)
+        toast(movidas > 0 ? `Recorrência atualizada — ${movidas} parcela(s) mudaram de data` : 'Recorrência atualizada')
       } else {
         formData.append('endMode', endMode)
         if (endMode === 'count') {
@@ -370,7 +369,7 @@ export function CreateRecurringDialog({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isEdit ? 'Próxima data' : 'Data de início'}
+                  {isEdit ? 'Próxima parcela' : 'Data de início'}
                 </label>
                 <Input
                   type="date"

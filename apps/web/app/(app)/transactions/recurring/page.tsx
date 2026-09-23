@@ -1,15 +1,24 @@
-import { getOrgId, getRecurringTemplates, getUpcomingRecurring, getAccounts, getCategories } from '@/lib/finance/queries'
+import {
+  getOrgId,
+  getRecurringTemplates,
+  getUpcomingRecurring,
+  getAccounts,
+  getCategories,
+  getDatasDasParcelas,
+} from '@/lib/finance/queries'
 import { contasParaLancamento } from '@/lib/finance/account-options'
 import { RecurringTemplateList } from '@/components/finance/recurring-template-list'
 import { PageHeader } from '@/components/ui/page-header'
 
 export default async function RecurringPage() {
   const orgId = await getOrgId()
-  const [templates, upcoming, accounts, categories] = await Promise.all([
+  const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const [templates, upcoming, accounts, categories, datas] = await Promise.all([
     getRecurringTemplates(orgId),
     getUpcomingRecurring(orgId),
     getAccounts(orgId),
     getCategories(orgId),
+    getDatasDasParcelas(orgId, hojeStr),
   ])
 
   const accountOptions = contasParaLancamento(accounts)
@@ -24,6 +33,8 @@ export default async function RecurringPage() {
       <RecurringTemplateList
         templates={templates.map((t) => ({
           ...t,
+          proximaParcela: datas.get(t.id)?.proxima ?? null,
+          ultimaParcela: datas.get(t.id)?.ultima ?? null,
           nextDueDate: t.nextDueDate instanceof Date ? t.nextDueDate.toISOString() : t.nextDueDate,
           endDate: t.endDate instanceof Date ? t.endDate.toISOString() : t.endDate,
           createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,

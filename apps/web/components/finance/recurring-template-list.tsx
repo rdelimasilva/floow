@@ -20,6 +20,7 @@ import {
   TableCell,
 } from '@/components/ui/table'
 import { formatBRL } from '@floow/core-finance'
+import { dataDeCalendario, formatarDataDeCalendario } from '@/lib/finance/recurring-dates'
 
 interface AccountOption {
   id: string
@@ -49,6 +50,9 @@ interface RecurringTemplate {
   notes: string | null
   createdAt: Date | string
   updatedAt: Date | string
+  // 'YYYY-MM-DD' vindos das parcelas geradas; ausentes na lista de "upcoming"
+  proximaParcela?: string | null
+  ultimaParcela?: string | null
 }
 
 interface RecurringTemplateListProps {
@@ -67,16 +71,9 @@ const frequencyLabels: Record<string, string> = {
   yearly: 'Anual',
 }
 
-function formatDate(date: Date | string): string {
-  const d = date instanceof Date ? date : new Date(date)
-  return d.toLocaleDateString('pt-BR')
-}
-
 function isOverdue(date: Date | string): boolean {
-  const d = date instanceof Date ? date : new Date(date)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return d <= today
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  return dataDeCalendario(date) <= hoje
 }
 
 export function RecurringTemplateList({
@@ -163,7 +160,7 @@ export function RecurringTemplateList({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{t.description}</p>
                   <p className="text-xs text-muted-foreground">
-                    {accountMap.get(t.accountId) ?? t.accountId} &bull; {formatDate(t.nextDueDate)}
+                    {accountMap.get(t.accountId) ?? t.accountId} &bull; {formatarDataDeCalendario(t.nextDueDate)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 ml-4">
@@ -220,7 +217,8 @@ export function RecurringTemplateList({
                   <TableHead>Tipo</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead>Frequência</TableHead>
-                  <TableHead>Próxima Data</TableHead>
+                  <TableHead>Próxima parcela</TableHead>
+                  <TableHead>Última parcela</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-32">Ações</TableHead>
                 </TableRow>
@@ -242,11 +240,8 @@ export function RecurringTemplateList({
                       </TableCell>
                       <TableCell>{formatBRL(t.amountCents)}</TableCell>
                       <TableCell>{frequencyLabels[t.frequency] ?? t.frequency}</TableCell>
-                      <TableCell>
-                        <span className={overdue ? 'text-amber-600 font-medium' : ''}>
-                          {formatDate(t.nextDueDate)}
-                        </span>
-                      </TableCell>
+                      <TableCell>{formatarDataDeCalendario(t.proximaParcela)}</TableCell>
+                      <TableCell>{formatarDataDeCalendario(t.ultimaParcela)}</TableCell>
                       <TableCell>
                         {t.isActive ? (
                           <span className="text-green-700 text-sm font-medium">Ativo</span>

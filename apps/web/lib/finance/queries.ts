@@ -42,4 +42,4 @@ export {
   getFutureMonthlyCashFlowSummary,
 } from './queries-cash-flow'
 
-export { getRecurringTemplates, getUpcomingRecurring } from './queries-recurring'
+export { getRecurringTemplates, getUpcomingRecurring, getDatasDasParcelas } from './queries-recurring'
