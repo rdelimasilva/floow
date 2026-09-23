@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getOrgId, getAccounts, getCategories } from '@/lib/finance/queries'
-import { semContasDeInvestimento } from '@/lib/finance/account-options'
+import { semContasDeInvestimento, destinosDeTransferencia } from '@/lib/finance/account-options'
 import { TransactionForm } from '@/components/finance/transaction-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -24,7 +24,11 @@ export default async function NewTransactionPage() {
           <CardTitle>Nova Transação</CardTitle>
         </CardHeader>
         <CardContent>
-          <TransactionForm accounts={semContasDeInvestimento(accounts)} categories={categories} />
+          <TransactionForm
+            accounts={semContasDeInvestimento(accounts)}
+            transferDestinations={destinosDeTransferencia(accounts)}
+            categories={categories}
+          />
         </CardContent>
       </Card>
     </div>

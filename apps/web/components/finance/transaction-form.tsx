@@ -4,7 +4,15 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import {
+  transactionFormSchema,
+  FREQUENCY_LABELS,
+  TYPE_LABELS,
+  type TransactionType,
+  type TransactionFormData,
+  type EndMode,
+  type CreatedTransaction,
+} from './transaction-form-schema'
 import { createTransaction, createRecurringTransactions } from '@/lib/finance/actions'
 import { createCategory } from '@/lib/finance/category-actions'
 import { formatBRL, currencyToCents, generateInstallmentDates } from '@floow/core-finance'
@@ -23,77 +31,30 @@ import type { Account, Category } from '@floow/db'
 import { useToast } from '@/components/ui/toast'
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes'
 import { toCategoryOptions } from '@/lib/finance/category-options'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type TransactionType = 'income' | 'expense' | 'transfer'
-
-const transactionFormSchema = z
-  .object({
-    type: z.enum(['income', 'expense', 'transfer']),
-    accountId: z.string().uuid('Selecione uma conta'),
-    transferToAccountId: z.string().uuid().optional(),
-    categoryId: z.string().uuid().optional(),
-    amountRaw: z.string().min(1, 'Valor é obrigatório'),
-    description: z.string().min(1, 'Descrição é obrigatória').max(500),
-    date: z.string().min(1, 'Data é obrigatória'),
-  })
-  .superRefine((data, ctx) => {
-    if (data.type === 'transfer' && !data.transferToAccountId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Selecione a conta de destino',
-        path: ['transferToAccountId'],
-      })
-    }
-  })
-
-type TransactionFormData = z.infer<typeof transactionFormSchema>
-
-const FREQUENCY_LABELS: Record<string, string> = {
-  daily: 'Diário',
-  weekly: 'Semanal',
-  biweekly: 'Quinzenal',
-  monthly: 'Mensal',
-  quarterly: 'Trimestral',
-  yearly: 'Anual',
-}
-
-type EndMode = 'count' | 'end_date' | 'indefinite'
+import { AccountSelect } from './account-select'
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
 interface TransactionFormProps {
   accounts: Account[]
   categories: Category[]
-  onSuccess?: (transactions?: Array<{
-    id: string
-    accountId: string
-    categoryId?: string | null
-    type: 'income' | 'expense' | 'transfer'
-    amountCents: number
-    description: string
-    date: string | Date
-    transferGroupId?: string | null
-    externalId?: string | null
-    isAutoCategorized?: boolean
-    isIgnored?: boolean
-    recurringTemplateId?: string | null
-    balanceApplied?: boolean
-    installmentNumber?: number | null
-    installmentTotal?: number | null
-  }>) => void
+  /**
+   * Contas que podem receber uma transferencia. Nao e `accounts` porque a
+   * corretora nao aceita receita nem despesa digitada, mas recebe aporte.
+   * Sem esta prop, o destino oferece as mesmas contas da origem.
+   */
+  transferDestinations?: Pick<Account, 'id' | 'name'>[]
+  onSuccess?: (transactions?: CreatedTransaction[]) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<TransactionType, string> = {
-  income: 'Receita',
-  expense: 'Despesa',
-  transfer: 'Transferência',
-}
-
-export function TransactionForm({ accounts, categories: initialCategories, onSuccess }: TransactionFormProps) {
+export function TransactionForm({
+  accounts,
+  transferDestinations = accounts,
+  categories: initialCategories,
+  onSuccess,
+}: TransactionFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [txType, setTxType] = useState<TransactionType>('expense')
@@ -279,18 +240,13 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
           name="accountId"
           control={control}
           render={({ field }) => (
-            <Select onValueChange={field.onChange} value={field.value}>
-              <SelectTrigger id="accountId">
-                <SelectValue placeholder="Selecione a conta" />
-              </SelectTrigger>
-              <SelectContent>
-                {accounts.map((acct) => (
-                  <SelectItem key={acct.id} value={acct.id}>
-                    {acct.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AccountSelect
+              id="accountId"
+              accounts={accounts}
+              placeholder="Selecione a conta"
+              value={field.value}
+              onChange={field.onChange}
+            />
           )}
         />
         {errors.accountId && (
@@ -306,18 +262,13 @@ export function TransactionForm({ accounts, categories: initialCategories, onSuc
             name="transferToAccountId"
             control={control}
             render={({ field }) => (
-              <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger id="transferToAccountId">
-                  <SelectValue placeholder="Selecione a conta de destino" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((acct) => (
-                    <SelectItem key={acct.id} value={acct.id}>
-                      {acct.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <AccountSelect
+                id="transferToAccountId"
+                accounts={transferDestinations}
+                placeholder="Selecione a conta de destino"
+                value={field.value}
+                onChange={field.onChange}
+              />
             )}
           />
           {errors.transferToAccountId && (

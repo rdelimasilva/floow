@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { contasParaLancamento, semContasDeInvestimento } from '@/lib/finance/account-options'
+import { contasParaLancamento, semContasDeInvestimento, destinosDeTransferencia } from '@/lib/finance/account-options'
 
 /**
  * Conta de investimento nao pode ser escolhida num lancamento.
@@ -52,5 +52,21 @@ describe('semContasDeInvestimento', () => {
     expect(semContasDeInvestimento(contas)).toEqual([
       { id: 'a1', name: 'Itau', type: 'checking', balanceCents: 1000, currency: 'BRL' },
     ])
+  })
+})
+
+/**
+ * Aporte e transferencia da corrente para a corretora. Se o destino da
+ * transferencia tambem tirasse a corretora, o aporte ficaria sem como ser
+ * lancado — que foi o bug.
+ */
+describe('destinosDeTransferencia', () => {
+  it('mantem a corretora como destino', () => {
+    const nomes = destinosDeTransferencia(CONTAS).map((c) => c.name)
+    expect(nomes).toContain('XP Corretora')
+  })
+
+  it('devolve so id e nome', () => {
+    expect(destinosDeTransferencia([CONTAS[2]])).toEqual([{ id: 'a3', name: 'XP Corretora' }])
   })
 })
