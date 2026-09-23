@@ -1,17 +1,28 @@
 'use client'
 
+import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, AlertTriangle, TrendingUp, Check } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  TrendingUp,
+  Check,
+  List,
+} from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { BudgetPacingChart } from '@/components/finance/budget-pacing-chart'
+import { PacingTransactionsDialog } from '@/components/finance/pacing-transactions-dialog'
 import { formatBRL } from '@floow/core-finance'
 import type { BudgetPacingResult, PacingStatus } from '@floow/core-finance'
 
 interface Props {
   result: BudgetPacingResult
   categoryNames: Record<string, string>
+  /** Categorias cujo gasto soma em cada teto (a própria + filhas sem teto). */
+  memberIds: Record<string, string[]>
   selectedMonth: string
 }
 
@@ -56,8 +67,14 @@ function shiftMonth(monthStr: string, delta: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-export function PacingClient({ result, categoryNames, selectedMonth }: Props) {
+export function PacingClient({ result, categoryNames, memberIds, selectedMonth }: Props) {
   const router = useRouter()
+  const [openCategory, setOpenCategory] = useState<{
+    id: string
+    name: string
+    memberIds: string[]
+  } | null>(null)
+  const closeDialog = useCallback(() => setOpenCategory(null), [])
   const { total, byCategory } = result
 
   const pct = total.plannedCents > 0 ? Math.round((total.spentCents / total.plannedCents) * 100) : 0
@@ -181,7 +198,26 @@ export function PacingClient({ result, categoryNames, selectedMonth }: Props) {
               const style = STATUS_STYLE[c.status]
               return (
                 <li key={c.categoryId}>
-                  <Card style={{ borderRadius: 14 }}>
+                  <Card
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Ver transações de ${categoryNames[c.categoryId] ?? 'Sem nome'}`}
+                    className="cursor-pointer transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A5899]"
+                    style={{ borderRadius: 14 }}
+                    onClick={() =>
+                      setOpenCategory({
+                        id: c.categoryId,
+                        name: categoryNames[c.categoryId] ?? 'Sem nome',
+                        memberIds: memberIds[c.categoryId] ?? [c.categoryId],
+                      })
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        e.currentTarget.click()
+                      }
+                    }}
+                  >
                     <CardContent className="space-y-2 py-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-3">
@@ -210,14 +246,25 @@ export function PacingClient({ result, categoryNames, selectedMonth }: Props) {
                         />
                       </div>
 
-                      {total.daysElapsed > 0 && (
-                        <p className="text-xs" style={{ color: '#6E6E6E' }}>
-                          No ritmo atual, fecha em{' '}
-                          <span className="tabular-nums" style={{ color: style.fg }}>
-                            {formatBRL(c.projectedCents)}
-                          </span>
-                        </p>
-                      )}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        {total.daysElapsed > 0 ? (
+                          <p className="text-xs" style={{ color: '#6E6E6E' }}>
+                            No ritmo atual, fecha em{' '}
+                            <span className="tabular-nums" style={{ color: style.fg }}>
+                              {formatBRL(c.projectedCents)}
+                            </span>
+                          </p>
+                        ) : (
+                          <span />
+                        )}
+                        <span
+                          className="inline-flex items-center gap-1 text-xs"
+                          style={{ color: '#4A5899' }}
+                        >
+                          <List className="h-3 w-3" aria-hidden />
+                          Ver transações
+                        </span>
+                      </div>
                     </CardContent>
                   </Card>
                 </li>
@@ -226,6 +273,12 @@ export function PacingClient({ result, categoryNames, selectedMonth }: Props) {
           </ul>
         )}
       </div>
+
+      <PacingTransactionsDialog
+        category={openCategory}
+        month={selectedMonth}
+        onClose={closeDialog}
+      />
     </div>
   )
 }
