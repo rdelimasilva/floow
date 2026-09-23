@@ -1,9 +1,6 @@
 import { getOrgId, getCategories } from '@/lib/finance/queries'
-import {
-  getBudgetEntriesForMonth,
-  getAllBudgetEntries,
-  getSpendingByCategory,
-} from '@/lib/finance/budget-queries'
+import { getAllBudgetEntries, getSpendingByCategory } from '@/lib/finance/budget-queries'
+import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { SpendingClient } from './client'
 
 interface Props {
@@ -24,7 +21,7 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
 
   const [categories, entriesForMonth, allEntries, spending] = await Promise.all([
     getCategories(orgId),
-    getBudgetEntriesForMonth(orgId, monthDate, 'spending'),
+    getSpendingPlanForMonth(orgId, monthDate, monthEnd),
     getAllBudgetEntries(orgId, 'spending'),
     getSpendingByCategory(orgId, monthDate, monthEnd),
   ])
@@ -36,11 +33,7 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
   return (
     <SpendingClient
       categories={expenseCategories}
-      entriesForMonth={entriesForMonth.map((e) => ({
-        id: e.id,
-        categoryId: e.categoryId,
-        plannedCents: e.plannedCents,
-      }))}
+      entriesForMonth={entriesForMonth}
       allEntries={allEntries.map((e) => ({
         id: e.id,
         categoryId: e.categoryId,

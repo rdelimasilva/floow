@@ -33,6 +33,7 @@ import {
 } from '@/lib/cache-tags'
 import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
 import { revalidateTransactionData } from './revalidate'
+import { lerMetaDeGasto, metaDeGastoValida } from './recurring-budget-flag'
 import { reagendarParcelasPendentes } from './recurring-reschedule'
 
 type Db = ReturnType<typeof getDb>
@@ -207,6 +208,7 @@ export async function createRecurringTemplate(formData: FormData) {
         endMode,
         installmentCount: endMode === 'count' ? installmentCount ?? null : null,
         endDate: endMode === 'end_date' && endDate ? endDate : null,
+        countsAsBudget: metaDeGastoValida(lerMetaDeGasto(formData), type, resolvedCategoryId),
       })
       .returning()
 
@@ -237,6 +239,7 @@ export async function createRecurringTemplate(formData: FormData) {
     return t
   })
 
+  revalidateTransactionData(orgId)
   revalidatePath('/transactions/recurring')
   revalidatePath('/transactions')
 
@@ -300,6 +303,9 @@ export async function updateRecurringTemplate(formData: FormData) {
   const notes = formData.get('notes') as string | null
   if (notes !== null) setObj.notes = notes || null
 
+  const countsAsBudget = lerMetaDeGasto(formData)
+  if (countsAsBudget !== null) setObj.countsAsBudget = countsAsBudget
+
   // A data editada é a da próxima parcela em aberto: as pendentes se movem
   // junto. Sem parcela pendente, a data vai direto para o template.
   const nextDueDateStr = (formData.get('nextDueDate') as string | null) || null
@@ -335,7 +341,8 @@ export async function updateRecurringTemplate(formData: FormData) {
       .where(and(eq(recurringTemplates.id, id), eq(recurringTemplates.orgId, orgId)))
   })
 
-  if (movidas > 0) revalidateTransactionData(orgId)
+  // Valor, categoria e a flag de meta mudam a Meta de Gastos, mesmo sem mover parcela.
+  revalidateTransactionData(orgId)
   revalidatePath('/transactions/recurring')
   revalidatePath('/transactions')
 

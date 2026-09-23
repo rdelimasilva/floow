@@ -12,7 +12,8 @@ const CashFlowChart = dynamic(() => import('@/components/finance/cash-flow-chart
 })
 import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getBudgetGoals, getBudgetEntriesForMonth, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotalsForGoals, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
+import { getBudgetGoals, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotalsForGoals, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
+import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { WelcomeCard } from '@/components/finance/welcome-card'
 // import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
 
@@ -97,7 +98,7 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
   const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
   const [budgetEntriesData, spendingData, investingGoals] = await Promise.all([
-    getBudgetEntriesForMonth(orgId, currentMonth),
+    getSpendingPlanForMonth(orgId, currentMonth, currentMonthEnd),
     getSpendingByCategory(orgId, currentMonth, currentMonthEnd),
     getBudgetGoals(orgId, 'investing'),
   ])

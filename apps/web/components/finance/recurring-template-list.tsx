@@ -48,6 +48,7 @@ interface RecurringTemplate {
   nextDueDate: Date | string
   isActive: boolean
   notes: string | null
+  countsAsBudget?: boolean
   createdAt: Date | string
   updatedAt: Date | string
   // 'YYYY-MM-DD' vindos das parcelas geradas; ausentes na lista de "upcoming"
