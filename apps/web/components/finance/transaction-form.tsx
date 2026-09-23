@@ -38,12 +38,9 @@ import { AccountSelect } from './account-select'
 interface TransactionFormProps {
   accounts: Account[]
   categories: Category[]
-  /**
-   * Contas que podem receber uma transferencia. Nao e `accounts` porque a
-   * corretora nao aceita receita nem despesa digitada, mas recebe aporte.
-   * Sem esta prop, o destino oferece as mesmas contas da origem.
-   */
-  transferDestinations?: Pick<Account, 'id' | 'name'>[]
+  /** Origem e destino de transferencia: inclui a corretora (aporte e resgate),
+   *  que `accounts` exclui por nao aceitar receita nem despesa. */
+  transferAccounts?: Pick<Account, 'id' | 'name'>[]
   onSuccess?: (transactions?: CreatedTransaction[]) => void
 }
 
@@ -51,7 +48,7 @@ interface TransactionFormProps {
 
 export function TransactionForm({
   accounts,
-  transferDestinations = accounts,
+  transferAccounts = accounts,
   categories: initialCategories,
   onSuccess,
 }: TransactionFormProps) {
@@ -73,6 +70,7 @@ export function TransactionForm({
     handleSubmit,
     control,
     setValue,
+    getValues,
     watch,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<TransactionFormData>({
@@ -185,6 +183,9 @@ export function TransactionForm({
     // Clear category when switching to transfer
     if (type === 'transfer') {
       setValue('categoryId', undefined)
+    } else if (!accounts.some((a) => a.id === getValues('accountId'))) {
+      // Corretora escolhida como origem nao vale para receita nem despesa
+      setValue('accountId', '')
     }
   }
 
@@ -242,7 +243,7 @@ export function TransactionForm({
           render={({ field }) => (
             <AccountSelect
               id="accountId"
-              accounts={accounts}
+              accounts={txType === 'transfer' ? transferAccounts : accounts}
               placeholder="Selecione a conta"
               value={field.value}
               onChange={field.onChange}
@@ -264,7 +265,7 @@ export function TransactionForm({
             render={({ field }) => (
               <AccountSelect
                 id="transferToAccountId"
-                accounts={transferDestinations}
+                accounts={transferAccounts}
                 placeholder="Selecione a conta de destino"
                 value={field.value}
                 onChange={field.onChange}

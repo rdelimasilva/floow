@@ -86,11 +86,11 @@ export function InlineTransactionFormButton() {
 
 interface InlineTransactionFormPanelProps {
   accounts: Pick<Account, 'id' | 'name'>[]
-  transferDestinations: Pick<Account, 'id' | 'name'>[]
+  transferAccounts: Pick<Account, 'id' | 'name'>[]
   categories: Pick<Category, 'id' | 'name' | 'type' | 'affectsCashFlow'>[]
 }
 
-export function InlineTransactionFormPanel({ accounts, transferDestinations, categories }: InlineTransactionFormPanelProps) {
+export function InlineTransactionFormPanel({ accounts, transferAccounts, categories }: InlineTransactionFormPanelProps) {
   const ctx = useContext(InlineFormContext)
   if (!ctx || !ctx.open) return null
   const { addCreatedTransactions, close } = ctx
@@ -145,7 +145,7 @@ export function InlineTransactionFormPanel({ accounts, transferDestinations, cat
         </div>
         <TransactionForm
           accounts={accounts as Account[]}
-          transferDestinations={transferDestinations}
+          transferAccounts={transferAccounts}
           categories={categories as Category[]}
           onSuccess={handleSuccess}
         />

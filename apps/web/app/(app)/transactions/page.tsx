@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getOrgId, getTransactionsWithCount, getTransactionCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
 import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
-import { contasParaLancamento, destinosDeTransferencia } from '@/lib/finance/account-options'
+import { contasParaLancamento, contasDeTransferencia } from '@/lib/finance/account-options'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
@@ -179,7 +179,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
       <InlineTransactionFormPanel
         accounts={accountOptions}
-        transferDestinations={destinosDeTransferencia(accounts)}
+        transferAccounts={contasDeTransferencia(accounts)}
         categories={categoryOptions}
       />
 

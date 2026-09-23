@@ -38,11 +38,12 @@ export function contasParaLancamento(
 }
 
 /**
- * As contas que podem ser destino de uma transferencia — todas, corretora
- * inclusive. Aporte e exatamente isso: transferencia da conta corrente para a
- * corretora. Barrar a corretora aqui deixa o aporte sem como ser lancado.
+ * As contas que podem ser origem ou destino de uma transferencia — todas,
+ * corretora inclusive. Aporte e transferencia da corrente para a corretora;
+ * resgate e o caminho de volta. Barrar a corretora aqui deixa os dois sem
+ * como ser lancados.
  */
-export function destinosDeTransferencia(
+export function contasDeTransferencia(
   contas: readonly { id: string; name: string }[],
 ): OpcaoDeConta[] {
   return contas.map((c) => ({ id: c.id, name: c.name }))
