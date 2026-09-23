@@ -1,6 +1,7 @@
 'use server'
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
-import { getDb, transactions, accounts, categories } from '@floow/db'
+import { transactions, accounts, categories } from '@floow/db'
+import { withUserDb } from '@/lib/db/rls'
 import { getOrgId } from './queries'
 import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import { somenteRealizado } from '@/lib/finance/realized-spending'
@@ -40,32 +41,34 @@ export async function getPacingCategoryTransactions(
   const start = new Date(Date.UTC(y, mo - 1, 1))
   const end = new Date(Date.UTC(y, mo, 0))
 
-  const rows = await getDb()
-    .select({
-      id: transactions.id,
-      date: sql<string>`to_char(${transactions.date}, 'YYYY-MM-DD')`,
-      description: transactions.description,
-      amountCents: transactions.amountCents,
-      categoryName: categories.name,
-      accountName: accounts.name,
-    })
-    .from(transactions)
-    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-    .leftJoin(categories, eq(categories.id, transactions.categoryId))
-    .where(
-      and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.type, 'expense'),
-        eq(transactions.reviewState, 'confirmed'),
-        eq(transactions.isIgnored, false),
-        somenteRealizado,
-        effectiveAffectsCashFlow,
-        inArray(transactions.categoryId, ids),
-        gte(transactions.date, start),
-        lte(transactions.date, end),
-      ),
-    )
-    .orderBy(desc(transactions.date), asc(transactions.amountCents))
+  const rows = await withUserDb((db) =>
+    db
+      .select({
+        id: transactions.id,
+        date: sql<string>`to_char(${transactions.date}, 'YYYY-MM-DD')`,
+        description: transactions.description,
+        amountCents: transactions.amountCents,
+        categoryName: categories.name,
+        accountName: accounts.name,
+      })
+      .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      .leftJoin(categories, eq(categories.id, transactions.categoryId))
+      .where(
+        and(
+          eq(transactions.orgId, orgId),
+          eq(transactions.type, 'expense'),
+          eq(transactions.reviewState, 'confirmed'),
+          eq(transactions.isIgnored, false),
+          somenteRealizado,
+          effectiveAffectsCashFlow,
+          inArray(transactions.categoryId, ids),
+          gte(transactions.date, start),
+          lte(transactions.date, end),
+        ),
+      )
+      .orderBy(desc(transactions.date), asc(transactions.amountCents))
+  )
 
   return rows.map((r) => ({
     id: r.id,
