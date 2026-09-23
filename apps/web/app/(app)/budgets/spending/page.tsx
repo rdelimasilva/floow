@@ -15,8 +15,8 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
   const orgId = await getOrgId()
 
   // Determine selected month
-  const now = new Date()
-  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  // Mês de São Paulo: o servidor roda em UTC e virava o mês às 21h do último dia
+  const defaultMonth = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7) + '-01'
   const selectedMonth = params.month ?? defaultMonth
   const [sy, sm] = selectedMonth.split('-').map(Number)
   const monthDate = new Date(sy, sm - 1, 1)

@@ -10,7 +10,7 @@ import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
 import { updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL, currencyToCents } from '@floow/core-finance'
 import { RecurringEntriesList } from './recurring-entries-list'
 import { BudgetEntryDialog } from '@/components/finance/budget-entry-dialog'
 
@@ -69,6 +69,7 @@ export function SpendingClient({
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [editStartMonth, setEditStartMonth] = useState('')
   const [editEndMonth, setEditEndMonth] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
@@ -104,6 +105,7 @@ export function SpendingClient({
   function startEdit(entry: AllEntry) {
     setEditingId(entry.id)
     setEditValue((entry.plannedCents / 100).toFixed(2).replace('.', ','))
+    setEditStartMonth(entry.startMonth.slice(0, 7))
     setEditEndMonth(entry.endMonth ? entry.endMonth.slice(0, 7) : '')
   }
 
@@ -111,16 +113,16 @@ export function SpendingClient({
     if (!editingId) return
     setSaving(true)
     try {
-      const cents = Math.round(parseFloat(editValue.replace(',', '.')) * 100)
       const fd = new FormData()
       fd.set('id', editingId)
-      fd.set('plannedCents', String(cents))
+      fd.set('plannedCents', String(currencyToCents(editValue)))
+      if (editStartMonth) fd.set('startMonth', editStartMonth + '-01')
       if (editEndMonth) fd.set('endMonth', editEndMonth + '-01')
       await updateBudgetEntry(fd)
       toast('Lançamento atualizado')
       setEditingId(null)
-    } catch {
-      toast('Erro ao atualizar', 'error')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao atualizar', 'error')
     } finally {
       setSaving(false)
     }
@@ -304,10 +306,12 @@ export function SpendingClient({
         categories={categories}
         editingId={editingId}
         editValue={editValue}
+        editStartMonth={editStartMonth}
         editEndMonth={editEndMonth}
         saving={saving}
         onStartEdit={startEdit}
         onChangeEditValue={setEditValue}
+        onChangeEditStartMonth={setEditStartMonth}
         onChangeEditEndMonth={setEditEndMonth}
         onSaveEdit={handleSaveEdit}
         onCancelEdit={() => setEditingId(null)}
@@ -321,7 +325,6 @@ export function SpendingClient({
         onClose={() => setShowAdd(false)}
         availableCategories={availableCategories}
         onCategoryCreated={(created) => setCategories((prev) => [...prev, created])}
-        defaultStartMonth={selectedMonth}
       />
 
       <ConfirmDialog

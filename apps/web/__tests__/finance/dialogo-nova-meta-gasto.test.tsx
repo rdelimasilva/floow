@@ -33,7 +33,6 @@ function renderDialog(onClose = vi.fn()) {
         onClose={onClose}
         availableCategories={CATEGORIAS}
         onCategoryCreated={vi.fn()}
-        defaultStartMonth="2026-09-01"
       />
     </ToastProvider>,
   )
@@ -43,17 +42,36 @@ function renderDialog(onClose = vi.fn()) {
 describe('diálogo de novo lançamento em Meta de Gastos', () => {
   beforeEach(() => createBudgetEntry.mockClear())
 
+  const inicio = () => document.querySelectorAll('input[type="month"]')[0] as HTMLInputElement
+
   it('abre como modal e resume o teto sem fim', () => {
     renderDialog()
     expect(screen.getByRole('dialog', { hidden: true }).hasAttribute('open')).toBe(true)
     fireEvent.change(screen.getByPlaceholderText('Ex: 800,00'), { target: { value: '1.200,00' } })
-    expect(screen.getByText(/Teto de R\$\s1\.200,00 por mês a partir de/)).toBeTruthy()
+    fireEvent.change(inicio(), { target: { value: '2026-11' } })
+    expect(screen.getByText(/Teto de R\$\s1\.200,00 por mês a partir de nov/)).toBeTruthy()
+  })
+
+  /**
+   * O início vinha preenchido com o mês aberto na tela e a meta nascia num mês
+   * que o usuário não escolheu. Agora começa vazio e é obrigatório.
+   */
+  it('o início começa vazio e sem ele não cria', () => {
+    renderDialog()
+    expect(inicio().value).toBe('')
+    fireEvent.change(screen.getByRole('combobox', { hidden: true }), { target: { value: 'cat-1' } })
+    fireEvent.change(screen.getByPlaceholderText('Ex: 800,00'), { target: { value: '800,00' } })
+    const criar = screen.getByRole('button', { name: 'Criar', hidden: true }) as HTMLButtonElement
+    expect(criar.disabled).toBe(true)
+    fireEvent.change(inicio(), { target: { value: '2027-01' } })
+    expect(criar.disabled).toBe(false)
   })
 
   it('envia o mês final quando a duração é "Até um mês"', async () => {
     const onClose = renderDialog()
     fireEvent.change(screen.getByRole('combobox', { hidden: true }), { target: { value: 'cat-1' } })
     fireEvent.change(screen.getByPlaceholderText('Ex: 800,00'), { target: { value: '800,00' } })
+    fireEvent.change(inicio(), { target: { value: '2026-09' } })
     fireEvent.click(screen.getByLabelText('Até um mês'))
     const [, fim] = document.querySelectorAll('input[type="month"]')
     fireEvent.change(fim, { target: { value: '2026-12' } })
@@ -74,11 +92,12 @@ describe('diálogo de novo lançamento em Meta de Gastos', () => {
   it('em investimentos pede descrição em vez de categoria', async () => {
     render(
       <ToastProvider>
-        <BudgetEntryDialog type="investing" open onClose={vi.fn()} defaultStartMonth="2026-09-01" />
+        <BudgetEntryDialog type="investing" open onClose={vi.fn()} />
       </ToastProvider>,
     )
     expect(screen.queryByRole('combobox', { hidden: true })).toBeNull()
     fireEvent.change(screen.getByPlaceholderText('Ex: 2.000,00'), { target: { value: '2.000,00' } })
+    fireEvent.change(inicio(), { target: { value: '2026-10' } })
     expect(screen.getByText(/Meta de R\$\s2\.000,00 por mês/)).toBeTruthy()
 
     await act(async () => {
@@ -90,5 +109,6 @@ describe('diálogo de novo lançamento em Meta de Gastos', () => {
     expect(fd.get('name')).toBe('Aporte mensal')
     expect(fd.get('plannedCents')).toBe('200000')
     expect(fd.get('categoryId')).toBeNull()
+    expect(fd.get('startMonth')).toBe('2026-10-01')
   })
 })

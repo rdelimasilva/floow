@@ -154,12 +154,18 @@ export async function updateBudgetEntry(formData: FormData) {
 
   const id = formData.get('id') as string
   const plannedCents = parseInt(formData.get('plannedCents') as string, 10)
+  if (isNaN(plannedCents) || plannedCents <= 0) throw new Error('Informe um valor válido')
+  const startMonthRaw = formData.get('startMonth') as string | null
   const endMonthRaw = formData.get('endMonth') as string | null
   const endMonth = endMonthRaw ? new Date(endMonthRaw) : null
 
+  // 'YYYY-MM-01' compara certo como string
+  if (startMonthRaw && endMonthRaw && endMonthRaw < startMonthRaw)
+    throw new Error('O mês final não pode ser anterior ao inicial')
+
   await db
     .update(budgetEntries)
-    .set({ plannedCents, endMonth })
+    .set({ plannedCents, endMonth, ...(startMonthRaw ? { startMonth: new Date(startMonthRaw) } : {}) })
     .where(and(eq(budgetEntries.id, id), eq(budgetEntries.orgId, orgId)))
 
   revalidateBudgetData(orgId)

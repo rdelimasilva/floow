@@ -26,8 +26,6 @@ interface BudgetEntryDialogProps {
   /** Só em gastos: categorias de despesa ainda sem teto ativo. */
   availableCategories?: BudgetCategoryOption[]
   onCategoryCreated?: (category: BudgetCategoryOption) => void
-  /** Mês exibido na tela, no formato YYYY-MM-01 — vira o "A partir de" padrão. */
-  defaultStartMonth: string
 }
 
 type EndMode = 'indefinite' | 'end_month'
@@ -49,7 +47,6 @@ export function BudgetEntryDialog({
   onClose,
   availableCategories = [],
   onCategoryCreated,
-  defaultStartMonth,
 }: BudgetEntryDialogProps) {
   const isSpending = type === 'spending'
   const defaultName = isSpending ? '' : 'Aporte mensal'
@@ -61,7 +58,9 @@ export function BudgetEntryDialog({
   const [categoryId, setCategoryId] = useState('')
   const [name, setName] = useState(defaultName)
   const [amount, setAmount] = useState('')
-  const [startMonth, setStartMonth] = useState(defaultStartMonth.slice(0, 7))
+  // O início é escolha do usuário: vinha preenchido com o mês aberto na tela e
+  // a meta nascia num mês que ninguém escolheu.
+  const [startMonth, setStartMonth] = useState('')
   const [endMode, setEndMode] = useState<EndMode>('indefinite')
   const [endMonth, setEndMonth] = useState('')
 
@@ -70,18 +69,18 @@ export function BudgetEntryDialog({
   const [newCategoryName, setNewCategoryName] = useState('')
   const [creatingCategory, setCreatingCategory] = useState(false)
 
-  // Cada abertura começa limpa, no mês que está na tela
+  // Cada abertura começa limpa
   useEffect(() => {
     if (!open) return
     setCategoryId('')
     setName(defaultName)
     setAmount('')
-    setStartMonth(defaultStartMonth.slice(0, 7))
+    setStartMonth('')
     setEndMode('indefinite')
     setEndMonth('')
     setShowNewCategory(false)
     setNewCategoryName('')
-  }, [open, defaultStartMonth, defaultName])
+  }, [open, defaultName])
 
   // Show/hide the dialog
   useEffect(() => {

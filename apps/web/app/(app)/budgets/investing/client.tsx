@@ -11,7 +11,7 @@ import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
 import { updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL, currencyToCents } from '@floow/core-finance'
 import { BudgetEntryDialog } from '@/components/finance/budget-entry-dialog'
 
 interface EntryForMonth {
@@ -59,6 +59,7 @@ export function InvestingClient({
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [editStartMonth, setEditStartMonth] = useState('')
   const [editEndMonth, setEditEndMonth] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
@@ -71,6 +72,7 @@ export function InvestingClient({
   function startEdit(entry: AllEntry) {
     setEditingId(entry.id)
     setEditValue((entry.plannedCents / 100).toFixed(2).replace('.', ','))
+    setEditStartMonth(entry.startMonth.slice(0, 7))
     setEditEndMonth(entry.endMonth ? entry.endMonth.slice(0, 7) : '')
   }
 
@@ -78,16 +80,16 @@ export function InvestingClient({
     if (!editingId) return
     setSaving(true)
     try {
-      const cents = Math.round(parseFloat(editValue.replace(',', '.')) * 100)
       const fd = new FormData()
       fd.set('id', editingId)
-      fd.set('plannedCents', String(cents))
+      fd.set('plannedCents', String(currencyToCents(editValue)))
+      if (editStartMonth) fd.set('startMonth', editStartMonth + '-01')
       if (editEndMonth) fd.set('endMonth', editEndMonth + '-01')
       await updateBudgetEntry(fd)
       toast('Lançamento atualizado')
       setEditingId(null)
-    } catch {
-      toast('Erro ao atualizar', 'error')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao atualizar', 'error')
     } finally {
       setSaving(false)
     }
@@ -281,7 +283,14 @@ export function InvestingClient({
                         placeholder="R$"
                       />
                       <span className="text-xs text-gray-500">/mês</span>
-                      <span className="text-xs text-gray-500 ml-1">até:</span>
+                      <span className="text-xs text-gray-500 ml-1">de:</span>
+                      <Input
+                        type="month"
+                        value={editStartMonth}
+                        onChange={(e) => setEditStartMonth(e.target.value)}
+                        className="h-7 w-36 text-sm"
+                      />
+                      <span className="text-xs text-gray-500">até:</span>
                       <Input
                         type="month"
                         value={editEndMonth}
@@ -328,7 +337,6 @@ export function InvestingClient({
         type="investing"
         open={showAdd}
         onClose={() => setShowAdd(false)}
-        defaultStartMonth={selectedMonth}
       />
 
       <ConfirmDialog

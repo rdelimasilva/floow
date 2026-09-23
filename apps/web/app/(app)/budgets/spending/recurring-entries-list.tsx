@@ -26,10 +26,12 @@ interface RecurringEntriesListProps {
   categories: CategoryOption[]
   editingId: string | null
   editValue: string
+  editStartMonth: string
   editEndMonth: string
   saving: boolean
   onStartEdit: (entry: AllEntry) => void
   onChangeEditValue: (v: string) => void
+  onChangeEditStartMonth: (v: string) => void
   onChangeEditEndMonth: (v: string) => void
   onSaveEdit: () => void
   onCancelEdit: () => void
@@ -42,10 +44,12 @@ export function RecurringEntriesList({
   categories,
   editingId,
   editValue,
+  editStartMonth,
   editEndMonth,
   saving,
   onStartEdit,
   onChangeEditValue,
+  onChangeEditStartMonth,
   onChangeEditEndMonth,
   onSaveEdit,
   onCancelEdit,
@@ -81,7 +85,14 @@ export function RecurringEntriesList({
                     placeholder="R$"
                   />
                   <span className="text-xs text-gray-500">/mês</span>
-                  <span className="text-xs text-gray-500 ml-1">até:</span>
+                  <span className="text-xs text-gray-500 ml-1">de:</span>
+                  <Input
+                    type="month"
+                    value={editStartMonth}
+                    onChange={(e) => onChangeEditStartMonth(e.target.value)}
+                    className="h-7 w-36 text-sm"
+                  />
+                  <span className="text-xs text-gray-500">até:</span>
                   <Input
                     type="month"
                     value={editEndMonth}
