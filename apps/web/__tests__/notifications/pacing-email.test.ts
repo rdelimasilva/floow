@@ -43,6 +43,15 @@ describe('buildPacingEmail', () => {
     expect(e.html).toContain('Lazer &lt;script&gt;')
   })
 
+  it('traz a data por extenso no HTML e no texto', () => {
+    const e = buildPacingEmail({
+      ...base,
+      alerts: [{ categoryId: 'a', status: 'risco', plannedCents: 1, spentCents: 1, projectedCents: 2 }],
+    })
+    expect(e.html).toContain('15 de setembro de 2026')
+    expect(e.text).toContain('15 de setembro de 2026')
+  })
+
   it('traz os links do app e de descadastro', () => {
     const e = buildPacingEmail({
       ...base,

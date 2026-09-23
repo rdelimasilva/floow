@@ -30,6 +30,20 @@ const brl = (cents: number) =>
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+const MESES = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+]
+
+/**
+ * "23 de setembro de 2026". Montada de `month` + dia, e não de um Date, para não
+ * depender do fuso do servidor: o dia já vem resolvido em America/Sao_Paulo.
+ */
+function dataPorExtenso(month: string, day: number): string {
+  const [y, m] = month.split('-').map(Number)
+  return `${day} de ${MESES[m - 1]} de ${y}`
+}
+
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0)
 
 function describe(a: PacingAlert): string {
@@ -50,7 +64,7 @@ export function buildPacingEmail(input: PacingEmailInput): BuiltEmail {
         : `No ritmo atual, ${nameOf(alerts[0].categoryId)} vai estourar`
       : `Ritmo de gastos: ${alerts.length} categorias pedem atenção`
 
-  const intro = `Dia ${daysElapsed} de ${daysInMonth} em ${orgName}.`
+  const intro = `${dataPorExtenso(input.month, daysElapsed)} · dia ${daysElapsed} de ${daysInMonth} do mês em ${orgName}.`
 
   const rows = alerts
     .map((a) => {
