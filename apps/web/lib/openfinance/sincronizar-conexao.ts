@@ -21,19 +21,25 @@ export async function sincronizarConexao(
 ): Promise<SyncSummary & { investimentos: ResumoDeInvestimentos | null }> {
   const lancamentos = await syncConnectionTransactions(db, client, conexao)
 
-  const [dados] = await db
-    .select({
-      polpConsentId: openfinanceConnections.polpConsentId,
-      institutionName: openfinanceConnections.institutionName,
-      products: openfinanceConnections.products,
-    })
-    .from(openfinanceConnections)
-    .where(eq(openfinanceConnections.id, conexao.id))
-    .limit(1)
-
-  if (!dados?.products.includes('INVESTMENTS')) return { ...lancamentos, investimentos: null }
-
+  // O extrato já entrou; daqui pra baixo é tudo investimento, e uma falha
+  // aqui (inclusive na leitura de `dados`) não pode derrubar o que já foi
+  // importado — por isso um try único cobrindo a leitura, o filtro e a
+  // sincronização.
   try {
+    const [dados] = await db
+      .select({
+        polpConsentId: openfinanceConnections.polpConsentId,
+        institutionName: openfinanceConnections.institutionName,
+        products: openfinanceConnections.products,
+      })
+      .from(openfinanceConnections)
+      .where(eq(openfinanceConnections.id, conexao.id))
+      .limit(1)
+
+    // Só evita montar o repositório à toa: quem decide de verdade é
+    // `sincronizarInvestimentos`, que confere o produto de novo.
+    if (!dados?.products.includes('INVESTMENTS')) return { ...lancamentos, investimentos: null }
+
     const investimentos = await sincronizarInvestimentos(criarRepositorio(db), client, { ...conexao, ...dados })
     return { ...lancamentos, investimentos }
   } catch (error) {
