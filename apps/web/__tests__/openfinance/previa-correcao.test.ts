@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { somarPrevia } from '@/lib/openfinance/previa-correcao'
 
-const l = (id: string, amountCents: number) => ({ id, accountId: 'itau', amountCents, description: 'Resgate CDB DI', transferGroupId: 'g', balanceApplied: true })
+const l = (id: string, amountCents: number) => ({ id, accountId: 'itau', amountCents, description: 'Resgate CDB DI', transferGroupId: 'g', balanceApplied: true, isIgnored: false })
 
 describe('somarPrevia', () => {
   it('XP → Itaú - Corretora (manual): estorno na XP e débito espelhado na nova', () => {
@@ -21,5 +21,9 @@ describe('somarPrevia', () => {
   it('lançamento não aplicado não gera débito na conta nova', () => {
     const naoAplicado = { ...l('a', 100), balanceApplied: false }
     expect(somarPrevia([{ l: naoAplicado, forma: 'sem-par', estorno: {} }], 'corretora').deltas).toEqual({})
+  })
+  it('lançamento ignorado não gera débito na conta nova (achado 3)', () => {
+    const ignorado = { ...l('a', 100), isIgnored: true }
+    expect(somarPrevia([{ l: ignorado, forma: 'sem-par', estorno: {} }], 'corretora').deltas).toEqual({})
   })
 })

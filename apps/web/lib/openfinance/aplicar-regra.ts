@@ -69,6 +69,7 @@ export async function applyTransferSingle(
       date: transactions.date,
       externalId: transactions.externalId,
       balanceApplied: transactions.balanceApplied,
+      isIgnored: transactions.isIgnored,
     })
     .from(transactions)
     .where(
@@ -142,13 +143,17 @@ export async function applyTransferSingle(
     return 1
   }
 
-  const perna = montarPernaDaTransferencia({
+  const montada = montarPernaDaTransferencia({
     source: { orgId, amountCents: source.amountCents, date: source.date, externalId: source.externalId, balanceApplied: source.balanceApplied },
     sourceAccountId: source.accountId,
     otherAccountId: input.transferAccountId,
     transferGroupId,
     destinoOpenFinance: linked,
   })
+  // Origem ignorada está fora do saldo (toggleIgnoreTransaction mantém
+  // `balance_applied = true`). A perna herda o ignorado: se entrasse
+  // aplicada, só um lado do par pesaria no saldo.
+  const perna = source.isIgnored ? { ...montada, isIgnored: true } : montada
 
   // `.onConflictDoNothing().returning(...)` espelha o insert equivalente em
   // `sync.ts`: sem isso, uma colisão rara de unique constraint no
@@ -157,13 +162,14 @@ export async function applyTransferSingle(
   // revisão — em vez de degradar graciosamente como `sync.ts` já faz.
   const insertedLeg = await tx.insert(transactions).values(perna).onConflictDoNothing().returning({ id: transactions.id })
 
-  // Só perna real e aplicada move o saldo. A prevista (destino Open Finance)
-  // nasce com `balanceApplied: false`: o saldo de lá vem do extrato de lá.
-  if (insertedLeg.length > 0 && perna.balanceApplied) {
+  // Só perna real, aplicada e não ignorada move o saldo. A prevista (destino
+  // Open Finance) nasce com `balanceApplied: false`: o saldo de lá vem do
+  // extrato de lá.
+  if (insertedLeg.length > 0 && perna.balanceApplied && !source.isIgnored) {
     await tx
       .update(accounts)
       .set({ balanceCents: sql`balance_cents + ${-source.amountCents}` })
-      .where(eq(accounts.id, input.transferAccountId))
+      .where(and(eq(accounts.id, input.transferAccountId), eq(accounts.orgId, orgId)))
   }
 
   if (linked) contasParaConciliar.add(input.transferAccountId)

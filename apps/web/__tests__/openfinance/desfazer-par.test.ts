@@ -3,7 +3,7 @@ import { desfazerParDaRegra, type LancamentoDaRegra } from '@/lib/openfinance/de
 import { fakeTx } from './_fake-tx'
 
 const ORG = 'org-1'
-const base: LancamentoDaRegra = { id: 'l1', accountId: 'itau', amountCents: 400100, description: 'Resgate CDB DI', transferGroupId: 'g1', balanceApplied: true }
+const base: LancamentoDaRegra = { id: 'l1', accountId: 'itau', amountCents: 400100, description: 'Resgate CDB DI', transferGroupId: 'g1', balanceApplied: true, isIgnored: false }
 const perna = (o: Partial<Record<string, unknown>> = {}) => ({ id: 'p1', accountId: 'xp', amountCents: -400100, externalId: 'ext:transfer-dest', balanceApplied: true, isIgnored: false, matchedTransactionId: null, ...o })
 
 describe('desfazerParDaRegra', () => {

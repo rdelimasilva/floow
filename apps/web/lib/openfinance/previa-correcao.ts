@@ -52,6 +52,7 @@ export async function selecionarLancamentosDaRegra(
       description: transactions.description,
       transferGroupId: transactions.transferGroupId,
       balanceApplied: transactions.balanceApplied,
+      isIgnored: transactions.isIgnored,
     })
     .from(transactions)
     .where(and(...conds))
@@ -60,7 +61,8 @@ export async function selecionarLancamentosDaRegra(
 /**
  * Soma o que a correção faria. `novaContaManual` é a conta de destino nova
  * quando ela é manual: lá `applyTransferSingle` cria perna real com
- * `balanceApplied` herdado da origem e move o saldo. Conta Open Finance,
+ * `balanceApplied` e `isIgnored` herdados da origem, e só move o saldo se ela
+ * estiver aplicada e não ignorada. Conta Open Finance,
  * receita/despesa e CPF próprio passam `null`: nada entra em saldo novo.
  */
 export function somarPrevia(
@@ -83,7 +85,7 @@ export function somarPrevia(
     }
     mudam++
     for (const [conta, v] of Object.entries(a.estorno)) somar(conta, v)
-    if (novaContaManual && a.l.balanceApplied) somar(novaContaManual, -a.l.amountCents)
+    if (novaContaManual && a.l.balanceApplied && !a.l.isIgnored) somar(novaContaManual, -a.l.amountCents)
   }
   return { mudam, foraPorParDoOutroLado: fora, deltas }
 }

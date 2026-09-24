@@ -13,6 +13,7 @@ export interface LancamentoDaRegra {
   description: string
   transferGroupId: string | null
   balanceApplied: boolean
+  isIgnored: boolean
 }
 
 export interface PernaDoGrupo {
