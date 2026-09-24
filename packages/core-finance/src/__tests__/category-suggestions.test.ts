@@ -27,6 +27,12 @@ describe('isGenericCategory', () => {
     expect(isGenericCategory(CATS[1])).toBe(true)
     expect(isGenericCategory(CATS[2])).toBe(false)
   })
+  it('polpRef com _OTHER_ no meio é genérica (taxonomia real)', () => {
+    expect(isGenericCategory({ id: 'x', name: 'Outras contas e serviços', parentId: 'contas', polpRef: 'RENT_AND_UTILITIES_OTHER_UTILITIES' })).toBe(true)
+  })
+  it('nome "Outrasmarcas" sem espaço não é genérica', () => {
+    expect(isGenericCategory({ id: 'x', name: 'Outrasmarcas', parentId: null, polpRef: null })).toBe(false)
+  })
 })
 
 describe('suggestCategories — tipo A', () => {
