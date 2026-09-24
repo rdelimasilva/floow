@@ -146,17 +146,19 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
             {aberta === c.id && atual && (
               <div className="mt-3 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  {!c.ehCpfProprio &&
-                    naturezas.map((n) => (
-                      <Button
-                        key={n}
-                        type="button"
-                        variant={atual.nature === n ? 'primary' : 'outline'}
-                        onClick={() => mudarDecisao({ nature: n, categoryId: null, transferAccountId: null })}
-                      >
-                        {rotulo(n)}
-                      </Button>
-                    ))}
+                  {/* CPF próprio também troca a natureza: um Pix para você mesmo
+                      confirmado como Receita tem de poder virar Transferência.
+                      Só o seletor de conta some (a conta é por lançamento). */}
+                  {naturezas.map((n) => (
+                    <Button
+                      key={n}
+                      type="button"
+                      variant={atual.nature === n ? 'primary' : 'outline'}
+                      onClick={() => mudarDecisao({ nature: n, categoryId: null, transferAccountId: null })}
+                    >
+                      {rotulo(n)}
+                    </Button>
+                  ))}
                   {atual.nature === 'transfer' && !c.ehCpfProprio && (
                     <Select value={atual.transferAccountId ?? ''} onValueChange={(v) => mudarDecisao({ ...atual, transferAccountId: v })}>
                       <SelectTrigger className="w-48">
@@ -189,7 +191,7 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
                   )}
                 </div>
 
-                {c.ehCpfProprio && (
+                {c.ehCpfProprio && atual.nature === 'transfer' && (
                   <p className="text-xs text-gray-500">
                     Pix para você mesmo não tem conta fixa. Com o histórico marcado, os lançamentos voltam para Classificar e você escolhe a
                     conta de cada um.

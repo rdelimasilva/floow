@@ -230,4 +230,45 @@ describe('RegrasConfirmadas', () => {
     const botao = screen.getByRole('button', { name: 'Salvar correção' }) as HTMLButtonElement
     expect(botao.disabled).toBe(true)
   })
+
+  it('CPF próprio confirmado errado como Transferência pode virar Receita (achado 6)', async () => {
+    render(
+      React.createElement(RegrasConfirmadas, {
+        confirmed: [{ ...regra, keyType: 'tax_id', ehCpfProprio: true, accountId: null }],
+        categoryOptions: [{ id: 'cat-rec', label: 'Reembolso', type: 'income' }],
+        accountOptions: contas,
+        regraAberta: 'r1',
+      }),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Receita' }))
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'cat-rec' } })
+    expect(screen.queryByText(/voltam para Classificar/)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar correção' }))
+
+    await vi.waitFor(() => {
+      expect(corrigir).toHaveBeenCalledWith({
+        counterpartyId: 'r1',
+        nature: 'income',
+        categoryId: 'cat-rec',
+        transferAccountId: null,
+        aplicarAoHistorico: false,
+      })
+    })
+  })
+
+  it('CPF próprio em Transferência continua sem seletor de conta (achado 6)', () => {
+    render(
+      React.createElement(RegrasConfirmadas, {
+        confirmed: [{ ...regra, keyType: 'tax_id', ehCpfProprio: true, accountId: null }],
+        categoryOptions: [],
+        accountOptions: contas,
+        regraAberta: 'r1',
+      }),
+    )
+
+    expect(screen.getByRole('button', { name: 'Transferência' })).toBeTruthy()
+    expect(screen.queryByRole('combobox')).toBeNull()
+  })
 })
