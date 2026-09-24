@@ -1,4 +1,4 @@
-import { and, eq, gt, isNotNull } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, sql } from 'drizzle-orm'
 import { transactions } from '@floow/db'
 import { planejarParcelasFaltantes, type ParcelaConhecida, type ParcelaPlanejada } from '@floow/core-finance'
 import type { Db } from './persist-page'
@@ -41,43 +41,52 @@ export function linhaDaPrevisao(
 }
 
 export async function completarParcelas(db: Db, orgId: string, accountId: string): Promise<number> {
-  const rows = await db
-    .select({
-      purchaseDate: transactions.purchaseDate,
-      installmentNumber: transactions.installmentNumber,
-      installmentTotal: transactions.installmentTotal,
-      amountCents: transactions.amountCents,
-      date: transactions.date,
-      description: transactions.description,
-      categoryId: transactions.categoryId,
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.accountId, accountId),
-        isNotNull(transactions.purchaseDate),
-        gt(transactions.installmentTotal, 1),
-        isNotNull(transactions.installmentNumber),
-      ),
-    )
+  return db.transaction(async (tx) => {
+    // Não dá para travar isso com índice único: o agrupamento por compra usa
+    // valor ±1% (tolerância do arredondamento entre parcelas), e índice único
+    // só compara igualdade exata. O lock de advisory, preso à transação e à
+    // conta, serve exatamente para isso — o segundo sync concorrente espera,
+    // entra depois que o primeiro já gravou as previsões, e não planeja nada.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`completar-parcelas:${accountId}`}))`)
 
-  const conhecidas: ParcelaConhecida[] = rows.map((r) => ({
-    purchaseDate: dia(r.purchaseDate as Date),
-    installmentNumber: r.installmentNumber as number,
-    installmentTotal: r.installmentTotal as number,
-    amountCents: r.amountCents,
-    date: dia(r.date),
-    description: r.description,
-    categoryId: r.categoryId,
-  }))
+    const rows = await tx
+      .select({
+        purchaseDate: transactions.purchaseDate,
+        installmentNumber: transactions.installmentNumber,
+        installmentTotal: transactions.installmentTotal,
+        amountCents: transactions.amountCents,
+        date: transactions.date,
+        description: transactions.description,
+        categoryId: transactions.categoryId,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.orgId, orgId),
+          eq(transactions.accountId, accountId),
+          isNotNull(transactions.purchaseDate),
+          gt(transactions.installmentTotal, 1),
+          isNotNull(transactions.installmentNumber),
+        ),
+      )
 
-  const planejadas = planejarParcelasFaltantes(conhecidas)
-  if (planejadas.length === 0) return 0
+    const conhecidas: ParcelaConhecida[] = rows.map((r) => ({
+      purchaseDate: dia(r.purchaseDate as Date),
+      installmentNumber: r.installmentNumber as number,
+      installmentTotal: r.installmentTotal as number,
+      amountCents: r.amountCents,
+      date: dia(r.date),
+      description: r.description,
+      categoryId: r.categoryId,
+    }))
 
-  const inseridas = await db
-    .insert(transactions)
-    .values(planejadas.map((p) => linhaDaPrevisao(p, { orgId, accountId })))
-    .returning({ id: transactions.id })
-  return inseridas.length
+    const planejadas = planejarParcelasFaltantes(conhecidas)
+    if (planejadas.length === 0) return 0
+
+    const inseridas = await tx
+      .insert(transactions)
+      .values(planejadas.map((p) => linhaDaPrevisao(p, { orgId, accountId })))
+      .returning({ id: transactions.id })
+    return inseridas.length
+  })
 }
