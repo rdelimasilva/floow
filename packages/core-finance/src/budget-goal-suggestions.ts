@@ -30,6 +30,8 @@ export interface SuggestBudgetGoalsInput {
   categoriesWithGoal: Set<string>
   /** Meses fechados considerados, YYYY-MM. */
   months: string[]
+  /** Categorias principais cuja sugestão o usuário descartou. */
+  dismissedCategories?: Set<string>
 }
 
 export interface BudgetGoalSuggestion {
@@ -96,7 +98,7 @@ export function suggestBudgetGoals(input: SuggestBudgetGoalsInput): BudgetGoalSu
     const i = indiceMes.get(r.month)
     if (i === undefined) continue
     const raiz = raizDe(r.categoryId)
-    if (raizesComMeta.has(raiz) || isGenericCategory({ ...porId.get(raiz)!, polpRef: null })) continue
+    if (raizesComMeta.has(raiz) || input.dismissedCategories?.has(raiz) || isGenericCategory({ ...porId.get(raiz)!, polpRef: null })) continue
     const serie = series.get(raiz) ?? new Array<number>(input.months.length).fill(0)
     serie[i] += r.cents
     series.set(raiz, serie)

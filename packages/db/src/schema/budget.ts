@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
   date,
+  primaryKey,
 } from 'drizzle-orm/pg-core'
 import { orgs } from './auth'
 import { categories } from './finance'
@@ -108,3 +109,20 @@ export type NewBudgetEntry = typeof budgetEntries.$inferInsert
 
 export type BudgetAdjustment = typeof budgetAdjustments.$inferSelect
 export type NewBudgetAdjustment = typeof budgetAdjustments.$inferInsert
+
+// ---------------------------------------------------------------------------
+// Sugestão de meta descartada (00060)
+// ---------------------------------------------------------------------------
+
+/** Categoria cuja sugestão de meta o usuário descartou: não volta para a org. */
+export const budgetGoalSuggestionDismissals = pgTable(
+  'budget_goal_suggestion_dismissals',
+  {
+    orgId: uuid('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id').notNull().references(() => categories.id, { onDelete: 'cascade' }),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.orgId, table.categoryId] }),
+  }),
+)

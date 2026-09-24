@@ -62,6 +62,12 @@ describe('suggestBudgetGoals', () => {
     expect(suggestBudgetGoals({ ...base, rows })).toEqual([])
   })
 
+  it('categoria descartada não volta', () => {
+    const rows = [...todoMes('casa', 1000), ...todoMes('saude', 400)]
+    const r = suggestBudgetGoals({ ...base, rows, dismissedCategories: new Set(['casa']) })
+    expect(r.map((s) => s.categoryId)).toEqual(['saude'])
+  })
+
   it('menos de 3 meses de histórico não sugere nada', () => {
     const meses = ['2026-02', '2026-03']
     expect(suggestBudgetGoals({ ...base, months: meses, rows: todoMes('saude', 400, meses) })).toEqual([])
