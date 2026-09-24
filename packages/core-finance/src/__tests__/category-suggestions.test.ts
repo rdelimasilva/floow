@@ -33,6 +33,15 @@ describe('isGenericCategory', () => {
   it('nome "Outrasmarcas" sem espaço não é genérica', () => {
     expect(isGenericCategory({ id: 'x', name: 'Outrasmarcas', parentId: null, polpRef: null })).toBe(false)
   })
+  it('com polpRef null, nome "Outros gastos" é genérica', () => {
+    expect(isGenericCategory({ id: 'x', name: 'Outros gastos', parentId: null, polpRef: null })).toBe(true)
+  })
+  it('com polpRef null, nome "Outras" é genérica', () => {
+    expect(isGenericCategory({ id: 'x', name: 'Outras', parentId: null, polpRef: null })).toBe(true)
+  })
+  it('com polpRef null, nome "Outras contas" é genérica', () => {
+    expect(isGenericCategory({ id: 'x', name: 'Outras contas', parentId: null, polpRef: null })).toBe(true)
+  })
 })
 
 describe('suggestCategories — tipo A', () => {

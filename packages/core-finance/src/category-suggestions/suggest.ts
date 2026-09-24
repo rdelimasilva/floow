@@ -57,12 +57,12 @@ export const SUGGESTION_LIMITS = {
 
 /**
  * Detecta categoria genérica (catch-all buckets): polpRef com padrão OTHER ou
- * nome normalizado começando com "outras" (exato ou com espaço).
+ * nome normalizado com "outros"/"outras" (exato ou com espaço).
  */
 export function isGenericCategory(c: SuggestionCategory): boolean {
   const nome = normalizeCategoryName(c.name)
   const hasOtherPattern = c.polpRef?.includes('_OTHER_') ?? false
-  return c.polpRef === 'OTHER' || hasOtherPattern || nome === 'outros' || nome.startsWith('outras ')
+  return c.polpRef === 'OTHER' || hasOtherPattern || nome === 'outros' || nome === 'outras' || nome.startsWith('outros ') || nome.startsWith('outras ')
 }
 
 interface Grupo {
