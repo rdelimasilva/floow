@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { ConnectWizard } from './connect-wizard'
 import { ConnectionList } from './connection-list'
+import { contasDisponiveis } from './wizard-passos'
 
 export default async function ConnectBankPage() {
   const orgId = await getOrgId()
@@ -30,12 +31,9 @@ export default async function ConnectBankPage() {
 
   const [connections, accounts] = await Promise.all([getBankConnections(orgId), getAccounts(orgId)])
 
-  // Destinos que o wizard oferece: conta que já espelha uma conta do banco não
-  // pode receber outra (o servidor recusa de qualquer jeito).
-  const jaVinculadas = new Set(connections.flatMap((c) => c.resources.map((r) => r.accountId)))
-  const contas = accounts
-    .filter((a) => !jaVinculadas.has(a.id))
-    .map((a) => ({ id: a.id, name: a.name, type: a.type }))
+  // Destinos que o wizard oferece: conta que já espelha uma conta do banco de
+  // conexão viva não pode receber outra (o servidor confere de novo).
+  const contas = contasDisponiveis(accounts, connections).map((a) => ({ id: a.id, name: a.name, type: a.type }))
 
   // A lista de instituições é pública e muda pouco; uma falha aqui não deve
   // impedir o usuário de ver e gerenciar as conexões que ele já tem.

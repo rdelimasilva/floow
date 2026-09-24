@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   NOVA,
   contasCompativeis,
+  contasDisponiveis,
   erroDoPasso,
   escolhaInicial,
   montarDestinos,
@@ -143,5 +144,15 @@ describe('resumoDaConclusao — autorização que não vingou', () => {
 describe('resumoDaConclusao — só investimentos', () => {
   it('sem conta vinculada e sem pendência: fala da primeira importação', () => {
     expect(resumoDaConclusao(r({ vinculados: 0, importadas: 0 })).texto).toBe('Pronto: primeira importação feita.')
+  })
+})
+
+describe('contasDisponiveis', () => {
+  it('tira a conta que já espelha recurso de conexão viva', () => {
+    const vivas = [{ resources: [{ accountId: 'cc' }, { accountId: null }] }]
+    expect(contasDisponiveis(CONTAS, vivas).map((c) => c.id)).toEqual(['pp', 'cx', 'ca', 'br'])
+  })
+  it('sem conexões, todas', () => {
+    expect(contasDisponiveis(CONTAS, [])).toHaveLength(5)
   })
 })

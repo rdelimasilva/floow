@@ -16,7 +16,7 @@ function chain(result: unknown[]): any {
     then: (ok: (v: unknown) => unknown, erro?: (e: unknown) => unknown) =>
       Promise.resolve(result).then(ok, erro),
   }
-  for (const m of ['from', 'where', 'limit', 'returning']) c[m] = () => chain(result)
+  for (const m of ['from', 'innerJoin', 'where', 'limit', 'returning']) c[m] = () => chain(result)
   return c
 }
 

@@ -10,7 +10,7 @@
  */
 
 import { and, eq, isNull } from 'drizzle-orm'
-import { accounts, openfinanceConnections, openfinanceResources } from '@floow/db'
+import { accounts, openfinanceConnections } from '@floow/db'
 import { withUserDb } from '@/lib/db/rls'
 import { getOrgId } from '@/lib/finance/queries'
 import {
@@ -23,6 +23,7 @@ import {
 } from './connection-actions'
 import { linkResourceToAccount } from './resource-actions'
 import { getLastTransactionDateByAccount } from './queries'
+import { contaOcupada } from './conta-ocupada'
 import {
   TIPOS_COMPATIVEIS,
   decidirAutoVinculo,
@@ -227,13 +228,7 @@ async function conferirConta(orgId: string, accountId: string, tipo: TipoDeRecur
       )
     }
 
-    const [ocupada] = await db
-      .select({ id: openfinanceResources.id })
-      .from(openfinanceResources)
-      .where(and(eq(openfinanceResources.orgId, orgId), eq(openfinanceResources.accountId, accountId)))
-      .limit(1)
-
-    if (ocupada) throw new Error('Esta conta do floow já está vinculada a outra conta do banco.')
+    if (await contaOcupada(db, orgId, accountId)) throw new Error('Esta conta do floow já está vinculada a outra conta do banco.')
   })
 }
 

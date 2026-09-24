@@ -22,7 +22,7 @@ function makeChain(result: unknown[]): any {
     catch: () => chain,
     finally: () => chain,
   }
-  for (const m of ['from', 'where', 'limit', 'set', 'values', 'returning', 'orderBy']) {
+  for (const m of ['from', 'innerJoin', 'where', 'limit', 'set', 'values', 'returning', 'orderBy']) {
     chain[m] = () => makeChain(result)
   }
   return chain
@@ -47,6 +47,7 @@ vi.mock('@floow/db', () => ({
   getDb: () => mockDb,
   accounts: { _table: 'accounts' },
   openfinanceResources: { _table: 'openfinance_resources' },
+  openfinanceConnections: { _table: 'openfinance_connections' },
 }))
 
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: () => Promise.resolve('org-1') }))

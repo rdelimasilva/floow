@@ -12,10 +12,11 @@
  */
 
 import { revalidatePath } from 'next/cache'
-import { and, eq, ne } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb, accounts, openfinanceResources } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
+import { contaOcupada } from './conta-ocupada'
 
 /** Conta espelho criada para cada tipo de recurso. */
 const ACCOUNT_TYPE_BY_RESOURCE: Record<string, 'checking' | 'credit_card'> = {
@@ -135,19 +136,8 @@ async function assertAccountIsFree(
   accountId: string,
   resourceId: string,
 ): Promise<void> {
-  const [ocupada] = await db
-    .select({ id: openfinanceResources.id })
-    .from(openfinanceResources)
-    .where(
-      and(
-        eq(openfinanceResources.orgId, orgId),
-        eq(openfinanceResources.accountId, accountId),
-        ne(openfinanceResources.id, resourceId),
-      ),
-    )
-    .limit(1)
-
-  if (ocupada) {
+  // Conexão encerrada não conta: ver conta-ocupada.ts.
+  if (await contaOcupada(db, orgId, accountId, resourceId)) {
     throw new Error('Esta conta do floow já está vinculada a outra conta do banco.')
   }
 }

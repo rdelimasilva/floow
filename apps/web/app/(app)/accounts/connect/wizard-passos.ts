@@ -29,6 +29,19 @@ export function contasCompativeis<T extends ContaDoFloow>(contas: T[], tipo: Tip
 }
 
 /**
+ * Contas que ainda podem receber uma conta do banco: fora as que já espelham
+ * recurso de conexão viva. `vivas` são as conexões não revogadas (é o que
+ * getBankConnections devolve) — vínculo de conexão encerrada não prende a conta.
+ */
+export function contasDisponiveis<T extends { id: string }>(
+  contas: T[],
+  vivas: { resources: { accountId: string | null }[] }[],
+): T[] {
+  const ocupadas = new Set(vivas.flatMap((c) => c.resources.map((r) => r.accountId)))
+  return contas.filter((c) => !ocupadas.has(c.id))
+}
+
+/**
  * Sem conta compatível, "criar nova" é a única resposta. Com contas, a escolha
  * fica em branco de propósito: pré-selecionar uma delas seria chutar, e chutar
  * a conta errada mistura dois históricos.
