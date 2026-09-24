@@ -16,6 +16,7 @@ import {
   priceHistoryTag,
   pricesTag,
 } from '@/lib/cache-tags'
+import { assetDisplayName } from '@/lib/investments/asset-labels'
 
 // ---------------------------------------------------------------------------
 // Type Definitions
@@ -229,7 +230,7 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
 
       return rows.map((row) => ({
         assetId: row.assetId,
-        ticker: row.ticker ?? row.name,
+        ticker: assetDisplayName(row),
         name: row.name,
         assetClass: row.assetClass,
         quantityHeld: row.quantityHeld,
@@ -290,7 +291,7 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
         eventDate: e.eventDate instanceof Date ? e.eventDate : new Date(e.eventDate as unknown as string),
         totalCents: e.totalCents,
         notes: e.notes,
-        ticker: e.ticker ?? e.name,
+        ticker: assetDisplayName(e),
         name: e.name,
       }))
     },

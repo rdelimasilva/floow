@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
+import { ASSET_CLASS_LABEL, type AssetClass } from '@/lib/investments/asset-labels'
 import type { EnrichedPosition } from '@/lib/investments/queries'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -16,15 +17,6 @@ import type { EnrichedPosition } from '@/lib/investments/queries'
 interface PositionTableProps {
   positions: EnrichedPosition[]
   orgId: string
-}
-
-const ASSET_CLASS_LABELS: Record<string, string> = {
-  br_equity: 'Ações BR',
-  fii: 'FIIs',
-  etf: 'ETFs',
-  crypto: 'Cripto',
-  fixed_income: 'Renda Fixa',
-  international: 'Internacional',
 }
 
 // ── Row Component ──────────────────────────────────────────────────────────────
@@ -94,7 +86,7 @@ const PositionRow = memo(function PositionRow({
         </td>
         {/* Classe */}
         <td className="px-4 py-3 text-xs text-gray-500">
-          {ASSET_CLASS_LABELS[position.assetClass] ?? position.assetClass}
+          {ASSET_CLASS_LABEL[position.assetClass as AssetClass] ?? position.assetClass}
         </td>
         {/* Qtd */}
         <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-800">
@@ -251,7 +243,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
                 <div className="min-w-0">
                   <p className="font-mono text-sm font-semibold text-gray-900">{position.ticker}</p>
                   <p className="text-xs text-gray-500 truncate">{position.name}</p>
-                  <span className="text-[10px] text-gray-400 uppercase">{ASSET_CLASS_LABELS[position.assetClass] ?? position.assetClass}</span>
+                  <span className="text-[10px] text-gray-400 uppercase">{ASSET_CLASS_LABEL[position.assetClass as AssetClass] ?? position.assetClass}</span>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-gray-900">{formatBRL(position.currentValueCents)}</p>

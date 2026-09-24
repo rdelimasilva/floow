@@ -1,8 +1,9 @@
 'use client'
 
 import { PieChart, Pie, Cell } from 'recharts'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { formatBRL } from '@floow/core-finance'
+import { ASSET_CLASS_LABEL, type AssetClass } from '@/lib/investments/asset-labels'
 import type { EnrichedPosition } from '@/lib/investments/queries'
 
 // Color palette per asset class
@@ -15,24 +16,12 @@ const ASSET_CLASS_COLORS: Record<string, string> = {
   international: '#dc2626',
 }
 
-// Portuguese labels per asset class
-const ASSET_CLASS_LABELS: Record<string, string> = {
-  br_equity: 'Ações BR',
-  fii: 'FIIs',
-  etf: 'ETFs',
-  crypto: 'Cripto',
-  fixed_income: 'Renda Fixa',
-  international: 'Internacional',
-}
-
-const chartConfig = {
-  br_equity: { label: 'Ações BR', color: '#2563eb' },
-  fii: { label: 'FIIs', color: '#7c3aed' },
-  etf: { label: 'ETFs', color: '#059669' },
-  crypto: { label: 'Cripto', color: '#d97706' },
-  fixed_income: { label: 'Renda Fixa', color: '#0891b2' },
-  international: { label: 'Internacional', color: '#dc2626' },
-}
+const chartConfig = Object.fromEntries(
+  (Object.keys(ASSET_CLASS_LABEL) as AssetClass[]).map((assetClass) => [
+    assetClass,
+    { label: ASSET_CLASS_LABEL[assetClass], color: ASSET_CLASS_COLORS[assetClass] ?? '#6b7280' },
+  ])
+) satisfies ChartConfig
 
 interface AllocationChartProps {
   positions: EnrichedPosition[]
@@ -57,7 +46,7 @@ export function AllocationChart({ positions }: AllocationChartProps) {
 
   const data = Array.from(classMap.entries()).map(([assetClass, valueCents]) => ({
     assetClass,
-    label: ASSET_CLASS_LABELS[assetClass] ?? assetClass,
+    label: ASSET_CLASS_LABEL[assetClass as AssetClass] ?? assetClass,
     valueCents,
   }))
 
