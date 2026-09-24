@@ -21,6 +21,7 @@ import { ParcelasNaLinha } from './parcelas-na-linha'
 import { CategorySuggestionsCard } from '@/components/finance/category-suggestions-card'
 import type { PendingSuggestion } from '@/lib/finance/category-suggestion-queries'
 import type { AcceptResult } from '@/lib/finance/category-suggestions/accept'
+import { opcoesDeCategoriaMae } from '@/lib/finance/category-suggestions/parent-options'
 
 interface CategoryOption {
   id: string
@@ -28,6 +29,7 @@ interface CategoryOption {
   type: string
   color: string | null
   icon: string | null
+  parentId?: string | null
 }
 
 interface AllEntry {
@@ -159,7 +161,7 @@ export function SpendingClient({
   }
 
   function handleSuggestionAccepted(r: AcceptResult) {
-    setCategories((prev) => [...prev, { id: r.categoryId, name: r.name, type: 'expense', color: null, icon: null }])
+    setCategories((prev) => [...prev, { id: r.categoryId, name: r.name, type: 'expense', color: null, icon: null, parentId: r.parentId }])
     setPrefill({ categoryId: r.categoryId, amountCents: r.monthlyAvgCents })
     setShowAdd(true)
   }
@@ -176,7 +178,7 @@ export function SpendingClient({
 
       <CategorySuggestionsCard
         suggestions={suggestions}
-        parentOptions={categories.filter((c) => c.type === 'expense').map((c) => ({ id: c.id, name: c.name }))}
+        parentOptions={opcoesDeCategoriaMae(categories)}
         onAccepted={handleSuggestionAccepted}
       />
 
