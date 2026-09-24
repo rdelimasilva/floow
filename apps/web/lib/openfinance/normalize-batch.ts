@@ -24,16 +24,16 @@ export interface RejectedItem {
   raw: unknown
 }
 
-export interface BatchResult {
-  ok: NormalizedPolpTransaction[]
+export interface BatchResult<R = NormalizedPolpTransaction> {
+  ok: R[]
   rejected: RejectedItem[]
 }
 
-export function normalizeBatch<T>(
+export function normalizeBatch<T, R = NormalizedPolpTransaction>(
   items: T[],
-  normalize: (item: T) => NormalizedPolpTransaction,
-): BatchResult {
-  const ok: NormalizedPolpTransaction[] = []
+  normalize: (item: T) => R,
+): BatchResult<R> {
+  const ok: R[] = []
   const rejected: RejectedItem[] = []
 
   for (const item of items) {

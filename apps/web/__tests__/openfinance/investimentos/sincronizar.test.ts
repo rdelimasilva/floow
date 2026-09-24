@@ -1,0 +1,133 @@
+import { describe, it, expect } from 'vitest'
+import type { PolpInvestmentKind } from '@floow/core-finance'
+import type { RepositorioDeInvestimentos, ProblemaDeIngestao } from '@/lib/openfinance/investimentos/repositorio'
+import { sincronizarInvestimentos } from '@/lib/openfinance/investimentos/sincronizar'
+
+function repoEmMemoria(donoDe: Record<string, string> = {}) {
+  const ativos = new Map<string, string>()          // polpId -> assetId
+  const posicoes = new Map<string, unknown>()       // assetId|data
+  const eventos = new Map<string, { assetId: string; eventDate: string }>() // polpTxId
+  const problemas: ProblemaDeIngestao[] = []
+  let recalculos = 0
+  const repo: RepositorioDeInvestimentos = {
+    garantirConta: async () => 'conta-inv',
+    salvarInvestimento: async (ctx, inv) => {
+      if (donoDe[inv.polpId] && donoDe[inv.polpId] !== ctx.orgId) return { tipo: 'conflito' }
+      const assetId = ativos.get(inv.polpId) ?? `asset-${inv.polpId}`
+      ativos.set(inv.polpId, assetId)
+      if (inv.position) posicoes.set(`${assetId}|${inv.position.referenceDate}`, inv.position)
+      return { tipo: 'salvo', assetId, resourceId: `res-${inv.polpId}` }
+    },
+    ultimaDataDeMovimentacao: async (assetId) => {
+      const datas = [...eventos.values()].filter((e) => e.assetId === assetId).map((e) => e.eventDate).sort()
+      return datas.at(-1) ?? null
+    },
+    salvarMovimentacoes: async (ctx, evs) => {
+      for (const e of evs) eventos.set(e.polpTransactionId, { assetId: ctx.assetId, eventDate: e.eventDate })
+      return evs.length
+    },
+    registrarProblemas: async (_org, ps) => { problemas.push(...ps) },
+    recalcularPosicoes: async () => { recalculos++ },
+  }
+  return { repo, ativos, posicoes, eventos, problemas, recalculos: () => recalculos }
+}
+
+const money = (amount: string) => ({ amount, currency: 'BRL' })
+const fundo = (id: string) => ({
+  id, name: `Fundo ${id}`, cnpj_number: '1',
+  balance: { reference_date: '2026-09-22', quota_quantity: '10', gross_amount: money('100.00'), net_amount: money('95.00') },
+})
+const aplicacao = (id: string, data = '2026-09-01') => ({
+  id, transaction_type: 'APLICACAO', transaction_conversion_date: data, transaction_quota_quantity: '10', transaction_value: money('100.00'),
+})
+
+function clienteFalso(
+  porTipo: Partial<Record<PolpInvestmentKind, unknown[] | Error>>,
+  movs: Record<string, unknown[]> = {},
+  chamadas: Array<{ id: string; query: unknown }> = [],
+) {
+  return {
+    async *streamInvestments(_c: string, kind: PolpInvestmentKind) {
+      const v = porTipo[kind]
+      if (v instanceof Error) throw v
+      if (v) yield v
+    },
+    async *streamInvestmentTransactions(_k: PolpInvestmentKind, id: string, query?: unknown) {
+      chamadas.push({ id, query })
+      if (movs[id]) yield movs[id]
+    },
+  }
+}
+
+const CONEXAO = { id: 'c1', orgId: 'org-a', polpConsentId: 'consent-1', institutionName: 'Banco X', products: ['ACCOUNT', 'INVESTMENTS'] }
+
+describe('sincronizarInvestimentos', () => {
+  it('conexão sem INVESTMENTS não chama a Polp', async () => {
+    const m = repoEmMemoria()
+    const r = await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: new Error('não devia chamar') }), { ...CONEXAO, products: ['ACCOUNT'] })
+    expect(r.ativos).toBe(0)
+    expect(r.tiposComFalha).toEqual([])
+  })
+
+  it('grava ativo, posição e movimentações, e recalcula uma vez', async () => {
+    const m = repoEmMemoria()
+    const r = await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1')] }, { f1: [aplicacao('t1')] }), CONEXAO)
+    expect(r).toMatchObject({ ativos: 1, posicoes: 1, movimentacoes: 1, conflitos: 0, rejeitados: 0 })
+    expect(m.recalculos()).toBe(1)
+  })
+
+  it('rodar duas vezes no mesmo dia não duplica nada', async () => {
+    const m = repoEmMemoria()
+    const cliente = () => clienteFalso({ FUND: [fundo('f1')] }, { f1: [aplicacao('t1')] })
+    await sincronizarInvestimentos(m.repo, cliente(), CONEXAO)
+    await sincronizarInvestimentos(m.repo, cliente(), CONEXAO)
+    expect(m.ativos.size).toBe(1)
+    expect(m.posicoes.size).toBe(1)
+    expect(m.eventos.size).toBe(1)
+  })
+
+  it('segunda passada pede movimentações a partir da última data menos 7 dias', async () => {
+    const m = repoEmMemoria()
+    const chamadas: Array<{ id: string; query: unknown }> = []
+    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1')] }, { f1: [aplicacao('t1', '2026-09-20')] }, chamadas), CONEXAO)
+    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1')] }, {}, chamadas), CONEXAO)
+    expect(chamadas[0].query).toEqual({})
+    expect(chamadas[1].query).toEqual({ fromDate: '2026-09-13T00:00:00Z' })
+  })
+
+  it('investimento de outra org: pula, conta conflito, registra problema', async () => {
+    const m = repoEmMemoria({ f1: 'org-b' })
+    const r = await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1')] }, { f1: [aplicacao('t1')] }), CONEXAO)
+    expect(r.conflitos).toBe(1)
+    expect(m.eventos.size).toBe(0)
+    expect(m.problemas[0].reason).toMatch(/outra org/)
+  })
+
+  it('falha num tipo não impede os outros', async () => {
+    const m = repoEmMemoria()
+    const r = await sincronizarInvestimentos(m.repo, clienteFalso({ BANK_FIXED_INCOME: new Error('503'), FUND: [fundo('f1')] }), CONEXAO)
+    expect(r.tiposComFalha).toEqual(['BANK_FIXED_INCOME'])
+    expect(r.ativos).toBe(1)
+    expect(m.problemas.some((p) => /BANK_FIXED_INCOME/.test(p.reason))).toBe(true)
+  })
+
+  it('item ilegível e tipo de movimentação novo viram problema, o resto entra', async () => {
+    const m = repoEmMemoria()
+    const r = await sincronizarInvestimentos(
+      m.repo,
+      clienteFalso({ FUND: [fundo('f1'), { name: 'sem id' }] }, { f1: [aplicacao('t1'), { ...aplicacao('t2'), transaction_type: 'BONIFICACAO' }] }),
+      CONEXAO,
+    )
+    expect(r.ativos).toBe(1)
+    expect(r.rejeitados).toBe(1)
+    expect(r.movimentacoes).toBe(2)
+    expect(m.problemas.some((p) => /BONIFICACAO/.test(p.reason))).toBe(true)
+  })
+
+  it('ativo que sumiu da listagem não é tocado', async () => {
+    const m = repoEmMemoria()
+    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1')] }), CONEXAO)
+    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [] }), CONEXAO)
+    expect(m.ativos.has('f1')).toBe(true)
+  })
+})
