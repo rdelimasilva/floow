@@ -38,7 +38,7 @@ describe('desfazerParDaRegra', () => {
   })
 
   it('ponta esperada pelo outro lado: não toca em nada', async () => {
-    const { tx, ops } = fakeTx([[{ id: 'perna-de-la' }]])
+    const { tx, ops } = fakeTx([[{ id: 'perna-de-la', externalId: 'ext:transfer-par' }]])
     const r = await desfazerParDaRegra(tx, ORG, { ...base, transferGroupId: null })
     expect(r.forma).toBe('par-do-outro-lado')
     expect(ops.filter((o) => o.op !== 'select')).toEqual([])
@@ -49,5 +49,23 @@ describe('desfazerParDaRegra', () => {
     const r = await desfazerParDaRegra(tx, ORG, { ...base, transferGroupId: null })
     expect(r.forma).toBe('sem-par')
     expect(ops.filter((o) => o.op !== 'select').map((o) => `${o.op}:${o.table}`)).toEqual(['update:transactions'])
+  })
+
+  it('conciliado a previsão de template (não é perna): reprocessa, não é par do outro lado', async () => {
+    const { tx, ops } = fakeTx([[{ id: 'previsao-aluguel', externalId: null }], []])
+    const r = await desfazerParDaRegra(tx, ORG, { ...base, transferGroupId: null })
+    expect(r.forma).toBe('sem-par')
+    expect(ops.filter((o) => o.op !== 'select').map((o) => `${o.op}:${o.table}`)).toEqual(['update:transactions'])
+  })
+
+  it('proposta pendente contra previsão de template: reprocessa', async () => {
+    const { tx } = fakeTx([[], [{ id: 'fmp1', externalId: 'tpl:2026-07' }]])
+    expect((await desfazerParDaRegra(tx, ORG, { ...base, transferGroupId: null })).forma).toBe('sem-par')
+  })
+
+  it('proposta pendente contra perna prevista de outra conta: par do outro lado', async () => {
+    const { tx, ops } = fakeTx([[], [{ id: 'fmp1', externalId: 'ext:transfer-par' }]])
+    expect((await desfazerParDaRegra(tx, ORG, { ...base, transferGroupId: null })).forma).toBe('par-do-outro-lado')
+    expect(ops.filter((o) => o.op !== 'select')).toEqual([])
   })
 })

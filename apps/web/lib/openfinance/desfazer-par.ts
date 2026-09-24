@@ -67,23 +67,25 @@ export async function analisarPar(tx: Pick<Db, 'select'>, orgId: string, l: Lanc
 
   // Sem grupo: pode ser a ponta que a perna prevista de OUTRA conta espera.
   // Esse par foi decidido pela regra de lá; corrigir esta regra não o desfaz.
-  const [casada] = await tx
-    .select({ id: transactions.id })
+  // Só conta se quem espera é perna prevista (`:transfer-par`): conciliação
+  // com previsão de template (aluguel, salário) não é par de transferência, e
+  // a regra daqui é a única que classificou o lançamento.
+  const casadas = await tx
+    .select({ id: transactions.id, externalId: transactions.externalId })
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), eq(transactions.matchedTransactionId, l.id)))
-    .limit(1)
-  if (casada) return { forma: 'par-do-outro-lado', pernas: [], estorno: {} }
+  if (casadas.some((c) => ehPernaPrevista(c.externalId))) return { forma: 'par-do-outro-lado', pernas: [], estorno: {} }
 
-  const [proposta] = await tx
-    .select({ id: forecastMatchProposals.id })
+  const propostas = await tx
+    .select({ id: forecastMatchProposals.id, externalId: transactions.externalId })
     .from(forecastMatchProposals)
+    .innerJoin(transactions, eq(transactions.id, forecastMatchProposals.forecastTransactionId))
     .where(and(
       eq(forecastMatchProposals.orgId, orgId),
       eq(forecastMatchProposals.realizedTransactionId, l.id),
       eq(forecastMatchProposals.status, 'pending'),
     ))
-    .limit(1)
-  if (proposta) return { forma: 'par-do-outro-lado', pernas: [], estorno: {} }
+  if (propostas.some((p) => ehPernaPrevista(p.externalId))) return { forma: 'par-do-outro-lado', pernas: [], estorno: {} }
 
   return { forma: 'sem-par', pernas: [], estorno: {} }
 }

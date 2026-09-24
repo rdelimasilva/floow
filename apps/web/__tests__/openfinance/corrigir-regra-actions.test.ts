@@ -26,7 +26,7 @@ function makeChain(result: unknown[], op?: Op): any {
     catch: () => chain,
     finally: () => chain,
   }
-  for (const m of ['from', 'limit', 'onConflictDoNothing']) chain[m] = () => makeChain(result, op)
+  for (const m of ['from', 'limit', 'innerJoin', 'onConflictDoNothing']) chain[m] = () => makeChain(result, op)
   // Insert sempre "acha" a linha: o que estas provas medem é a sequência de
   // escritas e os deltas de saldo, não o id de retorno.
   chain.returning = () => makeChain(op?.op === 'insert' ? [{ id: 'perna-nova' }] : result, op)
@@ -185,7 +185,7 @@ describe('corrigirRegra', () => {
     selectQueue.push(
       [REGRA],
       [{ id: L1, accountId: ITAU, amountCents: 100, description: 'x', transferGroupId: null, balanceApplied: true }],
-      [{ id: 'perna-de-la' }], // matched_transaction_id = L1
+      [{ id: 'perna-de-la', externalId: 'e:transfer-par' }], // matched_transaction_id = L1
       [], // lote: L1 não está pendente
     )
 
