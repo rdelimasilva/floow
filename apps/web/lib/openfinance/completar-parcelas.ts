@@ -49,6 +49,26 @@ export async function completarParcelas(db: Db, orgId: string, accountId: string
     // entra depois que o primeiro já gravou as previsões, e não planeja nada.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`completar-parcelas:${accountId}`}))`)
 
+    // Previsão aberta cuja parcela real já entrou em outra linha (a real não
+    // ocupou a previsão: perdeu a corrida ou chegou antes dela) sobra contando
+    // duas vezes no "a vencer" e no saldo projetado. Sai antes de planejar.
+    await tx.delete(transactions).where(
+      and(
+        eq(transactions.orgId, orgId),
+        eq(transactions.accountId, accountId),
+        eq(transactions.isInstallmentForecast, true),
+        eq(transactions.balanceApplied, false),
+        sql`EXISTS (
+          SELECT 1 FROM transactions AS real
+          WHERE real.account_id = ${transactions.accountId}
+            AND real.is_installment_forecast = false
+            AND real.purchase_date = ${transactions.purchaseDate}
+            AND real.installment_total = ${transactions.installmentTotal}
+            AND real.installment_number = ${transactions.installmentNumber}
+        )`,
+      ),
+    )
+
     const rows = await tx
       .select({
         purchaseDate: transactions.purchaseDate,

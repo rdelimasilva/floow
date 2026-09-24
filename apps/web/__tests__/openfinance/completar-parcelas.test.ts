@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { completarParcelas, linhaDaPrevisao } from '@/lib/openfinance/completar-parcelas'
 import type { Db } from '@/lib/openfinance/persist-page'
 
@@ -13,9 +14,11 @@ function fakeDb(knownRows: unknown[]) {
   const callOrder: string[] = []
   const executedQueries: unknown[] = []
   let insertedValues: Record<string, unknown>[] | null = null
+  const deleteConds: unknown[] = []
 
   type FakeTx = {
     execute: (query: unknown) => Promise<void>
+    delete: (table: unknown) => { where: (cond: unknown) => Promise<void> }
     select: (cols: unknown) => { from: (table: unknown) => { where: (cond: unknown) => Promise<unknown[]> } }
     insert: (table: unknown) => {
       values: (values: Record<string, unknown>[]) => { returning: (cols: unknown) => Promise<{ id: string }[]> }
@@ -27,6 +30,12 @@ function fakeDb(knownRows: unknown[]) {
       callOrder.push('execute')
       executedQueries.push(query)
     },
+    delete: (_table) => ({
+      where: async (cond) => {
+        callOrder.push('delete')
+        deleteConds.push(cond)
+      },
+    }),
     select: (_cols) => ({
       from: (_table) => ({
         where: async (_cond) => {
@@ -54,6 +63,7 @@ function fakeDb(knownRows: unknown[]) {
     db: db as unknown as Db,
     callOrder,
     executedQueries,
+    deleteConds,
     getInsertedValues: () => insertedValues,
   }
 }
@@ -93,7 +103,7 @@ describe('completarParcelas', () => {
     await completarParcelas(db, 'org-1', 'acc-1')
 
     expect(callOrder[0]).toBe('execute')
-    expect(callOrder[1]).toBe('select')
+    expect(callOrder).toContain('select')
     expect(textoDoSql(executedQueries[0])).toContain('pg_advisory_xact_lock')
     expect(textoDoSql(executedQueries[0])).toContain('completar-parcelas:acc-1')
   })
@@ -158,5 +168,30 @@ describe('completarParcelas', () => {
     expect(criadas).toBe(0)
     expect(getInsertedValues()).toBeNull()
     expect(callOrder).not.toContain('insert')
+  })
+})
+
+describe('completarParcelas e a previsão que sobrou', () => {
+  /**
+   * Parcela real que entrou sem ocupar a previsão (a previsão perdeu a
+   * corrida, ou foi gravada depois) deixa as duas linhas com a mesma chave.
+   * A previsão sobrando pesa no "a vencer" e no saldo projetado duas vezes.
+   */
+  it('apaga, depois do lock e antes de planejar, a previsão aberta cuja chave já tem linha real', async () => {
+    const { db, callOrder, deleteConds } = fakeDb([])
+
+    await completarParcelas(db, 'org-1', 'acc-1')
+
+    expect(callOrder).toEqual(['execute', 'delete', 'select'])
+    const { sql, params } = new PgDialect().sqlToQuery(deleteConds[0] as never)
+    const texto = sql.toLowerCase().replace(/\s+/g, ' ')
+    expect(params).toEqual(expect.arrayContaining(['org-1', 'acc-1']))
+    expect(texto).toContain('"is_installment_forecast" = $')
+    expect(texto).toContain('"balance_applied" = $')
+    expect(texto).toMatch(/exists \( ?select 1 from transactions as real/)
+    expect(texto).toContain('real.is_installment_forecast = false')
+    for (const coluna of ['account_id', 'purchase_date', 'installment_total', 'installment_number']) {
+      expect(texto).toContain(`real.${coluna} = "transactions"."${coluna}"`)
+    }
   })
 })
