@@ -191,6 +191,10 @@ async function applyTransferBatch(
     eq(transactions.counterpartyId, input.counterpartyId),
     eq(transactions.reviewState, 'pending'),
     semParJaCriado(),
+    // A ponta com proposta pendente contra perna prevista está escondida de
+    // Classificar (a decisão dela é em Confirmar previsões). O lote não pode
+    // alcançá-la por trás da tela.
+    condicaoForaDeParDeTransferenciaPendente(),
   ]
   if (input.excludeIds.length > 0) conditions.push(notInArray(transactions.id, input.excludeIds))
 
@@ -279,6 +283,9 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
         eq(transactions.counterpartyId, input.counterpartyId),
         eq(transactions.reviewState, 'pending'),
         semParJaCriado(),
+        // Mesmo motivo do lote de transferência: o que a tela esconde, o lote
+        // não reclassifica.
+        condicaoForaDeParDeTransferenciaPendente(),
       ]
       if (exceptionIds.length > 0) batchConditions.push(notInArray(transactions.id, exceptionIds))
 

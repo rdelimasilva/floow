@@ -471,4 +471,32 @@ describe('confirmCounterparty', () => {
       expect(sqlDoWhere(lote)).toContain('"transfer_group_id" is null')
     })
   })
+
+  describe('lote não alcança o que Classificar esconde', () => {
+    // A ponta com proposta pendente contra perna prevista some da tela de
+    // Classificar; confirmar a contraparte em lote não pode reclassificá-la
+    // por trás — a decisão dela está em Confirmar previsões.
+    it('lote de transferência deixa de fora a ponta com par de transferência pendente', async () => {
+      filaTransferenciaManual()
+
+      await confirmCounterparty({
+        counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
+      })
+
+      const lote = ops.filter((o) => o.op === 'select' && o.table === 'transactions')[0]
+      expect(sqlDoWhere(lote)).toContain('fmp.realized_transaction_id = "transactions"."id"')
+    })
+
+    it('lote de receita/despesa deixa de fora a ponta com par de transferência pendente', async () => {
+      selectQueue.push([{ id: COUNTERPARTY_ID }])
+      updateQueue.push([])
+      updateQueue.push([{ id: 'tx-1' }])
+      selectQueue.push([{ one: 1 }])
+
+      await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID, transferAccountId: null })
+
+      const lote = ops.filter((o) => o.op === 'update' && o.table === 'transactions')[0]
+      expect(sqlDoWhere(lote)).toContain('fmp.realized_transaction_id = "transactions"."id"')
+    })
+  })
 })
