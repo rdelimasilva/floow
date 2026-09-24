@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getOrgId, getTransactionsWithCount, getTransactionCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
@@ -12,10 +13,7 @@ import { Pagination } from '@/components/ui/pagination'
 import { PageSizeSelector } from '@/components/ui/page-size-selector'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
-import { PendingQueuesNotice } from '@/components/finance/pending-queues-notice'
-import { contarDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
-import { contarPropostasPendentes } from '@/lib/finance/forecast-match-queries'
-import { contarLancamentosAClassificar } from '@/lib/openfinance/counterparty-queries'
+import { PendingQueuesSlot } from '@/components/finance/pending-queues-slot'
 import { getVerifiedIdentity } from '@/lib/auth/session'
 import { FILTERS_COOKIE, restaurarFiltros, temFiltroNaUrl, hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 
@@ -84,6 +82,18 @@ export default async function TransactionsPage({ searchParams }: Props) {
     includeFuture: params.future === '1',
   }
 
+  // O que não depende da página sai já, junto com a contagem abaixo. Só a
+  // consulta das linhas precisa esperar o número da página.
+  const independentes = Promise.all([
+    getAccounts(orgId),
+    getCategories(orgId),
+    getCategoryUsageOrder(orgId),
+    getVerifiedIdentity().then((identity) => identity?.userId ?? null),
+  ])
+  // Uma falha aqui enquanto a contagem ainda roda não pode virar "unhandled
+  // rejection"; o erro de verdade sobe no await lá embaixo.
+  independentes.catch(() => {})
+
   // A data mais recente está na ÚLTIMA página quando a ordem é crescente, e é
   // lá que a lista abre. O total custa uma contagem a mais, e só quando a URL
   // não diz a página — navegando, ele já vem de graça na consulta das linhas.
@@ -108,26 +118,10 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const queryOpts = { limit: pageSize, offset: (page - 1) * pageSize, ...filters }
 
-  // As contagens das filas entram no mesmo `Promise.all`: sao duas consultas
-  // baratas e serializa-las custaria dois round-trips a mais na tela mais
-  // visitada do app.
-  //
-  // Falha nelas nao derruba a lista — o aviso some, os lancamentos ficam. E o
-  // mesmo "fail open" que o contador tinha no layout: um controle nao pode
-  // custar a tela que ele existe para melhorar.
-  // Sem usuario resolvido a pagina nao renderiza de qualquer forma (o layout
-  // ja redireciona); aqui o `null` so apaga o aviso, em vez de estourar.
-  const userId = (await getVerifiedIdentity())?.userId ?? null
-  const [{ transactions, totalCount }, accounts, categories, categoryOrder, duplicatasPendentes, conciliacoesPendentes, aClassificar] =
-    await Promise.all([
-      getTransactionsWithCount(orgId, queryOpts),
-      getAccounts(orgId),
-      getCategories(orgId),
-      getCategoryUsageOrder(orgId),
-      userId === null ? 0 : contarDuplicatasPendentes(orgId, userId).catch(() => 0),
-      userId === null ? 0 : contarPropostasPendentes(orgId, userId).catch(() => 0),
-      contarLancamentosAClassificar(orgId).catch(() => 0),
-    ])
+  const [{ transactions, totalCount }, [accounts, categories, categoryOrder, userId]] = await Promise.all([
+    getTransactionsWithCount(orgId, queryOpts),
+    independentes,
+  ])
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
@@ -186,11 +180,9 @@ export default async function TransactionsPage({ searchParams }: Props) {
           para uma decisao que aparece poucas vezes por mes, e some do campo de
           visao de quem esta olhando os lancamentos — que e onde o assunto
           surge. Fila vazia nao renderiza nada. */}
-      <PendingQueuesNotice
-        repetidos={duplicatasPendentes}
-        classificar={aClassificar}
-        previsoes={conciliacoesPendentes}
-      />
+      <Suspense fallback={null}>
+        <PendingQueuesSlot orgId={orgId} userId={userId} />
+      </Suspense>
 
       <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} />
 
