@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { PgDialect, type SQL } from 'drizzle-orm/pg-core'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import type { SQL } from 'drizzle-orm'
 
 /**
  * Recorrente pausada sai da meta de gasto na hora.
