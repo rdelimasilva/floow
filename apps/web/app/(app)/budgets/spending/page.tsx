@@ -1,6 +1,7 @@
 import { getOrgId, getCategories } from '@/lib/finance/queries'
 import { getAllBudgetEntries, getSpendingByCategory } from '@/lib/finance/budget-queries'
 import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
+import { getParcelasAVencerDoMes } from '@/lib/finance/parcelas-a-vencer-queries'
 import { SpendingClient } from './client'
 
 interface Props {
@@ -19,11 +20,12 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
   const monthDate = new Date(sy, sm - 1, 1)
   const monthEnd = new Date(sy, sm, 0)
 
-  const [categories, entriesForMonth, allEntries, spending] = await Promise.all([
+  const [categories, entriesForMonth, allEntries, spending, parcelasAVencer] = await Promise.all([
     getCategories(orgId),
     getSpendingPlanForMonth(orgId, monthDate, monthEnd),
     getAllBudgetEntries(orgId, 'spending'),
     getSpendingByCategory(orgId, monthDate, monthEnd),
+    getParcelasAVencerDoMes(orgId, monthDate, monthEnd),
   ])
 
   const expenseCategories = categories
@@ -43,6 +45,7 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
       }))}
       spending={spending}
       selectedMonth={selectedMonth}
+      parcelasAVencer={parcelasAVencer}
     />
   )
 }

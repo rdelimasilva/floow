@@ -16,6 +16,8 @@ import { RecurringEntriesList } from './recurring-entries-list'
 import { BudgetEntryDialog } from '@/components/finance/budget-entry-dialog'
 import type { LinhaDeMeta } from '@/lib/finance/recurring-budget'
 import { RecorrentesNaLinha } from './recorrentes-na-linha'
+import { livreDaCategoria, type ParcelasDaCategoria } from '@/lib/finance/parcelas-a-vencer'
+import { ParcelasNaLinha } from './parcelas-na-linha'
 
 interface CategoryOption {
   id: string
@@ -40,6 +42,8 @@ interface SpendingClientProps {
   allEntries: AllEntry[]
   spending: { categoryId: string | null; spent: number }[]
   selectedMonth: string
+  /** Parcelas de cartão do mês que ainda não venceram, por categoria. */
+  parcelasAVencer: Record<string, ParcelasDaCategoria>
 }
 
 function formatMonth(monthStr: string): string {
@@ -60,6 +64,7 @@ export function SpendingClient({
   allEntries,
   spending,
   selectedMonth,
+  parcelasAVencer,
 }: SpendingClientProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -83,6 +88,12 @@ export function SpendingClient({
   const totalSpent = spending
     .filter((s) => s.categoryId !== null && budgetedCategoryIds.has(s.categoryId))
     .reduce((sum, s) => sum + s.spent, 0)
+
+  // Parcelas do cartão que vencem neste mês e ainda não viraram gasto: já
+  // não estão livres, mesmo sem aparecer em "Realizado" ainda.
+  const totalAVencer = entriesForMonth
+    .filter((e) => e.categoryId !== null)
+    .reduce((sum, e) => sum + (parcelasAVencer[e.categoryId as string]?.totalCents ?? 0), 0)
 
   // O restante não some da tela: aparece como "não orçado", fora do denominador.
   const totalUnbudgeted = spending
@@ -159,6 +170,12 @@ export function SpendingClient({
           </CardHeader>
           <CardContent className="space-y-3">
             <BudgetProgressBar label="Total" currentCents={totalSpent} limitCents={totalPlanned} />
+            {totalAVencer > 0 && (
+              <p className="text-sm text-muted-foreground">
+                <strong className="text-gray-900">{formatBRL(totalAVencer)}</strong> em parcelas do cartão
+                vencem ainda neste mês; livre: {formatBRL(totalPlanned - totalSpent - totalAVencer)}.
+              </p>
+            )}
             {totalUnbudgeted > 0 && (
               <p className="text-sm text-muted-foreground">
                 Mais <strong className="text-gray-900">{formatBRL(totalUnbudgeted)}</strong> em
@@ -177,9 +194,10 @@ export function SpendingClient({
             {entriesForMonth.map((entry) => {
               const cat = categories.find((c) => c.id === entry.categoryId)
               const actual = spendingMap.get(entry.categoryId) ?? 0
-              const diff = entry.plannedCents - actual
+              const aVencer = entry.categoryId ? (parcelasAVencer[entry.categoryId]?.totalCents ?? 0) : 0
+              const diff = livreDaCategoria(entry.plannedCents, actual, aVencer)
               const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
-              const isOver = actual > entry.plannedCents
+              const isOver = diff < 0
 
               return (
                 <Card key={entry.entryId ?? `rec-${entry.categoryId}`}>
@@ -189,6 +207,7 @@ export function SpendingClient({
                         {cat?.color && <span className="inline-block h-2 w-2 rounded-full mr-2 align-middle" style={{ backgroundColor: cat.color }} />}
                         {cat?.name ?? '—'}
                         <RecorrentesNaLinha linha={entry} />
+                        <ParcelasNaLinha parcelas={entry.categoryId ? parcelasAVencer[entry.categoryId] : undefined} />
                       </p>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pct > 100 ? 'bg-red-100 text-red-700' : pct > 80 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
                         {pct}%
@@ -239,9 +258,10 @@ export function SpendingClient({
                     {entriesForMonth.map((entry) => {
                       const cat = categories.find((c) => c.id === entry.categoryId)
                       const actual = spendingMap.get(entry.categoryId) ?? 0
-                      const diff = entry.plannedCents - actual
+                      const aVencer = entry.categoryId ? (parcelasAVencer[entry.categoryId]?.totalCents ?? 0) : 0
+                      const diff = livreDaCategoria(entry.plannedCents, actual, aVencer)
                       const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
-                      const isOver = actual > entry.plannedCents
+                      const isOver = diff < 0
 
                       return (
                         <tr key={entry.entryId ?? `rec-${entry.categoryId}`} className="hover:bg-gray-50">
@@ -249,6 +269,7 @@ export function SpendingClient({
                             {cat?.color && <span className="inline-block h-2 w-2 rounded-full mr-2 align-middle" style={{ backgroundColor: cat.color }} />}
                             {cat?.name ?? '—'}
                             <RecorrentesNaLinha linha={entry} />
+                            <ParcelasNaLinha parcelas={entry.categoryId ? parcelasAVencer[entry.categoryId] : undefined} />
                           </td>
                           <td className="px-4 py-2.5 text-sm text-right text-gray-600">{formatBRL(entry.plannedCents)}</td>
                           <td className="px-4 py-2.5 text-sm text-right text-gray-900 font-medium">{formatBRL(actual)}</td>
@@ -267,8 +288,8 @@ export function SpendingClient({
                       <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
                       <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-600">{formatBRL(totalPlanned)}</td>
                       <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalSpent)}</td>
-                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalSpent > totalPlanned ? 'text-red-600' : 'text-green-700'}`}>
-                        {totalSpent > totalPlanned ? '-' : '+'}{formatBRL(Math.abs(totalPlanned - totalSpent))}
+                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned - totalSpent - totalAVencer < 0 ? 'text-red-600' : 'text-green-700'}`}>
+                        {totalPlanned - totalSpent - totalAVencer < 0 ? '-' : '+'}{formatBRL(Math.abs(totalPlanned - totalSpent - totalAVencer))}
                       </td>
                       <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned > 0 && Math.round((totalSpent / totalPlanned) * 100) > 100 ? 'text-red-600' : 'text-green-700'}`}>
                         {totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0}%
