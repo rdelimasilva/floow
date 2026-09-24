@@ -26,6 +26,12 @@ export interface SuggestionCategory {
 export interface SuggestCategoriesInput {
   transactions: SuggestionTransaction[]
   categories: SuggestionCategory[]
+  /**
+   * Nomes de categorias de qualquer tipo (receita, transferência...). O aceite
+   * recusa nome repetido em qualquer tipo; sem isto o motor sugeriria um nome
+   * que só daria erro ao aceitar.
+   */
+  existingNames?: string[]
   categoriesWithGoal: Set<string>
   /** Fingerprints recusados ou já aceitos: nunca voltam. */
   excludedFingerprints: Set<string>
@@ -115,7 +121,9 @@ function montar(kind: SuggestionKind, g: Grupo, parentId: string | null, sources
 export function suggestCategories(input: SuggestCategoriesInput): CategorySuggestion[] {
   const L = SUGGESTION_LIMITS
   const porId = new Map(input.categories.map((c) => [c.id, c]))
-  const nomesExistentes = new Set(input.categories.map((c) => normalizeCategoryName(c.name)))
+  const nomesExistentes = new Set(
+    [...input.categories.map((c) => c.name), ...(input.existingNames ?? [])].map(normalizeCategoryName),
+  )
   const generica = (id: string | null) => id === null || (porId.has(id) && isGenericCategory(porId.get(id)!))
 
   const saida: CategorySuggestion[] = []
@@ -142,12 +150,26 @@ export function suggestCategories(input: SuggestCategoriesInput): CategorySugges
     if (gasto / totalGeral < L.splitMinShare) continue
     const grupos = agrupar(txs).filter(qualifica)
     if (grupos.length < L.splitMinGroups) continue
-    for (const g of grupos) saida.push(montar('split', g, catId, [catId]))
+    // A nova categoria nasce irmã da origem quando a origem já é subcategoria:
+    // os seletores só mostram dois níveis, uma neta sumiria da tela.
+    const mae = porId.get(catId)!.parentId ?? catId
+    for (const g of grupos) saida.push(montar('split', g, mae, [catId]))
   }
 
-  return saida
+  const filtradas = saida
     .filter((s) => !input.excludedFingerprints.has(s.fingerprint))
     .filter((s) => !nomesExistentes.has(normalizeCategoryName(s.suggestedName)))
+
+  // Mesmo nome em duas sugestões (tipo A e B, ou dois splits): aceitar uma
+  // faria a outra falhar por nome repetido. Fica a de maior total.
+  const porNome = new Map<string, CategorySuggestion>()
+  for (const s of filtradas) {
+    const nome = normalizeCategoryName(s.suggestedName)
+    const atual = porNome.get(nome)
+    if (!atual || s.totalCents > atual.totalCents) porNome.set(nome, s)
+  }
+
+  return [...porNome.values()]
     .sort((a, b) => b.totalCents - a.totalCents)
     .slice(0, L.maxSuggestions)
 }

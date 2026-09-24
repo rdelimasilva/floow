@@ -96,6 +96,8 @@ export function defaultCategorySuggestionDeps(): CategorySuggestionDeps {
         categories: cats
           .filter((c) => c.type === 'expense')
           .map((c) => ({ id: c.id, name: c.name, parentId: c.parentId, polpRef: c.polpRef })),
+        // O aceite recusa nome repetido em qualquer tipo: o motor precisa saber de todos.
+        existingNames: cats.map((c) => c.name),
         categoriesWithGoal: new Set(plano.map((l) => l.categoryId).filter((id): id is string => !!id)),
       }
     },

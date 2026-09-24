@@ -91,6 +91,14 @@ describe('suggestCategories — tipo B', () => {
   it('um único grupo qualificado não justifica dividir', () => {
     expect(suggestCategories({ ...base, transactions: serie('IFOOD *X', 50, 6, 'alim') })).toEqual([])
   })
+  it('dividir uma subcategoria sugere irmã dela, não neta (mãe = mãe da origem)', () => {
+    const cats = [...CATS, { id: 'mercado', name: 'Mercado', parentId: 'alim', polpRef: null }]
+    const txs = [...serie('IFOOD *X', 50, 6, 'mercado'), ...serie('PADARIA BELA', 30, 6, 'mercado')]
+    const r = suggestCategories({ ...base, categories: cats, transactions: txs })
+    expect(r).toHaveLength(2)
+    for (const s of r) expect(s).toMatchObject({ kind: 'split', parentCategoryId: 'alim', sourceCategoryIds: ['mercado'] })
+    expect(r.map((s) => s.fingerprint).sort()).toEqual(['split:alim:ifood', 'split:alim:padaria'])
+  })
   it('categoria abaixo de 10% do total não é dividida', () => {
     const outra = serie('ALUGUEL IMOVEL', 5000, 12, 'casa')
     expect(suggestCategories({ ...base, transactions: [...grande, ...outra] }).filter((s) => s.parentCategoryId === 'alim')).toEqual([])
@@ -101,6 +109,20 @@ describe('suggestCategories — filtros finais', () => {
   it('não sugere nome que já existe (caixa/acento)', () => {
     const cats = [...CATS, { id: 'x', name: 'IFÓOD', parentId: null, polpRef: null }]
     expect(suggestCategories({ ...base, categories: cats, transactions: serie('IFOOD', 40, 6, null) })).toEqual([])
+  })
+  it('não sugere nome que já existe em categoria de outro tipo (existingNames)', () => {
+    const r = suggestCategories({ ...base, existingNames: ['iFood'], transactions: serie('IFOOD', 40, 6, null) })
+    expect(r).toEqual([])
+  })
+  it('mesmo nome sugerido duas vezes (tipo A e tipo B) fica só o de maior total', () => {
+    const txs = [
+      ...serie('IFOOD *X', 50, 6, 'alim'), ...serie('PADARIA BELA', 30, 6, 'alim'),
+      ...serie('IFOOD *Y', 20, 6, null),
+    ]
+    const r = suggestCategories({ ...base, transactions: txs })
+    const ifood = r.filter((s) => s.suggestedName === 'Ifood')
+    expect(ifood).toHaveLength(1)
+    expect(ifood[0]).toMatchObject({ kind: 'split', totalCents: 30000 })
   })
   it('fingerprint excluído não volta', () => {
     const excl = new Set(['uncategorized:root:ifood'])
