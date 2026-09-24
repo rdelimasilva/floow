@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ACCOUNT_TYPE_OPTIONS } from '@/lib/finance/account-types'
+import { DiasDoCartaoFields } from '@/components/finance/dias-do-cartao-fields'
 
 const newAccountSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100),
@@ -27,6 +28,8 @@ const newAccountSchema = z.object({
   branch: z.string().max(20).optional(),
   accountNumber: z.string().max(30).optional(),
   initialBalance: z.string().optional(),
+  closingDay: z.string().optional(),
+  dueDay: z.string().optional(),
 })
 
 type NewAccountForm = z.infer<typeof newAccountSchema>
@@ -38,12 +41,14 @@ export default function NewAccountPage() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<NewAccountForm>({
     resolver: zodResolver(newAccountSchema),
   })
 
   useUnsavedChanges(isDirty)
+  const tipo = watch('type')
 
   async function onSubmit(data: NewAccountForm) {
     const formData = new FormData()
@@ -51,6 +56,8 @@ export default function NewAccountPage() {
     formData.append('type', data.type)
     if (data.branch) formData.append('branch', data.branch)
     if (data.accountNumber) formData.append('accountNumber', data.accountNumber)
+    if (data.closingDay) formData.append('closingDay', data.closingDay)
+    if (data.dueDay) formData.append('dueDay', data.dueDay)
     if (data.initialBalance && data.initialBalance.trim() !== '') {
       const cents = currencyToCents(data.initialBalance)
       if (Number.isFinite(cents)) {
@@ -128,6 +135,15 @@ export default function NewAccountPage() {
                 <p className="text-xs text-red-600">{errors.type.message}</p>
               )}
             </div>
+
+            {tipo === 'credit_card' && (
+              <DiasDoCartaoFields
+                closingDay={watch('closingDay') ?? ''}
+                dueDay={watch('dueDay') ?? ''}
+                onClosingDayChange={(v) => setValue('closingDay', v, { shouldDirty: true })}
+                onDueDayChange={(v) => setValue('dueDay', v, { shouldDirty: true })}
+              />
+            )}
 
             {/* Initial balance */}
             <div className="space-y-1.5">

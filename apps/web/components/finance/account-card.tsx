@@ -13,6 +13,7 @@ import { updateAccount, deleteAccount, adjustAccountBalance } from '@/lib/financ
 import { useToast } from '@/components/ui/toast'
 import type { Account } from '@floow/db'
 import { ACCOUNT_TYPE_CONFIG, ACCOUNT_TYPE_OPTIONS } from '@/lib/finance/account-types'
+import { DiasDoCartaoFields } from './dias-do-cartao-fields'
 
 const ACCOUNT_TYPES = ACCOUNT_TYPE_OPTIONS
 
@@ -34,6 +35,8 @@ export function AccountCard({ account, tipoTravado = false }: AccountCardProps) 
   const [type, setType] = useState(account.type)
   const [branch, setBranch] = useState(account.branch ?? '')
   const [accountNumber, setAccountNumber] = useState(account.accountNumber ?? '')
+  const [closingDay, setClosingDay] = useState(account.closingDay?.toString() ?? '')
+  const [dueDay, setDueDay] = useState(account.dueDay?.toString() ?? '')
   const [showAdjust, setShowAdjust] = useState(false)
   const [adjustNewBalance, setAdjustNewBalance] = useState('')
   const [adjustNote, setAdjustNote] = useState('')
@@ -57,6 +60,8 @@ export function AccountCard({ account, tipoTravado = false }: AccountCardProps) 
       formData.append('type', type)
       if (branch) formData.append('branch', branch)
       if (accountNumber) formData.append('accountNumber', accountNumber)
+      if (closingDay) formData.append('closingDay', closingDay)
+      if (dueDay) formData.append('dueDay', dueDay)
       await updateAccount(formData)
       setEditing(false)
       toast('Conta atualizada com sucesso')
@@ -148,11 +153,17 @@ export function AccountCard({ account, tipoTravado = false }: AccountCardProps) 
             </select>
           </div>
           )}
+          {type === 'credit_card' && (
+            <DiasDoCartaoFields
+              closingDay={closingDay} dueDay={dueDay}
+              onClosingDayChange={setClosingDay} onDueDayChange={setDueDay}
+            />
+          )}
           <div className="flex gap-2">
             <Button size="sm" variant="primary" onClick={handleUpdate} disabled={loading}>
               {loading ? 'Salvando...' : 'Salvar'}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setEditing(false); setName(account.name); setType(account.type); setBranch(account.branch ?? ''); setAccountNumber(account.accountNumber ?? ''); setShowAdjust(false) }}>
+            <Button size="sm" variant="outline" onClick={() => { setEditing(false); setName(account.name); setType(account.type); setBranch(account.branch ?? ''); setAccountNumber(account.accountNumber ?? ''); setClosingDay(account.closingDay?.toString() ?? ''); setDueDay(account.dueDay?.toString() ?? ''); setShowAdjust(false) }}>
               Cancelar
             </Button>
           </div>

@@ -14,6 +14,23 @@ import {
 
 type Db = ReturnType<typeof getDb>
 
+/** Dia do mês vindo do formulário; vazio ou inválido = não informado. */
+function diaDoForm(formData: FormData, campo: string): number | undefined {
+  const bruto = formData.get(campo)
+  if (bruto == null || bruto === '') return undefined
+  const n = parseInt(bruto as string, 10)
+  return Number.isFinite(n) ? n : undefined
+}
+
+/** Fechamento e vencimento só valem para cartão; outro tipo grava null. */
+function diasDoCartao(input: { type: string; closingDay?: number; dueDay?: number }) {
+  const cartao = input.type === 'credit_card'
+  return {
+    closingDay: cartao ? input.closingDay ?? null : null,
+    dueDay: cartao ? input.dueDay ?? null : null,
+  }
+}
+
 /**
  * Verifies that an account belongs to the given org.
  * Throws if the account does not exist or belongs to a different org.
@@ -50,6 +67,8 @@ export async function createAccount(formData: FormData) {
     branch: formData.get('branch') || undefined,
     accountNumber: formData.get('accountNumber') || undefined,
     initialBalanceCents: Number.isFinite(initialBalanceCents) ? initialBalanceCents : undefined,
+    closingDay: diaDoForm(formData, 'closingDay'),
+    dueDay: diaDoForm(formData, 'dueDay'),
   })
 
   const [account] = await db
@@ -61,6 +80,7 @@ export async function createAccount(formData: FormData) {
       branch: input.branch ?? null,
       accountNumber: input.accountNumber ?? null,
       balanceCents: input.initialBalanceCents ?? 0,
+      ...diasDoCartao(input),
     })
     .returning()
 
@@ -214,6 +234,8 @@ export async function updateAccount(formData: FormData) {
     type: formData.get('type'),
     branch: formData.get('branch') || undefined,
     accountNumber: formData.get('accountNumber') || undefined,
+    closingDay: diaDoForm(formData, 'closingDay'),
+    dueDay: diaDoForm(formData, 'dueDay'),
   })
 
   await assertAccountOwnership(db, input.id, orgId)
@@ -225,6 +247,7 @@ export async function updateAccount(formData: FormData) {
       type: input.type,
       branch: input.branch ?? null,
       accountNumber: input.accountNumber ?? null,
+      ...diasDoCartao(input),
       updatedAt: new Date(),
     })
     .where(and(eq(accounts.id, input.id), eq(accounts.orgId, orgId)))
