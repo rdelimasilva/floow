@@ -112,6 +112,12 @@ export interface PendingGroupItem {
    * depois de o lote já ter sido enviado.
    */
   accountId: string
+  /**
+   * Natureza com que o lançamento está gravado. Quando o próprio banco já
+   * disse que é transferência (aplicação, resgate, fatura), a fila abre com
+   * Transferência escolhida e só pede a conta.
+   */
+  type?: 'income' | 'expense' | 'transfer'
 }
 
 export interface PendingGroup {
@@ -170,6 +176,7 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
         description: transactions.description,
         amountCents: transactions.amountCents,
         accountId: transactions.accountId,
+        type: transactions.type,
       })
       .from(transactions)
       .innerJoin(counterparties, eq(counterparties.id, transactions.counterpartyId))
@@ -197,6 +204,7 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
         description: row.description,
         amountCents: row.amountCents,
         accountId: row.accountId,
+        type: row.type,
       })
     }
 

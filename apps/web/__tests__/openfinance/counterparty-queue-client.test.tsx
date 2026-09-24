@@ -277,3 +277,23 @@ describe('CounterpartyQueueClient — destino igual à conta do lançamento', ()
     expect(botaoConfirmar().disabled).toBe(true)
   })
 })
+
+describe('CounterpartyQueueClient — natureza já decidida pelo banco', () => {
+  it('grupo só de transferências abre com Transferência escolhida, pedindo a conta', async () => {
+    const pending = [{
+      counterpartyId: 'cp-aplic', displayName: 'APLICACAO CDB DI', keyType: 'description' as const,
+      count: 1, totalCents: -100_000,
+      items: [{ id: 'tx-a', date: '2026-01-05', description: 'APLICACAO CDB DI', amountCents: -100_000, accountId: 'conta-origem', type: 'transfer' as const }],
+    }]
+    render(React.createElement(CounterpartyQueueClient, {
+      mode: 'page', pending, confirmed: [], categoryOptions: CATEGORY_OPTIONS, accountOptions: ACCOUNT_OPTIONS,
+    }))
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'conta-destino' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Confirmar' })) })
+
+    expect(confirmCounterparty).toHaveBeenCalledWith(expect.objectContaining({
+      counterpartyId: 'cp-aplic', nature: 'transfer', categoryId: null, transferAccountId: 'conta-destino',
+    }))
+  })
+})

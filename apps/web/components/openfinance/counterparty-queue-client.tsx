@@ -37,7 +37,12 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
   const [itemOverrides, setItemOverrides] = useState<Record<string, { nature: Nature; categoryId: string | null; transferAccountId: string | null }>>({})
 
   function draftFor(id: string) {
-    return drafts[id] ?? { nature: null, categoryId: null, transferAccountId: null }
+    if (drafts[id]) return drafts[id]
+    // O banco já disse que é transferência em todos os lançamentos do grupo:
+    // abre em Transferência, falta só a conta.
+    const grupo = pending.find((g) => g.counterpartyId === id)
+    const soTransferencia = Boolean(grupo?.items.length) && grupo!.items.every((i) => i.type === 'transfer')
+    return { nature: soTransferencia ? ('transfer' as Nature) : null, categoryId: null, transferAccountId: null }
   }
 
   function setDraft(id: string, patch: Partial<{ nature: Nature | null; categoryId: string | null; transferAccountId: string | null }>) {
