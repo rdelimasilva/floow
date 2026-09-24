@@ -26,10 +26,16 @@ vi.mock('@/components/ui/toast', () => ({
 }))
 
 vi.mock('@/components/ui/select', () => ({
+  // Um <select> nativo sem <option value=""> correspondente ao value=''
+  // "sem seleção" cai no default do próprio DOM: seleciona a primeira option
+  // da lista e `.value` reporta o valor dela, não ''. A option vazia aqui
+  // resolve isso — sem ela, ler `.value` pra provar "nenhuma conta escolhida
+  // ainda" dava falso positivo (ver task-7 fix round 1).
   Select: ({ value, onValueChange, children }: any) =>
     React.createElement(
       'select',
       { value: value ?? '', onChange: (e: any) => onValueChange(e.target.value) },
+      React.createElement('option', { value: '' }),
       children
     ),
   SelectTrigger: ({ children }: any) => React.createElement(React.Fragment, null, children),
@@ -345,7 +351,81 @@ describe('CounterpartyQueueClient — CPF próprio', () => {
     // racional do teste de "sinal do valor" acima).
     screen.getByText(/Pix para você mesmo/)
     // Grupo de CPF próprio já nasce expandido — sem clicar em "ver lançamentos".
-    expect(screen.getByTestId('item-i1').textContent).toContain('NU')
+    // O mock de <Select> renderiza toda opção como <option> independente do
+    // valor selecionado — checar `.value` do <select>, não o texto, é o que
+    // de fato prova que a sugestão do par foi pré-selecionada (ou não).
+    const selectDoItem = (testId: string) =>
+      within(screen.getByTestId(testId)).getByRole('combobox') as HTMLSelectElement
+    expect(selectDoItem('item-i1').value).toBe('nu')
+    expect(selectDoItem('item-i2').value).toBe('')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    })
+
+    expect(confirmCounterparty).not.toHaveBeenCalled()
+    expect(toastMock).toHaveBeenCalledWith('Escolha a conta de cada lançamento.', 'error')
+  })
+
+  it('confirma quando cada lançamento tem conta escolhida — sem conta de grupo, só exceções', async () => {
+    const grupo = {
+      ...grupoBase,
+      items: [
+        { ...itemBase, id: 'i1', type: 'transfer' as const, sugestaoContaId: 'nu' },
+        { ...itemBase, id: 'i2', type: 'transfer' as const, sugestaoContaId: null },
+      ],
+    }
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending: [grupo],
+        confirmed: [],
+        categoryOptions: [],
+        accountOptions: [{ id: 'nu', name: 'NU' }, { id: 'itau', name: 'Itaú' }],
+      })
+    )
+
+    // i2 não veio com sugestão — o usuário escolhe a conta dele.
+    fireEvent.change(within(screen.getByTestId('item-i2')).getByRole('combobox'), { target: { value: 'itau' } })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    })
+
+    expect(confirmCounterparty).toHaveBeenCalledWith({
+      counterpartyId: 'cp-titular',
+      nature: 'transfer',
+      categoryId: null,
+      transferAccountId: null,
+      exceptions: [
+        { transactionId: 'i1', nature: 'transfer', categoryId: null, transferAccountId: 'nu' },
+        { transactionId: 'i2', nature: 'transfer', categoryId: null, transferAccountId: 'itau' },
+      ],
+    })
+  })
+
+  it('"usar padrão do grupo" limpa a exceção do lançamento e volta a bloquear o Confirmar', async () => {
+    const grupo = {
+      ...grupoBase,
+      items: [
+        { ...itemBase, id: 'i1', type: 'transfer' as const, sugestaoContaId: 'nu' },
+        { ...itemBase, id: 'i2', type: 'transfer' as const, sugestaoContaId: 'itau' },
+      ],
+    }
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending: [grupo],
+        confirmed: [],
+        categoryOptions: [],
+        accountOptions: [{ id: 'nu', name: 'NU' }, { id: 'itau', name: 'Itaú' }],
+      })
+    )
+
+    // Os dois lançamentos nasceram com sugestão — limpar a de um deles
+    // (voltando ao "padrão do grupo", que não existe pra CPF próprio) deixa
+    // esse lançamento sem conta de novo.
+    fireEvent.click(within(screen.getByTestId('item-i2')).getByText('usar padrão do grupo'))
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
