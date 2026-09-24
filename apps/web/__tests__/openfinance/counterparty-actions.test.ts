@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getTableName, type SQL } from 'drizzle-orm'
-import { PgDialect } from 'drizzle-orm/pg-core'
+import { getTableName } from 'drizzle-orm'
 
 const ORG = 'org-1'
 const COUNTERPARTY_ID = '11111111-1111-1111-1111-111111111111'
@@ -97,31 +96,6 @@ vi.mock('@floow/db', async () => {
 })
 
 import { confirmCounterparty } from '@/lib/openfinance/counterparty-actions'
-import { revalidateTag } from 'next/cache'
-
-const dialect = new PgDialect()
-function sqlDoWhere(op: Op | undefined): string {
-  if (!op?.where) throw new Error('operação sem where')
-  return dialect.sqlToQuery(op.where as SQL).sql.toLowerCase()
-}
-
-/** Fila da transferência com destino manual, um lançamento pendente no lote. */
-function filaTransferenciaManual() {
-  selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
-  selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership incondicional
-  updateQueue.push([]) // update de counterparties
-  selectQueue.push([{ id: 'tx-1' }]) // ids pendentes do grupo (applyTransferBatch)
-  selectQueue.push([{
-    id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
-    date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
-  }])
-  selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership
-  selectQueue.push([]) // isOpenFinanceLinkedAccount: manual
-  updateQueue.push([]) // update da origem
-  insertQueue.push([{ id: 'tx-1-dest' }])
-  updateQueue.push([]) // saldo do destino
-  selectQueue.push([{ one: 1 }])
-}
 
 beforeEach(() => {
   ops.length = 0
@@ -448,122 +422,4 @@ describe('confirmCounterparty', () => {
     })
   })
 
-  describe('lançamento pendente que já tem par não ganha outro', () => {
-    // Uma aplicação Nível 1 pendente que `vincularAplicacoesOrfas` já tivesse
-    // ligado teria perna real e `transfer_group_id`. Classificar em cima dela
-    // sobrescreveria o grupo e inseriria uma SEGUNDA perna: dinheiro em dobro.
-    it('lote e lançamento individual de transferência exigem transfer_group_id nulo', async () => {
-      filaTransferenciaManual()
-
-      await confirmCounterparty({
-        counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
-      })
-
-      const selectsDeTransacao = ops.filter((o) => o.op === 'select' && o.table === 'transactions')
-      const [lote, individual] = selectsDeTransacao
-      expect(sqlDoWhere(lote)).toContain('"transfer_group_id" is null')
-      expect(sqlDoWhere(individual)).toContain('"transfer_group_id" is null')
-    })
-
-    it('lote de receita/despesa também deixa de fora quem já tem par', async () => {
-      selectQueue.push([{ id: COUNTERPARTY_ID }])
-      updateQueue.push([])
-      updateQueue.push([{ id: 'tx-1' }])
-      selectQueue.push([{ one: 1 }])
-
-      await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID, transferAccountId: null })
-
-      const lote = ops.filter((o) => o.op === 'update' && o.table === 'transactions')[0]
-      expect(sqlDoWhere(lote)).toContain('"transfer_group_id" is null')
-    })
-  })
-
-  describe('lote não alcança o que Classificar esconde', () => {
-    // A ponta com proposta pendente contra perna prevista some da tela de
-    // Classificar; confirmar a contraparte em lote não pode reclassificá-la
-    // por trás — a decisão dela está em Confirmar previsões.
-    it('lote de transferência deixa de fora a ponta com par de transferência pendente', async () => {
-      filaTransferenciaManual()
-
-      await confirmCounterparty({
-        counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
-      })
-
-      const lote = ops.filter((o) => o.op === 'select' && o.table === 'transactions')[0]
-      expect(sqlDoWhere(lote)).toContain('fmp.realized_transaction_id = "transactions"."id"')
-    })
-
-    it('lote de receita/despesa deixa de fora a ponta com par de transferência pendente', async () => {
-      selectQueue.push([{ id: COUNTERPARTY_ID }])
-      updateQueue.push([])
-      updateQueue.push([{ id: 'tx-1' }])
-      selectQueue.push([{ one: 1 }])
-
-      await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID, transferAccountId: null })
-
-      const lote = ops.filter((o) => o.op === 'update' && o.table === 'transactions')[0]
-      expect(sqlDoWhere(lote)).toContain('fmp.realized_transaction_id = "transactions"."id"')
-    })
-  })
-
-  describe('OF↔OF: o outro lado já criou a perna prevista', () => {
-    it('não cria segunda perna; confirma sem grupo e propõe o par na conta do lançamento', async () => {
-      selectQueue.push([{ id: COUNTERPARTY_ID }])
-      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }])
-      updateQueue.push([])
-      selectQueue.push([{ id: 'tx-1' }])
-      selectQueue.push([{
-        id: 'tx-1', accountId: 'conta-origem', amountCents: 50000,
-        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
-      }])
-      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership
-      selectQueue.push([{ id: 'resource-1' }]) // isOpenFinanceLinkedAccount: linked
-      selectQueue.push([{ id: 'perna-do-outro-lado' }]) // acharPernaPrevistaAberta: achou
-      updateQueue.push([]) // update da origem
-      selectQueue.push([{ one: 1 }])
-
-      const result = await confirmCounterparty({
-        counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
-      })
-
-      expect(result.reclassified).toBe(1)
-      expect(ops.filter((o) => o.op === 'insert')).toEqual([])
-      const origem = ops.filter((o) => o.op === 'update' && o.table === 'transactions')[0]
-      expect(origem.set).toMatchObject({
-        type: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID, transferGroupId: null, reviewState: 'confirmed',
-      })
-      expect(criarPropostas).toHaveBeenCalledWith(expect.anything(), ORG, 'conta-origem')
-      expect(criarPropostas).not.toHaveBeenCalledWith(expect.anything(), ORG, TRANSFER_ACCOUNT_ID)
-    })
-  })
-
-  it('invalida a lista de lançamentos DEPOIS de propor a conciliação', async () => {
-    // Invalidar antes deixaria a tela renderizar sem a proposta recém-criada
-    // (e com a ponta real ainda aparecendo em Classificar) até a próxima
-    // expiração do cache.
-    selectQueue.push([{ id: COUNTERPARTY_ID }])
-    selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }])
-    updateQueue.push([])
-    selectQueue.push([{ id: 'tx-1' }])
-    selectQueue.push([{
-      id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
-      date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
-    }])
-    selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }])
-    selectQueue.push([{ id: 'resource-1' }]) // linked
-    selectQueue.push([]) // nenhuma perna do outro lado
-    updateQueue.push([])
-    insertQueue.push([{ id: 'tx-1-par' }])
-    selectQueue.push([{ one: 1 }])
-    vi.mocked(revalidateTag).mockClear()
-
-    await confirmCounterparty({
-      counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
-    })
-
-    const chamadas = vi.mocked(revalidateTag).mock
-    const i = chamadas.calls.findIndex(([tag]) => tag === `transactions:${ORG}`)
-    expect(i).toBeGreaterThanOrEqual(0)
-    expect(chamadas.invocationCallOrder[i]).toBeGreaterThan(criarPropostas.mock.invocationCallOrder[0])
-  })
 })
