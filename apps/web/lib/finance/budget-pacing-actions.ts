@@ -12,7 +12,9 @@ export interface PacingTransaction {
   description: string
   /** Positivo = gasto; negativo = estorno que abate o teto. */
   spentCents: number
+  categoryId: string | null
   categoryName: string | null
+  accountId: string
   accountName: string
 }
 
@@ -48,7 +50,9 @@ export async function getPacingCategoryTransactions(
         date: sql<string>`to_char(${transactions.date}, 'YYYY-MM-DD')`,
         description: transactions.description,
         amountCents: transactions.amountCents,
+        categoryId: transactions.categoryId,
         categoryName: categories.name,
+        accountId: transactions.accountId,
         accountName: accounts.name,
       })
       .from(transactions)
@@ -75,7 +79,9 @@ export async function getPacingCategoryTransactions(
     date: r.date,
     description: r.description,
     spentCents: -r.amountCents,
+    categoryId: r.categoryId,
     categoryName: r.categoryName,
+    accountId: r.accountId,
     accountName: r.accountName,
   }))
 }

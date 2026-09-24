@@ -23,6 +23,8 @@ interface Props {
   categoryNames: Record<string, string>
   /** Categorias cujo gasto soma em cada teto (a própria + filhas sem teto). */
   memberIds: Record<string, string[]>
+  /** Categorias de despesa para trocar a categoria de um lançamento no popup. */
+  categoryOptions: { id: string; label: string }[]
   selectedMonth: string
 }
 
@@ -62,7 +64,7 @@ function shiftMonth(monthStr: string, delta: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-export function PacingClient({ result, categoryNames, memberIds, selectedMonth }: Props) {
+export function PacingClient({ result, categoryNames, memberIds, categoryOptions, selectedMonth }: Props) {
   const router = useRouter()
   const [openCategory, setOpenCategory] = useState<{
     id: string
@@ -263,6 +265,7 @@ export function PacingClient({ result, categoryNames, memberIds, selectedMonth }
       <PacingTransactionsDialog
         category={openCategory}
         month={selectedMonth}
+        categoryOptions={categoryOptions}
         onClose={closeDialog}
       />
     </div>

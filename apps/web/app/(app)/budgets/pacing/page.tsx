@@ -8,6 +8,7 @@ import {
   resolveBudgetedCategory,
 } from '@floow/core-finance'
 import { saoPauloToday } from '@/lib/finance/sp-date'
+import { toCategoryOptions } from '@/lib/finance/category-options'
 import { PacingClient } from './client'
 
 interface Props {
@@ -70,6 +71,10 @@ export default async function BudgetPacingPage({ searchParams }: Props) {
       result={result}
       categoryNames={categoryNames}
       memberIds={memberIds}
+      categoryOptions={toCategoryOptions(categories.filter((c) => c.type === 'expense')).map((c) => ({
+        id: c.id,
+        label: c.label,
+      }))}
       selectedMonth={selectedMonth}
     />
   )

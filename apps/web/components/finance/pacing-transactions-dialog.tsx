@@ -1,17 +1,23 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { X } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import {
   getPacingCategoryTransactions,
   type PacingTransaction,
 } from '@/lib/finance/budget-pacing-actions'
+import { bulkCategorizeTransactions } from '@/lib/finance/transaction-actions'
+import { useToast } from '@/components/ui/toast'
 
 interface Props {
   /** Categoria orçada selecionada; null fecha o popup. */
   category: { id: string; name: string; memberIds: string[] } | null
   month: string
+  /** Categorias de despesa para trocar a categoria de um lançamento. */
+  categoryOptions?: { id: string; label: string }[]
   onClose: () => void
 }
 
@@ -20,9 +26,41 @@ function formatDay(isoDate: string): string {
   return `${d}/${m}`
 }
 
-export function PacingTransactionsDialog({ category, month, onClose }: Props) {
+/** Leva à tela de Transações já filtrada naquele lançamento. */
+export function linkDoLancamento(r: PacingTransaction): string {
+  const q = new URLSearchParams({ search: r.description, startDate: r.date, endDate: r.date, accountId: r.accountId })
+  return `/transactions?${q.toString()}`
+}
+
+export function PacingTransactionsDialog({ category, month, categoryOptions = [], onClose }: Props) {
+  const router = useRouter()
+  const { toast } = useToast()
   const [rows, setRows] = useState<PacingTransaction[] | null>(null)
   const [error, setError] = useState(false)
+  const [trocando, setTrocando] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
+
+  async function trocarCategoria(r: PacingTransaction, categoryId: string) {
+    if (!category || !categoryId || categoryId === r.categoryId) return
+    setSalvando(true)
+    try {
+      await bulkCategorizeTransactions([r.id], categoryId)
+      const nome = categoryOptions.find((o) => o.id === categoryId)?.label.trim() ?? null
+      // Saiu do teto aberto: some da lista. Continua (filha do mesmo teto): só troca o rótulo.
+      setRows((prev) =>
+        (prev ?? []).flatMap((x) =>
+          x.id !== r.id ? [x] : category.memberIds.includes(categoryId) ? [{ ...x, categoryId, categoryName: nome }] : [],
+        ),
+      )
+      setTrocando(null)
+      toast(`Lançamento movido para "${nome ?? 'outra categoria'}"`)
+      router.refresh()
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao trocar categoria', 'error')
+    } finally {
+      setSalvando(false)
+    }
+  }
 
   useEffect(() => {
     if (!category) return
@@ -108,6 +146,41 @@ export function PacingTransactionsDialog({ category, month, onClose }: Props) {
                       {formatDay(r.date)} · {r.accountName}
                       {showCategory && r.categoryName ? ` · ${r.categoryName}` : ''}
                     </p>
+                    <div className="mt-1 flex items-center gap-3 text-xs">
+                      <Link href={linkDoLancamento(r)} className="hover:underline" style={{ color: '#4A5899' }}>
+                        Abrir
+                      </Link>
+                      {categoryOptions.length > 0 && trocando !== r.id && (
+                        <button
+                          type="button"
+                          className="hover:underline"
+                          style={{ color: '#4A5899' }}
+                          onClick={() => setTrocando(r.id)}
+                        >
+                          Trocar categoria
+                        </button>
+                      )}
+                      {trocando === r.id && (
+                        <select
+                          aria-label={`Nova categoria de ${r.description}`}
+                          className="max-w-[14rem] rounded border px-1 py-0.5"
+                          defaultValue={r.categoryId ?? ''}
+                          disabled={salvando}
+                          onChange={(e) => trocarCategoria(r, e.target.value)}
+                          onBlur={() => !salvando && setTrocando(null)}
+                          autoFocus
+                        >
+                          <option value="" disabled>
+                            Escolha a categoria
+                          </option>
+                          {categoryOptions.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   </div>
                   <span
                     className="shrink-0 text-sm tabular-nums"
