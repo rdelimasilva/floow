@@ -11,8 +11,6 @@ import React from 'react'
  * opacidade não expressa três coisas. Daí os selos.
  */
 
-vi.mock('@/lib/finance/actions', () => ({}))
-
 const { TransactionDesktopRow } = await import('@/components/finance/transaction-display-row')
 
 const ACOES = {

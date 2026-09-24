@@ -11,8 +11,6 @@ import React from 'react'
  * grande sem explicação.
  */
 
-vi.mock('@/lib/finance/actions', () => ({}))
-
 const { TransactionDesktopRow } = await import('@/components/finance/transaction-display-row')
 
 const ACOES = {

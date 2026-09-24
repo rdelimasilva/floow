@@ -71,3 +71,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Daily run failed' }, { status: 500 })
   }
 }
+
+// O cron da Vercel dispara com GET; o POST fica para chamadas manuais.
+export { POST as GET }

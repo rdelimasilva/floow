@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
-import { deleteTransaction, toggleIgnoreTransaction, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/actions'
+import { deleteTransaction, toggleIgnoreTransaction, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/transaction-actions'
 import { cancelRecurring } from '@/lib/finance/recurring-cancel'
 import { setTransactionAffectsCashFlow } from '@/lib/finance/cash-flow-actions'
 import { nextAffectsCashFlow } from '@/lib/finance/affects-cash-flow-cycle'
@@ -18,6 +18,8 @@ import { TransactionEditRow } from './transaction-edit-row'
 import type { TransactionRowData, AccountOption, CategoryOption } from './transaction-list-types'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
+import { intercalarFaturas, type FaturaNoExtrato } from '@/lib/finance/intercalar-faturas'
+import { FaturaDesktopRow, FaturaMobileCard, chaveDaFatura } from './fatura-row'
 
 interface TransactionListProps {
   transactions: TransactionRowData[]
@@ -25,6 +27,8 @@ interface TransactionListProps {
   categories: CategoryOption[]
   sortBy?: string
   sortDir?: 'asc' | 'desc'
+  /** Linhas de total da fatura do cartão, só leitura. Ver `fatura-row.tsx`. */
+  faturas?: FaturaNoExtrato[]
   activeTypes?: string[]
   activeCategoryIds?: string[]
   activeMinAmount?: string
@@ -37,7 +41,7 @@ interface TransactionListProps {
 
 export function TransactionList({
   transactions, accounts, categories,
-  sortBy = 'date', sortDir = 'desc',
+  sortBy = 'date', sortDir = 'desc', faturas,
   activeTypes = [], activeCategoryIds = [],
   activeMinAmount = '', activeMaxAmount = '',
   onSort = () => {}, onFilterTypes = () => {}, onFilterCategories = () => {}, onFilterAmount = () => {},
@@ -85,6 +89,11 @@ export function TransactionList({
   const runningBalances = useMemo(
     () => transactions.map((t) => t.runningBalance ?? 0),
     [transactions],
+  )
+
+  const itens = useMemo(
+    () => intercalarFaturas(transactions, faturas ?? [], sortDir),
+    [transactions, faturas, sortDir],
   )
 
   // Stable action callbacks for memoized rows
@@ -272,7 +281,10 @@ export function TransactionList({
 
       {isDesktop === false ? (
         <div className="space-y-2">
-          {transactions.map((tx, idx) => (
+          {itens.map((item) => {
+            if (item.kind === 'fatura') return <FaturaMobileCard key={chaveDaFatura(item.fatura)} fatura={item.fatura} />
+            const { tx, idx } = item
+            return (
             <TransactionMobileCard
               key={tx.id}
               tx={tx}
@@ -281,7 +293,8 @@ export function TransactionList({
               loading={loading}
               actions={rowActions}
             />
-          ))}
+            )
+          })}
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -313,7 +326,10 @@ export function TransactionList({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {transactions.map((tx, idx) => (
+              {itens.map((item) => {
+                if (item.kind === 'fatura') return <FaturaDesktopRow key={chaveDaFatura(item.fatura)} fatura={item.fatura} />
+                const { tx, idx } = item
+                return (
                 editingId === tx.id && !tx.transferGroupId ? (
                   <TransactionEditRow
                     key={tx.id}
@@ -335,7 +351,8 @@ export function TransactionList({
                     actions={rowActions}
                   />
                 )
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

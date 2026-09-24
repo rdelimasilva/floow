@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation'
 import { getOrgId, getTransactionsWithCount, getTransactionCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
 import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
 import { contasParaLancamento, contasDeTransferencia } from '@/lib/finance/account-options'
+import { contasDoFiltro } from '@/lib/finance/queries-transactions'
+import { getFaturasDoExtrato } from '@/lib/finance/queries-fatura'
+import { intervaloDaPagina } from '@/lib/finance/intercalar-faturas'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { InlineTransactionFormProvider, InlineTransactionFormButton, InlineTransactionFormPanel } from '@/components/finance/inline-transaction-form'
@@ -125,6 +128,21 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
+  // Cartão marcado no filtro ganha a linha do total da fatura no fechamento.
+  // Só na ordem por data: em outra ordem não há "dia do fechamento" na lista.
+  const marcadas = new Set(contasDoFiltro(filters))
+  const faturas = filters.sortBy === 'date'
+    ? await getFaturasDoExtrato(
+        orgId,
+        accounts.filter((a) => marcadas.has(a.id)),
+        intervaloDaPagina(transactions.map((t) => t.date), {
+          ultimaCronologica: filters.sortDir === 'asc' ? page >= totalPages : page === 1,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+        }),
+      )
+    : []
+
   const paginationParams: Record<string, string> = {}
   if (filters.accountId) paginationParams.accountId = filters.accountId
   if (filters.search) paginationParams.search = filters.search
@@ -205,6 +223,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
         categories={categoryOptions}
         sortBy={filters.sortBy}
         sortDir={filters.sortDir as 'asc' | 'desc'}
+        faturas={faturas}
       />
 
       <div className="flex items-center justify-between gap-3">

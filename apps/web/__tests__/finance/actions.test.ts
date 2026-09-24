@@ -151,14 +151,14 @@ function buildFormData(fields: Record<string, string>): FormData {
 }
 
 // Import no nivel do modulo, e nao dentro de cada `it`: o grafo de
-// `lib/finance/actions.ts` e grande, e o carregamento a frio custava segundos
+// `lib/finance/transaction-create-actions.ts` e grande, e o carregamento a frio custava segundos
 // DENTRO do timeout de 5s do primeiro teste. Sob carga (suite cheia) ele
 // estourava, e os inserts que continuavam rodando depois do timeout vazavam
 // para o teste seguinte — a origem do `expected [ ...(4) ] to have a length
 // of 2`. Nao ha `resetModules()` aqui, entao os 6 testes ja compartilhavam a
 // mesma instancia do modulo: hoistar nao muda semantica.
 process.env.DATABASE_URL = 'postgresql://test'
-const { createTransaction } = await import('@/lib/finance/actions')
+const { createTransaction } = await import('@/lib/finance/transaction-create-actions')
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 

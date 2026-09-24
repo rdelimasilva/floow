@@ -5,6 +5,7 @@ export * from './types'
 export * from './import/ofx'
 export * from './import/csv'
 export * from './cash-flow'
+export * from './fatura'
 export * from './snapshot'
 // Phase 3 — Investment engine
 export * from './portfolio'

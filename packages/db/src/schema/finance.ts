@@ -4,6 +4,7 @@ import {
   uuid,
   text,
   integer,
+  smallint,
   timestamp,
   boolean,
   index,
@@ -62,6 +63,13 @@ export const accounts = pgTable(
     branch: text('branch'),
     accountNumber: text('account_number'),
     isActive: boolean('is_active').notNull().default(true),
+    /**
+     * Só cartão de crédito. Dia do fechamento e do vencimento da fatura (1..31,
+     * migration 00057); `null` = não cadastrado, e o extrato não mostra a linha
+     * da fatura. Ver `packages/core-finance/src/fatura.ts`.
+     */
+    closingDay: smallint('closing_day'),
+    dueDay: smallint('due_day'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

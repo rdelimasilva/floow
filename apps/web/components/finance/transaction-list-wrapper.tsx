@@ -6,6 +6,7 @@ import { TransactionList } from './transaction-list'
 import { currencyToCents } from '@floow/core-finance/src/balance'
 import { InlineFormContext, type InlineCreatedTransaction } from './inline-transaction-form'
 import { lembrarFiltros } from '@/lib/finance/filtros-lembrados'
+import type { FaturaNoExtrato } from '@/lib/finance/intercalar-faturas'
 
 interface Props {
   transactions: Parameters<typeof TransactionList>[0]['transactions']
@@ -13,9 +14,10 @@ interface Props {
   categories: Parameters<typeof TransactionList>[0]['categories']
   sortBy: string
   sortDir: 'asc' | 'desc'
+  faturas?: FaturaNoExtrato[]
 }
 
-export function TransactionListWrapper({ transactions, accounts, categories, sortBy, sortDir }: Props) {
+export function TransactionListWrapper({ transactions, accounts, categories, sortBy, sortDir, faturas }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inlineForm = useContext(InlineFormContext)
@@ -119,6 +121,7 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
       categories={categories}
       sortBy={sortBy}
       sortDir={sortDir}
+      faturas={faturas}
       activeTypes={activeTypes}
       activeCategoryIds={activeCategoryIds}
       activeMinAmount={activeMinAmount}

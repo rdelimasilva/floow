@@ -20,8 +20,6 @@ import { textoDeRemocao } from '@/lib/finance/delete-copy'
  * uma linha que nunca entrou em saldo nenhum.
  */
 
-vi.mock('@/lib/finance/actions', () => ({}))
-
 const { TransactionDesktopRow, TransactionMobileCard } = await import(
   '@/components/finance/transaction-display-row'
 )

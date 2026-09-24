@@ -19,7 +19,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import React from 'react'
 
-vi.mock('@/lib/finance/actions', () => ({
+vi.mock('@/lib/finance/transaction-actions', () => ({
   updateTransaction: vi.fn(async () => undefined),
 }))
 
@@ -37,7 +37,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 import { TransactionEditRow } from '@/components/finance/transaction-edit-row'
-import { updateTransaction } from '@/lib/finance/actions'
+import { updateTransaction } from '@/lib/finance/transaction-actions'
 
 const TX = {
   id: 'tx-1',

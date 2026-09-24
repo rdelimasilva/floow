@@ -63,7 +63,7 @@ vi.mock('@/lib/finance/queries', () => ({
   getOrgId: () => Promise.resolve('org-1'),
   getCategoryRules: () => Promise.resolve([]),
 }))
-vi.mock('@/lib/finance/actions', () => ({
+vi.mock('@/lib/finance/account-actions', () => ({
   assertAccountOwnership: () => Promise.resolve(),
   refreshSnapshot: () => Promise.resolve(),
 }))

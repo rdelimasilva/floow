@@ -6,6 +6,9 @@ export const createAccountSchema = z.object({
   branch: z.string().max(20).optional(),
   accountNumber: z.string().max(30).optional(),
   initialBalanceCents: z.number().int().optional(),
+  /** Só cartão de crédito. Ver `accounts.closing_day` (migration 00057). */
+  closingDay: z.number().int().min(1).max(31).optional(),
+  dueDay: z.number().int().min(1).max(31).optional(),
 })
 
 export const createTransactionSchema = z.object({
@@ -24,6 +27,8 @@ export const updateAccountSchema = z.object({
   type: z.enum(['checking', 'savings', 'brokerage', 'credit_card', 'cash']),
   branch: z.string().max(20).optional(),
   accountNumber: z.string().max(30).optional(),
+  closingDay: z.number().int().min(1).max(31).optional(),
+  dueDay: z.number().int().min(1).max(31).optional(),
 })
 
 export const updateTransactionSchema = z.object({

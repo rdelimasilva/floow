@@ -11,8 +11,6 @@ import { buildTransactionConditions } from '@/lib/finance/queries'
  * procurar o que fazer no lugar errado.
  */
 
-vi.mock('@/lib/finance/actions', () => ({}))
-
 const { TransactionDesktopRow } = await import('@/components/finance/transaction-display-row')
 
 const ACOES = {
