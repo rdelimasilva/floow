@@ -206,14 +206,76 @@ describe('corrigirRegra', () => {
 })
 
 describe('previaCorrecaoDeRegra', () => {
-  it('corrigir para a mesma conta: saldo líquido zero', async () => {
-    selectQueue.push([REGRA], [{ id: L1, accountId: ITAU, amountCents: 100, description: 'x', transferGroupId: null, balanceApplied: true }], [], [])
+  it('mesma conta, lançamento sem par: nada a estornar, só a perna nova sai de XP', async () => {
+    selectQueue.push([REGRA], [{ id: L1, accountId: ITAU, amountCents: 100, description: 'x', transferGroupId: null, balanceApplied: true, isIgnored: false }], [], [])
 
     const p = await previaCorrecaoDeRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: XP })
 
-    // sem grupo e sem estorno; a perna nova em XP soma −100. O caso com grupo
-    // (+100 de estorno, −100 da perna nova) é coberto por somarPrevia (Task 4).
-    expect(p.mudam).toBe(1)
+    // Sem grupo não há estorno; a perna nova em XP debita −100. O caso com
+    // grupo (+100 de estorno, −100 da perna nova) é coberto por somarPrevia.
+    expect(p).toEqual({ mudam: 1, foraPorParDoOutroLado: [], deltas: { [XP]: -100 }, naContaNova: 0 })
+  })
+})
+
+/**
+ * Deltas de saldo que a action gravou, por conta. `balance_cents + ${delta}`
+ * guarda o número em `queryChunks`; a conta sai do `where` renderizado.
+ */
+function deltasGravados(): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const o of ops) {
+    if (o.op !== 'update' || o.table !== 'accounts') continue
+    const conta = renderizar(o.where).params[0] as string
+    const valor = (o.set!.balanceCents as SQL).queryChunks.find((c): c is number => typeof c === 'number')!
+    out[conta] = (out[conta] ?? 0) + valor
+    if (out[conta] === 0) delete out[conta]
+  }
+  return out
+}
+
+/** Caso real: resgates do CDB do Itaú confirmados como transferência vinda da XP. */
+function fixtureXp(valores: number[]) {
+  const linhas = valores.map((v, i) => ({ id: `l${i}`, accountId: ITAU, amountCents: v, description: 'Resgate CDB DI', transferGroupId: `g${i}`, balanceApplied: true, isIgnored: false }))
+  const pernas = valores.map((v, i) => [{ id: `p${i}`, accountId: XP, amountCents: -v, externalId: `e${i}:transfer-dest`, balanceApplied: true, isIgnored: false, matchedTransactionId: null }])
+  const previa = [[REGRA], linhas, ...pernas]
+  const action = [
+    [REGRA],
+    linhas,
+    ...pernas,
+    linhas.map((l) => ({ id: l.id })), // lote de pendentes
+    ...linhas.map((l, i) => [{ id: l.id, accountId: ITAU, amountCents: l.amountCents, date: '2026-07-08', externalId: `e${i}`, balanceApplied: true, isIgnored: false }]),
+  ]
+  return { previa, action }
+}
+
+describe('prévia e action no mesmo fixture (spec §9)', () => {
+  it('os deltas da prévia são os que a action grava em accounts', async () => {
+    const f = fixtureXp([400100, 20084])
+
+    selectQueue.push(...f.previa)
+    const p = await previaCorrecaoDeRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: CORRETORA })
+    ops.length = 0
+    selectQueue.length = 0
+
+    selectQueue.push(...f.action)
+    const r = await corrigirRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: CORRETORA, aplicarAoHistorico: true })
+
+    expect(p.deltas).toEqual({ [XP]: 420184, [CORRETORA]: -420184 })
+    expect(deltasGravados()).toEqual(p.deltas)
+    expect(r.reprocessados).toBe(p.mudam)
+  })
+
+  it('caso real XP: corrigir com histórico para outra conta manual zera o saldo que a regra criou na XP', async () => {
+    const valores = [400100, 20084, 1500000]
+    const saldoXp = -valores.reduce((a, b) => a + b, 0)
+
+    selectQueue.push(...fixtureXp(valores).action)
+    await corrigirRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: CORRETORA, aplicarAoHistorico: true })
+
+    const d = deltasGravados()
+    expect(d[XP]).toBe(valores.reduce((a, b) => a + b, 0))
+    expect(saldoXp + d[XP]).toBe(0)
+    expect(d[CORRETORA]).toBe(saldoXp)
   })
 })
 

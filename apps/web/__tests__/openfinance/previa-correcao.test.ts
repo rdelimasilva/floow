@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { somarPrevia } from '@/lib/openfinance/previa-correcao'
+import type { SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import { selecionarLancamentosDaRegra, somarPrevia } from '@/lib/openfinance/previa-correcao'
+import { fakeTx } from './_fake-tx'
+
+const dialect = new PgDialect()
 
 const l = (id: string, amountCents: number) => ({ id, accountId: 'itau', amountCents, description: 'Resgate CDB DI', transferGroupId: 'g', balanceApplied: true, isIgnored: false })
 
@@ -32,5 +37,29 @@ describe('somarPrevia', () => {
       { l: { ...l('b', 100), accountId: 'corretora' }, forma: 'sem-par', estorno: {} },
     ], 'corretora', 'corretora')
     expect(p.naContaNova).toBe(1)
+  })
+})
+
+describe('selecionarLancamentosDaRegra — exceção decidida à mão fica de fora (spec §4.2)', () => {
+  it('regra de transferência: só confirmados da contraparte com type transfer e a conta antiga', async () => {
+    const { tx, ops } = fakeTx([[]])
+    await selecionarLancamentosDaRegra(tx, 'org-1', { id: 'cp', nature: 'transfer', categoryId: null, transferAccountId: 'xp' })
+    const q = dialect.sqlToQuery(ops[0].where as SQL)
+    expect(q.sql).toContain('"transactions"."org_id" = $1')
+    expect(q.sql).toContain('"transactions"."counterparty_id" = $2')
+    expect(q.sql).toContain('"transactions"."review_state" = $3')
+    expect(q.sql).toContain('"transactions"."type" = $4')
+    expect(q.sql).toContain('"transactions"."transfer_account_id" = $5')
+    // Lançamento da contraparte confirmado como despesa, ou para outra conta,
+    // não bate nessas condições: não é selecionado, não é desfeito.
+    expect(q.params).toEqual(['org-1', 'cp', 'confirmed', 'transfer', 'xp'])
+  })
+
+  it('regra de despesa: só os com o mesmo type e a mesma categoria', async () => {
+    const { tx, ops } = fakeTx([[]])
+    await selecionarLancamentosDaRegra(tx, 'org-1', { id: 'cp', nature: 'expense', categoryId: 'cat', transferAccountId: null })
+    const q = dialect.sqlToQuery(ops[0].where as SQL)
+    expect(q.sql).toContain('"transactions"."category_id" = $5')
+    expect(q.params).toEqual(['org-1', 'cp', 'confirmed', 'expense', 'cat'])
   })
 })

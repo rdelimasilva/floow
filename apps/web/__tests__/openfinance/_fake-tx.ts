@@ -1,6 +1,6 @@
 import { getTableName } from 'drizzle-orm'
 
-export interface FakeOp { op: 'select' | 'update' | 'insert' | 'delete'; table: string; set?: Record<string, unknown>; values?: unknown }
+export interface FakeOp { op: 'select' | 'update' | 'insert' | 'delete'; table: string; set?: Record<string, unknown>; values?: unknown; where?: unknown }
 
 /**
  * Tx falso no estilo de `counterparty-actions-par.test.ts`: cada `select`
@@ -11,6 +11,7 @@ export function fakeTx(selects: unknown[][]) {
   const chain = (result: unknown[], op?: FakeOp): any => {
     const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve(result).then(r) }
     for (const m of ['from', 'where', 'limit', 'orderBy', 'innerJoin', 'leftJoin', 'returning', 'onConflictDoNothing']) c[m] = () => chain(result, op)
+    c.where = (cond: unknown) => { if (op) op.where = cond; return chain(result, op) }
     c.set = (payload: Record<string, unknown>) => { if (op) op.set = payload; return chain(result, op) }
     return c
   }
