@@ -45,8 +45,14 @@ export async function sincronizarInvestimentos(
   const accountId = await repo.garantirConta(conexao)
   // Logo depois da conta existir: no cron roda depois de todos os extratos,
   // então pega as aplicações que acabaram de chegar.
-  resumo.transferenciasVinculadas = await repo.vincularAplicacoes(conexao, accountId)
   const problemas: ProblemaDeIngestao[] = []
+  // Isolado como o resto: o vínculo mexe no extrato, as posições não
+  // dependem dele. Falha aqui vira problema e a ingestão segue.
+  try {
+    resumo.transferenciasVinculadas = await repo.vincularAplicacoes(conexao, accountId)
+  } catch (error) {
+    problemas.push({ resourceId: null, externalId: null, reason: `falha ao vincular aplicações: ${mensagem(error)}`, payload: {} })
+  }
   const salvos: Array<{ kind: PolpInvestmentKind; polpId: string; assetId: string; resourceId: string }> = []
 
   for (const kind of POLP_INVESTMENT_KINDS) {

@@ -198,4 +198,14 @@ describe('sincronizarInvestimentos', () => {
     expect(m.vinculos).toEqual([])
     expect(m.orfas.get('apl')).toBeNull()
   })
+
+  it('falha ao vincular aplicações não derruba as posições: vira problema e segue', async () => {
+    const m = repoEmMemoria()
+    m.repo.vincularAplicacoes = async () => { throw new Error('deadlock') }
+    const r = await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1')] }, { f1: [aplicacao('t1')] }), CONEXAO)
+    expect(r).toMatchObject({ ativos: 1, posicoes: 1, movimentacoes: 1, transferenciasVinculadas: 0 })
+    expect(m.posicoes.size).toBe(1)
+    expect(m.problemas.map((p) => p.reason)).toContainEqual(expect.stringMatching(/vincular aplicações.*deadlock/))
+    expect(m.recalculos()).toBe(1)
+  })
 })
