@@ -10,7 +10,7 @@ const TRANSFER_ACCOUNT_ID = '44444444-4444-4444-4444-444444444444'
 
 // `where` guarda a condição que recebeu: o resto do mock descarta os
 // argumentos, e filtro de lote só se prova renderizando o SQL de verdade.
-interface Op { op: 'select' | 'update' | 'insert'; table: string; where?: unknown }
+interface Op { op: 'select' | 'update' | 'insert'; table: string; where?: unknown; set?: Record<string, unknown> }
 const ops: Op[] = []
 const selectQueue: unknown[][] = []
 const updateQueue: unknown[][] = []
@@ -21,7 +21,11 @@ function makeChain(result: unknown[], op?: Op): any {
     catch: () => chain,
     finally: () => chain,
   }
-  for (const m of ['from', 'limit', 'set', 'returning', 'onConflictDoNothing']) chain[m] = () => makeChain(result, op)
+  for (const m of ['from', 'limit', 'returning', 'onConflictDoNothing']) chain[m] = () => makeChain(result, op)
+  chain.set = (payload: Record<string, unknown>) => {
+    if (op) op.set = payload
+    return makeChain(result, op)
+  }
   chain.where = (cond: unknown) => {
     if (op) op.where = cond
     return makeChain(result, op)
@@ -353,6 +357,7 @@ describe('confirmCounterparty', () => {
       }])
       selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership
       selectQueue.push([{ id: 'resource-1' }]) // isOpenFinanceLinkedAccount: linked
+      selectQueue.push([]) // acharPernaPrevistaAberta: o outro lado ainda não criou perna aqui
       updateQueue.push([]) // update da origem
       insertQueue.push([{ id: 'tx-1-par' }]) // perna prevista entrou
       selectQueue.push([{ one: 1 }])
@@ -497,6 +502,37 @@ describe('confirmCounterparty', () => {
 
       const lote = ops.filter((o) => o.op === 'update' && o.table === 'transactions')[0]
       expect(sqlDoWhere(lote)).toContain('fmp.realized_transaction_id = "transactions"."id"')
+    })
+  })
+
+  describe('OF↔OF: o outro lado já criou a perna prevista', () => {
+    it('não cria segunda perna; confirma sem grupo e propõe o par na conta do lançamento', async () => {
+      selectQueue.push([{ id: COUNTERPARTY_ID }])
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }])
+      updateQueue.push([])
+      selectQueue.push([{ id: 'tx-1' }])
+      selectQueue.push([{
+        id: 'tx-1', accountId: 'conta-origem', amountCents: 50000,
+        date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
+      }])
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership
+      selectQueue.push([{ id: 'resource-1' }]) // isOpenFinanceLinkedAccount: linked
+      selectQueue.push([{ id: 'perna-do-outro-lado' }]) // acharPernaPrevistaAberta: achou
+      updateQueue.push([]) // update da origem
+      selectQueue.push([{ one: 1 }])
+
+      const result = await confirmCounterparty({
+        counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
+      })
+
+      expect(result.reclassified).toBe(1)
+      expect(ops.filter((o) => o.op === 'insert')).toEqual([])
+      const origem = ops.filter((o) => o.op === 'update' && o.table === 'transactions')[0]
+      expect(origem.set).toMatchObject({
+        type: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID, transferGroupId: null, reviewState: 'confirmed',
+      })
+      expect(criarPropostas).toHaveBeenCalledWith(expect.anything(), ORG, 'conta-origem')
+      expect(criarPropostas).not.toHaveBeenCalledWith(expect.anything(), ORG, TRANSFER_ACCOUNT_ID)
     })
   })
 })

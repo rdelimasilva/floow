@@ -9,6 +9,7 @@ import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag, reviewGateTag } from '@/lib/cache-tags'
 import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transfer-leg'
+import { acharPernaPrevistaAberta } from './perna-prevista-aberta'
 import { condicaoForaDeParDeTransferenciaPendente, criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 
 /**
@@ -88,15 +89,17 @@ function semParJaCriado() {
  * se aplicou, 0 se o lançamento não estava mais pendente (corrida, ou id que
  * não pertence a esta contraparte/org).
  *
- * `destinosPrevistos` acumula, por referência, as contas Open Finance que
- * ganharam perna prevista nesta chamada — `confirmCounterparty` usa para
- * propor a conciliação lá, depois que a transação commitar.
+ * `contasParaConciliar` acumula, por referência, as contas onde a conciliação
+ * tem par para propor: a conta Open Finance que ganhou perna prevista, ou a
+ * própria conta do lançamento quando a perna prevista do outro lado já o
+ * esperava ali. `confirmCounterparty` propõe nelas depois que a transação
+ * commitar.
  */
 async function applyTransferSingle(
   tx: Db,
   orgId: string,
   input: { transactionId: string; counterpartyId: string; transferAccountId: string },
-  destinosPrevistos: Set<string>,
+  contasParaConciliar: Set<string>,
 ): Promise<number> {
   const [source] = await tx
     .select({
@@ -132,6 +135,34 @@ async function applyTransferSingle(
   await assertAccountOwnership(tx, input.transferAccountId, orgId)
 
   const linked = await isOpenFinanceLinkedAccount(tx, orgId, input.transferAccountId)
+
+  // OF↔OF: se o outro lado chegou antes e já criou a perna prevista aqui,
+  // esta linha é a ponta que ela espera. Criar outra perna daria dois pares
+  // para o mesmo dinheiro; fica confirmada sem grupo, e a conciliação desta
+  // conta propõe o par com a previsão que já existe.
+  if (linked) {
+    const esperada = await acharPernaPrevistaAberta(tx, orgId, {
+      contaDoLancamento: source.accountId,
+      outraConta: input.transferAccountId,
+      amountCents: source.amountCents,
+      date: source.date,
+    })
+    if (esperada) {
+      await tx
+        .update(transactions)
+        .set({
+          type: 'transfer',
+          categoryId: null,
+          transferAccountId: input.transferAccountId,
+          transferGroupId: null,
+          reviewState: 'confirmed',
+        })
+        .where(eq(transactions.id, source.id))
+      contasParaConciliar.add(source.accountId)
+      return 1
+    }
+  }
+
   const transferGroupId = crypto.randomUUID()
 
   await tx
@@ -175,7 +206,7 @@ async function applyTransferSingle(
       .where(eq(accounts.id, input.transferAccountId))
   }
 
-  if (linked) destinosPrevistos.add(input.transferAccountId)
+  if (linked) contasParaConciliar.add(input.transferAccountId)
   return 1
 }
 
@@ -184,7 +215,7 @@ async function applyTransferBatch(
   tx: Db,
   orgId: string,
   input: { counterpartyId: string; transferAccountId: string; excludeIds: string[] },
-  destinosPrevistos: Set<string>,
+  contasParaConciliar: Set<string>,
 ): Promise<number> {
   const conditions = [
     eq(transactions.orgId, orgId),
@@ -210,7 +241,7 @@ async function applyTransferBatch(
         counterpartyId: input.counterpartyId,
         transferAccountId: input.transferAccountId,
       },
-      destinosPrevistos,
+      contasParaConciliar,
     )
   }
   return count
@@ -223,7 +254,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
 
   const { userId } = await requireIdentity()
 
-  const destinosPrevistos = new Set<string>()
+  const contasParaConciliar = new Set<string>()
 
   const reclassified = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -275,7 +306,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
           transferAccountId: input.transferAccountId!,
           excludeIds: exceptionIds,
         },
-        destinosPrevistos,
+        contasParaConciliar,
       )
     } else {
       const batchConditions = [
@@ -307,7 +338,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
             counterpartyId: input.counterpartyId,
             transferAccountId: exception.transferAccountId!,
           },
-          destinosPrevistos,
+          contasParaConciliar,
         )
       } else {
         const exceptionRows = await tx
@@ -366,7 +397,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
   // A ponta real pode já estar na outra conta: propõe o par agora, sem
   // esperar o próximo sync dela. Falha aqui não desfaz a confirmação — a
   // proposta nasce de novo na próxima passada daquela conta.
-  for (const conta of destinosPrevistos) {
+  for (const conta of contasParaConciliar) {
     try {
       await criarPropostasDeConciliacao(db, orgId, conta)
     } catch (error) {

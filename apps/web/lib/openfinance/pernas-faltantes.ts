@@ -3,6 +3,7 @@ import { getDb, transactions } from '@floow/db'
 import { condicaoDeRealizadoSemVinculo, criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 import { buildForecastTransferLegRow, isOpenFinanceLinkedAccount } from './transfer-leg'
 import { condicaoNaoEPernaPrevista } from './perna-prevista'
+import { acharPernaPrevistaAberta } from './perna-prevista-aberta'
 
 type Db = ReturnType<typeof getDb>
 
@@ -44,12 +45,28 @@ export async function criarPernasPrevistasFaltantes(db: Db, orgId: string): Prom
       ),
     )
 
-  const destinos = new Set<string>()
+  // Contas onde há par a propor: o destino que ganhou perna prevista, ou a
+  // conta da linha quando a perna do outro lado já a esperava ali.
+  const contas = new Set<string>()
   let criadas = 0
 
   for (const linha of semPar) {
     const destino = linha.transferAccountId!
     if (!(await isOpenFinanceLinkedAccount(db, orgId, destino))) continue
+
+    // OF↔OF: se o outro lado já criou a perna prevista nesta conta (nesta
+    // mesma passada, inclusive), esta linha é a ponta que ela espera — criar
+    // outra daria dois pares para o mesmo dinheiro.
+    const esperada = await acharPernaPrevistaAberta(db, orgId, {
+      contaDoLancamento: linha.accountId,
+      outraConta: destino,
+      amountCents: linha.amountCents,
+      date: new Date(linha.date),
+    })
+    if (esperada) {
+      contas.add(linha.accountId)
+      continue
+    }
 
     const transferGroupId = crypto.randomUUID()
     await db.transaction(async (tx) => {
@@ -66,11 +83,11 @@ export async function criarPernasPrevistasFaltantes(db: Db, orgId: string): Prom
         )
         .onConflictDoNothing()
     })
-    destinos.add(destino)
+    contas.add(destino)
     criadas++
   }
 
-  for (const conta of destinos) await criarPropostasDeConciliacao(db, orgId, conta)
+  for (const conta of contas) await criarPropostasDeConciliacao(db, orgId, conta)
 
   return { criadas }
 }

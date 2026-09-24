@@ -252,4 +252,14 @@ describe('criarPropostasDeConciliacao', () => {
     expect(total).toBe(1)
     expect(inserts[0].payload).toMatchObject({ forecastTransactionId: 'perna-1', realizedTransactionId: 'pix-1' })
   })
+
+  it('origem de outro par de transferência nunca é candidata a realizado', async () => {
+    // OF↔OF com as duas contrapartes confirmadas: cada lado seria origem do
+    // próprio par. Casar a origem de um com a perna prevista do outro daria
+    // dois pares para o mesmo dinheiro.
+    selectQueue.push([PREVISTO_SALARIO])
+    selectQueue.push([])
+    await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)
+    expect(sqlDoWhere(1)).toContain('"transfer_group_id" is null')
+  })
 })

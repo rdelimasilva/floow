@@ -76,4 +76,21 @@ describe('criarPernasPrevistasFaltantes', () => {
     const { criadas } = await criarPernasPrevistasFaltantes(db, 'org-1')
     expect(criadas).toBe(0)
   })
+
+  it('o outro lado já criou a perna prevista aqui: não cria outra, propõe o par nesta conta', async () => {
+    selectQueue.push([{
+      id: 'tx-3', accountId: 'nubank', amountCents: 50000, date: new Date('2026-09-10T12:00:00Z'),
+      externalId: 'ext-3', transferAccountId: 'itau', balanceApplied: true,
+    }])
+    selectQueue.push([{ id: 'recurso-itau' }]) // isOpenFinanceLinkedAccount: linked
+    selectQueue.push([{ id: 'perna-do-itau' }]) // acharPernaPrevistaAberta: achou
+
+    const { criadas } = await criarPernasPrevistasFaltantes(db, 'org-1')
+
+    expect(criadas).toBe(0)
+    expect(inserts).toEqual([])
+    expect(updates).toEqual([])
+    expect(propor).toHaveBeenCalledWith(db, 'org-1', 'nubank')
+    expect(propor).not.toHaveBeenCalledWith(db, 'org-1', 'itau')
+  })
 })

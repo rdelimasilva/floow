@@ -4,6 +4,7 @@ import { getDb, accounts, transactions } from '@floow/db'
 import { matchCategory, type CategoryRule } from '@floow/core-finance'
 import type { ResolvedTransaction } from './resolve-counterparty'
 import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transfer-leg'
+import { acharPernaPrevistaAberta } from './perna-prevista-aberta'
 import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, ocuparPrevisao } from './parcelas-previstas'
 
 /**
@@ -186,17 +187,31 @@ export async function persistPage(
         linked = await isOpenFinanceLinkedAccount(db, input.orgId, tx.transferAccountId)
         linkedAccountCache.set(tx.transferAccountId, linked)
       }
-      transferGroupId = crypto.randomUUID()
-      transferLegsToInsert.push(
-        montarPernaDaTransferencia({
-          source: { orgId: input.orgId, amountCents: tx.amountCents, date, externalId: tx.externalId, balanceApplied: applied },
-          sourceAccountId: input.accountId,
-          otherAccountId: tx.transferAccountId,
-          transferGroupId,
-          destinoOpenFinance: linked,
-        }),
-      )
-      if (linked) contasComPernaPrevista.add(tx.transferAccountId)
+      // OF↔OF: se o outro lado chegou antes e já criou a perna prevista nesta
+      // conta, esta linha é a ponta que ela espera. Sem perna nova e sem
+      // grupo; a conciliação desta conta, que o sync roda depois das páginas,
+      // propõe o par com a previsão que já existe.
+      const esperada = linked
+        ? await acharPernaPrevistaAberta(db, input.orgId, {
+            contaDoLancamento: input.accountId,
+            outraConta: tx.transferAccountId,
+            amountCents: tx.amountCents,
+            date,
+          })
+        : null
+      if (!esperada) {
+        transferGroupId = crypto.randomUUID()
+        transferLegsToInsert.push(
+          montarPernaDaTransferencia({
+            source: { orgId: input.orgId, amountCents: tx.amountCents, date, externalId: tx.externalId, balanceApplied: applied },
+            sourceAccountId: input.accountId,
+            otherAccountId: tx.transferAccountId,
+            transferGroupId,
+            destinoOpenFinance: linked,
+          }),
+        )
+        if (linked) contasComPernaPrevista.add(tx.transferAccountId)
+      }
     }
 
     toInsert.push({

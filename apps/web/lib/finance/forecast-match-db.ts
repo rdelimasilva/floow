@@ -190,6 +190,11 @@ export async function criarPropostasDeConciliacao(
         // A perna prevista também tem `external_id` (para dedupe), mas é
         // previsão: jamais pode cumprir outra previsão.
         condicaoNaoEPernaPrevista(),
+        // Linha com grupo já é ponta de um par (origem de transferência, ou a
+        // perna real de destino manual). Em OF↔OF com as duas contrapartes
+        // confirmadas, casar a origem de um lado com a perna prevista do outro
+        // daria dois pares para o mesmo dinheiro.
+        isNull(transactions.transferGroupId),
         eq(transactions.isIgnored, false),
         gte(transactions.date, inicio),
         lte(transactions.date, fim),
