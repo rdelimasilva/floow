@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 }
 
 const ATUALIZADA_EM = '23 de setembro de 2026'
-const EMAIL_CONTATO = 'privacidade@floow.com.br'
+const EMAIL_CONTATO = 'rdelimasilva@gmail.com'
 
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
@@ -115,12 +115,10 @@ export default function PrivacidadePage() {
           </p>
         </Secao>
 
-        <Secao titulo="5. Segurança e retenção">
+        <Secao titulo="5. Segurança">
           <p>
             Os dados trafegam criptografados e o acesso é restrito por conta: cada usuário só
-            enxerga os dados da própria organização. Guardamos seus dados enquanto a conta
-            estiver ativa. Ao excluir a conta, apagamos os dados em até 30 dias, exceto o que a
-            lei nos obriga a manter.
+            enxerga os dados da própria organização.
           </p>
         </Secao>
 
