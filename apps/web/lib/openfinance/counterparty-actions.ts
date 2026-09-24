@@ -7,7 +7,7 @@ import { getOrgId } from '@/lib/finance/queries'
 import { assertAccountOwnership } from '@/lib/finance/actions'
 import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
-import { accountsTag, invalidateTag } from '@/lib/cache-tags'
+import { accountsTag, invalidateTag, reviewGateTag } from '@/lib/cache-tags'
 import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
 
 /**
@@ -320,6 +320,9 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
   revalidateTransactionData(orgId)
   invalidateTag(accountsTag(orgId))
   revalidateSnapshotData(orgId)
+  // O layout guarda em cache se o portão já destravou; esta action é o único
+  // lugar que o destrava.
+  invalidateTag(reviewGateTag(orgId))
 
   return { reclassified }
 }

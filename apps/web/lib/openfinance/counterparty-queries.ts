@@ -1,7 +1,10 @@
 import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { orgs, transactions, counterparties, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
-import { withUserDb } from '@/lib/db/rls'
+import { unstable_cache } from 'next/cache'
+import { withUserDb, withUserDbFor } from '@/lib/db/rls'
+import { requireIdentity } from '@/lib/auth/session'
+import { reviewGateTag } from '@/lib/cache-tags'
 
 /**
  * O portão bloqueia o app inteiro no lugar do dashboard, só até a org zerar a
@@ -17,17 +20,12 @@ import { withUserDb } from '@/lib/db/rls'
  *
  * Ver docs/superpowers/specs/2026-09-04-openfinance-counterparty-review-design.md
  */
-export async function getReviewGateStatus(orgId: string): Promise<{ blocked: boolean }> {
-  return withUserDb(async (db) => {
+export async function getReviewGateStatus(orgId: string, userId: string): Promise<{ blocked: boolean }> {
+  if (await isReviewGateCleared(orgId, userId)) return { blocked: false }
 
-    const [org] = await db
-      .select({ reviewGateClearedAt: orgs.reviewGateClearedAt })
-      .from(orgs)
-      .where(eq(orgs.id, orgId))
-      .limit(1)
-
-    if (org?.reviewGateClearedAt) return { blocked: false }
-
+  // Portão ainda fechado: a pendência vem fresca, sem cache. É o caso raro
+  // (org recém-conectada) e o que decide se o app inteiro fica bloqueado.
+  return withUserDbFor(userId, async (db) => {
     const [pending] = await db
       .select({ one: sql`1` })
       .from(transactions)
@@ -40,6 +38,28 @@ export async function getReviewGateStatus(orgId: string): Promise<{ blocked: boo
 
     return { blocked: Boolean(pending) }
   })
+}
+
+/**
+ * A org já destravou o portão? Em cache, porque o layout pergunta isso em toda
+ * navegação e a resposta, uma vez "sim", é para sempre (`coalesce` no
+ * `confirmCounterparty`). O "não" também fica em cache: só vira "sim" dentro
+ * de `confirmCounterparty`, que invalida a tag no mesmo passo.
+ */
+function isReviewGateCleared(orgId: string, userId: string): Promise<boolean> {
+  return unstable_cache(
+    () =>
+      withUserDbFor(userId, async (db) => {
+        const [org] = await db
+          .select({ reviewGateClearedAt: orgs.reviewGateClearedAt })
+          .from(orgs)
+          .where(eq(orgs.id, orgId))
+          .limit(1)
+        return Boolean(org?.reviewGateClearedAt)
+      }),
+    ['review-gate-cleared', orgId, userId],
+    { tags: [reviewGateTag(orgId)] },
+  )()
 }
 
 type ReviewGateSafeResult = { ok: true; orgId: string; blocked: boolean } | { ok: false }
@@ -62,8 +82,8 @@ type ReviewGateSafeResult = { ok: true; orgId: string; blocked: boolean } | { ok
  */
 export async function getReviewGateStatusSafe(): Promise<ReviewGateSafeResult> {
   try {
-    const orgId = await getOrgId()
-    const { blocked } = await getReviewGateStatus(orgId)
+    const [orgId, { userId }] = await Promise.all([getOrgId(), requireIdentity()])
+    const { blocked } = await getReviewGateStatus(orgId, userId)
     return { ok: true, orgId, blocked }
   } catch (error) {
     console.error('[review-gate] falha ao checar o portao, seguindo sem bloquear:', error)

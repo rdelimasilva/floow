@@ -12,8 +12,18 @@ let getOrgIdImpl: () => Promise<string> = () => Promise.resolve(ORG)
 // modo que o que se testa aqui continua sendo a lógica da query.
 vi.mock('@/lib/db/rls', async () => {
   const { getDb } = await import('@floow/db')
-  return { withUserDb: (fn: (db: unknown) => unknown) => fn(getDb()) }
+  return {
+    withUserDb: (fn: (db: unknown) => unknown) => fn(getDb()),
+    withUserDbFor: (_userId: string, fn: (db: unknown) => unknown) => fn(getDb()),
+  }
 })
+
+// Fora de uma requisição não há cache incremental; o que se testa é a lógica.
+vi.mock('next/cache', () => ({ unstable_cache: (fn: () => unknown) => fn }))
+
+vi.mock('@/lib/auth/session', () => ({
+  requireIdentity: () => Promise.resolve({ userId: 'user-1', orgIds: ['org-1'] }),
+}))
 
 vi.mock('@floow/db', async () => {
   const actual = await vi.importActual<typeof import('@floow/db')>('@floow/db')
@@ -54,14 +64,14 @@ describe('getReviewGateStatus', () => {
   it('org já destravada nunca bloqueia, mesmo com pendência', async () => {
     orgRow = { reviewGateClearedAt: new Date() }
     pendingRow = [{ one: 1 }]
-    const status = await getReviewGateStatus(ORG)
+    const status = await getReviewGateStatus(ORG, 'user-1')
     expect(status.blocked).toBe(false)
   })
 
   it('org travada com pendência bloqueia, sem gravar nada', async () => {
     orgRow = { reviewGateClearedAt: null }
     pendingRow = [{ one: 1 }]
-    const status = await getReviewGateStatus(ORG)
+    const status = await getReviewGateStatus(ORG, 'user-1')
     expect(status.blocked).toBe(true)
     expect(updateCalled).toBe(false)
   })
@@ -69,7 +79,7 @@ describe('getReviewGateStatus', () => {
   it('org travada sem nenhuma pendência não bloqueia, e não grava nada (leitura pura)', async () => {
     orgRow = { reviewGateClearedAt: null }
     pendingRow = []
-    const status = await getReviewGateStatus(ORG)
+    const status = await getReviewGateStatus(ORG, 'user-1')
     expect(status.blocked).toBe(false)
     expect(updateCalled).toBe(false)
   })
@@ -84,7 +94,7 @@ describe('getReviewGateStatus', () => {
       updateCalled = false
       orgRow = scenario.orgRow
       pendingRow = [...scenario.pendingRow]
-      await getReviewGateStatus(ORG)
+      await getReviewGateStatus(ORG, 'user-1')
       expect(updateCalled).toBe(false)
     }
   })
