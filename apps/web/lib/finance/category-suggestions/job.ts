@@ -4,9 +4,14 @@
  * notifications/pacing-email-job.ts).
  */
 import {
+  SUGGESTION_LIMITS,
+  applyClassifications,
+  needsClassification,
   suggestCategories,
   type CategorySuggestion,
   type SuggestCategoriesInput,
+  type SuggestionCategory,
+  type SuggestionDecision,
 } from '@floow/core-finance'
 
 export interface ExistingSuggestion {
@@ -25,6 +30,11 @@ export interface CategorySuggestionDeps {
   loadInput(orgId: string): Promise<Omit<SuggestCategoriesInput, 'excludedFingerprints'>>
   loadExisting(orgId: string): Promise<ExistingSuggestion[]>
   apply(orgId: string, plan: SuggestionSyncPlan): Promise<void>
+  /**
+   * Decide o destino das sugestões que o motor não resolveu (Claude). Ausente
+   * — sem chave de API — essas sugestões simplesmente não aparecem.
+   */
+  classify?(pending: CategorySuggestion[], categories: SuggestionCategory[]): Promise<SuggestionDecision[]>
 }
 
 export function planSuggestionSync(existing: ExistingSuggestion[], fresh: CategorySuggestion[]): SuggestionSyncPlan {
@@ -50,7 +60,23 @@ export async function runCategorySuggestionsForOrg(
 ): Promise<{ pending: number }> {
   const [input, existing] = await Promise.all([deps.loadInput(orgId), deps.loadExisting(orgId)])
   const excludedFingerprints = new Set(existing.filter((e) => e.status !== 'pending').map((e) => e.fingerprint))
-  const fresh = suggestCategories({ ...input, excludedFingerprints })
+  const candidatas = suggestCategories({ ...input, excludedFingerprints, limit: SUGGESTION_LIMITS.maxCandidates })
+
+  const aClassificar = candidatas.filter(needsClassification)
+  let decisoes: SuggestionDecision[] = []
+  if (aClassificar.length > 0 && deps.classify) {
+    try {
+      decisoes = await deps.classify(aClassificar, input.categories)
+    } catch (err) {
+      // Classificador fora do ar não derruba a rodada: seguem só as sugestões
+      // que já têm categoria de destino.
+      console.error(`[sugestoes] classificador falhou para org=${orgId}:`, err)
+    }
+  }
+
+  const fresh = applyClassifications(candidatas, decisoes, input.categories, input.existingNames)
+    .filter((s) => !excludedFingerprints.has(s.fingerprint))
+    .slice(0, SUGGESTION_LIMITS.maxSuggestions)
   await deps.apply(orgId, planSuggestionSync(existing, fresh))
   return { pending: fresh.length }
 }

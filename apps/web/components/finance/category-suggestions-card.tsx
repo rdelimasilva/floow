@@ -27,6 +27,7 @@ export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted
   const [busy, setBusy] = useState(false)
   const [accepting, setAccepting] = useState<PendingSuggestion | null>(null)
   const parentName = (id: string | null) => parentOptions.find((p) => p.id === id)?.name
+  const titulo = (k: string) => k.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 
   async function analisar() {
     setBusy(true)
@@ -53,20 +54,27 @@ export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted
     }
   }
 
-  async function confirmar(name: string, parentCategoryId: string | null) {
-    if (!accepting) return
+  async function aceitar(s: PendingSuggestion, name: string, parentCategoryId: string | null) {
     setBusy(true)
     try {
-      const r = await acceptCategorySuggestion({ suggestionId: accepting.id, name, parentCategoryId })
-      toast(`Categoria "${r.name}" criada · ${r.moved} lançamento(s) movido(s)`)
+      const r = await acceptCategorySuggestion({ suggestionId: s.id, name, parentCategoryId })
+      toast(
+        r.created
+          ? `Categoria "${r.name}" criada · ${r.moved} lançamento(s) movido(s)`
+          : `${r.moved} lançamento(s) movido(s) para "${r.name}"`,
+      )
       setAccepting(null)
       onAccepted(r)
       router.refresh()
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao criar categoria', 'error')
+      toast(err instanceof Error ? err.message : 'Erro ao aceitar sugestão', 'error')
     } finally {
       setBusy(false)
     }
+  }
+
+  async function confirmar(name: string, parentCategoryId: string | null) {
+    if (accepting) await aceitar(accepting, name, parentCategoryId)
   }
 
   return (
@@ -82,15 +90,22 @@ export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted
         {suggestions.map((s) => (
           <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
             <div className="min-w-0">
-              <p className="font-medium">{s.suggestedName}</p>
+              <p className="font-medium">
+                {s.targetCategoryId ? `Mover ${titulo(s.merchantKey)} para ${s.suggestedName}` : `Criar ${s.suggestedName}`}
+              </p>
               <p className="text-xs text-muted-foreground">
+                {s.targetCategoryId ? '' : `${titulo(s.merchantKey)} · `}
                 {s.txCount} lançamentos · {formatBRL(s.totalCents)} em 12 meses · ~{formatBRL(s.monthlyAvgCents)}/mês
                 {s.kind === 'split' && parentName(s.parentCategoryId) ? ` · dentro de ${parentName(s.parentCategoryId)}` : ''}
               </p>
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={() => recusar(s.id)} disabled={busy}>Recusar</Button>
-              <Button variant="primary" size="sm" onClick={() => setAccepting(s)} disabled={busy}>Aceitar</Button>
+              {s.targetCategoryId ? (
+                <Button variant="primary" size="sm" onClick={() => aceitar(s, s.suggestedName, null)} disabled={busy}>Mover</Button>
+              ) : (
+                <Button variant="primary" size="sm" onClick={() => setAccepting(s)} disabled={busy}>Aceitar</Button>
+              )}
             </div>
           </div>
         ))}

@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@floow/core-finance": "workspace:*",
     "@floow/db": "workspace:*",
     "@floow/shared": "workspace:*",

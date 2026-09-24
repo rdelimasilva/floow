@@ -7,6 +7,10 @@ export interface PendingSuggestion {
   kind: 'uncategorized' | 'split'
   suggestedName: string
   parentCategoryId: string | null
+  /** Preenchido = aceitar move para esta categoria existente, sem criar. */
+  targetCategoryId: string | null
+  /** Estabelecimento/pessoa do grupo, para a linha dizer o que vai mudar. */
+  merchantKey: string
   txCount: number
   totalCents: number
   monthlyAvgCents: number
@@ -21,6 +25,8 @@ export async function getPendingCategorySuggestions(orgId: string): Promise<Pend
         kind: categorySuggestions.kind,
         suggestedName: categorySuggestions.suggestedName,
         parentCategoryId: categorySuggestions.parentCategoryId,
+        targetCategoryId: categorySuggestions.targetCategoryId,
+        merchantKey: categorySuggestions.merchantKey,
         txCount: categorySuggestions.txCount,
         totalCents: categorySuggestions.totalCents,
         monthlyAvgCents: categorySuggestions.monthlyAvgCents,

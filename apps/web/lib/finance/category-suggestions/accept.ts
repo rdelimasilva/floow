@@ -1,6 +1,7 @@
 /**
  * Aceite de uma sugestão de categoria, dentro da transação que `withUserDb`
- * já abriu: reserva a sugestão, cria a categoria e a regra e move o histórico.
+ * já abriu: reserva a sugestão, cria a categoria (ou usa a categoria existente
+ * que a sugestão aponta) e a regra, e move o histórico.
  * Só move lançamentos que estão na categoria de origem da sugestão (ou sem
  * categoria, no tipo A): o que o usuário classificou à mão em outra categoria
  * fica onde está.
@@ -28,6 +29,8 @@ export interface AcceptResult {
   parentId: string | null
   monthlyAvgCents: number
   moved: number
+  /** false = moveu para uma categoria que já existia. */
+  created: boolean
 }
 
 export async function aceitarSugestao(
@@ -36,9 +39,6 @@ export async function aceitarSugestao(
   input: AcceptInput,
   hoje: string,
 ): Promise<AcceptResult> {
-  const name = input.name.trim()
-  if (!name) throw new Error('Informe um nome')
-
   let color: string | null = null
   let icon: string | null = null
   if (input.parentCategoryId) {
@@ -81,17 +81,14 @@ export async function aceitarSugestao(
   // do comerciante, inclusive os classificados à mão.
   if (!origem && !semCategoria) throw new Error('Sugestão sem origem')
 
-  await assertNameIsFree(tx, orgId, name)
-
-  const [criada] = await tx
-    .insert(categories)
-    .values({ orgId, name, type: 'expense', color, icon, parentId: input.parentCategoryId })
-    .returning({ id: categories.id })
+  const destino = sug.targetCategoryId
+    ? await categoriaExistente(tx, orgId, sug.targetCategoryId)
+    : await criarCategoria(tx, orgId, input, color, icon)
 
   if (sug.matchValue) {
     await tx.insert(categoryRules).values({
       orgId,
-      categoryId: criada.id,
+      categoryId: destino.id,
       matchType: 'contains',
       matchValue: sug.matchValue,
     })
@@ -116,9 +113,50 @@ export async function aceitarSugestao(
   if (ids.length > 0) {
     await tx
       .update(transactions)
-      .set({ categoryId: criada.id })
+      .set({ categoryId: destino.id })
       .where(and(eq(transactions.orgId, orgId), inArray(transactions.id, ids)))
   }
 
-  return { categoryId: criada.id, name, parentId: input.parentCategoryId, monthlyAvgCents: sug.monthlyAvgCents, moved: ids.length }
+  return {
+    categoryId: destino.id,
+    name: destino.name,
+    parentId: destino.parentId,
+    monthlyAvgCents: sug.monthlyAvgCents,
+    moved: ids.length,
+    created: !sug.targetCategoryId,
+  }
+}
+
+interface Destino {
+  id: string
+  name: string
+  parentId: string | null
+}
+
+async function criarCategoria(
+  tx: RlsTx,
+  orgId: string,
+  input: AcceptInput,
+  color: string | null,
+  icon: string | null,
+): Promise<Destino> {
+  const name = input.name.trim()
+  if (!name) throw new Error('Informe um nome')
+  await assertNameIsFree(tx, orgId, name)
+  const [criada] = await tx
+    .insert(categories)
+    .values({ orgId, name, type: 'expense', color, icon, parentId: input.parentCategoryId })
+    .returning({ id: categories.id })
+  return { id: criada.id, name, parentId: input.parentCategoryId }
+}
+
+/** A categoria de destino precisa continuar visível para a org e ser de despesa. */
+async function categoriaExistente(tx: RlsTx, orgId: string, id: string): Promise<Destino> {
+  const [alvo] = await tx
+    .select({ id: categories.id, name: categories.name, parentId: categories.parentId, type: categories.type })
+    .from(categories)
+    .where(and(eq(categories.id, id), or(eq(categories.orgId, orgId), isNull(categories.orgId))))
+    .limit(1)
+  if (!alvo || alvo.type !== 'expense') throw new Error('Categoria de destino não encontrada')
+  return { id: alvo.id, name: alvo.name, parentId: alvo.parentId }
 }

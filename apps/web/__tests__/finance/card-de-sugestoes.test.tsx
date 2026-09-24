@@ -17,8 +17,8 @@ const { CategorySuggestionsCard } = await import('@/components/finance/category-
 const { ToastProvider } = await import('@/components/ui/toast')
 
 const SUGS = [{
-  id: 's1', kind: 'uncategorized' as const, suggestedName: 'Ifood', parentCategoryId: null,
-  txCount: 38, totalCents: 124000, monthlyAvgCents: 10300,
+  id: 's1', kind: 'uncategorized' as const, suggestedName: 'Delivery', parentCategoryId: null,
+  targetCategoryId: null as string | null, merchantKey: 'ifood', txCount: 38, totalCents: 124000, monthlyAvgCents: 10300,
 }]
 
 function renderCard(suggestions = SUGS, onAccepted = vi.fn()) {
@@ -35,7 +35,8 @@ beforeEach(() => { vi.clearAllMocks() })
 describe('CategorySuggestionsCard', () => {
   it('mostra a sugestão com números', () => {
     renderCard()
-    expect(screen.getByText('Ifood')).toBeTruthy()
+    expect(screen.getByText('Criar Delivery')).toBeTruthy()
+    expect(screen.getByText(/Ifood · 38 lançamentos/)).toBeTruthy()
     expect(screen.getByText(/38 lançamentos/)).toBeTruthy()
   })
   it('recusar chama a action com o id', async () => {
@@ -56,5 +57,13 @@ describe('CategorySuggestionsCard', () => {
     expect(screen.getByText(/Nenhuma sugestão/)).toBeTruthy()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Analisar meus gastos' })) })
     expect(analyzeCategorySuggestions).toHaveBeenCalled()
+  })
+  it('sugestão para categoria existente move direto, sem diálogo', async () => {
+    acceptCategorySuggestion.mockResolvedValueOnce({ categoryId: 'hosp', name: 'Hospedagem', parentId: null, monthlyAvgCents: 76, moved: 2, created: false } as never)
+    const onAccepted = renderCard([{ ...SUGS[0], suggestedName: 'Hospedagem', targetCategoryId: 'hosp', merchantKey: 'airbnb' }])
+    expect(screen.getByText('Mover Airbnb para Hospedagem')).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Mover' })) })
+    expect(acceptCategorySuggestion).toHaveBeenCalledWith({ suggestionId: 's1', name: 'Hospedagem', parentCategoryId: null })
+    expect(onAccepted).toHaveBeenCalledWith(expect.objectContaining({ created: false }))
   })
 })

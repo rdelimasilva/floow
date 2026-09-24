@@ -8,20 +8,30 @@ const PREFIXOS = new Set(['pag', 'pg', 'mp', 'ec', 'ifd'])
 
 /** Palavras que aparecem em qualquer lançamento e não identificam ninguém. */
 const GENERICAS = new Set([
-  'pix', 'ted', 'doc', 'tef', 'compra', 'pagamento', 'pagto', 'pgto', 'enviado', 'enviada',
-  'recebido', 'recebida', 'transferencia', 'debito', 'credito', 'cartao', 'parcela', 'boleto',
+  'pix', 'ted', 'doc', 'tef', 'compra', 'pagamento', 'pagto', 'pgto', 'pagam', 'enviado', 'enviada',
+  'recebido', 'recebida', 'transferencia', 'transf', 'debito', 'credito', 'cartao', 'parcela', 'boleto',
+  'qr', 'qrs', 'code', 'saida', 'entrada', 'tarifa', 'estorno', 'agendado', 'agendamento', 'valor',
   'de', 'da', 'do', 'das', 'dos', 'em', 'para', 'com', 'br', 'ltda', 'sa', 'me', 'eireli', 'www',
 ])
+
+/**
+ * Movimentação de investimento que o banco manda como saída. Não é gasto de
+ * estabelecimento nenhum: a descrição inteira é descartada.
+ */
+const INVESTIMENTO = new Set(['aplicacao', 'resgate', 'cofrinho', 'cofrinhos', 'cdb', 'lci', 'lca', 'tesouro'])
 
 function semAcento(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
+/**
+ * Número vira separador, não descarta o token: "Maraisa05" e "Maraisa Ramos"
+ * precisam cair no mesmo grupo.
+ */
 function tokens(description: string): string[] {
-  return semAcento(description)
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((t) => t.length >= 2 && !/\d/.test(t) && !PREFIXOS.has(t) && !GENERICAS.has(t))
+  const todos = semAcento(description).toLowerCase().split(/[^a-z]+/)
+  if (todos.some((t) => INVESTIMENTO.has(t))) return []
+  return todos.filter((t) => t.length >= 2 && !PREFIXOS.has(t) && !GENERICAS.has(t))
 }
 
 export function normalizeMerchant(description: string): string {

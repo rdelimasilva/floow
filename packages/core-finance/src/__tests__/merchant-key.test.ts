@@ -21,6 +21,24 @@ describe('normalizeMerchant', () => {
   it('pix para pessoa vira o nome da pessoa', () => {
     expect(normalizeMerchant('PIX ENVIADO JOAO SILVA')).toBe('joao silva')
   })
+  // Descrições reais do banco: o número colado no nome ("Maraisa05") não pode
+  // separar a mesma pessoa em dois grupos.
+  it('número colado no nome não muda a chave', () => {
+    expect(normalizeMerchant('PIX TRANSF Maraisa05 01')).toBe('maraisa')
+    expect(normalizeMerchant('Pix enviado Maraisa Ramos')).toBe('maraisa')
+    expect(normalizeMerchant('PIX TRANSF JUSSARA01 01')).toBe('jussara')
+    expect(normalizeMerchant('TED enviada jussara leoncio de andrade')).toBe('jussara')
+  })
+  it('termos de operação bancária não viram estabelecimento', () => {
+    expect(normalizeMerchant('APLICACAO COFRINHOS')).toBe('')
+    expect(normalizeMerchant('Aplicação CDB DI')).toBe('')
+    expect(normalizeMerchant('Resgate CDB')).toBe('')
+    expect(normalizeMerchant('Saida de valor')).toBe('')
+  })
+  it('pix por QR code usa o recebedor, não "qr code"', () => {
+    expect(normalizeMerchant('Pagamento de Pix QR Code PIX QRS VINDI PAGAM27/02')).toBe('vindi')
+    expect(normalizeMerchant('Pagamento de Pix QR Code Clientbase Ltda')).toBe('clientbase')
+  })
 })
 
 describe('ruleTermFor', () => {

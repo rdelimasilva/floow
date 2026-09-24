@@ -30,7 +30,7 @@ const sqlDe = (w: unknown) => new PgDialect().sqlToQuery(w as SQL).sql
 
 const SUG = {
   id: 's1', kind: 'uncategorized', merchantKey: 'ifood', matchValue: 'ifood',
-  sourceCategoryIds: ['outros'], monthlyAvgCents: 2000, status: 'accepted',
+  sourceCategoryIds: ['outros'], monthlyAvgCents: 2000, status: 'accepted', targetCategoryId: null,
 }
 /** Escrita de verdade: o claim em category_suggestions é desfeito pelo rollback de withUserDb. */
 const ESCRITAS = (o: Op) => o.op === 'insert' || (o.op === 'update' && o.table !== 'category_suggestions')
@@ -50,7 +50,7 @@ describe('aceitarSugestao', () => {
     insertQueue.push([{ id: 'nova' }], [])
     const r = await aceitarSugestao(tx, 'org-1', { suggestionId: 's1', name: 'Delivery', parentCategoryId: null }, '2026-09-24')
 
-    expect(r).toEqual({ categoryId: 'nova', name: 'Delivery', parentId: null, monthlyAvgCents: 2000, moved: 1 })
+    expect(r).toEqual({ categoryId: 'nova', name: 'Delivery', parentId: null, monthlyAvgCents: 2000, moved: 1, created: true })
     expect(ops[0]).toMatchObject({ op: 'update', table: 'category_suggestions', payload: { status: 'accepted' } })
     // claim só pega sugestão ainda pendente: de dois cliques simultâneos, um só vence
     expect(sqlDe(ops[0].where)).toContain('"status" = $')
@@ -128,5 +128,33 @@ describe('aceitarSugestao', () => {
       aceitarSugestao(tx, 'org-1', { suggestionId: 's1', name: 'Delivery', parentCategoryId: 'x' }, '2026-09-24'),
     ).rejects.toThrow('Categoria mãe inválida')
     expect(ops.some((o) => o.op !== 'select')).toBe(false)
+  })
+
+  describe('sugestão que aponta para categoria existente', () => {
+    const ALVO = { ...SUG, targetCategoryId: 'limpeza', merchantKey: 'jussara', matchValue: 'jussara' }
+
+    it('não cria categoria: cria a regra e move para a existente', async () => {
+      updateQueue.push([ALVO])
+      selectQueue.push(
+        [{ id: 'limpeza', name: 'Assistente de limpeza', parentId: 'casa', type: 'expense' }],
+        [{ id: 't1', description: 'PIX TRANSF JUSSARA01 01' }, { id: 't2', description: 'PIX TRANSF MARAISA05' }],
+      )
+      insertQueue.push([])
+      const r = await aceitarSugestao(tx, 'org-1', { suggestionId: 's1', name: 'ignorado', parentCategoryId: null }, '2026-09-24')
+
+      expect(r).toEqual({ categoryId: 'limpeza', name: 'Assistente de limpeza', parentId: 'casa', monthlyAvgCents: 2000, moved: 1, created: false })
+      expect(ops.filter((o) => o.op === 'insert').map((o) => o.table)).toEqual(['category_rules'])
+      expect(ops.find((o) => o.table === 'category_rules')?.payload).toMatchObject({ categoryId: 'limpeza', matchValue: 'jussara' })
+      expect(ops.find((o) => o.op === 'update' && o.table === 'transactions')?.payload).toEqual({ categoryId: 'limpeza' })
+    })
+
+    it('categoria de destino que sumiu (ou não é de despesa) aborta antes de gravar', async () => {
+      updateQueue.push([ALVO])
+      selectQueue.push([{ id: 'limpeza', name: 'Salário', parentId: null, type: 'income' }])
+      await expect(
+        aceitarSugestao(tx, 'org-1', { suggestionId: 's1', name: '', parentCategoryId: null }, '2026-09-24'),
+      ).rejects.toThrow('Categoria de destino não encontrada')
+      expect(ops.some(ESCRITAS)).toBe(false)
+    })
   })
 })

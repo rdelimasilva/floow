@@ -19,6 +19,7 @@ import { buscarOcorrenciasDeRecorrentes } from '@/lib/finance/recurring-budget-q
 import { combinarMetasDoMes, somarRecorrentesPorCategoria } from '@/lib/finance/recurring-budget'
 import { saoPauloToday, monthStartUTC, monthEndUTC } from '@/lib/finance/sp-date'
 import type { CategorySuggestionDeps, ExistingSuggestion } from './job'
+import { createClaudeClassifier } from './classifier'
 import { hojeSP, inicioDaJanela } from './janela'
 
 function valores(orgId: string, s: CategorySuggestion) {
@@ -30,6 +31,7 @@ function valores(orgId: string, s: CategorySuggestion) {
     parentCategoryId: s.parentCategoryId,
     sourceCategoryIds: s.sourceCategoryIds,
     merchantKey: s.merchantKey,
+    targetCategoryId: s.targetCategoryId,
     matchValue: s.matchValue,
     txCount: s.txCount,
     totalCents: s.totalCents,
@@ -40,6 +42,8 @@ function valores(orgId: string, s: CategorySuggestion) {
 export function defaultCategorySuggestionDeps(): CategorySuggestionDeps {
   const db = getDb()
   return {
+    classify: createClaudeClassifier(),
+
     async loadInput(orgId) {
       const hoje = hojeSP()
       const inicio = inicioDaJanela(hoje)

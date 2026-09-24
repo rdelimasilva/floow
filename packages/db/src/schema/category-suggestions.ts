@@ -15,6 +15,8 @@ export const categorySuggestions = pgTable(
     parentCategoryId: uuid('parent_category_id').references(() => categories.id, { onDelete: 'cascade' }),
     sourceCategoryIds: uuid('source_category_ids').array().notNull().default(sql`'{}'`),
     merchantKey: text('merchant_key').notNull(),
+    /** Preenchido = aceitar move para esta categoria existente (00059). */
+    targetCategoryId: uuid('target_category_id').references(() => categories.id, { onDelete: 'cascade' }),
     matchValue: text('match_value'),
     txCount: integer('tx_count').notNull(),
     totalCents: bigint('total_cents', { mode: 'number' }).notNull(),

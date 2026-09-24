@@ -19,3 +19,14 @@ describe('migration 00058 category_suggestions', () => {
     expect(sql.match(/get_user_org_ids\(\)/g)?.length).toBeGreaterThanOrEqual(5)
   })
 })
+
+describe('migration 00059 target_category_id', () => {
+  const sql59 = readFileSync(
+    resolve(__dirname, '../../../../supabase/migrations/00059_sugestao_para_categoria_existente.sql'),
+    'utf8',
+  )
+  it('adiciona a coluna de destino, idempotente, apagando junto com a categoria', () => {
+    expect(sql59).toMatch(/ADD COLUMN IF NOT EXISTS target_category_id uuid/)
+    expect(sql59).toMatch(/REFERENCES public\.categories\(id\) ON DELETE CASCADE/)
+  })
+})

@@ -161,6 +161,8 @@ export function SpendingClient({
   }
 
   function handleSuggestionAccepted(r: AcceptResult) {
+    // Mover para categoria existente não pede meta nova.
+    if (!r.created) return
     setCategories((prev) => [...prev, { id: r.categoryId, name: r.name, type: 'expense', color: null, icon: null, parentId: r.parentId }])
     setPrefill({ categoryId: r.categoryId, amountCents: r.monthlyAvgCents })
     setShowAdd(true)

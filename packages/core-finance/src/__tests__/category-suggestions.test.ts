@@ -33,6 +33,12 @@ describe('isGenericCategory', () => {
   it('nome "Outrasmarcas" sem espaço não é genérica', () => {
     expect(isGenericCategory({ id: 'x', name: 'Outrasmarcas', parentId: null, polpRef: null })).toBe(false)
   })
+  // Categoria da Polp renomeada pelo usuário deixa de ser balaio: "Outros
+  // serviços de casa" virou "Assistente de limpeza" e é destino legítimo.
+  it('categoria da Polp renomeada não é genérica, mesmo com _OTHER_ no polpRef', () => {
+    expect(isGenericCategory({ id: 'x', name: 'Assistente de limpeza', parentId: 'casa', polpRef: 'HOME_IMPROVEMENT_OTHER_HOME_IMPROVEMENT' })).toBe(false)
+    expect(isGenericCategory({ id: 'x', name: 'Casa', parentId: null, polpRef: 'OTHER' })).toBe(false)
+  })
   it('com polpRef null, nome "Outros gastos" é genérica', () => {
     expect(isGenericCategory({ id: 'x', name: 'Outros gastos', parentId: null, polpRef: null })).toBe(true)
   })
@@ -106,9 +112,11 @@ describe('suggestCategories — tipo B', () => {
 })
 
 describe('suggestCategories — filtros finais', () => {
-  it('não sugere nome que já existe (caixa/acento)', () => {
+  it('nome igual a categoria existente (caixa/acento) vira mover para ela', () => {
     const cats = [...CATS, { id: 'x', name: 'IFÓOD', parentId: null, polpRef: null }]
-    expect(suggestCategories({ ...base, categories: cats, transactions: serie('IFOOD', 40, 6, null) })).toEqual([])
+    const r = suggestCategories({ ...base, categories: cats, transactions: serie('IFOOD', 40, 6, null) })
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ targetCategoryId: 'x', suggestedName: 'IFÓOD' })
   })
   it('não sugere nome que já existe em categoria de outro tipo (existingNames)', () => {
     const r = suggestCategories({ ...base, existingNames: ['iFood'], transactions: serie('IFOOD', 40, 6, null) })
@@ -135,5 +143,60 @@ describe('suggestCategories — filtros finais', () => {
     expect(r).toHaveLength(10)
     expect(r[0].merchantKey).toBe('musica')
     expect(r.map((s) => s.totalCents)).toEqual([...r.map((s) => s.totalCents)].sort((a, b) => b - a))
+  })
+})
+
+describe('suggestCategories — categoria que já existe', () => {
+  const LIMPEZA = { id: 'limpeza', name: 'Assistente de limpeza', parentId: null, polpRef: null }
+  const cats = [...CATS, LIMPEZA]
+
+  it('pessoa que já tem lançamentos numa categoria: sugere mover para ela', () => {
+    const txs = [
+      ...serie('TED enviada jussara leoncio de andrade', 3500, 3, 'limpeza'),
+      ...serie('PIX TRANSF JUSSARA01 01', 3300, 6, null),
+    ]
+    const r = suggestCategories({ ...base, categories: cats, transactions: txs })
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({
+      kind: 'uncategorized', targetCategoryId: 'limpeza', suggestedName: 'Assistente de limpeza',
+      merchantKey: 'jussara', txCount: 6, fingerprint: 'uncategorized:root:jussara',
+    })
+  })
+
+  it('um lançamento só na categoria não basta para decidir', () => {
+    const txs = [...serie('TED jussara', 3500, 1, 'limpeza'), ...serie('PIX TRANSF JUSSARA01', 3300, 6, null)]
+    const [s] = suggestCategories({ ...base, categories: cats, transactions: txs })
+    expect(s.targetCategoryId).toBeNull()
+  })
+
+  it('histórico dividido entre categorias não decide', () => {
+    const txs = [
+      ...serie('PIX jussara', 3500, 2, 'limpeza'),
+      ...serie('PIX jussara', 3500, 2, 'alim'),
+      ...serie('PIX TRANSF JUSSARA01', 3300, 6, null),
+    ]
+    const [s] = suggestCategories({ ...base, categories: cats, transactions: txs })
+    expect(s.targetCategoryId).toBeNull()
+  })
+
+  it('sem histórico: sem alvo, com até 3 descrições de exemplo', () => {
+    const txs = [...serie('Pix enviado Maraisa Ramos', 500, 3, null), ...serie('PIX TRANSF Maraisa05 01', 500, 3, null)]
+    const [s] = suggestCategories({ ...base, categories: cats, transactions: txs })
+    expect(s.targetCategoryId).toBeNull()
+    expect(s.samples.length).toBeGreaterThan(0)
+    expect(s.samples.length).toBeLessThanOrEqual(3)
+    expect(new Set(s.samples).size).toBe(s.samples.length)
+  })
+
+  it('duas pessoas indo para a mesma categoria existente não se anulam', () => {
+    const txs = [
+      ...serie('TED jussara', 3500, 3, 'limpeza'),
+      ...serie('PIX TRANSF JUSSARA01', 3300, 6, null),
+      ...serie('TED marlene', 3500, 3, 'limpeza'),
+      ...serie('PIX TRANSF MARLENE01', 3300, 6, null),
+    ]
+    const r = suggestCategories({ ...base, categories: cats, transactions: txs }).filter((s) => s.kind === 'uncategorized')
+    expect(r.map((s) => s.merchantKey).sort()).toEqual(['jussara', 'marlene'])
+    expect(r.every((s) => s.targetCategoryId === 'limpeza')).toBe(true)
   })
 })
