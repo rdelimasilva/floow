@@ -32,6 +32,7 @@ const BASE: LancamentoParaDedupe = {
   dateISO: '2026-09-16',
   amountCents: -1168540,
   installmentNumber: null,
+  purchaseDate: null,
   counterpartyTaxId: '60872504000123',
   externalId: uuidV7Em('2026-09-16T03:00:00Z'),
 }
@@ -57,6 +58,26 @@ describe('detectarDuplicatas', () => {
     ])
 
     expect(pares).toEqual([])
+  })
+
+  it('não propõe parcelas de compras diferentes que vencem na mesma fatura', () => {
+    // A parcela vale no vencimento da fatura: 3/10 de uma compra e 3/10 de
+    // outra, mesmo valor, caem no mesmo dia. A data da compra separa as duas.
+    const pares = detectarDuplicatas([
+      { ...BASE, id: 'c1', installmentNumber: 3, purchaseDate: '2026-07-02' },
+      { ...BASE, id: 'c2', installmentNumber: 3, purchaseDate: '2026-07-20', externalId: uuidV7Em('2026-09-16T09:00:00Z') },
+    ])
+
+    expect(pares).toEqual([])
+  })
+
+  it('mesma data de compra ainda pode ser duplicata', () => {
+    const pares = detectarDuplicatas([
+      { ...BASE, id: 'd1', installmentNumber: 3, purchaseDate: '2026-07-02' },
+      { ...BASE, id: 'd2', installmentNumber: 3, purchaseDate: '2026-07-02', externalId: uuidV7Em('2026-09-16T09:00:00Z') },
+    ])
+
+    expect(pares).toHaveLength(1)
   })
 
   it('não propõe quando a contraparte é outra', () => {

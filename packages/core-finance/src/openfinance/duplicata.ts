@@ -39,6 +39,8 @@ export interface LancamentoParaDedupe {
   amountCents: number
   /** Parcela; quando difere, são cobranças distintas da mesma compra. */
   installmentNumber: number | null
+  /** Data da compra, AAAA-MM-DD, quando é parcela de cartão. */
+  purchaseDate: string | null
   counterpartyTaxId: string | null
   /** Id da Polp. Só UUIDv7 carrega o instante da emissão. */
   externalId: string
@@ -99,6 +101,16 @@ function parcelasDistintas(a: LancamentoParaDedupe, b: LancamentoParaDedupe): bo
 }
 
 /**
+ * A parcela vale no vencimento da fatura, então parcelas de compras
+ * diferentes com o mesmo valor caem no mesmo dia. Data da compra declarada
+ * dos dois lados e diferente: são duas compras, nunca duplicata.
+ */
+function comprasDistintas(a: LancamentoParaDedupe, b: LancamentoParaDedupe): boolean {
+  if (a.purchaseDate === null || b.purchaseDate === null) return false
+  return a.purchaseDate !== b.purchaseDate
+}
+
+/**
  * Qual dos dois fica.
  *
  * Manter o mais antigo seria estável e simples, mas jogaria fora justamente o
@@ -139,6 +151,7 @@ export function detectarDuplicatas(lancamentos: LancamentoParaDedupe[]): ParDupl
       if (a.dateISO !== b.dateISO) continue
       if (a.amountCents !== b.amountCents) continue
       if (parcelasDistintas(a, b)) continue
+      if (comprasDistintas(a, b)) continue
       if (!contrapartesCompativeis(a, b)) continue
 
       const emissaoA = emitidoEm(a.externalId)
