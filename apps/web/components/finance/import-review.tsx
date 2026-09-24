@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -74,6 +74,20 @@ export function ImportReview({
   const selectedItems = items.filter((item) => selectedIndices.includes(item.index))
 
   const [categories, setCategories] = useState<CategoryOption[]>(initialCategories)
+  // As opções do select de categoria dependem só do tipo da linha. Montar a
+  // árvore por linha a cada render custava linhas x categorias em cada tecla
+  // digitada, no arquivo inteiro do extrato.
+  const opcoesPorTipo = useMemo(() => {
+    const porTipo = new Map<string, ReturnType<typeof toCategoryOptions>>()
+    return (tipo: string) => {
+      let opcoes = porTipo.get(tipo)
+      if (!opcoes) {
+        opcoes = toCategoryOptions(categories.filter((c) => c.type === tipo || tipo === 'transfer'))
+        porTipo.set(tipo, opcoes)
+      }
+      return opcoes
+    }
+  }, [categories])
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
   const [newCategory, setNewCategory] = useState<NewCategoryDraft>({
     name: '',
@@ -204,9 +218,7 @@ export function ImportReview({
                           className="h-8 w-full min-w-[120px] rounded border border-gray-300 text-xs"
                         >
                           <option value="">Sem categoria</option>
-                          {toCategoryOptions(
-                            categories.filter((c) => c.type === state.type || state.type === 'transfer'),
-                          ).map((c) => (
+                          {opcoesPorTipo(state.type).map((c) => (
                             <option key={c.id} value={c.id}>{c.label}</option>
                           ))}
                         </select>

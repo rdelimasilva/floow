@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 
 type ToastType = 'success' | 'error' | 'info'
@@ -38,8 +38,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
+  // Valor estável: `toast` não muda, e um objeto novo a cada toast exibido ou
+  // removido re-renderizava todos os consumidores do app — a lista de
+  // transações inteira, duas vezes por aviso.
+  const value = useMemo(() => ({ toast }), [toast])
+
   return (
-    <ToastContext.Provider value={{ toast }}>
+    <ToastContext.Provider value={value}>
       {children}
       {/* Toast container — fixed bottom-right */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
