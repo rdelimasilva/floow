@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getTableName } from 'drizzle-orm'
+import { getTableName, type SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
 
 const ORG = 'org-1'
 const COUNTERPARTY_ID = '11111111-1111-1111-1111-111111111111'
@@ -7,18 +8,24 @@ const CATEGORY_ID = '22222222-2222-2222-2222-222222222222'
 const TX2_ID = '33333333-3333-3333-3333-333333333333'
 const TRANSFER_ACCOUNT_ID = '44444444-4444-4444-4444-444444444444'
 
-interface Op { op: 'select' | 'update' | 'insert'; table: string }
+// `where` guarda a condição que recebeu: o resto do mock descarta os
+// argumentos, e filtro de lote só se prova renderizando o SQL de verdade.
+interface Op { op: 'select' | 'update' | 'insert'; table: string; where?: unknown }
 const ops: Op[] = []
 const selectQueue: unknown[][] = []
 const updateQueue: unknown[][] = []
 
-function makeChain(result: unknown[]): any {
+function makeChain(result: unknown[], op?: Op): any {
   const chain: any = {
     then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
     catch: () => chain,
     finally: () => chain,
   }
-  for (const m of ['from', 'where', 'limit', 'set', 'returning', 'onConflictDoNothing']) chain[m] = () => makeChain(result)
+  for (const m of ['from', 'limit', 'set', 'returning', 'onConflictDoNothing']) chain[m] = () => makeChain(result, op)
+  chain.where = (cond: unknown) => {
+    if (op) op.where = cond
+    return makeChain(result, op)
+  }
   return chain
 }
 
@@ -64,12 +71,14 @@ vi.mock('@floow/db', async () => {
     getDb: () => ({
       transaction: async (fn: (tx: unknown) => unknown) => fn({
         select: (sel: any) => {
-          ops.push({ op: 'select', table: getTableName(sel?.from ?? sel) })
-          return { from: (table: any) => { ops[ops.length - 1].table = getTableName(table); return makeChain(selectQueue.shift() ?? []) } }
+          const op: Op = { op: 'select', table: '' }
+          ops.push(op)
+          return { from: (table: any) => { op.table = getTableName(table); return makeChain(selectQueue.shift() ?? [], op) } }
         },
         update: (table: any) => {
-          ops.push({ op: 'update', table: getTableName(table) })
-          return makeChain(updateQueue.shift() ?? [])
+          const op: Op = { op: 'update', table: getTableName(table) }
+          ops.push(op)
+          return makeChain(updateQueue.shift() ?? [], op)
         },
         insert: (table: any) => {
           ops.push({ op: 'insert', table: getTableName(table) })
@@ -84,6 +93,30 @@ vi.mock('@floow/db', async () => {
 })
 
 import { confirmCounterparty } from '@/lib/openfinance/counterparty-actions'
+
+const dialect = new PgDialect()
+function sqlDoWhere(op: Op | undefined): string {
+  if (!op?.where) throw new Error('operação sem where')
+  return dialect.sqlToQuery(op.where as SQL).sql.toLowerCase()
+}
+
+/** Fila da transferência com destino manual, um lançamento pendente no lote. */
+function filaTransferenciaManual() {
+  selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
+  selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership incondicional
+  updateQueue.push([]) // update de counterparties
+  selectQueue.push([{ id: 'tx-1' }]) // ids pendentes do grupo (applyTransferBatch)
+  selectQueue.push([{
+    id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
+    date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
+  }])
+  selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership
+  selectQueue.push([]) // isOpenFinanceLinkedAccount: manual
+  updateQueue.push([]) // update da origem
+  insertQueue.push([{ id: 'tx-1-dest' }])
+  updateQueue.push([]) // saldo do destino
+  selectQueue.push([{ one: 1 }])
+}
 
 beforeEach(() => {
   ops.length = 0
@@ -406,6 +439,36 @@ describe('confirmCounterparty', () => {
           exceptions: [{ transactionId: TX2_ID, nature: 'transfer', categoryId: null, transferAccountId: null }],
         }),
       ).rejects.toThrow()
+    })
+  })
+
+  describe('lançamento pendente que já tem par não ganha outro', () => {
+    // Uma aplicação Nível 1 pendente que `vincularAplicacoesOrfas` já tivesse
+    // ligado teria perna real e `transfer_group_id`. Classificar em cima dela
+    // sobrescreveria o grupo e inseriria uma SEGUNDA perna: dinheiro em dobro.
+    it('lote e lançamento individual de transferência exigem transfer_group_id nulo', async () => {
+      filaTransferenciaManual()
+
+      await confirmCounterparty({
+        counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
+      })
+
+      const selectsDeTransacao = ops.filter((o) => o.op === 'select' && o.table === 'transactions')
+      const [lote, individual] = selectsDeTransacao
+      expect(sqlDoWhere(lote)).toContain('"transfer_group_id" is null')
+      expect(sqlDoWhere(individual)).toContain('"transfer_group_id" is null')
+    })
+
+    it('lote de receita/despesa também deixa de fora quem já tem par', async () => {
+      selectQueue.push([{ id: COUNTERPARTY_ID }])
+      updateQueue.push([])
+      updateQueue.push([{ id: 'tx-1' }])
+      selectQueue.push([{ one: 1 }])
+
+      await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID, transferAccountId: null })
+
+      const lote = ops.filter((o) => o.op === 'update' && o.table === 'transactions')[0]
+      expect(sqlDoWhere(lote)).toContain('"transfer_group_id" is null')
     })
   })
 })

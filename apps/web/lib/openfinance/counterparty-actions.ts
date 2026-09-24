@@ -1,7 +1,7 @@
 'use server'
 
 import { z } from 'zod'
-import { and, eq, isNotNull, notInArray, sql } from 'drizzle-orm'
+import { and, eq, isNotNull, isNull, notInArray, sql } from 'drizzle-orm'
 import { getDb, orgs, counterparties, transactions, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { assertAccountOwnership } from '@/lib/finance/actions'
@@ -70,6 +70,18 @@ export type ConfirmCounterpartyException = z.infer<typeof exceptionSchema>
 type Db = ReturnType<typeof getDb>
 
 /**
+ * Lançamento pendente que já tem `transfer_group_id` já tem par. Não deveria
+ * existir (pendente nasce sem grupo), mas foi o que `vincularAplicacoesOrfas`
+ * produzia com aplicação Nível 1 pendente. Classificar em cima dele
+ * sobrescreveria o grupo e criaria uma segunda perna — ou, como receita/
+ * despesa, deixaria a perna já criada órfã. Nos dois casos, o dinheiro em
+ * dobro. Fica de fora de toda escrita desta action.
+ */
+function semParJaCriado() {
+  return isNull(transactions.transferGroupId)
+}
+
+/**
  * Aplica transferência a UM lançamento pendente: natureza, sem categoria,
  * com a conta de destino. Decide o fork do §4 da spec — segunda perna real
  * quando o destino é manual, perna prevista quando é Open Finance. Retorna 1
@@ -102,6 +114,7 @@ async function applyTransferSingle(
         eq(transactions.orgId, orgId),
         eq(transactions.counterpartyId, input.counterpartyId),
         eq(transactions.reviewState, 'pending'),
+        semParJaCriado(),
       ),
     )
     .limit(1)
@@ -177,6 +190,7 @@ async function applyTransferBatch(
     eq(transactions.orgId, orgId),
     eq(transactions.counterpartyId, input.counterpartyId),
     eq(transactions.reviewState, 'pending'),
+    semParJaCriado(),
   ]
   if (input.excludeIds.length > 0) conditions.push(notInArray(transactions.id, input.excludeIds))
 
@@ -264,6 +278,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
         eq(transactions.orgId, orgId),
         eq(transactions.counterpartyId, input.counterpartyId),
         eq(transactions.reviewState, 'pending'),
+        semParJaCriado(),
       ]
       if (exceptionIds.length > 0) batchConditions.push(notInArray(transactions.id, exceptionIds))
 
@@ -297,6 +312,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
               eq(transactions.counterpartyId, input.counterpartyId),
               eq(transactions.reviewState, 'pending'),
               eq(transactions.id, exception.transactionId),
+              semParJaCriado(),
             ),
           )
           .returning({ id: transactions.id })

@@ -107,6 +107,11 @@ export async function vincularAplicacoesOrfas(
       inArray(transactions.accountId, contasDaConexao),
       inArray(transactions.polpType, [...POLP_TYPES_DE_APLICACAO]),
       eq(transactions.type, 'transfer'),
+      // Só a já confirmada. Aplicação/resgate agora chega PENDENTE, esperando
+      // a conta em Classificar (spec de 24/09, §3.4); ligar aqui daria perna,
+      // saldo e `transfer_group_id`, e a confirmação em Classificar criaria
+      // outra perna por cima — o mesmo dinheiro contado duas vezes.
+      eq(transactions.reviewState, 'confirmed'),
       isNull(transactions.transferAccountId),
       eq(transactions.isIgnored, false),
       // A perna deriva o external_id da origem; sem ele não há idempotência.
@@ -138,6 +143,7 @@ export async function vincularAplicacoesOrfas(
           eq(transactions.id, v.id),
           eq(transactions.orgId, conexao.orgId),
           isNull(transactions.transferAccountId),
+          eq(transactions.reviewState, 'confirmed'),
         ))
         .returning({ id: transactions.id })
       if (ok) ligados.push(v)

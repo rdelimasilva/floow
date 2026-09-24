@@ -80,6 +80,10 @@ describe('vincularAplicacoesOrfas (SQL)', () => {
     expect(sel.sql).toContain('"transfer_account_id" is null')
     expect(sel.sql).toContain('"is_ignored" =')
     expect(sel.sql).toContain('"openfinance_resources"')
+    // Aplicação pendente espera a conta em Classificar: ligar aqui daria
+    // perna, saldo e grupo, e Classificar criaria outra perna por cima.
+    expect(sel.sql).toContain('"review_state" =')
+    expect(sel.params).toContain('confirmed')
     expect(sel.params).toEqual(expect.arrayContaining([
       'org-a', 'con-1', 'ACCOUNT', 'transfer', 'APLICACAO_FINANCEIRA', 'RESGATE_APLIC_FINANCEIRA',
     ]))
@@ -98,7 +102,8 @@ describe('vincularAplicacoesOrfas (SQL)', () => {
     expect(updates).toHaveLength(2)
     for (const u of updates) {
       expect(u.sql).toContain('"transfer_account_id" is null')
-      expect(u.params).toEqual(expect.arrayContaining(['conta-inv', 'org-a']))
+      expect(u.sql).toContain('"review_state" =')
+      expect(u.params).toEqual(expect.arrayContaining(['conta-inv', 'org-a', 'confirmed']))
     }
     const insert = consultas.find((c) => c.sql.startsWith('insert into "transactions"'))!
     expect(insert.sql).toContain('on conflict do nothing')
