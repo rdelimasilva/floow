@@ -17,6 +17,7 @@ import { PassoDestinos } from './passo-destinos'
 import {
   NOVA,
   contasCompativeis,
+  continuaEsperando,
   erroDoPasso,
   escolhaInicial,
   montarDestinos,
@@ -59,9 +60,6 @@ export const PRODUCTS = [
 
 const PASSOS = ['O que conectar e para onde', 'Banco e CPF', 'Ativar'] as const
 
-/** Etapas em que a volta para a aba ainda tem algo a fazer. */
-const ESPERANDO = new Set(['aguardando-autorizacao', 'aguardando-contas'])
-
 export function ConnectWizard({ institutions, loadError, contas }: ConnectWizardProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -87,7 +85,8 @@ export function ConnectWizard({ institutions, loadError, contas }: ConnectWizard
   const [resultado, setResultado] = useState<ResultadoDaConexaoGuiada | null>(null)
   const emAndamento = useRef(false)
 
-  const esperando = aguardando !== null && (!resultado || ESPERANDO.has(resultado.etapa))
+  // Para em status terminal (autorizada e aplicada, recusada, expirada).
+  const esperando = aguardando !== null && continuaEsperando(resultado)
 
   function verificar() {
     if (!aguardando || emAndamento.current) return

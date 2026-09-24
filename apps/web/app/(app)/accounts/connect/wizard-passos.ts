@@ -81,10 +81,30 @@ export interface ResumoDaConclusao {
   erro: string | null
 }
 
+type Conclusao = Pick<
+  ResultadoDaConexaoGuiada,
+  'etapa' | 'vinculados' | 'ambiguos' | 'faltando' | 'importadas' | 'erro'
+> & { atualizacao?: { status: string } }
+
+/** Status do consentimento que não mudam mais sozinhos: esperar não adianta. */
+const SEM_VOLTA = new Set(['REJECTED', 'EXPIRED'])
+
+/** A volta para a aba ainda tem algo a buscar? */
+export function continuaEsperando(r: Conclusao | null): boolean {
+  if (!r) return true
+  if (r.atualizacao && SEM_VOLTA.has(r.atualizacao.status)) return false
+  return r.etapa === 'aguardando-autorizacao' || r.etapa === 'aguardando-contas'
+}
+
 /** O que dizer na tela depois de concluirConexaoGuiada. */
-export function resumoDaConclusao(
-  r: Pick<ResultadoDaConexaoGuiada, 'etapa' | 'vinculados' | 'ambiguos' | 'faltando' | 'importadas' | 'erro'>,
-): ResumoDaConclusao {
+export function resumoDaConclusao(r: Conclusao): ResumoDaConclusao {
+  if (r.atualizacao && SEM_VOLTA.has(r.atualizacao.status)) {
+    return {
+      texto: 'A autorização não foi concluída no banco.',
+      pendencia: null,
+      erro: 'O banco recusou ou o link expirou. Use "Reabrir autorização" na lista de conexões abaixo e conclua o passo no banco em seguida.',
+    }
+  }
   if (r.etapa === 'aguardando-contas') {
     return {
       texto:

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import type { ResultadoDaConexaoGuiada } from '@/lib/openfinance/conexao-guiada-actions'
 import { AvisoDeAutorizacao } from './aguardando-autorizacao'
-import { resumoDaConclusao } from './wizard-passos'
+import { continuaEsperando, resumoDaConclusao } from './wizard-passos'
 
 interface PassoAtivarProps {
   /** Linhas do resumo: o que vai para onde. */
@@ -19,7 +19,9 @@ interface PassoAtivarProps {
  * aba do banco e diz o que foi vinculado e importado sozinho.
  */
 export function PassoAtivar({ resumo, bancoNome, connectionId, resultado }: PassoAtivarProps) {
-  const esperandoBanco = connectionId !== null && (!resultado || resultado.etapa === 'aguardando-autorizacao')
+  const encerrada = resultado !== null && !continuaEsperando(resultado)
+  const esperandoBanco =
+    connectionId !== null && !encerrada && (!resultado || resultado.etapa === 'aguardando-autorizacao')
 
   return (
     <div className="space-y-4">
@@ -40,7 +42,7 @@ export function PassoAtivar({ resumo, bancoNome, connectionId, resultado }: Pass
 
       {esperandoBanco && <AvisoDeAutorizacao />}
 
-      {connectionId && resultado && resultado.etapa !== 'aguardando-autorizacao' && (
+      {connectionId && resultado && (encerrada || resultado.etapa !== 'aguardando-autorizacao') && (
         <Conclusao connectionId={connectionId} resultado={resultado} />
       )}
     </div>

@@ -5,6 +5,7 @@ import {
   erroDoPasso,
   escolhaInicial,
   montarDestinos,
+  continuaEsperando,
   resumoDaConclusao,
   type EstadoDoWizard,
 } from '@/app/(app)/accounts/connect/wizard-passos'
@@ -108,5 +109,33 @@ describe('resumoDaConclusao', () => {
   })
   it('erro vai junto', () => {
     expect(resumoDaConclusao(r({ vinculados: 1, erro: 'Polp fora do ar' })).erro).toBe('Polp fora do ar')
+  })
+})
+
+const comStatus = (etapa: string, status: string) =>
+  ({ etapa, vinculados: 0, ambiguos: [], faltando: [], importadas: null, erro: null, atualizacao: { status } }) as never
+
+describe('continuaEsperando', () => {
+  it('antes da primeira volta, espera', () => {
+    expect(continuaEsperando(null)).toBe(true)
+  })
+  it('ainda aguardando autorização ou contas, espera', () => {
+    expect(continuaEsperando(comStatus('aguardando-autorizacao', 'AWAITING_AUTHORIZATION'))).toBe(true)
+    expect(continuaEsperando(comStatus('aguardando-contas', 'AUTHORISED'))).toBe(true)
+  })
+  it('recusada ou expirada no banco: para de esperar', () => {
+    expect(continuaEsperando(comStatus('aguardando-autorizacao', 'REJECTED'))).toBe(false)
+    expect(continuaEsperando(comStatus('aguardando-autorizacao', 'EXPIRED'))).toBe(false)
+  })
+  it('concluída: para', () => {
+    expect(continuaEsperando(comStatus('concluida', 'AUTHORISED'))).toBe(false)
+  })
+})
+
+describe('resumoDaConclusao — autorização que não vingou', () => {
+  it('recusada/expirada sugere Reabrir autorização', () => {
+    const s = resumoDaConclusao(comStatus('aguardando-autorizacao', 'REJECTED'))
+    expect(s.erro).toMatch(/Reabrir autorização/)
+    expect(resumoDaConclusao(comStatus('aguardando-autorizacao', 'EXPIRED')).erro).toMatch(/Reabrir autorização/)
   })
 })
