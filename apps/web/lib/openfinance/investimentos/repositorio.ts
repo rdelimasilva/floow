@@ -7,6 +7,7 @@ import {
 import type { NormalizedInvestment, NormalizedInvestmentEvent, PolpInvestmentKind } from '@floow/core-finance'
 import { recomputeOrgPositionSnapshots } from '@/lib/investments/position-snapshots'
 import { decidirVinculo } from './vinculo'
+import { vincularAplicacoesOrfas } from './vincular-aplicacoes'
 
 type Db = ReturnType<typeof getDb>
 
@@ -31,6 +32,11 @@ export interface RepositorioDeInvestimentos {
   zerarAusentes(ctx: { orgId: string; connectionId: string }, kind: PolpInvestmentKind, polpIdsVistos: string[], hoje: string): Promise<number>
   registrarProblemas(orgId: string, problemas: ProblemaDeIngestao[]): Promise<void>
   recalcularPosicoes(orgId: string): Promise<void>
+  /**
+   * Liga à conta de investimentos as aplicações/resgates do extrato desta
+   * conexão que chegaram sem conta de destino. Devolve quantos ligou.
+   */
+  vincularAplicacoes(conexao: { id: string; orgId: string }, accountId: string): Promise<number>
 }
 
 export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
@@ -211,6 +217,10 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
 
     async recalcularPosicoes(orgId) {
       await recomputeOrgPositionSnapshots(orgId, db)
+    },
+
+    async vincularAplicacoes(conexao, accountId) {
+      return vincularAplicacoesOrfas(db, conexao, accountId)
     },
   }
 }

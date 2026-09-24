@@ -7,7 +7,9 @@
  * possível: um tipo fora do ar não derruba os outros, um item ilegível não
  * derruba a página. Tudo que não entrou vira problema com payload cru.
  *
- * D3 da spec: nada aqui cria lançamento. O dinheiro já chega pelo extrato.
+ * D3 da spec: nada aqui cria lançamento. O dinheiro já chega pelo extrato —
+ * a única escrita em `transactions` é a segunda perna que liga uma aplicação
+ * ou resgate órfão do extrato à conta de investimentos (`vincular-aplicacoes.ts`).
  */
 import {
   POLP_INVESTMENT_KINDS, normalizeInvestment, normalizeInvestmentTransaction,
@@ -25,6 +27,8 @@ export interface ResumoDeInvestimentos {
   rejeitados: number
   /** Ativos da conexão que sumiram da listagem e tiveram a posição zerada. */
   zerados: number
+  /** Aplicações/resgates órfãos do extrato ligados à conta de investimentos. */
+  transferenciasVinculadas: number
   tiposComFalha: PolpInvestmentKind[]
 }
 
@@ -34,11 +38,14 @@ export async function sincronizarInvestimentos(
   conexao: { id: string; orgId: string; polpConsentId: string; institutionName: string | null; products: string[] },
   hoje: string = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }),
 ): Promise<ResumoDeInvestimentos> {
-  const resumo: ResumoDeInvestimentos = { ativos: 0, posicoes: 0, movimentacoes: 0, conflitos: 0, rejeitados: 0, zerados: 0, tiposComFalha: [] }
+  const resumo: ResumoDeInvestimentos = { ativos: 0, posicoes: 0, movimentacoes: 0, conflitos: 0, rejeitados: 0, zerados: 0, transferenciasVinculadas: 0, tiposComFalha: [] }
   if (!conexao.products.includes('INVESTMENTS')) return resumo
 
   const { orgId } = conexao
   const accountId = await repo.garantirConta(conexao)
+  // Logo depois da conta existir: no cron roda depois de todos os extratos,
+  // então pega as aplicações que acabaram de chegar.
+  resumo.transferenciasVinculadas = await repo.vincularAplicacoes(conexao, accountId)
   const problemas: ProblemaDeIngestao[] = []
   const salvos: Array<{ kind: PolpInvestmentKind; polpId: string; assetId: string; resourceId: string }> = []
 

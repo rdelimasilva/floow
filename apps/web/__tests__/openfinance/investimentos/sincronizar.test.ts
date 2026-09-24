@@ -3,7 +3,7 @@ import type { PolpInvestmentKind } from '@floow/core-finance'
 import type { RepositorioDeInvestimentos, ProblemaDeIngestao } from '@/lib/openfinance/investimentos/repositorio'
 import { sincronizarInvestimentos } from '@/lib/openfinance/investimentos/sincronizar'
 
-function repoEmMemoria(donoDe: Record<string, string> = {}) {
+function repoEmMemoria(donoDe: Record<string, string> = {}, orfasIniciais: Record<string, string | null> = {}) {
   const ativos = new Map<string, string>()          // polpId -> assetId
   const tipoDe = new Map<string, PolpInvestmentKind>() // polpId -> tipo
   const zerados: Array<{ kind: PolpInvestmentKind; assetId: string; hoje: string }> = []
@@ -11,6 +11,9 @@ function repoEmMemoria(donoDe: Record<string, string> = {}) {
   const eventos = new Map<string, { assetId: string; eventDate: string }>() // polpTxId
   const problemas: ProblemaDeIngestao[] = []
   let recalculos = 0
+  // Aplicações/resgates órfãos do extrato: id -> conta de destino (null = órfã).
+  const orfas = new Map<string, string | null>(Object.entries(orfasIniciais))
+  const vinculos: Array<{ connectionId: string; accountId: string }> = []
   const repo: RepositorioDeInvestimentos = {
     garantirConta: async () => 'conta-inv',
     salvarInvestimento: async (ctx, inv) => {
@@ -41,8 +44,18 @@ function repoEmMemoria(donoDe: Record<string, string> = {}) {
     },
     registrarProblemas: async (_org, ps) => { problemas.push(...ps) },
     recalcularPosicoes: async () => { recalculos++ },
+    vincularAplicacoes: async (conexao, accountId) => {
+      vinculos.push({ connectionId: conexao.id, accountId })
+      let n = 0
+      for (const [id, destino] of orfas) {
+        if (destino !== null) continue
+        orfas.set(id, accountId)
+        n++
+      }
+      return n
+    },
   }
-  return { repo, ativos, posicoes, eventos, problemas, zerados, recalculos: () => recalculos }
+  return { repo, ativos, posicoes, eventos, problemas, zerados, orfas, vinculos, recalculos: () => recalculos }
 }
 
 const money = (amount: string) => ({ amount, currency: 'BRL' })
@@ -166,5 +179,23 @@ describe('sincronizarInvestimentos', () => {
     // Item sem id: não dá para saber quem ele é — não zera o tipo.
     await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [{ name: 'sem id' }] }), CONEXAO, '2026-09-25')
     expect(m.zerados.map((z) => z.assetId)).toEqual(['asset-f2'])
+  })
+
+  it('vincula aplicações e resgates órfãos à conta de investimentos, uma vez só', async () => {
+    const m = repoEmMemoria({}, { apl: null, resg: null, manual: 'conta-escolhida' })
+    const r1 = await sincronizarInvestimentos(m.repo, clienteFalso({}), CONEXAO)
+    expect(r1.transferenciasVinculadas).toBe(2)
+    expect(m.vinculos).toEqual([{ connectionId: 'c1', accountId: 'conta-inv' }])
+    expect(m.orfas.get('manual')).toBe('conta-escolhida')
+    const r2 = await sincronizarInvestimentos(m.repo, clienteFalso({}), CONEXAO)
+    expect(r2.transferenciasVinculadas).toBe(0)
+  })
+
+  it('conexão sem INVESTMENTS (sem conta de investimentos) não vincula nada', async () => {
+    const m = repoEmMemoria({}, { apl: null })
+    const r = await sincronizarInvestimentos(m.repo, clienteFalso({}), { ...CONEXAO, products: ['ACCOUNT'] })
+    expect(r.transferenciasVinculadas).toBe(0)
+    expect(m.vinculos).toEqual([])
+    expect(m.orfas.get('apl')).toBeNull()
   })
 })
