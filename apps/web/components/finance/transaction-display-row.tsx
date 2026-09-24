@@ -68,6 +68,31 @@ function CashFlowToggleButton({
 }
 
 /**
+ * "3/6 · compra em 27/07". A parcela de cartão aparece no mês da fatura, e sem
+ * a data da compra o usuário não reconheceria o lançamento.
+ */
+export function textoDaParcela(tx: {
+  installmentNumber?: number | null
+  installmentTotal?: number | null
+  purchaseDate?: Date | string | null
+}): string | null {
+  if (!tx.purchaseDate || !tx.installmentNumber || !tx.installmentTotal) return null
+  const iso = typeof tx.purchaseDate === 'string' ? tx.purchaseDate : tx.purchaseDate.toISOString()
+  const [, mes, dia] = iso.slice(0, 10).split('-')
+  return `${tx.installmentNumber}/${tx.installmentTotal} · compra em ${dia}/${mes}`
+}
+
+function SeloDeParcela({ tx }: { tx: TransactionRowData }) {
+  const texto = textoDaParcela(tx)
+  if (!texto) return null
+  return (
+    <span className="inline-flex shrink-0 items-center rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+      {texto}
+    </span>
+  )
+}
+
+/**
  * Estado de conciliação do lançamento, em três valores.
  *
  * Antes eram dois, e o terceiro — o que importa — era invisível: a previsão
@@ -180,6 +205,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
                 {tx.categoryName}
               </span>
             )}
+            <SeloDeParcela tx={tx} />
             <ForecastBadge tx={tx} />
             {tx.acquiredAssetId && tx.acquiredAssetName && (
               <AcquiredAssetBadge assetId={tx.acquiredAssetId} assetName={tx.acquiredAssetName} />
@@ -248,6 +274,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
           {tx.acquiredAssetId && tx.acquiredAssetName && (
             <AcquiredAssetBadge assetId={tx.acquiredAssetId} assetName={tx.acquiredAssetName} />
           )}
+          <SeloDeParcela tx={tx} />
           <ForecastBadge tx={tx} />
         </span>
       </td>
