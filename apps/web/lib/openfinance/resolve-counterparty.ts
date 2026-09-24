@@ -64,30 +64,18 @@ export async function loadCounterpartyIndex(db: Db, orgId: string): Promise<Map<
 }
 
 /**
- * Resolve UMA transação normalizada contra o índice da org, mutando o índice
- * quando cria uma contraparte nova — para que a segunda ocorrência da mesma
- * contraparte, na MESMA sincronização, não bata no banco de novo.
+ * A contraparte desta chave: do índice, ou criada agora (pendente, sem
+ * decisão). Muta o índice, como `resolveCounterparty`. Separada para que quem
+ * reprocessa linha JÁ gravada (`transferencias-sem-par.ts`) use exatamente a
+ * mesma criação e o mesmo desempate de corrida da ingestão.
  */
-export async function resolveCounterparty(
+export async function acharOuCriarContraparte(
   db: Db,
   orgId: string,
-  accountId: string,
-  tx: NormalizedPolpTransaction,
+  key: CounterpartyKey,
+  displayName: string,
   index: Map<string, CounterpartyRecord>,
-): Promise<ResolvedTransaction> {
-  // Nível 1 decide sozinho receita e despesa. Transferência não: o sinal do
-  // BCB diz que o dinheiro mudou de lugar, mas não para qual conta própria —
-  // e transferência sem conta não tem par. Passa pela contraparte, que
-  // lembra a conta da primeira vez em diante.
-  if (tx.natureConfirmed && tx.type !== 'transfer') {
-    return { ...tx, reviewState: 'confirmed', counterpartyId: null, categoryId: null, transferAccountId: null }
-  }
-
-  const key = counterpartyKeyFor(tx, accountId)
-  if (!key) {
-    return { ...tx, reviewState: 'pending', counterpartyId: null, categoryId: null, transferAccountId: null }
-  }
-
+): Promise<CounterpartyRecord | undefined> {
   const k = compositeKey(key)
   let record = index.get(k)
 
@@ -100,7 +88,7 @@ export async function resolveCounterparty(
         keyValue: key.keyValue,
         direction: key.direction,
         accountId: key.accountId,
-        displayName: tx.counterpartyName ?? tx.description,
+        displayName,
       })
       .onConflictDoNothing()
       .returning()
@@ -160,6 +148,36 @@ export async function resolveCounterparty(
 
     if (record) index.set(k, record)
   }
+
+  return record
+}
+
+/**
+ * Resolve UMA transação normalizada contra o índice da org, mutando o índice
+ * quando cria uma contraparte nova — para que a segunda ocorrência da mesma
+ * contraparte, na MESMA sincronização, não bata no banco de novo.
+ */
+export async function resolveCounterparty(
+  db: Db,
+  orgId: string,
+  accountId: string,
+  tx: NormalizedPolpTransaction,
+  index: Map<string, CounterpartyRecord>,
+): Promise<ResolvedTransaction> {
+  // Nível 1 decide sozinho receita e despesa. Transferência não: o sinal do
+  // BCB diz que o dinheiro mudou de lugar, mas não para qual conta própria —
+  // e transferência sem conta não tem par. Passa pela contraparte, que
+  // lembra a conta da primeira vez em diante.
+  if (tx.natureConfirmed && tx.type !== 'transfer') {
+    return { ...tx, reviewState: 'confirmed', counterpartyId: null, categoryId: null, transferAccountId: null }
+  }
+
+  const key = counterpartyKeyFor(tx, accountId)
+  if (!key) {
+    return { ...tx, reviewState: 'pending', counterpartyId: null, categoryId: null, transferAccountId: null }
+  }
+
+  const record = await acharOuCriarContraparte(db, orgId, key, tx.counterpartyName ?? tx.description, index)
 
   if (!record) {
     // Não deveria acontecer (o insert ou o select de corrida sempre acham
