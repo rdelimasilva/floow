@@ -69,4 +69,29 @@ describe('snapshotRowFor', () => {
     expect(row!.currentValueCents).toBe(15000)
     expect(row!.costIsPartial).toBe(false)
   })
+
+  it('venda fracionária: todos os campos em centavos saem inteiros (coluna integer)', () => {
+    const venda = { ...compra(1.2345678, 500, '2026-02-10'), eventType: 'sell' }
+    const eventos = [compra(3.3333333, 1000), venda]
+    const centavos = [
+      'avgCostCents', 'totalCostCents', 'currentPriceCents', 'currentValueCents',
+      'unrealizedPnLCents', 'unrealizedPnLPercentBps', 'realizedPnLCents', 'totalDividendsCents',
+    ] as const
+
+    const manual = snapshotRowFor('org-1', { id: 'a', source: 'manual' }, {
+      events: eventos, bank: null, latestPriceCents: 333,
+    })
+    const banco = snapshotRowFor('org-1', { id: 'b', source: 'openfinance' }, {
+      events: eventos,
+      bank: { quantity: 2.0987655, grossCents: 700, netCents: null, purchaseUnitPrice: 3.1415926 },
+      latestPriceCents: 0,
+    })
+
+    for (const row of [manual, banco]) {
+      expect(row).not.toBeNull()
+      for (const campo of centavos) {
+        expect(Number.isInteger(row![campo]), campo).toBe(true)
+      }
+    }
+  })
 })

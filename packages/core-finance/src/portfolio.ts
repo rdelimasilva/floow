@@ -108,11 +108,12 @@ export function computePosition(
         const qty = event.quantity ?? 0
         const proceeds = event.totalCents ?? 0
 
-        // Compute the cost of the shares being sold using current avg cost
-        const avgCostBeforeSell = quantityHeld > 0
-          ? Math.round(totalCostCents / quantityHeld)
+        // Custo proporcional das cotas vendidas, arredondado uma vez só:
+        // com quantidade fracionária, custo médio × quantidade daria centavo
+        // quebrado e o snapshot (coluna inteira) seria rejeitado pelo Postgres.
+        const costOfSoldShares = quantityHeld > 0
+          ? Math.round((totalCostCents * qty) / quantityHeld)
           : 0
-        const costOfSoldShares = avgCostBeforeSell * qty
 
         // Realized PnL = proceeds - cost of sold shares
         realizedPnLCents += proceeds - costOfSoldShares

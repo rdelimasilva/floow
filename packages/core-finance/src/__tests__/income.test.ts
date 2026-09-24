@@ -78,6 +78,18 @@ describe('aggregateIncome', () => {
     expect(result[0].amortizationCents).toBe(3000)
   })
 
+  it('jcp conta como renda, no balde de dividendos', () => {
+    const events: IncomeEvent[] = [
+      makeIncomeEvent({ eventType: 'jcp', totalCents: 700, eventDate: new Date('2024-06-10') }),
+      makeIncomeEvent({ eventType: 'dividend', totalCents: 300, eventDate: new Date('2024-06-12') }),
+    ]
+    const result = aggregateIncome(events)
+    expect(result).toHaveLength(1)
+    expect(result[0].totalCents).toBe(1000)
+    expect(result[0].dividendCents).toBe(1000)
+    expect(result[0].eventCount).toBe(2)
+  })
+
   it('buy/sell events filtered out (not income)', () => {
     const events: IncomeEvent[] = [
       makeIncomeEvent({ eventType: 'buy', totalCents: 100000, eventDate: new Date('2024-01-15') }),

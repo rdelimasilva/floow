@@ -31,6 +31,34 @@ function toEventInput(event: RawEvent) {
   }
 }
 
+/**
+ * Guarda final: as colunas *_cents do snapshot são integer e o recálculo da
+ * org insere tudo numa transação só — um centavo quebrado (quantidade
+ * fracionária) derrubaria a org inteira. Arredonda cada campo em centavos.
+ */
+function comCentavosInteiros<T extends {
+  avgCostCents: number
+  totalCostCents: number
+  currentPriceCents: number
+  currentValueCents: number
+  unrealizedPnLCents: number
+  unrealizedPnLPercentBps: number
+  realizedPnLCents: number
+  totalDividendsCents: number
+}>(row: T): T {
+  return {
+    ...row,
+    avgCostCents: Math.round(row.avgCostCents),
+    totalCostCents: Math.round(row.totalCostCents),
+    currentPriceCents: Math.round(row.currentPriceCents),
+    currentValueCents: Math.round(row.currentValueCents),
+    unrealizedPnLCents: Math.round(row.unrealizedPnLCents),
+    unrealizedPnLPercentBps: Math.round(row.unrealizedPnLPercentBps),
+    realizedPnLCents: Math.round(row.realizedPnLCents),
+    totalDividendsCents: Math.round(row.totalDividendsCents),
+  }
+}
+
 function toSnapshotRow(
   orgId: string,
   assetId: string,
@@ -43,10 +71,10 @@ function toSnapshotRow(
     return null
   }
 
-  const currentValueCents = result.quantityHeld * currentPriceCents
+  const currentValueCents = Math.round(result.quantityHeld * currentPriceCents)
   const unrealizedPnLCents = currentValueCents - result.totalCostCents
 
-  return {
+  return comCentavosInteiros({
     assetId,
     orgId,
     quantityHeld: result.quantityHeld,
@@ -60,7 +88,7 @@ function toSnapshotRow(
     totalDividendsCents: result.totalDividendsCents,
     costIsPartial: false,
     updatedAt: new Date(),
-  }
+  })
 }
 
 /**
@@ -77,7 +105,7 @@ function toBankSnapshotRow(
   const r = computeBankPosition(bank, events.map(toEventInput))
   const unrealizedPnLCents = r.currentValueCents - r.totalCostCents
 
-  return {
+  return comCentavosInteiros({
     assetId,
     orgId,
     quantityHeld: r.quantityHeld,
@@ -91,7 +119,7 @@ function toBankSnapshotRow(
     totalDividendsCents: r.totalDividendsCents,
     costIsPartial: r.costIsPartial,
     updatedAt: new Date(),
-  }
+  })
 }
 
 /**

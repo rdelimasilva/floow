@@ -47,4 +47,15 @@ describe('computeBankPosition', () => {
     expect(r.currentPriceCents).toBe(0)
     expect(r.avgCostCents).toBe(0)
   })
+
+  it('resgatado por inteiro com eventos: custo zera (sem -100% falso), realizado e proventos seguem', () => {
+    const r = computeBankPosition({ quantity: 0, grossCents: 0, netCents: 0, purchaseUnitPrice: null }, [
+      compra(10, 1000),
+      { ...compra(0, 50), eventType: 'dividend', quantity: null },
+    ])
+    expect(r.totalCostCents).toBe(0)
+    expect(r.avgCostCents).toBe(0)
+    expect(r.currentValueCents - r.totalCostCents).toBe(0)
+    expect(r.totalDividendsCents).toBe(50)
+  })
 })

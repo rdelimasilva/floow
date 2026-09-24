@@ -36,9 +36,13 @@ export function computeBankPosition(
   const currentValueCents = bank ? (bank.netCents ?? bank.grossCents ?? 0) : 0
 
   const hasPurchasePrice = bank?.purchaseUnitPrice != null && quantityHeld > 0
-  const totalCostCents = hasPurchasePrice
-    ? Math.round(bank!.purchaseUnitPrice! * quantityHeld * 100)
-    : fromEvents.totalCostCents
+  // Sem cotas no banco (resgatado por inteiro), não há custo em aberto: o custo
+  // das compras conhecidas daria um −100% falso contra valor zero.
+  const totalCostCents = quantityHeld <= 0
+    ? 0
+    : hasPurchasePrice
+      ? Math.round(bank!.purchaseUnitPrice! * quantityHeld * 100)
+      : fromEvents.totalCostCents
 
   return {
     quantityHeld,

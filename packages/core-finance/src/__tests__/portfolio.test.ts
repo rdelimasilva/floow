@@ -195,6 +195,21 @@ describe('computePosition: tipos vindos do Open Finance', () => {
     expect(r.totalDividendsCents).toBe(0)
   })
 
+  it('venda de quantidade fracionária mantém centavos inteiros', () => {
+    const r = computePosition([
+      makeEvent({ quantity: 3, totalCents: 1000 }),
+      makeEvent({ eventType: 'sell', quantity: 1.2345678, totalCents: 500, eventDate: new Date('2024-03-01') }),
+      makeEvent({ eventType: 'maturity', quantity: 0.3333333, totalCents: 120, eventDate: new Date('2024-04-01') }),
+    ], 0)
+    expect(Number.isInteger(r.totalCostCents)).toBe(true)
+    expect(Number.isInteger(r.realizedPnLCents)).toBe(true)
+    expect(Number.isInteger(r.avgCostCents)).toBe(true)
+    // custo vendido = round(1000 * 1.2345678 / 3) = 412
+    // depois: round(588 * 0.3333333 / 1.7654322) = 111
+    expect(r.totalCostCents).toBe(1000 - 412 - 111)
+    expect(r.realizedPnLCents).toBe((500 - 412) + (120 - 111))
+  })
+
   it('quantidade fracionária de cotas', () => {
     const r = computePosition([makeEvent({ quantity: 12.3456789, totalCents: 12346 })], 0)
     expect(r.quantityHeld).toBeCloseTo(12.3456789, 10)
