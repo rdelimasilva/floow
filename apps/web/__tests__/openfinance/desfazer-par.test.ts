@@ -68,4 +68,16 @@ describe('desfazerParDaRegra', () => {
     expect((await desfazerParDaRegra(tx, ORG, { ...base, transferGroupId: null })).forma).toBe('par-do-outro-lado')
     expect(ops.filter((o) => o.op !== 'select')).toEqual([])
   })
+
+  it('membro do grupo com outro formato (lançamento real de outro banco): recusa sem escrever (achado 8)', async () => {
+    const { tx, ops } = fakeTx([[perna({ externalId: 'pluggy-tx-123' })]])
+    await expect(desfazerParDaRegra(tx, ORG, base)).rejects.toThrow('Par com formato inesperado; corrija manualmente.')
+    expect(ops.filter((o) => o.op !== 'select')).toEqual([])
+  })
+
+  it('perna sem external_id (par manual) continua sendo desfeita', async () => {
+    const { tx, ops } = fakeTx([[perna({ externalId: null })]])
+    await desfazerParDaRegra(tx, ORG, base)
+    expect(ops.some((o) => o.op === 'delete')).toBe(true)
+  })
 })

@@ -1,6 +1,6 @@
 import { and, eq, inArray, ne, sql } from 'drizzle-orm'
 import { getDb, accounts, transactions, forecastMatchProposals } from '@floow/db'
-import { ehPernaPrevista } from './perna-prevista'
+import { ehPernaPrevista, SUFIXO_PERNA_PREVISTA } from './perna-prevista'
 
 type Db = ReturnType<typeof getDb>
 
@@ -91,6 +91,12 @@ export async function analisarPar(tx: Pick<Db, 'select'>, orgId: string, l: Lanc
   return { forma: 'sem-par', pernas: [], estorno: {} }
 }
 
+const SUFIXO_PERNA_REAL = ':transfer-dest'
+
+function ehPernaDaRegra(externalId: string | null): boolean {
+  return externalId === null || externalId.endsWith(SUFIXO_PERNA_REAL) || externalId.endsWith(SUFIXO_PERNA_PREVISTA)
+}
+
 /**
  * Devolve o lançamento a `pending`, sem grupo e sem conta de destino, e
  * desfaz o que o par dele criou. O saldo do próprio lançamento não muda: é
@@ -104,6 +110,14 @@ export async function desfazerParDaRegra(
 ): Promise<AnaliseDoPar & { realizadoDevolvidoId: string | null }> {
   const analise = await analisarPar(tx, orgId, l)
   if (analise.forma === 'par-do-outro-lado') return { ...analise, realizadoDevolvidoId: null }
+
+  // Só apaga perna que a regra criou (`:transfer-dest`/`:transfer-par`) ou par
+  // manual sem `external_id`. Outro formato é lançamento real de um banco no
+  // mesmo grupo: apagá-lo sumiria com dinheiro do extrato. Lança antes de
+  // qualquer escrita, e a transação de `corrigirRegra` volta inteira.
+  if (analise.pernas.some((p) => !ehPernaDaRegra(p.externalId))) {
+    throw new Error('Par com formato inesperado; corrija manualmente.')
+  }
 
   for (const [contaId, delta] of Object.entries(analise.estorno)) {
     await tx
