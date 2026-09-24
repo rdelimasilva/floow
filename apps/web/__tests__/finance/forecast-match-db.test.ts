@@ -224,4 +224,32 @@ describe('criarPropostasDeConciliacao', () => {
       return chain([{ id: 'proposta-1' }], op)
     }
   })
+
+  it('perna prevista de transferência entra como previsão', async () => {
+    selectQueue.push([]) // nenhum previsto: basta ver a condição montada
+    await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)
+    const q = dialect.sqlToQuery(wheres[0])
+    expect(q.sql).toContain('"recurring_template_id" is not null')
+    expect(q.sql).toContain('"external_id" like')
+    expect(q.params).toContain('%:transfer-par')
+  })
+
+  it('perna prevista nunca é candidata a realizado', async () => {
+    selectQueue.push([PREVISTO_SALARIO])
+    selectQueue.push([])
+    await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)
+    const q = dialect.sqlToQuery(wheres[1])
+    expect(q.sql).toContain('not like')
+    expect(q.params).toContain('%:transfer-par')
+  })
+
+  it('transferência de valor exato casa com a perna prevista', async () => {
+    const PERNA = { id: 'perna-1', amountCents: 50000, date: new Date('2026-10-10T00:00:00Z'), description: 'Transferência recebida' }
+    const PIX = { id: 'pix-1', amountCents: 50000, date: new Date('2026-10-10T00:00:00Z'), description: 'PIX RECEBIDO FULANO' }
+    selectQueue.push([PERNA])
+    selectQueue.push([PIX])
+    const total = await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)
+    expect(total).toBe(1)
+    expect(inserts[0].payload).toMatchObject({ forecastTransactionId: 'perna-1', realizedTransactionId: 'pix-1' })
+  })
 })

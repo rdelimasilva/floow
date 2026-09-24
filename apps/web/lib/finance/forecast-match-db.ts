@@ -1,7 +1,8 @@
-import { and, eq, gte, isNotNull, isNull, lte, notExists, sql } from 'drizzle-orm'
+import { and, eq, gte, isNotNull, isNull, lte, notExists, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { matchForecast, type ForecastCandidate } from '@floow/core-finance'
+import { condicaoDePernaPrevista, condicaoNaoEPernaPrevista } from '@/lib/openfinance/perna-prevista'
 
 type Db = ReturnType<typeof getDb>
 
@@ -114,7 +115,7 @@ export function condicaoDeRealizadoSemVinculo() {
  * proposta aberta. Sem ele, a segunda rodada de sync estouraria.
  *
  * O filtro de previsão aberta é o mesmo de antes — `balance_applied = false`,
- * sem vínculo, de template, não ignorada.
+ * sem vínculo, de template ou perna prevista de transferência, não ignorada.
  */
 export async function criarPropostasDeConciliacao(
   db: Db,
@@ -133,7 +134,9 @@ export async function criarPropostasDeConciliacao(
       and(
         eq(transactions.orgId, orgId),
         eq(transactions.accountId, accountId),
-        isNotNull(transactions.recurringTemplateId),
+        // Previsão é de template (recorrente) ou perna de transferência cujo
+        // destino é conta Open Finance — a outra ponta chega pelo extrato.
+        or(isNotNull(transactions.recurringTemplateId), condicaoDePernaPrevista()),
         eq(transactions.balanceApplied, false),
         isNull(transactions.matchedTransactionId),
         eq(transactions.isIgnored, false),
@@ -168,6 +171,9 @@ export async function criarPropostasDeConciliacao(
         eq(transactions.accountId, accountId),
         isNotNull(transactions.externalId),
         isNull(transactions.recurringTemplateId),
+        // A perna prevista também tem `external_id` (para dedupe), mas é
+        // previsão: jamais pode cumprir outra previsão.
+        condicaoNaoEPernaPrevista(),
         eq(transactions.isIgnored, false),
         gte(transactions.date, inicio),
         lte(transactions.date, fim),
