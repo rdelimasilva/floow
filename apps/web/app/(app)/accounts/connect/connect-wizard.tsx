@@ -1,25 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
-import { refreshBankConnection, startBankConnection } from '@/lib/openfinance/connection-actions'
+import {
+  concluirConexaoGuiada,
+  iniciarConexaoGuiada,
+  type ResultadoDaConexaoGuiada,
+} from '@/lib/openfinance/conexao-guiada-actions'
 import { abrirAutorizacao } from '@/lib/openfinance/abrir-autorizacao'
-import { AvisoDeAutorizacao, useAtualizarAoVoltar } from './aguardando-autorizacao'
-
-interface Institution {
-  id: string
-  name: string
-  logoUrl: string | null
-  type: string
-}
+import { useAtualizarAoVoltar } from './aguardando-autorizacao'
+import { PassoAtivar } from './passo-ativar'
+import { PassoBanco, type Institution } from './passo-banco'
+import { PassoDestinos } from './passo-destinos'
+import {
+  NOVA,
+  contasCompativeis,
+  erroDoPasso,
+  escolhaInicial,
+  montarDestinos,
+  type ContaDoFloow,
+  type EstadoDoWizard,
+} from './wizard-passos'
 
 interface ConnectWizardProps {
   institutions: Institution[]
   loadError: string | null
+  /** Contas ativas do floow que ainda não espelham conta do banco. */
+  contas: ContaDoFloow[]
 }
 
 /**
@@ -48,42 +57,91 @@ export const PRODUCTS = [
   },
 ] as const
 
-export function ConnectWizard({ institutions, loadError }: ConnectWizardProps) {
+const PASSOS = ['O que conectar e para onde', 'Banco e CPF', 'Ativar'] as const
+
+/** Etapas em que a volta para a aba ainda tem algo a fazer. */
+const ESPERANDO = new Set(['aguardando-autorizacao', 'aguardando-contas'])
+
+export function ConnectWizard({ institutions, loadError, contas }: ConnectWizardProps) {
   const { toast } = useToast()
   const router = useRouter()
-  const [institutionId, setInstitutionId] = useState('')
-  const [search, setSearch] = useState('')
-  const [cpf, setCpf] = useState('')
-  const [products, setProducts] = useState<string[]>(['ACCOUNT', 'CREDIT_CARD_ACCOUNT'])
+  const contasCorrentes = contasCompativeis(contas, 'ACCOUNT')
+  const cartoes = contasCompativeis(contas, 'CREDIT_CARD_ACCOUNT')
+
+  const inicial = (): EstadoDoWizard => ({
+    // Investimentos é opt-in: o consentimento só pede o que o usuário marcar.
+    products: ['ACCOUNT', 'CREDIT_CARD_ACCOUNT'],
+    destinoConta: escolhaInicial(contasCorrentes),
+    nomeConta: '',
+    destinoCartao: escolhaInicial(cartoes),
+    nomeCartao: '',
+    institutionId: '',
+    cpf: '',
+  })
+
+  const [passo, setPasso] = useState<1 | 2 | 3>(1)
+  const [estado, setEstado] = useState<EstadoDoWizard>(inicial)
   const [submitting, setSubmitting] = useState(false)
   // Conexão cuja autorização está aberta na aba do banco.
   const [aguardando, setAguardando] = useState<string | null>(null)
+  const [resultado, setResultado] = useState<ResultadoDaConexaoGuiada | null>(null)
+  const emAndamento = useRef(false)
 
-  useAtualizarAoVoltar(aguardando !== null, () => {
-    if (!aguardando) return
-    // Mesmo caminho do botão Buscar contas; falha aqui não merece alarme —
-    // o usuário ainda tem o botão.
-    refreshBankConnection(aguardando)
-      .then((r) => {
-        // Autorizada: a lista de conexões assume daqui, o aviso sai.
-        if (r.status === 'AUTHORISED') setAguardando(null)
-      })
+  const esperando = aguardando !== null && (!resultado || ESPERANDO.has(resultado.etapa))
+
+  function verificar() {
+    if (!aguardando || emAndamento.current) return
+    emAndamento.current = true
+    // Relê o status e, se as contas chegaram, vincula e importa sozinho.
+    // Falha aqui não merece alarme: a próxima volta para a aba tenta de novo.
+    concluirConexaoGuiada(aguardando)
+      .then(setResultado)
       .catch(() => {})
-      .finally(() => router.refresh())
-  })
+      .finally(() => {
+        emAndamento.current = false
+        router.refresh()
+      })
+  }
 
-  const filtered = search
-    ? institutions.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
-    : institutions
+  useAtualizarAoVoltar(esperando, verificar)
 
-  const selected = institutions.find((i) => i.id === institutionId)
+  const selected = institutions.find((i) => i.id === estado.institutionId)
+  const banco = selected?.name ?? 'Banco'
+  const atualizar = (parcial: Partial<EstadoDoWizard>) => setEstado((e) => ({ ...e, ...parcial }))
 
   function toggleProduct(value: string) {
-    setProducts((prev) => (prev.includes(value) ? prev.filter((p) => p !== value) : [...prev, value]))
+    setEstado((e) => ({
+      ...e,
+      products: e.products.includes(value) ? e.products.filter((p) => p !== value) : [...e.products, value],
+    }))
   }
+
+  function avancar() {
+    if (passo === 3) return
+    const erro = erroDoPasso(passo, estado)
+    if (erro) {
+      toast(erro, 'error')
+      return
+    }
+    setPasso(passo === 1 ? 2 : 3)
+  }
+
+  function destinoLegivel(escolha: string, nome: string, padrao: string, opcoes: ContaDoFloow[]) {
+    if (escolha === NOVA) return `conta nova "${nome.trim() || padrao}"`
+    return opcoes.find((c) => c.id === escolha)?.name ?? '—'
+  }
+
+  const resumo = [
+    estado.products.includes('ACCOUNT') &&
+      `Conta corrente → ${destinoLegivel(estado.destinoConta, estado.nomeConta, `${banco} · Conta`, contasCorrentes)}`,
+    estado.products.includes('CREDIT_CARD_ACCOUNT') &&
+      `Cartão → ${destinoLegivel(estado.destinoCartao, estado.nomeCartao, `${banco} · Cartão`, cartoes)}`,
+    estado.products.includes('INVESTMENTS') && `Investimentos → "Investimentos · ${banco}"`,
+  ].filter((l): l is string => Boolean(l))
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (passo !== 3 || aguardando) return
     setSubmitting(true)
 
     let connectionId: string | null = null
@@ -91,33 +149,42 @@ export function ConnectWizard({ institutions, loadError }: ConnectWizardProps) {
       // A aba do banco abre dentro do clique (antes do await) — ver
       // abrir-autorizacao.ts. O link tem validade curta, por isso vai direto
       // para a aba em vez de ficar guardado para depois.
-      const resultado = await abrirAutorizacao(async () => {
-        const result = await startBankConnection({
-          institutionId,
+      const aberta = await abrirAutorizacao(async () => {
+        const result = await iniciarConexaoGuiada({
+          institutionId: estado.institutionId,
           institutionName: selected?.name,
-          cpf,
-          products,
+          cpf: estado.cpf,
+          products: estado.products,
+          destinos: montarDestinos(estado),
         })
         connectionId = result.connectionId
         return result.authUrl
       })
 
-      if (resultado === 'sem-url') {
+      if (aberta === 'sem-url') {
         toast('Consentimento criado, mas o banco não devolveu o link de autorização.', 'error')
         setSubmitting(false)
         return
       }
 
-      if (resultado === 'nova-aba') {
+      if (aberta === 'nova-aba') {
         setAguardando(connectionId)
         setSubmitting(false)
         router.refresh()
       }
-      // 'mesma-aba': esta tela já está indo para o banco.
+      // 'mesma-aba': esta tela já está indo para o banco; a lista de conexões
+      // conclui o vínculo quando o usuário voltar (Buscar contas).
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Não foi possível iniciar a conexão', 'error')
       setSubmitting(false)
     }
+  }
+
+  function recomecar() {
+    setEstado(inicial())
+    setPasso(1)
+    setAguardando(null)
+    setResultado(null)
   }
 
   if (loadError) {
@@ -130,95 +197,72 @@ export function ConnectWizard({ institutions, loadError }: ConnectWizardProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 rounded-xl border border-gray-200 bg-white p-6">
-      <div className="space-y-1.5">
-        <Label htmlFor="institution-search">Banco</Label>
-        <Input
-          id="institution-search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar banco pelo nome"
-          autoComplete="off"
-        />
-        <div className="mt-2 max-h-64 space-y-1 overflow-y-auto">
-          {filtered.length === 0 ? (
-            <p className="px-1 py-3 text-sm text-gray-500">Nenhum banco encontrado.</p>
-          ) : (
-            filtered.map((institution) => (
-              <label
-                key={institution.id}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                  institutionId === institution.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-100 hover:bg-gray-50'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="institution"
-                  value={institution.id}
-                  checked={institutionId === institution.id}
-                  onChange={() => setInstitutionId(institution.id)}
-                  className="border-gray-300"
-                />
-                {institution.logoUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={institution.logoUrl} alt="" className="h-6 w-6 rounded object-contain" />
-                )}
-                <span className="text-foreground">{institution.name}</span>
-              </label>
-            ))
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="cpf">CPF do titular</Label>
-        <Input
-          id="cpf"
-          value={cpf}
-          onChange={(e) => setCpf(e.target.value)}
-          placeholder="000.000.000-00"
-          inputMode="numeric"
-          autoComplete="off"
-          required
-        />
-        <p className="text-xs text-gray-500">
-          Usado só para criar o consentimento no banco. O floow guarda uma versão mascarada e um
-          código irreversível — o número em si não fica armazenado.
-        </p>
-      </div>
-
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-foreground">O que conectar</legend>
-        {PRODUCTS.map((product) => (
-          <label
-            key={product.value}
-            className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50"
-          >
-            <input
-              type="checkbox"
-              checked={products.includes(product.value)}
-              onChange={() => toggleProduct(product.value)}
-              className="mt-1 rounded border-gray-300"
-            />
-            <span>
-              <span className="block text-sm text-foreground">{product.label}</span>
-              <span className="block text-xs text-gray-500">{product.hint}</span>
-            </span>
-          </label>
+      <ol className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+        {PASSOS.map((nome, i) => (
+          <li key={nome} className={passo === i + 1 ? 'font-medium text-foreground' : undefined}>
+            {i + 1}. {nome}
+          </li>
         ))}
-        <p className="text-xs text-gray-500">
-          O banco só compartilha o que estiver marcado aqui. Dá para mudar depois refazendo a
-          conexão.
-        </p>
-      </fieldset>
+      </ol>
 
-      {aguardando && <AvisoDeAutorizacao />}
+      {passo === 1 && (
+        <PassoDestinos
+          produtos={PRODUCTS}
+          marcados={estado.products}
+          onToggle={toggleProduct}
+          contas={contasCorrentes}
+          cartoes={cartoes}
+          destinoConta={estado.destinoConta}
+          nomeConta={estado.nomeConta}
+          destinoCartao={estado.destinoCartao}
+          nomeCartao={estado.nomeCartao}
+          onDestino={(campo, valor) => atualizar({ [campo]: valor })}
+        />
+      )}
 
-      <div className="flex justify-end">
-        <Button type="submit" variant="primary" disabled={submitting || !institutionId || products.length === 0}>
-          {submitting ? 'Abrindo o banco...' : 'Autorizar no banco'}
-        </Button>
+      {passo === 2 && (
+        <PassoBanco
+          institutions={institutions}
+          institutionId={estado.institutionId}
+          onInstitution={(institutionId) => atualizar({ institutionId })}
+          cpf={estado.cpf}
+          onCpf={(cpf) => atualizar({ cpf })}
+        />
+      )}
+
+      {passo === 3 && (
+        <PassoAtivar resumo={resumo} bancoNome={selected?.name ?? null} connectionId={aguardando} resultado={resultado} />
+      )}
+
+      <div className="flex justify-between gap-2">
+        {passo > 1 && !aguardando ? (
+          <Button type="button" variant="outline" onClick={() => setPasso(passo === 3 ? 2 : 1)} disabled={submitting}>
+            Voltar
+          </Button>
+        ) : (
+          <span />
+        )}
+
+        {passo < 3 && (
+          <Button type="button" variant="primary" onClick={avancar}>
+            Continuar
+          </Button>
+        )}
+        {passo === 3 && !aguardando && (
+          <Button type="submit" variant="primary" disabled={submitting}>
+            {submitting ? 'Abrindo o banco...' : 'Autorizar no banco'}
+          </Button>
+        )}
+        {passo === 3 && aguardando && esperando && (
+          <Button type="button" variant="outline" onClick={verificar}>
+            Verificar de novo
+          </Button>
+        )}
+        {passo === 3 && aguardando && !esperando && (
+          <Button type="button" variant="outline" onClick={recomecar}>
+            Conectar outro banco
+          </Button>
+        )}
       </div>
     </form>
   )

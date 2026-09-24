@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import {
   recreateBankAuthorization,
-  refreshBankConnection,
   revokeBankConnection,
   syncBankConnection,
 } from '@/lib/openfinance/connection-actions'
 import type { BankConnectionSummary } from '@/lib/openfinance/queries'
+import { concluirConexaoGuiada } from '@/lib/openfinance/conexao-guiada-actions'
 import { abrirAutorizacao } from '@/lib/openfinance/abrir-autorizacao'
 import { AvisoDeAutorizacao, useAtualizarAoVoltar } from './aguardando-autorizacao'
+import { resumoDaConclusao } from './wizard-passos'
 
 /**
  * Rótulos dos status que o usuário vê.
@@ -65,7 +66,10 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
     setBusyId(id)
     startTransition(async () => {
       try {
-        const result = await refreshBankConnection(id)
+        // Mesmo refresh de sempre; se a conexão foi criada pelo wizard guiado
+        // e ainda não aplicou o destino, vincula e importa aqui também.
+        const guiada = await concluirConexaoGuiada(id)
+        const result = guiada.atualizacao
 
         if (result.conflictingResourceCount > 0) {
           // Uma conta do banco pertence a exatamente uma organização: é assim
@@ -75,6 +79,12 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
             `${result.conflictingResourceCount === 1 ? 'Uma conta' : `${result.conflictingResourceCount} contas`} deste consentimento já pertence a outra organização e não foi vinculada aqui.`,
             'error',
           )
+          return
+        }
+
+        if (guiada.etapa === 'concluida') {
+          const { texto, pendencia, erro } = resumoDaConclusao(guiada)
+          toast([texto, pendencia, erro].filter(Boolean).join(' '), erro ? 'error' : undefined)
           return
         }
 

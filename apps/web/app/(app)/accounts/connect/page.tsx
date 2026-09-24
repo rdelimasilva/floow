@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getOrgId } from '@/lib/finance/queries'
+import { getAccounts, getOrgId } from '@/lib/finance/queries'
 import { getPolpClient, isPolpConfigured } from '@/lib/openfinance/config'
 import { getBankConnections } from '@/lib/openfinance/queries'
 import { PageHeader } from '@/components/ui/page-header'
@@ -28,7 +28,14 @@ export default async function ConnectBankPage() {
     )
   }
 
-  const connections = await getBankConnections(orgId)
+  const [connections, accounts] = await Promise.all([getBankConnections(orgId), getAccounts(orgId)])
+
+  // Destinos que o wizard oferece: conta que já espelha uma conta do banco não
+  // pode receber outra (o servidor recusa de qualquer jeito).
+  const jaVinculadas = new Set(connections.flatMap((c) => c.resources.map((r) => r.accountId)))
+  const contas = accounts
+    .filter((a) => !jaVinculadas.has(a.id))
+    .map((a) => ({ id: a.id, name: a.name, type: a.type }))
 
   // A lista de instituições é pública e muda pouco; uma falha aqui não deve
   // impedir o usuário de ver e gerenciar as conexões que ele já tem.
@@ -61,7 +68,7 @@ export default async function ConnectBankPage() {
         </Button>
       </PageHeader>
 
-      <ConnectWizard institutions={institutions} loadError={institutionsError} />
+      <ConnectWizard institutions={institutions} loadError={institutionsError} contas={contas} />
 
       {connections.length > 0 && <ConnectionList connections={connections} />}
     </div>

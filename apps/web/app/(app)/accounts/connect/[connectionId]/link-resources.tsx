@@ -166,7 +166,7 @@ export function LinkResources({ connectionId, status, resources, accounts }: Lin
       <p className="text-sm text-gray-600">
         Para cada conta liberada pelo banco, escolha uma conta que já existe no floow ou crie uma
         nova. O floow não adivinha: vincular à conta errada mistura dois históricos, e é trabalhoso
-        de desfazer.
+        de desfazer. Contas liberadas depois pelo banco aparecem aqui.
       </p>
 
       {resources.map((resource) => {
