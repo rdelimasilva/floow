@@ -148,7 +148,11 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
   return (
     <span
       className="inline-flex shrink-0 items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
-      title="Lançamento previsto, ainda não aconteceu. Conta no saldo projetado, não no saldo da conta."
+      title={
+        tx.externalId
+          ? 'Parcela do cartão com vencimento futuro. Entra no saldo na data da fatura.'
+          : 'Lançamento previsto, ainda não aconteceu. Conta no saldo projetado, não no saldo da conta.'
+      }
     >
       previsto
     </span>
