@@ -111,4 +111,22 @@ describe('diálogo de novo lançamento em Meta de Gastos', () => {
     expect(fd.get('categoryId')).toBeNull()
     expect(fd.get('startMonth')).toBe('2026-10-01')
   })
+
+  it('abre pré-preenchido com categoria e valor quando vem de uma sugestão', () => {
+    render(
+      <ToastProvider>
+        <BudgetEntryDialog
+          type="spending"
+          open
+          onClose={vi.fn()}
+          availableCategories={CATEGORIAS}
+          onCategoryCreated={vi.fn()}
+          initialCategoryId="cat-1"
+          initialAmountCents={10300}
+        />
+      </ToastProvider>,
+    )
+    expect((screen.getByDisplayValue('103,00') as HTMLInputElement).value).toBe('103,00')
+    expect((screen.getByDisplayValue('Mercado') as HTMLSelectElement).value).toBe('cat-1')
+  })
 })

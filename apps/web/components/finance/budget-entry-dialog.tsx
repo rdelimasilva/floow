@@ -26,6 +26,9 @@ interface BudgetEntryDialogProps {
   /** Só em gastos: categorias de despesa ainda sem teto ativo. */
   availableCategories?: BudgetCategoryOption[]
   onCategoryCreated?: (category: BudgetCategoryOption) => void
+  /** Pré-preenchimento vindo do aceite de uma sugestão de categoria. */
+  initialCategoryId?: string
+  initialAmountCents?: number
 }
 
 type EndMode = 'indefinite' | 'end_month'
@@ -47,6 +50,8 @@ export function BudgetEntryDialog({
   onClose,
   availableCategories = [],
   onCategoryCreated,
+  initialCategoryId,
+  initialAmountCents,
 }: BudgetEntryDialogProps) {
   const isSpending = type === 'spending'
   const defaultName = isSpending ? '' : 'Aporte mensal'
@@ -69,18 +74,18 @@ export function BudgetEntryDialog({
   const [newCategoryName, setNewCategoryName] = useState('')
   const [creatingCategory, setCreatingCategory] = useState(false)
 
-  // Cada abertura começa limpa
+  // Cada abertura começa limpa (ou com o que veio da sugestão aceita)
   useEffect(() => {
     if (!open) return
-    setCategoryId('')
+    setCategoryId(initialCategoryId ?? '')
     setName(defaultName)
-    setAmount('')
+    setAmount(initialAmountCents ? (initialAmountCents / 100).toFixed(2).replace('.', ',') : '')
     setStartMonth('')
     setEndMode('indefinite')
     setEndMonth('')
     setShowNewCategory(false)
     setNewCategoryName('')
-  }, [open, defaultName])
+  }, [open, defaultName, initialCategoryId, initialAmountCents])
 
   // Show/hide the dialog
   useEffect(() => {

@@ -18,6 +18,9 @@ import type { LinhaDeMeta } from '@/lib/finance/recurring-budget'
 import { RecorrentesNaLinha } from './recorrentes-na-linha'
 import { livreDaCategoria, type ParcelasDaCategoria } from '@/lib/finance/parcelas-a-vencer'
 import { ParcelasNaLinha } from './parcelas-na-linha'
+import { CategorySuggestionsCard } from '@/components/finance/category-suggestions-card'
+import type { PendingSuggestion } from '@/lib/finance/category-suggestion-queries'
+import type { AcceptResult } from '@/lib/finance/category-suggestions/accept'
 
 interface CategoryOption {
   id: string
@@ -44,6 +47,7 @@ interface SpendingClientProps {
   selectedMonth: string
   /** Parcelas de cartão do mês que ainda não venceram, por categoria. */
   parcelasAVencer: Record<string, ParcelasDaCategoria>
+  suggestions: PendingSuggestion[]
 }
 
 function formatMonth(monthStr: string): string {
@@ -65,6 +69,7 @@ export function SpendingClient({
   spending,
   selectedMonth,
   parcelasAVencer,
+  suggestions,
 }: SpendingClientProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -75,6 +80,7 @@ export function SpendingClient({
   const [editStartMonth, setEditStartMonth] = useState('')
   const [editEndMonth, setEditEndMonth] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [prefill, setPrefill] = useState<{ categoryId: string; amountCents: number } | null>(null)
 
   const [categories, setCategories] = useState(initialCategories)
 
@@ -152,6 +158,12 @@ export function SpendingClient({
     }
   }
 
+  function handleSuggestionAccepted(r: AcceptResult) {
+    setCategories((prev) => [...prev, { id: r.categoryId, name: r.name, type: 'expense', color: null, icon: null }])
+    setPrefill({ categoryId: r.categoryId, amountCents: r.monthlyAvgCents })
+    setShowAdd(true)
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader title="Meta de Gastos" description="Orçado vs Realizado por categoria">
@@ -161,6 +173,12 @@ export function SpendingClient({
       </PageHeader>
 
       <MonthNavigator month={selectedMonth} onShift={navigateMonth} />
+
+      <CategorySuggestionsCard
+        suggestions={suggestions}
+        parentOptions={categories.filter((c) => c.type === 'expense').map((c) => ({ id: c.id, name: c.name }))}
+        onAccepted={handleSuggestionAccepted}
+      />
 
       {/* Summary */}
       {entriesForMonth.length > 0 && (
@@ -334,9 +352,11 @@ export function SpendingClient({
       <BudgetEntryDialog
         type="spending"
         open={showAdd}
-        onClose={() => setShowAdd(false)}
+        onClose={() => { setShowAdd(false); setPrefill(null) }}
         availableCategories={availableCategories}
         onCategoryCreated={(created) => setCategories((prev) => [...prev, created])}
+        initialCategoryId={prefill?.categoryId}
+        initialAmountCents={prefill?.amountCents}
       />
 
       <ConfirmDialog
