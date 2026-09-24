@@ -75,4 +75,21 @@ describe('getConfirmedCounterparties', () => {
     expect(result.transferAccountId).toBeNull()
     expect(result.transferAccountName).toBeNull()
   })
+
+  it('traz a conta onde a regra vale (regra por descrição), para a tela recusar destino igual', async () => {
+    rows = [{
+      id: 'cp-3',
+      displayName: 'RESGATE CDB DI',
+      nature: 'transfer',
+      categoryId: null,
+      transferAccountId: 'xp',
+      transferAccountName: 'XP',
+      accountId: 'itau',
+      confirmedAt: new Date('2026-09-01T00:00:00Z'),
+    }]
+
+    const [result] = await getConfirmedCounterparties('org-1')
+
+    expect(result.accountId).toBe('itau')
+  })
 })

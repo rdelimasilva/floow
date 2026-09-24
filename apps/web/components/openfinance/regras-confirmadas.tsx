@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { corrigirRegra, previaCorrecaoDeRegra } from '@/lib/openfinance/corrigir-regra-actions'
 import type { PreviaCorrecao } from '@/lib/openfinance/previa-correcao'
+import { mensagemNaContaNova, MSG_CONTA_DA_REGRA } from '@/lib/openfinance/mesma-conta'
 import type { ConfirmedCounterparty } from '@/lib/openfinance/counterparty-queries'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -113,6 +114,15 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
     (n) => !(n === 'income' && regra?.direction === 'out') && !(n === 'expense' && regra?.direction === 'in'),
   )
   const nomeDaConta = (id: string) => accountOptions.find((a) => a.id === id)?.name ?? 'outra conta'
+  // Transferência para a própria conta: o servidor recusa, mas em produção o
+  // Next esconde a mensagem dele. A tela avisa e trava o Salvar antes.
+  const avisoMesmaConta = !regra || !atual
+    ? null
+    : atual.nature === 'transfer' && atual.transferAccountId && atual.transferAccountId === regra.accountId
+      ? MSG_CONTA_DA_REGRA
+      : historico && previa && previa.naContaNova > 0
+        ? mensagemNaContaNova(previa.naContaNova)
+        : null
 
   return (
     <div>
@@ -208,8 +218,14 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
                   </div>
                 )}
 
+                {avisoMesmaConta && <p className="text-xs text-red-600">{avisoMesmaConta}</p>}
+
                 <div className="flex gap-2">
-                  <Button type="button" disabled={salvando || !decisaoCompleta(atual) || (historico && !previa)} onClick={salvar}>
+                  <Button
+                    type="button"
+                    disabled={salvando || !decisaoCompleta(atual) || (historico && !previa) || Boolean(avisoMesmaConta)}
+                    onClick={salvar}
+                  >
                     {salvando ? 'Salvando…' : 'Salvar correção'}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setAberta(null)}>

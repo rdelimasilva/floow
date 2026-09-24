@@ -11,7 +11,7 @@ import React from 'react'
 import { vi, it, expect, beforeEach, describe } from 'vitest'
 
 const corrigir = vi.fn(async (..._args: any[]) => ({ reprocessados: 11, ignorados: 0 }))
-const previa = vi.fn(async (..._args: any[]) => ({ mudam: 11, foraPorParDoOutroLado: [], deltas: { xp: 6446627, corretora: -6446627 } }))
+const previa = vi.fn(async (..._args: any[]): Promise<any> => ({ mudam: 11, foraPorParDoOutroLado: [], deltas: { xp: 6446627, corretora: -6446627 }, naContaNova: 0 }))
 vi.mock('@/lib/openfinance/corrigir-regra-actions', () => ({
   corrigirRegra: (...a: any[]) => corrigir(...a),
   previaCorrecaoDeRegra: (...a: any[]) => previa(...a),
@@ -53,10 +53,13 @@ const regra = {
   keyType: 'description' as const,
   direction: 'in' as const,
   ehCpfProprio: false,
+  // Regra por descrição: vale nos lançamentos do extrato do Itaú.
+  accountId: 'itau',
 }
 const contas = [
   { id: 'xp', name: 'XP Corretora' },
   { id: 'corretora', name: 'Itaú - Corretora' },
+  { id: 'itau', name: 'Itaú' },
 ]
 
 beforeEach(() => {
@@ -205,5 +208,26 @@ describe('RegrasConfirmadas', () => {
 
     expect(screen.queryByRole('combobox')).toBeNull()
     expect(screen.getByText(/voltam para Classificar/)).toBeTruthy()
+  })
+
+  it('destino = conta onde a regra vale: avisa e não deixa salvar (achado 4)', () => {
+    render(React.createElement(RegrasConfirmadas, { confirmed: [regra], categoryOptions: [], accountOptions: contas, regraAberta: 'r1' }))
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'itau' } })
+
+    expect(screen.getByText(/Esta regra vale para os lançamentos da própria conta escolhida/)).toBeTruthy()
+    const botao = screen.getByRole('button', { name: 'Salvar correção' }) as HTMLButtonElement
+    expect(botao.disabled).toBe(true)
+  })
+
+  it('prévia com lançamentos na conta nova: avisa e não deixa salvar (achado 4)', async () => {
+    previa.mockImplementationOnce(async () => ({ mudam: 3, foraPorParDoOutroLado: [], deltas: {}, naContaNova: 2 }))
+    render(React.createElement(RegrasConfirmadas, { confirmed: [{ ...regra, accountId: null }], categoryOptions: [], accountOptions: contas, regraAberta: 'r1' }))
+
+    fireEvent.click(screen.getByLabelText('Aplicar também aos lançamentos já classificados'))
+
+    expect(await screen.findByText(/2 lançamentos desta regra estão na própria conta escolhida/)).toBeTruthy()
+    const botao = screen.getByRole('button', { name: 'Salvar correção' }) as HTMLButtonElement
+    expect(botao.disabled).toBe(true)
   })
 })

@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { getDb, transactions } from '@floow/db'
 import type { FormaDoPar, LancamentoDaRegra } from './desfazer-par'
+import { contarNaContaNova } from './mesma-conta'
 
 type Db = ReturnType<typeof getDb>
 
@@ -16,6 +17,12 @@ export interface PreviaCorrecao {
   foraPorParDoOutroLado: { id: string; description: string }[]
   /** Delta de saldo por conta: estorno do par antigo + perna real nova. */
   deltas: Record<string, number>
+  /**
+   * Selecionados que já estão na conta de destino nova. Transferência de uma
+   * conta para ela mesma não existe: com algum aqui, `corrigirRegra` recusa e
+   * a tela não deixa salvar.
+   */
+  naContaNova: number
 }
 
 /**
@@ -68,6 +75,7 @@ export async function selecionarLancamentosDaRegra(
 export function somarPrevia(
   analises: { l: LancamentoDaRegra; forma: FormaDoPar; estorno: Record<string, number> }[],
   novaContaManual: string | null,
+  contaNova: string | null = novaContaManual,
 ): PreviaCorrecao {
   const deltas: Record<string, number> = {}
   const somar = (conta: string, v: number) => {
@@ -87,5 +95,5 @@ export function somarPrevia(
     for (const [conta, v] of Object.entries(a.estorno)) somar(conta, v)
     if (novaContaManual && a.l.balanceApplied && !a.l.isIgnored) somar(novaContaManual, -a.l.amountCents)
   }
-  return { mudam, foraPorParDoOutroLado: fora, deltas }
+  return { mudam, foraPorParDoOutroLado: fora, deltas, naContaNova: contarNaContaNova(analises.map((a) => a.l), contaNova) }
 }

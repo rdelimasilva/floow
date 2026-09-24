@@ -12,6 +12,7 @@ import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 import { aplicarDecisaoAosPendentes, contaQueARegraGrava, ehRegraDoTitular } from './aplicar-regra'
 import { analisarPar, desfazerParDaRegra } from './desfazer-par'
 import { selecionarLancamentosDaRegra, somarPrevia, type PreviaCorrecao } from './previa-correcao'
+import { contarNaContaNova, mensagemNaContaNova, MSG_CONTA_DA_REGRA } from './mesma-conta'
 import { isOpenFinanceLinkedAccount } from './transfer-leg'
 
 /**
@@ -45,6 +46,7 @@ async function lerRegra(tx: Pick<Db, 'select'>, orgId: string, id: string) {
       transferAccountId: counterparties.transferAccountId,
       keyType: counterparties.keyType,
       keyValue: counterparties.keyValue,
+      accountId: counterparties.accountId,
       confirmedAt: counterparties.confirmedAt,
     })
     .from(counterparties)
@@ -73,7 +75,7 @@ export async function previaCorrecaoDeRegra(raw: DecisaoNova): Promise<PreviaCor
     const a = await analisarPar(db, orgId, l)
     analises.push({ l, forma: a.forma, estorno: a.estorno })
   }
-  return somarPrevia(analises, await contaManualNova(db, orgId, conta))
+  return somarPrevia(analises, await contaManualNova(db, orgId, conta), conta)
 }
 
 export async function corrigirRegra(
@@ -92,13 +94,22 @@ export async function corrigirRegra(
     const cpfProprio = await ehRegraDoTitular(tx, orgId, regra)
     const conta = contaQueARegraGrava({ nature: input.nature, transferAccountId: input.transferAccountId, cpfProprio })
     if (conta) await assertAccountOwnership(tx, conta, orgId)
+    // Regra por descrição vale numa conta só; transferência para ela mesma
+    // faria todo lançamento novo cair pendente no sync.
+    if (conta && regra.accountId === conta) throw new Error(MSG_CONTA_DA_REGRA)
+
+    const linhas = aplicarAoHistorico ? await selecionarLancamentosDaRegra(tx, orgId, regra) : []
+    // Recusa antes de gravar: `applyTransferSingle` estouraria no meio do
+    // lote, com a mensagem escondida pelo Next em produção.
+    const naContaNova = contarNaContaNova(linhas, conta)
+    if (naContaNova > 0) throw new Error(mensagemNaContaNova(naContaNova))
 
     let reprocessados = 0
     let ignorados = 0
     const desfeitos: string[] = []
     const devolvidos = new Set<string>()
     if (aplicarAoHistorico) {
-      for (const l of await selecionarLancamentosDaRegra(tx, orgId, regra)) {
+      for (const l of linhas) {
         const r = await desfazerParDaRegra(tx, orgId, l)
         if (r.forma === 'par-do-outro-lado') {
           ignorados++

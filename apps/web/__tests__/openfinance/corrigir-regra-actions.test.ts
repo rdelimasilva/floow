@@ -123,6 +123,8 @@ const REGRA = {
   transferAccountId: XP,
   keyType: 'description' as const,
   keyValue: 'RESGATE CDB DI',
+  // Regra por descrição vale numa conta só: a do extrato onde o texto aparece.
+  accountId: ITAU,
   confirmedAt: new Date(),
 }
 
@@ -264,5 +266,46 @@ describe('corrigirRegra — reaplica só o que desfez (achado 1)', () => {
     await corrigirRegra({ counterpartyId: CP, nature: 'income', categoryId: CAT, transferAccountId: null, aplicarAoHistorico: true })
 
     expect(ops.some((o) => o.op === 'update' && o.table === 'transactions')).toBe(false)
+  })
+})
+
+describe('corrigirRegra — mesma conta (achado 4)', () => {
+  it('regra por descrição: recusa destino = conta onde a regra vale, antes de gravar', async () => {
+    selectQueue.push([REGRA])
+
+    await expect(
+      corrigirRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: ITAU, aplicarAoHistorico: false }),
+    ).rejects.toThrow('Esta regra vale para os lançamentos da própria conta escolhida. Escolha outra conta para a transferência.')
+    expect(ops.filter((o) => o.op !== 'select')).toEqual([])
+  })
+
+  it('com histórico: recusa quando há lançamento selecionado na conta nova, antes de gravar', async () => {
+    selectQueue.push(
+      [{ ...REGRA, keyType: 'tax_id', keyValue: '12345678000199', accountId: null }],
+      [
+        { id: L1, accountId: ITAU, amountCents: 100, description: 'x', transferGroupId: null, balanceApplied: true, isIgnored: false },
+        { id: 'l2', accountId: CORRETORA, amountCents: 200, description: 'y', transferGroupId: null, balanceApplied: true, isIgnored: false },
+      ],
+    )
+
+    await expect(
+      corrigirRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: CORRETORA, aplicarAoHistorico: true }),
+    ).rejects.toThrow('1 lançamento desta regra está na própria conta escolhida. Escolha outra conta para a transferência.')
+    expect(ops.filter((o) => o.op !== 'select')).toEqual([])
+  })
+
+  it('prévia conta os selecionados que já estão na conta nova', async () => {
+    selectQueue.push(
+      [{ ...REGRA, keyType: 'tax_id', keyValue: '12345678000199', accountId: null }],
+      [
+        { id: L1, accountId: ITAU, amountCents: 100, description: 'x', transferGroupId: null, balanceApplied: true, isIgnored: false },
+        { id: 'l2', accountId: CORRETORA, amountCents: 200, description: 'y', transferGroupId: null, balanceApplied: true, isIgnored: false },
+      ],
+      [], [], [], [],
+    )
+
+    const p = await previaCorrecaoDeRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: CORRETORA })
+
+    expect(p.naContaNova).toBe(1)
   })
 })

@@ -248,6 +248,8 @@ export interface ConfirmedCounterparty {
   direction: 'in' | 'out'
   /** CPF próprio: nunca devia ter virado regra de conta fixa (spec §6). */
   ehCpfProprio: boolean
+  /** Conta onde a regra vale (regra por descrição); a transferência não pode ir para ela. */
+  accountId: string | null
 }
 
 /**
@@ -270,6 +272,7 @@ export async function getConfirmedCounterparties(orgId: string): Promise<Confirm
         keyType: counterparties.keyType,
         keyValue: counterparties.keyValue,
         direction: counterparties.direction,
+        accountId: counterparties.accountId,
       })
       .from(counterparties)
       .leftJoin(accounts, eq(accounts.id, counterparties.transferAccountId))
@@ -289,6 +292,7 @@ export async function getConfirmedCounterparties(orgId: string): Promise<Confirm
       keyType: row.keyType,
       direction: row.direction,
       ehCpfProprio: row.keyType === 'tax_id' && ehCpfProprio(row.keyValue, hashes),
+      accountId: row.accountId ?? null,
     }))
   })
 }
