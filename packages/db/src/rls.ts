@@ -63,8 +63,11 @@ export async function withRls<T>(
   const claims = JSON.stringify({ sub: userId, role: 'authenticated' })
 
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select set_config('role', 'authenticated', true)`)
-    await tx.execute(sql`select set_config('request.jwt.claims', ${claims}, true)`)
+    // Uma instrução só: cada `execute` é uma ida ao banco, e isto roda em toda
+    // leitura sob RLS do app.
+    await tx.execute(
+      sql`select set_config('role', 'authenticated', true), set_config('request.jwt.claims', ${claims}, true)`,
+    )
     return fn(tx)
   })
 }

@@ -41,8 +41,11 @@ describe('withRls', () => {
       return null
     })
 
-    // role + claims: duas instruções, ambas antes do callback.
-    expect(sqlAntesDoCallback).toBe(2)
+    // role + claims numa instrução só: cada instrução é uma ida ao banco, e
+    // esta roda em toda leitura sob RLS do app.
+    expect(sqlAntesDoCallback).toBe(1)
+    expect(db.executed[0]).toContain('request.jwt.claims')
+    expect(db.executed[0]).toContain("'role'")
   })
 
   it('assume o papel authenticated e injeta o sub nas claims', async () => {
