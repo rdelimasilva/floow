@@ -114,6 +114,27 @@ describe('planejarParcelasFaltantes', () => {
     expect(planejadas.map((p) => p.amountCents).sort()).toEqual([-28000, -5000])
   })
 
+  it('não herda o deslocamento de fim de semana da última parcela conhecida', () => {
+    // A 3ª venceria em 30/11, um domingo, e o banco a lançou em 01/12. Somar
+    // meses a partir dela empurraria cada previsão um mês para frente.
+    const planejadas = planejarParcelasFaltantes([
+      parcela({ installmentTotal: 5, installmentNumber: 1, date: '2026-09-30' }),
+      parcela({ installmentTotal: 5, installmentNumber: 2, date: '2026-10-30' }),
+      parcela({ installmentTotal: 5, installmentNumber: 3, date: '2026-12-01' }),
+    ])
+    expect(planejadas.map((p) => [p.installmentNumber, p.date])).toEqual([
+      [4, '2026-12-30'],
+      [5, '2027-01-30'],
+    ])
+  })
+
+  it('dia de vencimento 31 cai no último dia do mês curto', () => {
+    const planejadas = planejarParcelasFaltantes([
+      parcela({ installmentTotal: 3, installmentNumber: 1, date: '2026-12-31' }),
+    ])
+    expect(planejadas.map((p) => p.date)).toEqual(['2027-01-31', '2027-02-28'])
+  })
+
   it('parcela 1 com centavos a mais fica no mesmo grupo (tolerância de 1%)', () => {
     const planejadas = planejarParcelasFaltantes([
       parcela({ installmentTotal: 3, amountCents: -28025 }),

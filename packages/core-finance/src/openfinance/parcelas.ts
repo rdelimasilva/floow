@@ -21,10 +21,15 @@ function montarData(ano: number, mes: number, dia: number): string {
   return `${ano}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
+/** Dia `dia` do mês `mes` (pode passar de 12) de `ano`, preso ao fim do mês. */
+function dataNoMes(ano: number, mes: number, dia: number): string {
+  const total = ano * 12 + (mes - 1)
+  return montarData(Math.floor(total / 12), (total % 12) + 1, dia)
+}
+
 export function somarMeses(data: string, meses: number): string {
   const [ano, mes, dia] = data.split('-').map(Number)
-  const total = ano * 12 + (mes - 1) + meses
-  return montarData(Math.floor(total / 12), (total % 12) + 1, dia)
+  return dataNoMes(ano, mes + meses, dia)
 }
 
 export function dataDaParcela(
@@ -101,7 +106,15 @@ export function planejarParcelasFaltantes(conhecidas: ParcelaConhecida[]): Parce
 
   const planejadas: ParcelaPlanejada[] = []
   for (const grupo of grupos) {
-    const ultima = grupo.reduce((a, b) => (b.installmentNumber > a.installmentNumber ? b : a))
+    const maiorNumero = (a: ParcelaConhecida, b: ParcelaConhecida) => (b.installmentNumber > a.installmentNumber ? b : a)
+    const ultima = grupo.reduce(maiorNumero)
+    // A âncora das datas é a maior parcela que venceu no dia de sempre: a
+    // última pode ter andado por fim de semana (30/11 → 01/12), e somar meses
+    // a partir dela empurraria cada previsão um mês para frente.
+    const dia = diaDeVencimentoMaisComum(grupo.map((p) => p.date)) as number
+    const noDia = grupo.filter((p) => Number(p.date.slice(8, 10)) === dia)
+    const ancora = noDia.length > 0 ? noDia.reduce(maiorNumero) : ultima
+    const [anoAncora, mesAncora] = ancora.date.split('-').map(Number)
     const existentes = new Set(grupo.map((p) => p.installmentNumber))
     for (let n = ultima.installmentNumber + 1; n <= ultima.installmentTotal; n++) {
       if (existentes.has(n)) continue
@@ -110,7 +123,7 @@ export function planejarParcelasFaltantes(conhecidas: ParcelaConhecida[]): Parce
         installmentNumber: n,
         installmentTotal: ultima.installmentTotal,
         amountCents: ultima.amountCents,
-        date: somarMeses(ultima.date, n - ultima.installmentNumber),
+        date: dataNoMes(anoAncora, mesAncora + (n - ancora.installmentNumber), dia),
         description: descricaoSemNumeroDaParcela(ultima.description),
         categoryId: ultima.categoryId,
       })
