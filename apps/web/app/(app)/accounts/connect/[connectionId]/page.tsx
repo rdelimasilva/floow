@@ -45,6 +45,7 @@ export default async function ConnectionDetailPage({ params }: Props) {
       <LinkResources
         connectionId={connection.id}
         status={connection.status}
+        autoVinculoPendente={connection.autoVinculoPendente}
         resources={connection.resources}
         accounts={accounts.map((a) => ({
           id: a.id,

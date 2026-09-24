@@ -15,6 +15,7 @@ import { abrirAutorizacao } from '@/lib/openfinance/abrir-autorizacao'
 import { AvisoDeAutorizacao, useAtualizarAoVoltar } from './aguardando-autorizacao'
 import { resumoDaConclusao } from './wizard-passos'
 import { avisoDaAtualizacao } from './lista-conexoes'
+import { useConcluirAoAbrir } from './concluir-ao-abrir'
 
 /**
  * Rótulos dos status que o usuário vê.
@@ -64,7 +65,14 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
     if (aguardando && !pending) handleRefresh(aguardando, true)
   })
 
-  /** `automatico`: disparado pela volta à aba, não pelo botão. */
+  // Voltou por redirecionamento na mesma aba (pop-up bloqueado): conclui a
+  // jornada guiada sem esperar o clique em Buscar contas.
+  useConcluirAoAbrir(
+    connections.filter((c) => c.autoVinculoPendente).map((c) => c.id),
+    (id) => handleRefresh(id, true),
+  )
+
+  /** `automatico`: disparado pela volta à aba ou pela abertura, não pelo botão. */
   function handleRefresh(id: string, automatico = false) {
     const atual = connections.find((c) => c.id === id)
     const antes = { status: atual?.status ?? '', recursos: atual?.resources.length ?? 0 }

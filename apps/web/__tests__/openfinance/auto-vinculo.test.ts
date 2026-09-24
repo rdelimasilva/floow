@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { decidirAutoVinculo, diaSeguinte, elegivelAoAutoVinculo, semDestinos } from '@/lib/openfinance/auto-vinculo'
+import { concluiAoAbrir, decidirAutoVinculo, diaSeguinte, elegivelAoAutoVinculo, semDestinos } from '@/lib/openfinance/auto-vinculo'
 
 /**
  * A conexão guiada escolhe o destino ANTES da autorização, quando os recursos
@@ -121,5 +121,25 @@ describe('elegivelAoAutoVinculo', () => {
   })
   it('sem destino e sem investimentos (conexão antiga): não', () => {
     expect(elegivelAoAutoVinculo(NADA, ['ACCOUNT', 'CREDIT_CARD_ACCOUNT'])).toBe(false)
+  })
+})
+
+describe('concluiAoAbrir (volta por redirecionamento na mesma aba)', () => {
+  const guiada = { ...NADA, targetAccountId: 'a', products: ['ACCOUNT'], autoLinkDoneAt: null, status: 'AUTHORISED' }
+  it('autorizada e pendente: conclui ao abrir a tela', () => {
+    expect(concluiAoAbrir(guiada)).toBe(true)
+  })
+  it('ainda aguardando no floow (o status só muda quando alguém relê): conclui', () => {
+    expect(concluiAoAbrir({ ...guiada, status: 'AWAITING_AUTHORIZATION' })).toBe(true)
+  })
+  it('já concluída: não', () => {
+    expect(concluiAoAbrir({ ...guiada, autoLinkDoneAt: new Date() })).toBe(false)
+  })
+  it('recusada ou expirada: não', () => {
+    expect(concluiAoAbrir({ ...guiada, status: 'REJECTED' })).toBe(false)
+    expect(concluiAoAbrir({ ...guiada, status: 'EXPIRED' })).toBe(false)
+  })
+  it('conexão antiga (sem destino, sem investimentos): não', () => {
+    expect(concluiAoAbrir({ ...guiada, targetAccountId: null })).toBe(false)
   })
 })

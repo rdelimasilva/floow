@@ -64,6 +64,20 @@ export function elegivelAoAutoVinculo(d: DestinosGuardados, products: string[]):
   return !semDestinos(d) || products.includes('INVESTMENTS')
 }
 
+/**
+ * Abrir a tela deve concluir a jornada desta conexão? Para quem voltou por
+ * redirecionamento na mesma aba (pop-up bloqueado). Inclui AWAITING_AUTHORIZATION:
+ * o status gravado só muda quando alguém relê a Polp — e reler é justamente o
+ * que a conclusão faz. Recusada ou expirada não muda mais sozinha.
+ */
+export function concluiAoAbrir(
+  c: DestinosGuardados & { status: string; autoLinkDoneAt: Date | null; products: string[] },
+): boolean {
+  if (c.autoLinkDoneAt) return false
+  if (c.status !== 'AUTHORISED' && c.status !== 'AWAITING_AUTHORIZATION') return false
+  return elegivelAoAutoVinculo(c, c.products)
+}
+
 function destinoDoTipo(d: DestinosGuardados, tipo: TipoDeRecurso): LinkTarget | null {
   const id = tipo === 'ACCOUNT' ? d.targetAccountId : d.targetCardAccountId
   if (id) return { kind: 'existing', accountId: id }

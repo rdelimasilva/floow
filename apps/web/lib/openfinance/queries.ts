@@ -1,6 +1,7 @@
 import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { accounts, openfinanceConnections, openfinanceResources, transactions } from '@floow/db'
 import { withUserDb } from '@/lib/db/rls'
+import { concluiAoAbrir } from './auto-vinculo'
 
 /**
  * Leituras da conexão Open Finance.
@@ -22,6 +23,8 @@ export interface BankConnectionSummary {
   products: string[]
   lastSyncedAt: Date | null
   createdAt: Date
+  /** Conexão guiada que ainda não vinculou/importou: a tela conclui ao abrir. */
+  autoVinculoPendente: boolean
   resources: {
     id: string
     resourceType: string
@@ -71,6 +74,7 @@ export async function getBankConnections(orgId: string): Promise<BankConnectionS
       products: connection.products ?? [],
       lastSyncedAt: connection.lastSyncedAt,
       createdAt: connection.createdAt,
+      autoVinculoPendente: concluiAoAbrir({ ...connection, products: connection.products ?? [] }),
       resources: resources
         .filter((r) => r.connectionId === connection.id)
         .map(({ connectionId: _connectionId, ...rest }) => rest),

@@ -10,6 +10,8 @@ import {
   refreshBankConnection,
 } from '@/lib/openfinance/connection-actions'
 import { linkResourceToAccount } from '@/lib/openfinance/resource-actions'
+import { concluirConexaoGuiada } from '@/lib/openfinance/conexao-guiada-actions'
+import { useConcluirAoAbrir } from '../concluir-ao-abrir'
 
 interface Resource {
   id: string
@@ -33,6 +35,8 @@ interface LinkResourcesProps {
   status: string
   resources: Resource[]
   accounts: AccountOption[]
+  /** Conexão guiada ainda sem vínculo automático: conclui ao abrir a tela. */
+  autoVinculoPendente?: boolean
 }
 
 const RESOURCE_LABEL: Record<string, string> = {
@@ -46,13 +50,28 @@ const COMPATIBLE_TYPES: Record<string, string[]> = {
   CREDIT_CARD_ACCOUNT: ['credit_card'],
 }
 
-export function LinkResources({ connectionId, status, resources, accounts }: LinkResourcesProps) {
+export function LinkResources({
+  connectionId,
+  status,
+  resources,
+  accounts,
+  autoVinculoPendente = false,
+}: LinkResourcesProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [choice, setChoice] = useState<Record<string, string>>({})
   const [newName, setNewName] = useState<Record<string, string>>({})
   const [fromDate, setFromDate] = useState<Record<string, string>>({})
+
+  // Voltou do banco por redirecionamento na mesma aba: aplica o destino
+  // escolhido no wizard (e importa) antes de pedir escolha manual.
+  useConcluirAoAbrir(autoVinculoPendente ? [connectionId] : [], (id) => {
+    startTransition(async () => {
+      await concluirConexaoGuiada(id).catch(() => {})
+      router.refresh()
+    })
+  })
 
   function handleRefresh() {
     startTransition(async () => {
