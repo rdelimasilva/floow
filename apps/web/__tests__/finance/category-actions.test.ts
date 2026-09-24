@@ -33,6 +33,7 @@ function makeChain(result: unknown[], op?: Op): any {
     'values',
     'returning',
     'onConflictDoNothing',
+    'onConflictDoUpdate',
     'orderBy',
     'leftJoin',
     'innerJoin',
@@ -76,6 +77,7 @@ vi.mock('@floow/db', () => ({
   budgetEntries: { _table: 'budget_entries' },
   debts: { _table: 'debts' },
   hiddenSystemCategories: { _table: 'hidden_system_categories' },
+  polpRefRedirects: { _table: 'polp_ref_redirects', orgId: 'org_id', polpRef: 'polp_ref' },
   recurringTemplates: { _table: 'recurring_templates' },
   transactions: { _table: 'transactions' },
 }))
@@ -87,7 +89,7 @@ vi.mock('@/lib/finance/revalidate', () => ({
   revalidateSnapshotData: vi.fn(),
 }))
 
-const { updateCategory, deleteCategory, repararHierarquiaDeCategorias } = await import('@/lib/finance/category-actions')
+const { updateCategory, deleteCategory, reassignAndDeleteCategory, repararHierarquiaDeCategorias } = await import('@/lib/finance/category-actions')
 
 const CATEGORIA_DE_SISTEMA = {
   id: 'sys-1',
@@ -263,6 +265,41 @@ describe('deleteCategory', () => {
 
     expect(ops.some((o) => o.op === 'delete' && o.table === 'categories')).toBe(true)
     expect(ops.some((o) => o.op === 'insert' && o.table === 'hidden_system_categories')).toBe(false)
+  })
+})
+
+describe('reassignAndDeleteCategory', () => {
+  const DESTINO = { ...CATEGORIA_DA_ORG, id: 'destino-1', name: 'Mobilidade', polpRef: null }
+
+  it('o código Polp da excluída passa a apontar para o destino', async () => {
+    // Sem isto, a próxima importação com TRANSPORTATION chegaria sem categoria:
+    // a antiga sumiu e o destino não tem aquele código.
+    selectQueue.push([CATEGORIA_DE_SISTEMA]) // requireVisibleCategory
+    selectQueue.push([DESTINO]) // findVisibleCategory do destino
+
+    await reassignAndDeleteCategory(form({ oldId: 'sys-1', newId: 'destino-1' }))
+
+    const redirect = ops.find((o) => o.op === 'insert' && o.table === 'polp_ref_redirects')
+    expect(redirect?.payload).toEqual({ orgId: 'org-1', polpRef: 'TRANSPORTATION', categoryId: 'destino-1' })
+  })
+
+  it('códigos que já apontavam para a excluída seguem para o destino', async () => {
+    selectQueue.push([CATEGORIA_DA_ORG])
+    selectQueue.push([DESTINO])
+
+    await reassignAndDeleteCategory(form({ oldId: 'org-cat-1', newId: 'destino-1' }))
+
+    const movido = ops.find((o) => o.op === 'update' && o.table === 'polp_ref_redirects')
+    expect(movido?.payload).toEqual({ categoryId: 'destino-1' })
+  })
+
+  it('categoria sem código Polp não grava redirecionamento', async () => {
+    selectQueue.push([{ ...CATEGORIA_DA_ORG, polpRef: null }])
+    selectQueue.push([DESTINO])
+
+    await reassignAndDeleteCategory(form({ oldId: 'org-cat-1', newId: 'destino-1' }))
+
+    expect(ops.some((o) => o.op === 'insert' && o.table === 'polp_ref_redirects')).toBe(false)
   })
 })
 

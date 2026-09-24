@@ -8,6 +8,7 @@ import {
   openfinanceIngestionIssues,
   openfinanceConnections,
   openfinanceResources,
+  polpRefRedirects,
   transactions,
 } from '@floow/db'
 import {
@@ -26,6 +27,7 @@ import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
 import { registrarSaldoDoBanco } from './conferir-saldo'
 import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 import { criarPropostasDeDuplicata } from '@/lib/finance/duplicata-db'
+import { aplicarRedirecionamentos } from '@/lib/finance/polp-redirect'
 
 /**
  * Importação das transações de uma conexão Open Finance.
@@ -227,7 +229,13 @@ async function loadCategoryIndex(db: Db, orgId: string): Promise<Map<string, str
     const daOrg = row.orgId !== null
     if (daOrg || !index.has(row.polpRef)) index.set(row.polpRef, row.id)
   }
-  return index
+
+  // Código de categoria excluída com reatribuição vai para o destino escolhido.
+  const redirecionamentos = await db
+    .select({ polpRef: polpRefRedirects.polpRef, categoryId: polpRefRedirects.categoryId })
+    .from(polpRefRedirects)
+    .where(eq(polpRefRedirects.orgId, orgId))
+  return aplicarRedirecionamentos(index, redirecionamentos, new Set(rows.map((r) => r.id)))
 }
 
 /**
