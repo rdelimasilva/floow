@@ -16,6 +16,7 @@ import { updateSession } from '@/lib/supabase/middleware'
 
 const PUBLIC_ROUTE_PREFIXES = [
   '/auth',
+  '/privacidade',        // Política de privacidade — exigida pelo OAuth do Google
   '/api/webhooks',       // Stripe — uses signature-based auth
   '/api/cfo/run-daily',  // Cron job — uses CRON_SECRET / SERVICE_ROLE_KEY
   '/api/cfo/run-event',  // Event trigger — uses SERVICE_ROLE_KEY
