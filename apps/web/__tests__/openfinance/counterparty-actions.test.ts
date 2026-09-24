@@ -46,6 +46,16 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 const insertQueue: unknown[][] = []
+const insertedValues: any[] = []
+
+const criarPropostas = vi.fn(async (..._args: unknown[]) => 0)
+vi.mock('@/lib/finance/forecast-match-db', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/finance/forecast-match-db')>('@/lib/finance/forecast-match-db')
+  return {
+    ...actual,
+    criarPropostasDeConciliacao: (...args: Parameters<typeof actual.criarPropostasDeConciliacao>) => criarPropostas(...args),
+  }
+})
 
 vi.mock('@floow/db', async () => {
   const actual = await vi.importActual<typeof import('@floow/db')>('@floow/db')
@@ -63,9 +73,12 @@ vi.mock('@floow/db', async () => {
         },
         insert: (table: any) => {
           ops.push({ op: 'insert', table: getTableName(table) })
-          return { values: () => makeChain(insertQueue.shift() ?? []) }
+          return { values: (v: any) => { insertedValues.push(v); return makeChain(insertQueue.shift() ?? []) } }
         },
       }),
+      // `criarPropostasDeConciliacao` roda fora da transação, depois do
+      // commit — o mock precisa de um `select` de nível de módulo também.
+      select: () => ({ from: () => makeChain([]) }),
     }),
   }
 })
@@ -77,6 +90,8 @@ beforeEach(() => {
   selectQueue.length = 0
   updateQueue.length = 0
   insertQueue.length = 0
+  insertedValues.length = 0
+  criarPropostas.mockClear()
 })
 
 describe('confirmCounterparty', () => {
@@ -253,6 +268,7 @@ describe('confirmCounterparty', () => {
       expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual([
         'counterparties', 'transactions', 'accounts',
       ])
+      expect(criarPropostas).not.toHaveBeenCalled()
     })
 
     it('origem com balanceApplied: false — cria a segunda perna mas NÃO move o saldo da conta de destino', async () => {
@@ -290,32 +306,37 @@ describe('confirmCounterparty', () => {
       // próprio saldo aplicado.
       expect(ops.filter((o) => o.op === 'update' && o.table === 'accounts')).toEqual([])
       expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions'])
+      expect(criarPropostas).not.toHaveBeenCalled()
     })
 
-    it('destino é conta Open Finance: só grava o metadado, sem segunda perna', async () => {
+    it('destino é conta Open Finance: cria a perna como previsão, sem mexer no saldo, e propõe a conciliação lá', async () => {
       selectQueue.push([{ id: COUNTERPARTY_ID }])
-      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership incondicional em confirmCounterparty
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }])
       updateQueue.push([])
       selectQueue.push([{ id: 'tx-1' }])
       selectQueue.push([{
         id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
         date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
       }])
-      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership: conta pertence à org
-      selectQueue.push([{ id: 'resource-1' }]) // isOpenFinanceLinkedAccount: achou recurso -> linked
-      updateQueue.push([]) // update da linha de origem, sem segunda perna
+      selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }]) // assertAccountOwnership
+      selectQueue.push([{ id: 'resource-1' }]) // isOpenFinanceLinkedAccount: linked
+      updateQueue.push([]) // update da origem
+      insertQueue.push([{ id: 'tx-1-par' }]) // perna prevista entrou
       selectQueue.push([{ one: 1 }])
 
       const result = await confirmCounterparty({
-        counterpartyId: COUNTERPARTY_ID,
-        nature: 'transfer',
-        categoryId: null,
-        transferAccountId: TRANSFER_ACCOUNT_ID,
+        counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
       })
 
       expect(result.reclassified).toBe(1)
-      expect(ops.filter((o) => o.op === 'insert')).toEqual([])
+      expect(insertedValues[0]).toMatchObject({
+        accountId: TRANSFER_ACCOUNT_ID,
+        externalId: 'ext-1:transfer-par',
+        balanceApplied: false,
+        transferAccountId: 'conta-origem',
+      })
       expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions'])
+      expect(criarPropostas).toHaveBeenCalledWith(expect.anything(), ORG, TRANSFER_ACCOUNT_ID)
     })
 
     it('transferência pra si mesma (conta de destino igual à do lançamento) rejeita', async () => {

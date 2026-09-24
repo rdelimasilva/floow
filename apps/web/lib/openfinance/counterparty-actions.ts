@@ -8,7 +8,8 @@ import { assertAccountOwnership } from '@/lib/finance/actions'
 import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag, reviewGateTag } from '@/lib/cache-tags'
-import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
+import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transfer-leg'
+import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 
 /**
  * O usuário confirma a natureza e a categoria de uma contraparte, e a
@@ -70,15 +71,20 @@ type Db = ReturnType<typeof getDb>
 
 /**
  * Aplica transferência a UM lançamento pendente: natureza, sem categoria,
- * com a conta de destino. Decide o fork do §4 da spec — segunda perna
- * linkada quando o destino é conta manual, só metadado quando já é Open
- * Finance. Retorna 1 se aplicou, 0 se o lançamento não estava mais pendente
- * (corrida, ou id que não pertence a esta contraparte/org).
+ * com a conta de destino. Decide o fork do §4 da spec — segunda perna real
+ * quando o destino é manual, perna prevista quando é Open Finance. Retorna 1
+ * se aplicou, 0 se o lançamento não estava mais pendente (corrida, ou id que
+ * não pertence a esta contraparte/org).
+ *
+ * `destinosPrevistos` acumula, por referência, as contas Open Finance que
+ * ganharam perna prevista nesta chamada — `confirmCounterparty` usa para
+ * propor a conciliação lá, depois que a transação commitar.
  */
 async function applyTransferSingle(
   tx: Db,
   orgId: string,
   input: { transactionId: string; counterpartyId: string; transferAccountId: string },
+  destinosPrevistos: Set<string>,
 ): Promise<number> {
   const [source] = await tx
     .select({
@@ -113,7 +119,7 @@ async function applyTransferSingle(
   await assertAccountOwnership(tx, input.transferAccountId, orgId)
 
   const linked = await isOpenFinanceLinkedAccount(tx, orgId, input.transferAccountId)
-  const transferGroupId = linked ? null : crypto.randomUUID()
+  const transferGroupId = crypto.randomUUID()
 
   await tx
     .update(transactions)
@@ -126,47 +132,37 @@ async function applyTransferSingle(
     })
     .where(eq(transactions.id, source.id))
 
-  if (!linked && transferGroupId) {
-    if (!source.externalId) {
-      // Não deveria acontecer: só lançamento de origem Open Finance chega
-      // pendente na fila. Cair fora sem segunda perna é o desfecho seguro
-      // se acontecer — nunca inserir uma linha sem chave de dedupe.
-      return 1
-    }
-    // `.onConflictDoNothing().returning(...)` espelha o insert equivalente em
-    // `sync.ts`: sem isso, uma colisão rara de unique constraint no
-    // `externalId` derivado (`:transfer-dest`) lançaria cru e desfaria a
-    // transação inteira — inclusive o destravamento do portão de revisão —
-    // em vez de degradar graciosamente como `sync.ts` já faz.
-    const insertedLeg = await tx
-      .insert(transactions)
-      .values(
-        buildTransferLegRow(
-          {
-            orgId,
-            amountCents: source.amountCents,
-            date: source.date,
-            externalId: source.externalId,
-            balanceApplied: source.balanceApplied,
-          },
-          input.transferAccountId,
-          transferGroupId,
-        ),
-      )
-      .onConflictDoNothing()
-      .returning({ id: transactions.id })
-
-    // Só move o saldo da conta de destino quando a linha entrou de fato E a
-    // origem tinha o próprio saldo aplicado — um lançamento agendado/futuro
-    // (`balanceApplied: false`) não pode creditar o destino antes da hora.
-    if (insertedLeg.length > 0 && source.balanceApplied) {
-      await tx
-        .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${-source.amountCents}` })
-        .where(eq(accounts.id, input.transferAccountId))
-    }
+  if (!source.externalId) {
+    // Não deveria acontecer: só lançamento Open Finance chega pendente na
+    // fila. Sem chave de dedupe, não se insere perna nenhuma.
+    return 1
   }
 
+  const perna = montarPernaDaTransferencia({
+    source: { orgId, amountCents: source.amountCents, date: source.date, externalId: source.externalId, balanceApplied: source.balanceApplied },
+    sourceAccountId: source.accountId,
+    otherAccountId: input.transferAccountId,
+    transferGroupId,
+    destinoOpenFinance: linked,
+  })
+
+  // `.onConflictDoNothing().returning(...)` espelha o insert equivalente em
+  // `sync.ts`: sem isso, uma colisão rara de unique constraint no
+  // `externalId` derivado (`:transfer-dest`/`:transfer-par`) lançaria cru e
+  // desfaria a transação inteira — inclusive o destravamento do portão de
+  // revisão — em vez de degradar graciosamente como `sync.ts` já faz.
+  const insertedLeg = await tx.insert(transactions).values(perna).onConflictDoNothing().returning({ id: transactions.id })
+
+  // Só perna real e aplicada move o saldo. A prevista (destino Open Finance)
+  // nasce com `balanceApplied: false`: o saldo de lá vem do extrato de lá.
+  if (insertedLeg.length > 0 && perna.balanceApplied) {
+    await tx
+      .update(accounts)
+      .set({ balanceCents: sql`balance_cents + ${-source.amountCents}` })
+      .where(eq(accounts.id, input.transferAccountId))
+  }
+
+  if (linked) destinosPrevistos.add(input.transferAccountId)
   return 1
 }
 
@@ -175,6 +171,7 @@ async function applyTransferBatch(
   tx: Db,
   orgId: string,
   input: { counterpartyId: string; transferAccountId: string; excludeIds: string[] },
+  destinosPrevistos: Set<string>,
 ): Promise<number> {
   const conditions = [
     eq(transactions.orgId, orgId),
@@ -187,11 +184,16 @@ async function applyTransferBatch(
 
   let count = 0
   for (const row of pending) {
-    count += await applyTransferSingle(tx, orgId, {
-      transactionId: row.id,
-      counterpartyId: input.counterpartyId,
-      transferAccountId: input.transferAccountId,
-    })
+    count += await applyTransferSingle(
+      tx,
+      orgId,
+      {
+        transactionId: row.id,
+        counterpartyId: input.counterpartyId,
+        transferAccountId: input.transferAccountId,
+      },
+      destinosPrevistos,
+    )
   }
   return count
 }
@@ -202,6 +204,8 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
   const db = getDb()
 
   const { userId } = await requireIdentity()
+
+  const destinosPrevistos = new Set<string>()
 
   const reclassified = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -245,11 +249,16 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
       // Mesmo cast de `assertAccountOwnership(tx as unknown as Db, ...)` em
       // `lib/finance/actions.ts`: o `tx` de dentro do callback não é
       // diretamente atribuível ao tipo cheio de `getDb()`.
-      reclassifiedCount += await applyTransferBatch(tx as unknown as Db, orgId, {
-        counterpartyId: input.counterpartyId,
-        transferAccountId: input.transferAccountId!,
-        excludeIds: exceptionIds,
-      })
+      reclassifiedCount += await applyTransferBatch(
+        tx as unknown as Db,
+        orgId,
+        {
+          counterpartyId: input.counterpartyId,
+          transferAccountId: input.transferAccountId!,
+          excludeIds: exceptionIds,
+        },
+        destinosPrevistos,
+      )
     } else {
       const batchConditions = [
         eq(transactions.orgId, orgId),
@@ -268,11 +277,16 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
 
     for (const exception of input.exceptions) {
       if (exception.nature === 'transfer') {
-        reclassifiedCount += await applyTransferSingle(tx as unknown as Db, orgId, {
-          transactionId: exception.transactionId,
-          counterpartyId: input.counterpartyId,
-          transferAccountId: exception.transferAccountId!,
-        })
+        reclassifiedCount += await applyTransferSingle(
+          tx as unknown as Db,
+          orgId,
+          {
+            transactionId: exception.transactionId,
+            counterpartyId: input.counterpartyId,
+            transferAccountId: exception.transferAccountId!,
+          },
+          destinosPrevistos,
+        )
       } else {
         const exceptionRows = await tx
           .update(transactions)
@@ -323,6 +337,17 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
   // O layout guarda em cache se o portão já destravou; esta action é o único
   // lugar que o destrava.
   invalidateTag(reviewGateTag(orgId))
+
+  // A ponta real pode já estar na outra conta: propõe o par agora, sem
+  // esperar o próximo sync dela. Falha aqui não desfaz a confirmação — a
+  // proposta nasce de novo na próxima passada daquela conta.
+  for (const conta of destinosPrevistos) {
+    try {
+      await criarPropostasDeConciliacao(db, orgId, conta)
+    } catch (error) {
+      console.error('[confirmCounterparty] falha ao propor conciliacao da perna prevista:', error)
+    }
+  }
 
   return { reclassified }
 }
