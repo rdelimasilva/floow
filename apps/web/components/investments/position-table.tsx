@@ -251,7 +251,14 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
             <div key={position.assetId} className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-mono text-sm font-semibold text-gray-900">{position.ticker}</p>
+                  <p className="font-mono text-sm font-semibold text-gray-900">
+                    {position.ticker}
+                    {positionBadges(position).map((b) => (
+                      <span key={b.label} title={b.title} className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal text-gray-600">
+                        {b.label}
+                      </span>
+                    ))}
+                  </p>
                   <p className="text-xs text-gray-500 truncate">{position.name}</p>
                   <span className="text-[10px] text-gray-400 uppercase">{ASSET_CLASS_LABEL[position.assetClass as AssetClass] ?? position.assetClass}</span>
                 </div>

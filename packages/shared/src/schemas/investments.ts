@@ -24,7 +24,9 @@ export const createPortfolioEventSchema = z.object({
   eventType: z.enum(['buy', 'sell', 'dividend', 'interest', 'split', 'amortization']),
   eventDate: z.coerce.date(),
   // null for dividend/interest events (no quantity change)
-  quantity: z.number().positive().optional(),
+  // Aceita fração (cotas) e 0: evento antigo gravado com 0 (o `.int()` antigo
+  // aceitava) tem de continuar editável. Negativo não.
+  quantity: z.number().nonnegative().optional(),
   // null for split events (no price)
   priceCents: z.number().int().optional(),
   totalCents: z.number().int().optional(),
