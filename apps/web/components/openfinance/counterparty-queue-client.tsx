@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/toast'
 import { transferAccountLabel } from '@/lib/openfinance/transfer-direction'
 import { avisoDeContaDeDestino } from '@/lib/openfinance/transfer-conflict'
 import { ItemRow } from './counterparty-item-row'
+import { RegrasConfirmadas } from './regras-confirmadas'
 
 type CategoryOption = { id: string; label: string; type: 'income' | 'expense' | 'transfer' }
 type AccountOption = { id: string; name: string }
@@ -21,11 +22,12 @@ interface Props {
   confirmed: ConfirmedCounterparty[]
   categoryOptions: CategoryOption[]
   accountOptions: AccountOption[]
+  regraAberta?: string
 }
 
 type Nature = 'income' | 'expense' | 'transfer'
 
-export function CounterpartyQueueClient({ mode, pending: initialPending, confirmed, categoryOptions, accountOptions }: Props) {
+export function CounterpartyQueueClient({ mode, pending: initialPending, confirmed, categoryOptions, accountOptions, regraAberta }: Props) {
   const { toast } = useToast()
   const [pending, setPending] = useState(initialPending)
   // CPF próprio já nasce expandido: não tem natureza/categoria de grupo pra
@@ -365,8 +367,9 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
         </>
       )}
 
-      {/* `confirmed` segue sem uso aqui — vai para a Task 8, que renderiza
-          <RegrasConfirmadas> neste lugar (ver task-7-brief.md §Step 3.6). */}
+      {mode === 'page' && confirmed.length > 0 && (
+        <RegrasConfirmadas confirmed={confirmed} categoryOptions={categoryOptions} accountOptions={accountOptions} regraAberta={regraAberta} />
+      )}
     </div>
   )
 }
