@@ -4,7 +4,7 @@ import { getDb, accounts, transactions } from '@floow/db'
 import { matchCategory, type CategoryRule } from '@floow/core-finance'
 import type { ResolvedTransaction } from './resolve-counterparty'
 import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
-import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela } from './parcelas-previstas'
+import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, ocuparPrevisao } from './parcelas-previstas'
 
 /**
  * Gravação de uma página de transações já normalizadas e resolvidas.
@@ -91,10 +91,11 @@ export async function persistPage(
     const existingId = existingByExternalId.get(tx.externalId)
 
     if (existingId) {
-      // Só o enriquecimento é atualizado. Valor, data e tipo ficam como
-      // entraram: mexer neles depois exigiria desfazer o efeito no saldo, e
-      // errar isso deixa o saldo errado em silêncio, que é o pior desfecho
-      // possível num app de finanças.
+      // Só o enriquecimento é atualizado. Valor e tipo ficam como entraram:
+      // mexer neles depois exigiria desfazer o efeito no saldo, e errar isso
+      // deixa o saldo errado em silêncio, que é o pior desfecho possível num
+      // app de finanças. A data é a única exceção, e só muda enquanto a
+      // linha está fora do saldo (ver o CASE WHEN abaixo).
       await db
         .update(transactions)
         .set({
@@ -124,7 +125,10 @@ export async function persistPage(
 
     // Parcela real que casa com uma previsão já gravada ocupa a linha dela
     // em vez de inserir duplicada — a previsão nunca esteve no saldo, então
-    // só a real (se já venceu) soma.
+    // só a real (se já venceu) soma. `ocuparPrevisao` só ocupa se a linha
+    // ainda for previsão aberta; se outro sync ganhou a corrida primeiro,
+    // cai para o insert normal, que o índice único (external_id, account_id)
+    // protege contra duplicar.
     if (tx.purchaseDate && tx.installmentTotal && tx.installmentNumber) {
       const previsaoId = await acharPrevisao(db, input.orgId, input.accountId, {
         purchaseDate: tx.purchaseDate,
@@ -136,27 +140,29 @@ export async function persistPage(
           { externalId: tx.externalId, amountCents: tx.amountCents, description: tx.description, date: dataFinal, categoryId },
           new Date(),
         )
-        await db.transaction(async (dbTx) => {
-          await dbTx
-            .update(transactions)
-            .set({
-              ...campos,
-              billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
-              billForecastMonth: tx.billForecastMonth,
-              categoryRef: tx.categoryRef,
-              payeeMcc: tx.payeeMcc,
-            })
-            .where(and(eq(transactions.id, previsaoId), eq(transactions.orgId, input.orgId)))
-          // A previsão nunca esteve no saldo; a real entra uma vez, se já venceu.
-          if (campos.balanceApplied) {
-            await dbTx
-              .update(accounts)
-              .set({ balanceCents: sql`balance_cents + ${tx.amountCents}` })
-              .where(eq(accounts.id, input.accountId))
-          }
+        const ocupou = await ocuparPrevisao(db, {
+          orgId: input.orgId,
+          accountId: input.accountId,
+          previsaoId,
+          campos,
+          extras: {
+            billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
+            billForecastMonth: tx.billForecastMonth,
+            categoryRef: tx.categoryRef,
+            payeeMcc: tx.payeeMcc,
+            type: tx.type,
+            reviewState: tx.reviewState,
+            counterpartyId: tx.counterpartyId,
+            counterpartyTaxId: tx.counterpartyTaxId,
+            counterpartyName: tx.counterpartyName,
+            polpType: tx.polpType,
+            isAutoCategorized: categoryId !== null,
+          },
         })
-        updated++
-        continue
+        if (ocupou) {
+          updated++
+          continue
+        }
       }
     }
 

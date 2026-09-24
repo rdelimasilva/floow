@@ -1,6 +1,43 @@
 // apps/web/__tests__/openfinance/parcelas-previstas.test.ts
 import { describe, expect, it } from 'vitest'
-import { camposDaOcupacao, dataFinalDaParcela } from '@/lib/openfinance/parcelas-previstas'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import { accounts, transactions } from '@floow/db'
+import { camposDaOcupacao, dataFinalDaParcela, ocuparPrevisao } from '@/lib/openfinance/parcelas-previstas'
+
+const dialect = new PgDialect()
+
+/**
+ * Fake de `db` sem banco: `update(table)` devolve uma cadeia thenable que
+ * grava a tabela e o payload de cada `.set()` e resolve em `.returning()`
+ * (ou direto no `await`, para o update de conta) com o array configurado.
+ * `transaction(fn)` só chama `fn` com o mesmo fake — não há rollback real,
+ * mas `ocuparPrevisao` não depende disso para o que os testes cobrem.
+ */
+function fakeDb(retornoDaPrevisao: { id: string }[]) {
+  const chamadas: { table: 'transactions' | 'accounts'; payload: Record<string, unknown> }[] = []
+
+  function chain(table: 'transactions' | 'accounts', resultado: unknown[]): any {
+    const c: any = {
+      then: (resolve: (v: unknown) => unknown) => Promise.resolve(resultado).then(resolve),
+    }
+    c.where = () => chain(table, resultado)
+    c.returning = () => chain(table, resultado)
+    c.set = (payload: Record<string, unknown>) => {
+      chamadas.push({ table, payload })
+      return chain(table, resultado)
+    }
+    return c
+  }
+
+  const db: any = {
+    transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(db),
+    update: (table: unknown) =>
+      chain(table === transactions ? 'transactions' : 'accounts', table === transactions ? retornoDaPrevisao : []),
+  }
+  return { db, chamadas }
+}
+
+const paramsDoDelta = (payload: Record<string, unknown>) => dialect.sqlToQuery(payload.balanceCents as never).params
 
 describe('dataFinalDaParcela', () => {
   it('à vista: mantém a data', () => {
@@ -29,5 +66,79 @@ describe('camposDaOcupacao', () => {
     const c = camposDaOcupacao({ externalId: 'polp-4', amountCents: -45916, description: 'AIRBNB 04/06', date: '2026-11-16', categoryId: null }, hoje)
     expect(c.balanceApplied).toBe(false)
     expect('categoryId' in c).toBe(false) // categoria da previsão fica
+  })
+})
+
+describe('ocuparPrevisao', () => {
+  const hoje = new Date('2026-10-20T15:00:00Z')
+  const input = { orgId: 'org-1', accountId: 'conta-1', previsaoId: 'previsao-1' }
+
+  it('parcela real já vencida: ocupa a previsão e soma no saldo exatamente uma vez', async () => {
+    const { db, chamadas } = fakeDb([{ id: 'previsao-1' }])
+    const campos = camposDaOcupacao(
+      { externalId: 'polp-3', amountCents: -45916, description: 'AIRBNB 03/06', date: '2026-10-16', categoryId: null },
+      hoje,
+    )
+
+    const ocupou = await ocuparPrevisao(db, { ...input, campos, extras: {} })
+
+    expect(ocupou).toBe(true)
+    const naConta = chamadas.filter((c) => c.table === 'accounts')
+    expect(naConta).toHaveLength(1)
+    expect(paramsDoDelta(naConta[0].payload)).toEqual([-45916])
+  })
+
+  it('parcela real futura: ocupa a previsão mas não soma no saldo', async () => {
+    const { db, chamadas } = fakeDb([{ id: 'previsao-1' }])
+    const campos = camposDaOcupacao(
+      { externalId: 'polp-4', amountCents: -45916, description: 'AIRBNB 04/06', date: '2026-11-16', categoryId: null },
+      hoje,
+    )
+
+    const ocupou = await ocuparPrevisao(db, { ...input, campos, extras: {} })
+
+    expect(ocupou).toBe(true)
+    expect(chamadas.filter((c) => c.table === 'accounts')).toHaveLength(0)
+  })
+
+  it('perdeu a corrida (outro sync já ocupou): returning vazio, não soma e devolve false', async () => {
+    const { db, chamadas } = fakeDb([])
+    const campos = camposDaOcupacao(
+      { externalId: 'polp-5', amountCents: -45916, description: 'AIRBNB 05/06', date: '2026-10-16', categoryId: null },
+      hoje,
+    )
+
+    const ocupou = await ocuparPrevisao(db, { ...input, campos, extras: {} })
+
+    expect(ocupou).toBe(false)
+    expect(chamadas.filter((c) => c.table === 'accounts')).toHaveLength(0)
+  })
+
+  it('categoria da real só entra por COALESCE — nunca sobrescreve a da previsão direto', async () => {
+    const { db, chamadas } = fakeDb([{ id: 'previsao-1' }])
+    const campos = camposDaOcupacao(
+      { externalId: 'polp-6', amountCents: -45916, description: 'AIRBNB 06/06', date: '2026-10-16', categoryId: 'cat-real' },
+      hoje,
+    )
+
+    await ocuparPrevisao(db, { ...input, campos, extras: {} })
+
+    const naTransacao = chamadas.find((c) => c.table === 'transactions')!
+    const { sql: sqlGerado, params } = dialect.sqlToQuery(naTransacao.payload.categoryId as never)
+    expect(sqlGerado.toLowerCase()).toContain('coalesce')
+    expect(params).toEqual(['cat-real'])
+  })
+
+  it('sem categoria na real: não mexe na categoria da previsão', async () => {
+    const { db, chamadas } = fakeDb([{ id: 'previsao-1' }])
+    const campos = camposDaOcupacao(
+      { externalId: 'polp-7', amountCents: -45916, description: 'AIRBNB 07/06', date: '2026-10-16', categoryId: null },
+      hoje,
+    )
+
+    await ocuparPrevisao(db, { ...input, campos, extras: {} })
+
+    const naTransacao = chamadas.find((c) => c.table === 'transactions')!
+    expect('categoryId' in naTransacao.payload).toBe(false)
   })
 })
