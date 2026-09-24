@@ -97,6 +97,12 @@ const PENDENTES = [
   'lib/openfinance/backfill.ts',
   'lib/openfinance/connection-actions.ts',
   'lib/openfinance/counterparty-actions.ts',
+  // Escreve em `transactions`/`accounts`/`counterparties` exatamente como
+  // `confirmCounterparty` (já PENDENTE, acima): desfaz o par que a regra
+  // antiga criou e reaplica a decisão nova, nas mesmas tabelas cuja policy de
+  // ESCRITA ainda não está no ar. Converte junto com `counterparty-actions.ts`
+  // quando essas políticas existirem.
+  'lib/openfinance/corrigir-regra-actions.ts',
   'lib/openfinance/resource-actions.ts',
   'lib/planning/actions.ts',
   'lib/planning/queries.ts',

@@ -8,7 +8,15 @@ import { CounterpartyQueueClient } from './counterparty-queue-client'
  * tem estado (confirmar, expandir) — dividido porque `confirmCounterparty` é
  * uma server action chamada de um formulário client-side.
  */
-export async function CounterpartyQueue({ orgId, mode }: { orgId: string; mode: 'blocking' | 'page' }) {
+export async function CounterpartyQueue({
+  orgId,
+  mode,
+  regraAberta,
+}: {
+  orgId: string
+  mode: 'blocking' | 'page'
+  regraAberta?: string
+}) {
   const [pending, confirmed, categories, accounts] = await Promise.all([
     getPendingCounterpartyGroups(orgId),
     mode === 'page' ? getConfirmedCounterparties(orgId) : Promise.resolve([]),
@@ -28,6 +36,7 @@ export async function CounterpartyQueue({ orgId, mode }: { orgId: string; mode: 
       confirmed={confirmed}
       categoryOptions={categoryOptions}
       accountOptions={accountOptions}
+      regraAberta={regraAberta}
     />
   )
 }

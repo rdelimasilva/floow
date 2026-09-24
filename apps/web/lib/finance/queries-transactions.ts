@@ -228,6 +228,7 @@ export async function getTransactionsWithCount(
       installmentNumber: transactions.installmentNumber,
       installmentTotal: transactions.installmentTotal,
       purchaseDate: transactions.purchaseDate,
+      counterpartyId: transactions.counterpartyId,
       categoryName: categories.name,
       categoryColor: categories.color,
       categoryIcon: categories.icon,

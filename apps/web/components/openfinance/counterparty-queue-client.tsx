@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/toast'
 import { transferAccountLabel } from '@/lib/openfinance/transfer-direction'
 import { avisoDeContaDeDestino } from '@/lib/openfinance/transfer-conflict'
 import { ItemRow } from './counterparty-item-row'
+import { RegrasConfirmadas } from './regras-confirmadas'
 
 type CategoryOption = { id: string; label: string; type: 'income' | 'expense' | 'transfer' }
 type AccountOption = { id: string; name: string }
@@ -21,26 +22,53 @@ interface Props {
   confirmed: ConfirmedCounterparty[]
   categoryOptions: CategoryOption[]
   accountOptions: AccountOption[]
+  regraAberta?: string
 }
 
 type Nature = 'income' | 'expense' | 'transfer'
 
-export function CounterpartyQueueClient({ mode, pending: initialPending, confirmed, categoryOptions, accountOptions }: Props) {
+/**
+ * A fila, os expandidos e as exceções nascem das props e vivem em estado
+ * local. Depois de `corrigirRegra` + `router.refresh()`, o que voltou para
+ * Classificar chega em props novas; a `key` pelos ids pendentes remonta a
+ * fila para mostrá-lo sem recarregar a página.
+ */
+export function CounterpartyQueueClient(props: Props) {
+  const chave = props.pending.flatMap((g) => g.items.map((i) => i.id)).join(',')
+  return <FilaDeClassificar key={chave} {...props} />
+}
+
+function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryOptions, accountOptions, regraAberta }: Props) {
   const { toast } = useToast()
   const [pending, setPending] = useState(initialPending)
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // CPF próprio já nasce expandido: não tem natureza/categoria de grupo pra
+  // decidir, só a conta de cada lançamento — esconder a lista faria o usuário
+  // clicar em "ver lançamentos" pra achar o único controle que existe.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(initialPending.filter((g) => g.ehCpfProprio).map((g) => g.counterpartyId)))
   const [drafts, setDrafts] = useState<Record<string, { nature: Nature | null; categoryId: string | null; transferAccountId: string | null }>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
   // Exceção por lançamento: foge do padrão do grupo sem virar regra da
   // contraparte (ver counterparty-actions.ts). Só existe entrada aqui pros
   // lançamentos que o usuário decidiu destacar — os demais seguem o padrão.
-  const [itemOverrides, setItemOverrides] = useState<Record<string, { nature: Nature; categoryId: string | null; transferAccountId: string | null }>>({})
+  const [itemOverrides, setItemOverrides] = useState<Record<string, { nature: Nature; categoryId: string | null; transferAccountId: string | null }>>(() => {
+    // CPF próprio: cada lançamento já nasce como exceção de transferência,
+    // com a conta sugerida pelo par quando houver (spec §6.2).
+    const inicial: Record<string, { nature: Nature; categoryId: string | null; transferAccountId: string | null }> = {}
+    for (const g of initialPending) {
+      if (!g.ehCpfProprio) continue
+      for (const i of g.items) inicial[i.id] = { nature: 'transfer', categoryId: null, transferAccountId: i.sugestaoContaId }
+    }
+    return inicial
+  })
 
   function draftFor(id: string) {
     if (drafts[id]) return drafts[id]
+    const grupo = pending.find((g) => g.counterpartyId === id)
+    // CPF próprio não tem natureza/conta de grupo: cada lançamento resolve a
+    // conta por conta própria (itemOverrides), o grupo é só um agrupador visual.
+    if (grupo?.ehCpfProprio) return { nature: 'transfer' as Nature, categoryId: null, transferAccountId: null }
     // O banco já disse que é transferência em todos os lançamentos do grupo:
     // abre em Transferência, falta só a conta.
-    const grupo = pending.find((g) => g.counterpartyId === id)
     const soTransferencia = Boolean(grupo?.items.length) && grupo!.items.every((i) => i.type === 'transfer')
     return { nature: soTransferencia ? ('transfer' as Nature) : null, categoryId: null, transferAccountId: null }
   }
@@ -86,7 +114,19 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
       toast('Escolha se é receita, despesa ou transferência.', 'error')
       return
     }
-    if (draft.nature === 'transfer' && !draft.transferAccountId) {
+    if (group.ehCpfProprio) {
+      // Sem conta de grupo: cada lançamento precisa da própria conta antes de
+      // enviar, senão o servidor recusa o lote inteiro na hora de aplicar.
+      const semConta = group.items.some((i) => {
+        const o = itemOverrides[i.id]
+        return !o || (o.nature === 'transfer' && !o.transferAccountId)
+      })
+      if (semConta) {
+        toast('Escolha a conta de cada lançamento.', 'error')
+        return
+      }
+    }
+    if (draft.nature === 'transfer' && !draft.transferAccountId && !group.ehCpfProprio) {
       toast('Escolha a conta de destino.', 'error')
       return
     }
@@ -238,8 +278,12 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
                   </ul>
                 )}
 
+                {group.ehCpfProprio && (
+                  <p className="text-xs text-gray-500">Pix para você mesmo: escolha a conta em cada lançamento. Isso não vira regra.</p>
+                )}
+
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {availableNatures.map((nature) => (
+                  {!group.ehCpfProprio && availableNatures.map((nature) => (
                     <Button
                       key={nature}
                       type="button"
@@ -250,7 +294,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
                     </Button>
                   ))}
 
-                  {draft.nature === 'transfer' && (
+                  {!group.ehCpfProprio && draft.nature === 'transfer' && (
                     <Select
                       value={draft.transferAccountId ?? ''}
                       onValueChange={(value) => setDraft(group.counterpartyId, { transferAccountId: value })}
@@ -291,6 +335,12 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
                   </Button>
                 </div>
 
+                {draft.nature === 'transfer' && group.keyType === 'description' && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Vale para todo lançamento com o texto "{group.displayName}" nesta conta.
+                  </p>
+                )}
+
                 {/* O servidor recusa destino igual à conta de origem. O aviso
                     vem aqui, antes do envio, em vez de o lote inteiro morrer
                     com a mensagem crua da exceção. */}
@@ -329,22 +379,7 @@ export function CounterpartyQueueClient({ mode, pending: initialPending, confirm
       )}
 
       {mode === 'page' && confirmed.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900">Já confirmadas</h2>
-          <p className="mt-1 text-xs text-gray-500">
-            Quem você já classificou. Vale para os lançamentos futuros também.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {confirmed.map((c) => (
-              <li key={c.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 text-sm">
-                <span className="text-gray-900">{c.displayName}</span>
-                <span className="text-gray-500">
-                  {c.nature === 'expense' ? 'Despesa' : c.nature === 'income' ? 'Receita' : `Transferência · ${c.transferAccountName ?? '?'}`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <RegrasConfirmadas confirmed={confirmed} categoryOptions={categoryOptions} accountOptions={accountOptions} regraAberta={regraAberta} />
       )}
     </div>
   )
