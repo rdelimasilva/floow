@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { accounts, transactions } from '@floow/db'
-import { camposDaOcupacao, dataFinalDaParcela, ocuparPrevisao } from '@/lib/openfinance/parcelas-previstas'
+import { acharPrevisao, camposDaOcupacao, dataFinalDaParcela, ocuparPrevisao } from '@/lib/openfinance/parcelas-previstas'
 
 const dialect = new PgDialect()
 
@@ -140,5 +140,40 @@ describe('ocuparPrevisao', () => {
 
     const naTransacao = chamadas.find((c) => c.table === 'transactions')!
     expect('categoryId' in naTransacao.payload).toBe(false)
+  })
+})
+
+describe('acharPrevisao', () => {
+  /**
+   * Duas compras no mesmo dia, mesmo número de parcelas, valores diferentes:
+   * as duas previsões têm a mesma chave. Sem ordenar pelo valor, a parcela
+   * real de uma podia ocupar a previsão da outra e trocar os valores.
+   */
+  it('entre previsões de mesma chave, prefere a de valor mais próximo do real', async () => {
+    let ordem: unknown = null
+    const db: any = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            orderBy: (o: unknown) => {
+              ordem = o
+              return { limit: async () => [{ id: 'previsao-b' }] }
+            },
+          }),
+        }),
+      }),
+    }
+
+    const id = await acharPrevisao(db, 'org-1', 'conta-1', {
+      purchaseDate: '2026-07-27',
+      installmentTotal: 2,
+      installmentNumber: 2,
+      amountCents: -28000,
+    })
+
+    expect(id).toBe('previsao-b')
+    const { sql: sqlGerado, params } = dialect.sqlToQuery(ordem as never)
+    expect(sqlGerado.toLowerCase()).toMatch(/abs\("transactions"\."amount_cents" - \$1\)/)
+    expect(params).toEqual([-28000])
   })
 })

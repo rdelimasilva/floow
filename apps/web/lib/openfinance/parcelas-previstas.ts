@@ -22,6 +22,15 @@ export function dataFinalDaParcela(
 }
 
 /**
+ * Hoje em São Paulo, AAAA-MM-DD — o mesmo corte de `applyDueBankTransactions`.
+ * O fim do dia no fuso do servidor (UTC) punha no saldo, às 21h, a parcela
+ * que só vence amanhã.
+ */
+export function hojeEmSaoPaulo(agora: Date = new Date()): string {
+  return agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
+/**
  * O que muda na linha da previsão quando a parcela real chega. A categoria
  * só vem se a real trouxer uma — a da previsão pode ter sido escolhida pelo
  * usuário.
@@ -31,15 +40,13 @@ export function camposDaOcupacao(
   hoje: Date,
 ) {
   const date = new Date(`${real.date}T12:00:00Z`)
-  const fimDeHoje = new Date(hoje)
-  fimDeHoje.setHours(23, 59, 59, 999)
   return {
     externalId: real.externalId,
     amountCents: real.amountCents,
     description: real.description,
     date,
     isInstallmentForecast: false as const,
-    balanceApplied: date <= fimDeHoje,
+    balanceApplied: real.date <= hojeEmSaoPaulo(hoje),
     importedAt: new Date(),
     ...(real.categoryId ? { categoryId: real.categoryId } : {}),
   }
@@ -59,8 +66,10 @@ export async function acharPrevisao(
   db: Db,
   orgId: string,
   accountId: string,
-  chave: { purchaseDate: string; installmentTotal: number; installmentNumber: number },
+  chave: { purchaseDate: string; installmentTotal: number; installmentNumber: number; amountCents: number },
 ): Promise<string | null> {
+  // Duas compras no mesmo dia com o mesmo total de parcelas dividem a chave;
+  // a previsão de valor mais próximo do real é a da mesma compra.
   const [row] = await db
     .select({ id: transactions.id })
     .from(transactions)
@@ -74,6 +83,7 @@ export async function acharPrevisao(
         eq(transactions.installmentNumber, chave.installmentNumber),
       ),
     )
+    .orderBy(sql`abs(${transactions.amountCents} - ${chave.amountCents})`)
     .limit(1)
   return row?.id ?? null
 }

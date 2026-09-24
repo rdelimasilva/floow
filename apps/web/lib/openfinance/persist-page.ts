@@ -4,7 +4,7 @@ import { getDb, accounts, transactions } from '@floow/db'
 import { matchCategory, type CategoryRule } from '@floow/core-finance'
 import type { ResolvedTransaction } from './resolve-counterparty'
 import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
-import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, ocuparPrevisao } from './parcelas-previstas'
+import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, ocuparPrevisao } from './parcelas-previstas'
 
 /**
  * Gravação de uma página de transações já normalizadas e resolvidas.
@@ -61,8 +61,8 @@ export async function persistPage(
     )
 
   const existingByExternalId = new Map(existing.map((row) => [row.externalId, row.id]))
-  const today = new Date()
-  today.setHours(23, 59, 59, 999)
+  // Corte do dia em São Paulo, não no fuso do servidor.
+  const hoje = hojeEmSaoPaulo()
 
   const toInsert: (typeof transactions.$inferInsert)[] = []
   const transferLegsToInsert: (typeof transactions.$inferInsert)[] = []
@@ -134,6 +134,7 @@ export async function persistPage(
         purchaseDate: tx.purchaseDate,
         installmentTotal: tx.installmentTotal,
         installmentNumber: tx.installmentNumber,
+        amountCents: tx.amountCents,
       })
       if (previsaoId) {
         const campos = camposDaOcupacao(
@@ -169,7 +170,7 @@ export async function persistPage(
     // Lançamento agendado ainda não aconteceu: entra para o usuário ver, mas
     // fora das somas, senão vira gasto que ninguém fez.
     const isScheduled = tx.settlement === 'scheduled'
-    const applied = !isScheduled && date <= today
+    const applied = !isScheduled && dataFinal <= hoje
 
     let transferGroupId: string | null = null
     if (tx.reviewState === 'confirmed' && tx.type === 'transfer' && tx.transferAccountId) {
