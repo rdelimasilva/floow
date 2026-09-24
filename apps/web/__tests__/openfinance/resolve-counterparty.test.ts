@@ -304,4 +304,24 @@ describe('resolveCounterparty', () => {
     expect(resolved.reviewState).toBe('confirmed')
     expect(resolved.transferAccountId).toBe('conta-corretora')
   })
+
+  it('Nível 1 transferência com contraparte confirmada como despesa: fica pendente como transferência', async () => {
+    // O banco disse que o dinheiro mudou de lugar. Uma contraparte confirmada
+    // como despesa (o mesmo CNPJ numa compra, por ex.) não derruba esse sinal:
+    // a decisão volta para Classificar, já em Transferência.
+    const db = makeDb()
+    const index = new Map<string, CounterpartyRecord>()
+    const tx = normalizedTx({ natureConfirmed: true, type: 'transfer', counterpartyTaxId: '999' })
+    const key = counterpartyKeyFor(tx, CONTA)!
+    index.set(compositeKey(key), {
+      id: 'cp-loja', keyType: key.keyType, keyValue: key.keyValue, direction: key.direction, accountId: null,
+      nature: 'expense', categoryId: 'cat-compras', transferAccountId: null, confirmedAt: new Date(),
+    })
+
+    const resolved = await resolveCounterparty(db, ORG, CONTA, tx, index)
+
+    expect(resolved).toMatchObject({
+      type: 'transfer', reviewState: 'pending', counterpartyId: 'cp-loja', categoryId: null, transferAccountId: null,
+    })
+  })
 })

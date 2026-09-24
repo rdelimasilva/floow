@@ -194,6 +194,15 @@ export async function resolveCounterparty(
       return { ...tx, type: 'transfer', reviewState: 'pending', counterpartyId: record.id, categoryId: null, transferAccountId: null }
     }
 
+    // O sinal do banco (Nível 1) diz transferência, e a contraparte foi
+    // confirmada como receita/despesa — o mesmo CNPJ pode aparecer numa compra
+    // e numa aplicação. Aplicar a contraparte apagaria o sinal em silêncio e
+    // tiraria o dinheiro do patrimônio como gasto. Vai para Classificar, já
+    // em Transferência, e o usuário decide.
+    if (tx.natureConfirmed && tx.type === 'transfer' && record.nature !== 'transfer') {
+      return { ...tx, type: 'transfer', reviewState: 'pending', counterpartyId: record.id, categoryId: null, transferAccountId: null }
+    }
+
     return {
       ...tx,
       type: record.nature ?? tx.type,
