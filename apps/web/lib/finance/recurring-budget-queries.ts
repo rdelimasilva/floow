@@ -46,6 +46,8 @@ export async function buscarOcorrenciasDeRecorrentes(
         eq(transactions.orgId, orgId),
         eq(recurringTemplates.orgId, orgId),
         eq(recurringTemplates.countsAsBudget, true),
+        // Pausar não apaga as parcelas futuras já geradas; sem isto elas seguiriam na meta.
+        eq(recurringTemplates.isActive, true),
         eq(recurringTemplates.type, 'expense'),
         isNotNull(recurringTemplates.categoryId),
         eq(transactions.isIgnored, false),

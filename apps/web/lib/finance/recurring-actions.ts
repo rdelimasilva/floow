@@ -459,6 +459,8 @@ export async function toggleRecurringActive(formData: FormData) {
     .set({ isActive: !template.isActive, updatedAt: new Date() })
     .where(and(eq(recurringTemplates.id, id), eq(recurringTemplates.orgId, orgId)))
 
+  // Pausada sai da Meta de Gastos; o cache das telas de orçamento precisa cair.
+  revalidateTransactionData(orgId)
   revalidatePath('/transactions/recurring')
 }
 
