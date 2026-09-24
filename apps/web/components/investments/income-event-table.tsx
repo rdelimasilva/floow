@@ -66,21 +66,24 @@ export function IncomeEventTable({ events }: IncomeEventTableProps) {
                   {formatBRL(event.totalCents ?? 0)}
                 </td>
                 <td className="py-2">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/investments/events/${event.id}/edit`}
-                      className="text-xs text-gray-500 hover:text-gray-800 underline"
-                    >
-                      Editar
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteId(event.id)}
-                      className="text-xs text-red-500 hover:text-red-700 underline"
-                    >
-                      Excluir
-                    </button>
-                  </div>
+                  {/* Provento do banco é somente leitura: editar pela action manual criaria lançamento (D3). */}
+                  {event.source !== 'openfinance' && (
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/investments/events/${event.id}/edit`}
+                        className="text-xs text-gray-500 hover:text-gray-800 underline"
+                      >
+                        Editar
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(event.id)}
+                        className="text-xs text-red-500 hover:text-red-700 underline"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

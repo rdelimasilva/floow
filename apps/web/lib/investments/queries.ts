@@ -59,6 +59,8 @@ export interface IncomeEventWithAsset {
   notes: string | null
   ticker: string
   name: string
+  /** Origem do ativo. Provento de `openfinance` é somente leitura na tela. */
+  source: 'manual' | 'openfinance'
 }
 
 export interface PortfolioEventDetail {
@@ -258,7 +260,7 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
 })
 
 /**
- * Returns income events (dividend, interest, amortization) for the last N months.
+ * Returns income events (dividend, jcp, interest, amortization) for the last N months.
  * Queries portfolio_events (NOT transactions) to avoid INV-07 double-counting.
  * Uses a single JOIN with assets and filters by date in SQL for efficiency.
  */
@@ -280,6 +282,7 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
           notes: portfolioEvents.notes,
           ticker: assets.ticker,
           name: assets.name,
+          source: assets.source,
         })
         .from(portfolioEvents)
         .innerJoin(assets, eq(portfolioEvents.assetId, assets.id))
@@ -301,6 +304,7 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
         notes: e.notes,
         ticker: assetDisplayName(e),
         name: e.name,
+        source: e.source,
       }))
     },
     ['investment-income-events', orgId, String(months)],

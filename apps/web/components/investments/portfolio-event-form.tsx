@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { Asset, Account } from '@floow/db'
+import { ativosManuais } from '@/lib/investments/ativos-manuais'
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
                   <SelectValue placeholder="Selecione o ativo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {assets.map((asset) => (
+                  {ativosManuais(assets).map((asset) => (
                     <SelectItem key={asset.id} value={asset.id}>
                       {asset.ticker} — {asset.name}
                     </SelectItem>
