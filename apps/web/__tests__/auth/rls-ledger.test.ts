@@ -29,6 +29,8 @@ const SERVICO: Record<string, string> = {
     'cron 3x/dia: varre as conexões de todas as orgs, sem usuário na requisição',
   'lib/notifications/pacing-email-deps.ts':
     'só é chamado por run-daily: lê membros e preferências de todas as orgs para o e-mail de ritmo',
+  'lib/finance/category-suggestions/deps.ts':
+    'chamado pela rota semanal (sem usuário na requisição) e pelo botão da tela de metas',
 }
 
 /** Ainda não convertidos. Esta lista só pode encolher. */
