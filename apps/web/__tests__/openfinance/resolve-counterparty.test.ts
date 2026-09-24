@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm'
 import { resolveCounterparty, type CounterpartyRecord } from '@/lib/openfinance/resolve-counterparty'
+import { compositeKey, counterpartyKeyFor } from '@/lib/openfinance/counterparty-key'
 
 const ORG = 'org-1'
 const CONTA = 'conta-1'
@@ -126,7 +127,7 @@ describe('resolveCounterparty', () => {
   it('Nível 1 confirmado não toca o índice nem o banco', async () => {
     const db = makeDb()
     const index = new Map<string, CounterpartyRecord>()
-    const tx = normalizedTx({ natureConfirmed: true, type: 'transfer' })
+    const tx = normalizedTx({ natureConfirmed: true, type: 'expense' })
 
     const resolved = await resolveCounterparty(db, ORG, CONTA, tx, index)
 
@@ -148,7 +149,7 @@ describe('resolveCounterparty', () => {
       accountId: null,
       nature: 'transfer',
       categoryId: null,
-      transferAccountId: null,
+      transferAccountId: 'conta-destino',
       confirmedAt: new Date(),
     })
 
@@ -253,5 +254,54 @@ describe('resolveCounterparty', () => {
     const resolved = await resolveCounterparty(db, ORG, CONTA, tx, index)
 
     expect(resolved.transferAccountId).toBeNull()
+  })
+
+  it('Nível 1 transferência passa pela contraparte e fica pendente até ter conta', async () => {
+    const db = makeDb()
+    insertReturns = [{
+      id: 'cp-aplic', keyType: 'description', keyValue: 'APLICACAO CDB DI', direction: 'out',
+      accountId: CONTA, nature: null, categoryId: null, transferAccountId: null, confirmedAt: null,
+    }]
+    const index = new Map<string, CounterpartyRecord>()
+    const tx = normalizedTx({ natureConfirmed: true, type: 'transfer', description: 'APLICACAO CDB DI' })
+
+    const resolved = await resolveCounterparty(db, ORG, CONTA, tx, index)
+
+    expect(resolved.reviewState).toBe('pending')
+    expect(resolved.counterpartyId).toBe('cp-aplic')
+    expect(resolved.type).toBe('transfer')
+  })
+
+  it('contraparte confirmada como transferência SEM conta não confirma o lançamento', async () => {
+    const db = makeDb()
+    const index = new Map<string, CounterpartyRecord>()
+    const tx = normalizedTx({ counterpartyTaxId: '999' })
+    const key = counterpartyKeyFor(tx, CONTA)!
+    index.set(compositeKey(key), {
+      id: 'cp-legado', keyType: key.keyType, keyValue: key.keyValue, direction: key.direction, accountId: null,
+      nature: 'transfer', categoryId: null, transferAccountId: null, confirmedAt: new Date(),
+    })
+
+    const resolved = await resolveCounterparty(db, ORG, CONTA, tx, index)
+
+    expect(resolved.reviewState).toBe('pending')
+    expect(resolved.counterpartyId).toBe('cp-legado')
+    expect(resolved.transferAccountId).toBeNull()
+  })
+
+  it('Nível 1 transferência com contraparte confirmada e conta: confirma com a conta', async () => {
+    const db = makeDb()
+    const index = new Map<string, CounterpartyRecord>()
+    const tx = normalizedTx({ natureConfirmed: true, type: 'transfer', description: 'APLICACAO CDB DI' })
+    const key = counterpartyKeyFor(tx, CONTA)!
+    index.set(compositeKey(key), {
+      id: 'cp-aplic', keyType: key.keyType, keyValue: key.keyValue, direction: key.direction, accountId: CONTA,
+      nature: 'transfer', categoryId: null, transferAccountId: 'conta-corretora', confirmedAt: new Date(),
+    })
+
+    const resolved = await resolveCounterparty(db, ORG, CONTA, tx, index)
+
+    expect(resolved.reviewState).toBe('confirmed')
+    expect(resolved.transferAccountId).toBe('conta-corretora')
   })
 })

@@ -75,7 +75,11 @@ export async function resolveCounterparty(
   tx: NormalizedPolpTransaction,
   index: Map<string, CounterpartyRecord>,
 ): Promise<ResolvedTransaction> {
-  if (tx.natureConfirmed) {
+  // Nível 1 decide sozinho receita e despesa. Transferência não: o sinal do
+  // BCB diz que o dinheiro mudou de lugar, mas não para qual conta própria —
+  // e transferência sem conta não tem par. Passa pela contraparte, que
+  // lembra a conta da primeira vez em diante.
+  if (tx.natureConfirmed && tx.type !== 'transfer') {
     return { ...tx, reviewState: 'confirmed', counterpartyId: null, categoryId: null, transferAccountId: null }
   }
 
@@ -165,6 +169,13 @@ export async function resolveCounterparty(
   }
 
   if (record.confirmedAt) {
+    // Contraparte confirmada como transferência antes de 07/09 não tem conta.
+    // Aplicá-la confirmaria transferência sem par: volta para Classificar,
+    // que agora exige a conta.
+    if (record.nature === 'transfer' && !record.transferAccountId) {
+      return { ...tx, type: 'transfer', reviewState: 'pending', counterpartyId: record.id, categoryId: null, transferAccountId: null }
+    }
+
     return {
       ...tx,
       type: record.nature ?? tx.type,
