@@ -45,11 +45,35 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
     ? (decisao ?? { nature: regra.nature, categoryId: regra.categoryId, transferAccountId: regra.ehCpfProprio ? null : regra.transferAccountId })
     : null
 
+  /**
+   * Falta escolher categoria (receita/despesa) ou conta (transferência, exceto
+   * CPF próprio, que não tem conta fixa) — mesmo com histórico desmarcado, não
+   * dá pra salvar assim: o servidor rejeitaria (`decisaoSchema.refine`, fix
+   * round 1). Reaproveitada pelo efeito da prévia, que também não deve rodar
+   * com a decisão pela metade.
+   */
+  function decisaoCompleta(d: Decisao): boolean {
+    if (d.nature === 'transfer') return Boolean(d.transferAccountId) || Boolean(regra?.ehCpfProprio)
+    return Boolean(d.categoryId)
+  }
+
+  // Troca a decisão E limpa a prévia antiga na mesma atualização — sem isso,
+  // a prévia de antes ficava visível (e o Salvar liberado por ela) por um
+  // paint inteiro antes de o efeito abaixo rodar (fix round 1).
+  function mudarDecisao(nova: Decisao) {
+    setDecisao(nova)
+    setPrevia(null)
+  }
+
+  function mudarHistorico(v: boolean) {
+    setHistorico(v)
+    setPrevia(null)
+  }
+
   useEffect(() => {
     setPrevia(null)
     if (!regra || !atual || !historico) return
-    if (atual.nature === 'transfer' && !atual.transferAccountId && !regra.ehCpfProprio) return
-    if (atual.nature !== 'transfer' && !atual.categoryId) return
+    if (!decisaoCompleta(atual)) return
     let vivo = true
     previaCorrecaoDeRegra({ counterpartyId: regra.id, ...atual })
       .then((p) => {
@@ -118,13 +142,13 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
                         key={n}
                         type="button"
                         variant={atual.nature === n ? 'primary' : 'outline'}
-                        onClick={() => setDecisao({ nature: n, categoryId: null, transferAccountId: null })}
+                        onClick={() => mudarDecisao({ nature: n, categoryId: null, transferAccountId: null })}
                       >
                         {rotulo(n)}
                       </Button>
                     ))}
                   {atual.nature === 'transfer' && !c.ehCpfProprio && (
-                    <Select value={atual.transferAccountId ?? ''} onValueChange={(v) => setDecisao({ ...atual, transferAccountId: v })}>
+                    <Select value={atual.transferAccountId ?? ''} onValueChange={(v) => mudarDecisao({ ...atual, transferAccountId: v })}>
                       <SelectTrigger className="w-48">
                         <SelectValue placeholder="Conta" />
                       </SelectTrigger>
@@ -138,7 +162,7 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
                     </Select>
                   )}
                   {atual.nature !== 'transfer' && (
-                    <Select value={atual.categoryId ?? ''} onValueChange={(v) => setDecisao({ ...atual, categoryId: v })}>
+                    <Select value={atual.categoryId ?? ''} onValueChange={(v) => mudarDecisao({ ...atual, categoryId: v })}>
                       <SelectTrigger className="w-48">
                         <SelectValue placeholder="Categoria" />
                       </SelectTrigger>
@@ -163,7 +187,7 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
                 )}
 
                 <label className="flex items-center gap-2 text-xs text-gray-700">
-                  <input type="checkbox" checked={historico} onChange={(e) => setHistorico(e.target.checked)} />
+                  <input type="checkbox" checked={historico} onChange={(e) => mudarHistorico(e.target.checked)} />
                   Aplicar também aos lançamentos já classificados
                 </label>
 
@@ -185,7 +209,7 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
                 )}
 
                 <div className="flex gap-2">
-                  <Button type="button" disabled={salvando || (historico && !previa)} onClick={salvar}>
+                  <Button type="button" disabled={salvando || !decisaoCompleta(atual) || (historico && !previa)} onClick={salvar}>
                     {salvando ? 'Salvando…' : 'Salvar correção'}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setAberta(null)}>

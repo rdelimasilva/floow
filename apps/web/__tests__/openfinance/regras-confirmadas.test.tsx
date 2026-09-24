@@ -6,7 +6,7 @@
  * convenção de counterparty-queue-client.test.tsx — Radix + jsdom não
  * combinam bem em teste.
  */
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import React from 'react'
 import { vi, it, expect, beforeEach, describe } from 'vitest'
 
@@ -137,6 +137,60 @@ describe('RegrasConfirmadas', () => {
 
     expect(screen.queryByRole('button', { name: 'Salvar correção' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Corrigir' })).toBeTruthy()
+  })
+
+  it('mudar a natureza sem escolher categoria mantém Salvar desabilitado (histórico desmarcado)', () => {
+    render(
+      React.createElement(RegrasConfirmadas, {
+        confirmed: [regra],
+        categoryOptions: [],
+        accountOptions: contas,
+        regraAberta: 'r1',
+      }),
+    )
+
+    // direção 'in': só Receita e Transferência aparecem (ver naturezas no componente).
+    fireEvent.click(screen.getByRole('button', { name: 'Receita' }))
+
+    const botao = screen.getByRole('button', { name: 'Salvar correção' }) as HTMLButtonElement
+    expect(botao.disabled).toBe(true)
+    expect(corrigir).not.toHaveBeenCalled()
+  })
+
+  it('trocar a decisão depois da prévia limpa a prévia antiga na hora, antes de a nova resolver', async () => {
+    let resolverSegunda!: (v: unknown) => void
+    const segundaPrevia: Promise<any> = new Promise((resolve) => {
+      resolverSegunda = resolve
+    })
+    previa.mockImplementationOnce(async () => ({ mudam: 11, foraPorParDoOutroLado: [], deltas: { xp: 6446627, corretora: -6446627 } }))
+    previa.mockImplementationOnce(() => segundaPrevia)
+
+    render(
+      React.createElement(RegrasConfirmadas, {
+        confirmed: [regra],
+        categoryOptions: [],
+        accountOptions: contas,
+        regraAberta: 'r1',
+      }),
+    )
+
+    fireEvent.click(screen.getByLabelText('Aplicar também aos lançamentos já classificados'))
+    await screen.findByText(/11 lançamentos mudam/)
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'corretora' } })
+
+    // A prévia antiga some na mesma atualização que troca a conta — não fica
+    // visível até a segunda chamada (ainda pendente) resolver.
+    expect(screen.queryByText(/11 lançamentos mudam/)).toBeNull()
+    const botao = screen.getByRole('button', { name: 'Salvar correção' }) as HTMLButtonElement
+    expect(botao.disabled).toBe(true)
+
+    await act(async () => {
+      resolverSegunda({ mudam: 5, foraPorParDoOutroLado: [], deltas: {} })
+    })
+
+    expect(await screen.findByText(/5 lançamentos mudam/)).toBeTruthy()
+    expect(botao.disabled).toBe(false)
   })
 
   it('regra do CPF próprio não pede conta', () => {
