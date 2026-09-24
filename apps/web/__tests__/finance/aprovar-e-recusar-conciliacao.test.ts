@@ -39,7 +39,7 @@ const tx = {
 
 vi.mock('@floow/db', () => ({
   getDb: () => ({ transaction: async (fn: (t: typeof tx) => unknown) => fn(tx) }),
-  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', matchedTransactionId: 'matched_transaction_id', balanceApplied: 'balance_applied', isIgnored: 'is_ignored' },
+  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', matchedTransactionId: 'matched_transaction_id', balanceApplied: 'balance_applied', isIgnored: 'is_ignored', externalId: 'external_id', transferAccountId: 'transfer_account_id', type: 'type', categoryId: 'category_id', reviewState: 'review_state' },
   forecastMatchProposals: { _: { name: 'forecast_match_proposals' }, id: 'id', orgId: 'org_id', status: 'status', decidedAt: 'decided_at', forecastTransactionId: 'forecast_transaction_id', realizedTransactionId: 'realized_transaction_id' },
 }))
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: () => Promise.resolve('org-1') }))
@@ -64,6 +64,8 @@ const PREVISAO_ABERTA = {
   matchedTransactionId: null,
   balanceApplied: false,
   isIgnored: false,
+  externalId: null,
+  transferAccountId: null,
 }
 const REALIZADO_VALENDO = {
   id: 'real-1',
@@ -91,6 +93,33 @@ describe('aprovarProposta', () => {
     const naProposta = ops.find((o) => o.op === 'update:forecast_match_proposals')
     expect(naProposta?.payload).toMatchObject({ status: 'approved' })
     expect(naProposta?.payload?.decidedAt).toBeInstanceOf(Date)
+  })
+
+  it('perna prevista de transferência: a ponta real vira transferência confirmada, sem categoria', async () => {
+    selectQueue.push([PENDENTE])
+    selectQueue.push([
+      { ...PREVISAO_ABERTA, externalId: 'ext-1:transfer-par', transferAccountId: 'conta-itau' },
+      { ...REALIZADO_VALENDO, externalId: 'pix-nubank', transferAccountId: null },
+    ])
+
+    const { efetivada } = await aprovarProposta('prop-1')
+
+    expect(efetivada).toBe(true)
+    const escritas = ops.filter((o) => o.op === 'update:transactions').map((o) => o.payload)
+    expect(escritas).toContainEqual({ matchedTransactionId: 'real-1' })
+    expect(escritas).toContainEqual({
+      type: 'transfer',
+      categoryId: null,
+      reviewState: 'confirmed',
+      transferAccountId: 'conta-itau',
+    })
+  })
+
+  it('previsão recorrente: a ponta real não muda de natureza', async () => {
+    selectQueue.push([PENDENTE])
+    selectQueue.push(PONTAS_ELEGIVEIS)
+    await aprovarProposta('prop-1')
+    expect(ops.filter((o) => o.op === 'update:transactions')).toHaveLength(1)
   })
 
   it('realizado marcado como ignorado na janela não é efetivado', async () => {

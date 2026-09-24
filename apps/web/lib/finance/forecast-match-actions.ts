@@ -2,6 +2,7 @@
 
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { and, eq, inArray } from 'drizzle-orm'
+import { ehPernaPrevista } from '@/lib/openfinance/perna-prevista'
 import { condicaoDaTransacaoDaOrg, condicaoDePropostaPendenteDaOrg } from './forecast-match-db'
 import { getOrgId } from './queries'
 import { revalidateTransactionData } from './revalidate'
@@ -62,6 +63,8 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
         matchedTransactionId: transactions.matchedTransactionId,
         balanceApplied: transactions.balanceApplied,
         isIgnored: transactions.isIgnored,
+        externalId: transactions.externalId,
+        transferAccountId: transactions.transferAccountId,
       })
       .from(transactions)
       .where(
@@ -92,6 +95,22 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
       .update(transactions)
       .set({ matchedTransactionId: proposta.realizedTransactionId })
       .where(condicaoDaTransacaoDaOrg(proposta.forecastTransactionId, orgId))
+
+    // Perna prevista de transferência: a ponta real é a outra metade de uma
+    // transferência entre contas próprias. Vira transferência confirmada, e
+    // com isso sai de Classificar — senão o usuário a classificaria de novo
+    // e criaria um segundo par, cruzado.
+    if (ehPernaPrevista(previsao.externalId)) {
+      await tx
+        .update(transactions)
+        .set({
+          type: 'transfer',
+          categoryId: null,
+          reviewState: 'confirmed',
+          transferAccountId: previsao.transferAccountId,
+        })
+        .where(condicaoDaTransacaoDaOrg(proposta.realizedTransactionId, orgId))
+    }
 
     await tx
       .update(forecastMatchProposals)
