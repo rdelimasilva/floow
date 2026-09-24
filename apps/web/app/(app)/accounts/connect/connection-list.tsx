@@ -14,6 +14,7 @@ import { concluirConexaoGuiada } from '@/lib/openfinance/conexao-guiada-actions'
 import { abrirAutorizacao } from '@/lib/openfinance/abrir-autorizacao'
 import { AvisoDeAutorizacao, useAtualizarAoVoltar } from './aguardando-autorizacao'
 import { resumoDaConclusao } from './wizard-passos'
+import { avisoDaAtualizacao } from './lista-conexoes'
 
 /**
  * Rótulos dos status que o usuário vê.
@@ -56,13 +57,17 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
   const [aguardando, setAguardando] = useState<string | null>(null)
 
   // Voltou da aba do banco: relê o status pelo mesmo caminho de Buscar contas,
-  // até a conexão aparecer autorizada.
-  const esperandoBanco = connections.some((c) => c.id === aguardando && c.status !== 'AUTHORISED')
+  // enquanto a conexão ainda espera autorização (recusada ou expirada não muda
+  // mais sozinha).
+  const esperandoBanco = connections.some((c) => c.id === aguardando && c.status === 'AWAITING_AUTHORIZATION')
   useAtualizarAoVoltar(esperandoBanco, () => {
-    if (aguardando && !pending) handleRefresh(aguardando)
+    if (aguardando && !pending) handleRefresh(aguardando, true)
   })
 
-  function handleRefresh(id: string) {
+  /** `automatico`: disparado pela volta à aba, não pelo botão. */
+  function handleRefresh(id: string, automatico = false) {
+    const atual = connections.find((c) => c.id === id)
+    const antes = { status: atual?.status ?? '', recursos: atual?.resources.length ?? 0 }
     setBusyId(id)
     startTransition(async () => {
       try {
@@ -88,11 +93,8 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
           return
         }
 
-        toast(
-          result.pendingResourceCount > 0
-            ? 'Contas atualizadas. O banco ainda está preparando parte delas.'
-            : 'Contas atualizadas.',
-        )
+        const aviso = avisoDaAtualizacao(antes, result, automatico)
+        if (aviso) toast(aviso)
       } catch (error) {
         toast(error instanceof Error ? error.message : 'Não foi possível buscar as contas', 'error')
       } finally {
@@ -142,8 +144,12 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
     const abertura = abrirAutorizacao(async () => (await recreateBankAuthorization(id)).authUrl)
     startTransition(async () => {
       try {
-        if ((await abertura) === 'nova-aba') {
+        const resultado = await abertura
+        if (resultado === 'nova-aba') {
           setAguardando(id)
+          setBusyId(null)
+        } else if (resultado === 'sem-url') {
+          toast('Não foi possível reabrir a autorização', 'error')
           setBusyId(null)
         }
       } catch (error) {
