@@ -84,6 +84,14 @@ describe('selo de previsto', () => {
     expect(screen.queryByText('previsto')).toBeNull()
   })
 
+  it('parcela futura do banco é "previsto", mas não diz que ainda não aconteceu', () => {
+    renderRow({ balanceApplied: false, externalId: 'polp-4', date: '2026-10-16' })
+
+    expect(screen.getByText('previsto').getAttribute('title')).toBe(
+      'Parcela do cartão com vencimento futuro. Entra no saldo na data da fatura.',
+    )
+  })
+
   it('lançamento realizado não mostra selo nenhum dos dois', () => {
     renderRow({ balanceApplied: true })
 

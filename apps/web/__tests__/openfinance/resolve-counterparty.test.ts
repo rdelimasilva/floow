@@ -30,6 +30,7 @@ function normalizedTx(overrides: Partial<{
     billForecastMonth: null,
     installmentNumber: null,
     installmentTotal: null,
+    purchaseDate: null,
     settlement: 'settled' as const,
     foreign: null,
     ...overrides,

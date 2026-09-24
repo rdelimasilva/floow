@@ -6,6 +6,7 @@ import { computeSnapshot, matchCategory, generateInstallmentDates, advanceByFreq
 import { eq, sql, and, or, desc, isNull, isNotNull, ilike, count, max, inArray } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { escapeLikePattern } from './sql-utils'
+import { deveAplicarSaldoNaEdicao } from './saldo-na-edicao'
 import { getPositions } from '@/lib/investments/queries'
 import {
   accountsTag,
@@ -661,6 +662,7 @@ export async function deleteTransaction(formData: FormData) {
  * Server action: toggle the is_ignored flag on an imported transaction.
  * When ignoring: reverses the balance impact (as if the transaction didn't exist).
  * When un-ignoring: re-applies the balance impact.
+ * Linha com balance_applied = false só troca a marca, sem mexer no saldo.
  * Only works on imported transactions (externalId IS NOT NULL).
  */
 export async function toggleIgnoreTransaction(formData: FormData) {
@@ -689,10 +691,14 @@ export async function toggleIgnoreTransaction(formData: FormData) {
       .set({ isIgnored: newIgnored })
       .where(and(eq(transactions.id, transactionId), eq(transactions.orgId, orgId)))
 
-    await dbTx
-      .update(accounts)
-      .set({ balanceCents: sql`balance_cents + ${balanceDelta}` })
-      .where(eq(accounts.id, tx.accountId))
+    // Linha fora do saldo (parcela futura, agendado) só troca a marca: o valor
+    // nunca entrou, e `applyDueBankTransactions` a aplica quando vencer.
+    if (tx.balanceApplied) {
+      await dbTx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${balanceDelta}` })
+        .where(eq(accounts.id, tx.accountId))
+    }
   })
 
   revalidateTransactionData(orgId)
@@ -764,22 +770,17 @@ export async function updateTransaction(formData: FormData) {
         .where(eq(accounts.id, oldTx.accountId))
     }
 
-    // Determine if the updated transaction should have balance applied
-    const nowStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    const nowDate = new Date(nowStr)
-    const editedDate = new Date(input.date)
-    const shouldApplyBalance = editedDate <= nowDate || !oldTx.recurringTemplateId
+    // Previsão (template ou parcela) e parcela futura do banco só entram quando
+    // a regra de `deveAplicarSaldoNaEdicao` deixa; o resto entra sempre.
+    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    const balanceAppliedValue = deveAplicarSaldoNaEdicao(oldTx, input.date.toISOString().slice(0, 10), hoje)
 
-    // Apply new balance impact only if the date qualifies
-    if (shouldApplyBalance) {
+    if (balanceAppliedValue) {
       await tx
         .update(accounts)
         .set({ balanceCents: sql`balance_cents + ${newSignedAmount}` })
         .where(eq(accounts.id, input.accountId))
     }
-
-    // Update balance_applied flag if this is a recurring transaction
-    const balanceAppliedValue = oldTx.recurringTemplateId ? shouldApplyBalance : true
 
     // Update the transaction row
     await tx

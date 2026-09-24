@@ -324,3 +324,44 @@ describe('camada 1: natureza determinada pelo type do BCB', () => {
     expect(normalizeCardTransaction(cardTx()).polpType).toBeNull()
   })
 })
+
+describe('normalizeCardTransaction — parcelas', () => {
+  it('parcela usa o vencimento da fatura como data e guarda a data da compra', () => {
+    const n = normalizeCardTransaction(cardTx({
+      transaction_date_time: '2026-09-12T10:00:00-03:00',
+      bill_post_date: '2026-12-16',
+      bill_forecast_date: '2026-12',
+      charge_identificator: 3,
+      charge_number: 10,
+    }))
+    expect(n.date).toBe('2026-12-16')
+    expect(n.purchaseDate).toBe('2026-09-12')
+  })
+
+  it('parcela sem fatura fechada cai no dia 1 do mês previsto (o sync refina o dia)', () => {
+    const n = normalizeCardTransaction(cardTx({
+      transaction_date_time: '2026-09-12T10:00:00-03:00',
+      bill_post_date: '0001-01-01',
+      bill_forecast_date: '2027-03',
+      charge_identificator: 7,
+      charge_number: 10,
+    }))
+    expect(n.date).toBe('2027-03-01')
+    expect(n.purchaseDate).toBe('2026-09-12')
+  })
+
+  it('compra à vista continua na data da compra, sem purchaseDate', () => {
+    const n = normalizeCardTransaction(cardTx({
+      transaction_date_time: '2026-09-12T10:00:00-03:00',
+      bill_post_date: '2026-10-16',
+      charge_identificator: 1,
+      charge_number: 1,
+    }))
+    expect(n.date).toBe('2026-09-12')
+    expect(n.purchaseDate).toBeNull()
+  })
+})
+
+it('transação de conta não tem purchaseDate', () => {
+  expect(normalizeAccountTransaction(accountTx()).purchaseDate).toBeNull()
+})

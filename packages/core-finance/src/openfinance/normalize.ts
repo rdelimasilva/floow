@@ -13,6 +13,7 @@ import type {
   PolpCardTransaction,
   PolpCounterparty,
 } from './polp-types'
+import { dataDaParcela } from './parcelas'
 
 /** O que a ingestão grava em `transactions`. */
 export interface NormalizedPolpTransaction {
@@ -52,6 +53,12 @@ export interface NormalizedPolpTransaction {
   billForecastMonth: string | null
   installmentNumber: number | null
   installmentTotal: number | null
+  /**
+   * Data da compra, só em parcela de cartão. Em parcela, `date` é o
+   * vencimento da fatura em que ela cai — senão as dez parcelas de uma
+   * compra 10x contariam no mês da compra.
+   */
+  purchaseDate: string | null
   /**
    * `scheduled` e `processing` NÃO são gasto realizado: o primeiro é lançamento
    * agendado que ainda não aconteceu, o segundo ainda pode não se efetivar.
@@ -240,6 +247,7 @@ export function normalizeAccountTransaction(tx: PolpAccountTransaction): Normali
     billForecastMonth: null,
     installmentNumber: null,
     installmentTotal: null,
+    purchaseDate: null,
     settlement,
     foreign: null,
   }
@@ -257,9 +265,17 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
       ? { amountCents: Math.abs(parseAmountCents(tx.amount.amount)), currency: tx.amount.currency }
       : null
 
+  const competencia = toCompetenceDate(tx.transaction_date_time)
+  const billPostDate = billPostDateOrNull(tx.bill_post_date)
+  const billForecastMonth = forecastMonthOrNull(tx.bill_forecast_date)
+  const parcelas = installments(tx.charge_identificator, tx.charge_number)
+  const ehParcela = parcelas.installmentTotal !== null
+
   return {
     externalId: tx.id,
-    date: toCompetenceDate(tx.transaction_date_time),
+    date: ehParcela
+      ? dataDaParcela({ billPostDate, billForecastMonth, purchaseDate: competencia }, null)
+      : competencia,
     amountCents,
     type,
     natureConfirmed,
@@ -269,9 +285,10 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
     categoryRef,
     polpType: null,
     payeeMcc: tx.payee_mcc ?? null,
-    billPostDate: billPostDateOrNull(tx.bill_post_date),
-    billForecastMonth: forecastMonthOrNull(tx.bill_forecast_date),
-    ...installments(tx.charge_identificator, tx.charge_number),
+    billPostDate,
+    billForecastMonth,
+    ...parcelas,
+    purchaseDate: ehParcela ? competencia : null,
     settlement: 'settled',
     foreign,
   }

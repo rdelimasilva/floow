@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sumAppliedDeltasByAccount } from '@/lib/openfinance/sync'
+import { sumAppliedDeltasByAccount } from '@/lib/openfinance/persist-page'
 
 /**
  * `persistPage` não é exportada (é interna a sync.ts) e o resto da função

@@ -41,6 +41,7 @@ export async function criarPropostasDeDuplicata(
       date: transactions.date,
       amountCents: transactions.amountCents,
       installmentNumber: transactions.installmentNumber,
+      purchaseDate: transactions.purchaseDate,
       counterpartyTaxId: transactions.counterpartyTaxId,
       externalId: transactions.externalId,
     })
@@ -71,6 +72,7 @@ export async function criarPropostasDeDuplicata(
       dateISO,
       amountCents: c.amountCents,
       installmentNumber: c.installmentNumber,
+      purchaseDate: c.purchaseDate ? c.purchaseDate.toISOString().slice(0, 10) : null,
       counterpartyTaxId: c.counterpartyTaxId,
       externalId: c.externalId,
     }

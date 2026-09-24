@@ -30,6 +30,8 @@ export interface TransactionRowData {
   runningBalance?: number
   installmentNumber?: number | null
   installmentTotal?: number | null
+  /** Data da compra, só em parcela de cartão. */
+  purchaseDate?: Date | string | null
   /**
    * O bem que este lancamento adquiriu, quando ha vinculo em
    * `fixed_assets.acquisition_transaction_id`. Vem por subquery e nao por

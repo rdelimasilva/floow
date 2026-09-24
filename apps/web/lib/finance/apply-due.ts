@@ -45,7 +45,8 @@ export async function applyDueBankTransactions() {
     // por data sem olhar esta coluna fazia dele o "gasto que ninguem fez" que
     // o proprio sync diz evitar — dentro do saldo, e escondido de todo
     // relatorio que filtra `is_ignored`. Quem tira um lancamento do ignorado e
-    // `toggleIgnoreTransaction`, que ja aplica o valor no saldo na hora.
+    // `toggleIgnoreTransaction`, que so troca a marca de linha fora do saldo:
+    // o valor entra por aqui, quando a data chegar.
     eq(transactions.isIgnored, false),
     sql`${transactions.date} <= ${todayStr}::date`,
   )

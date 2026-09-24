@@ -171,6 +171,17 @@ export const transactions = pgTable(
     installmentNumber: integer('installment_number'),
     /** Total de parcelas. Recebe charge_number na ingestão Open Finance. */
     installmentTotal: integer('installment_total'),
+    /**
+     * Data da compra, só em parcela de cartão vinda do Open Finance. A `date`
+     * da parcela é o vencimento da fatura; esta coluna junta as parcelas da
+     * mesma compra e casa a previsão com a real.
+     */
+    purchaseDate: date('purchase_date', { mode: 'date' }),
+    /**
+     * Parcela prevista pelo floow porque a Polp ainda não a mandou. Nunca
+     * entra no saldo; a parcela real ocupa esta linha quando chega.
+     */
+    isInstallmentForecast: boolean('is_installment_forecast').notNull().default(false),
     // -- Open Finance (migration 00027) -------------------------------------
     /**
      * Data de lançamento na fatura do cartão. NULL enquanto não faturada.
@@ -225,6 +236,12 @@ export const transactions = pgTable(
     idxTransactionsOrgBalanceDate: index('idx_transactions_org_balance_date').on(table.orgId, table.balanceApplied, table.date),
     idxTransactionsOrgReviewState: index('idx_transactions_org_review_state').on(table.orgId, table.reviewState),
     idxTransactionsCounterpartyId: index('idx_transactions_counterparty_id').on(table.counterpartyId),
+    idxTransactionsInstallmentKey: index('idx_transactions_installment_key').on(
+      table.accountId,
+      table.purchaseDate,
+      table.installmentTotal,
+      table.installmentNumber,
+    ),
   })
 )
 
