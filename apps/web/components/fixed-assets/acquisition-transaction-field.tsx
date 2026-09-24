@@ -4,6 +4,7 @@ import { formatBRL } from '@floow/core-finance/src/balance'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { AcquisitionCandidate } from '@/lib/fixed-assets/queries'
+import { formatarDia } from '@/lib/formatar-dia'
 
 /**
  * Sentinela para "não vincular". Radix não aceita `SelectItem` com value
@@ -42,7 +43,7 @@ export function AcquisitionTransactionField({ candidates, value, onChange }: Pro
           <SelectItem value={SEM_VINCULO}>Nenhum lançamento vinculado</SelectItem>
           {candidates.map((c) => (
             <SelectItem key={c.id} value={c.id}>
-              {c.date.toLocaleDateString('pt-BR')} · {c.description} · {formatBRL(c.amountCents)}
+              {formatarDia(c.date)} · {c.description} · {formatBRL(c.amountCents)}
             </SelectItem>
           ))}
         </SelectContent>

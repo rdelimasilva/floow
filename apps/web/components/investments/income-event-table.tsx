@@ -7,6 +7,7 @@ import { deletePortfolioEvent } from '@/lib/investments/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import type { IncomeEventWithAsset } from '@/lib/investments/queries'
+import { formatarDia } from '@/lib/formatar-dia'
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   dividend: 'Dividendo',
@@ -65,7 +66,7 @@ export function IncomeEventTable({ events }: IncomeEventTableProps) {
                   {EVENT_TYPE_LABELS[event.eventType] ?? event.eventType}
                 </td>
                 <td className="py-2 text-gray-600">
-                  {new Date(event.eventDate).toLocaleDateString('pt-BR')}
+                  {formatarDia(new Date(event.eventDate))}
                 </td>
                 <td className="py-2 text-right text-green-700 font-medium">
                   {formatBRL(event.totalCents ?? 0)}

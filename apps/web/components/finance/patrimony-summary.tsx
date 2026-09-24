@@ -5,6 +5,7 @@ import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { PatrimonySnapshot } from '@floow/db'
+import { formatarDia } from '@/lib/formatar-dia'
 
 type SerializedSnapshot = Omit<PatrimonySnapshot, 'snapshotDate' | 'createdAt'> & {
   snapshotDate: string | Date
@@ -126,8 +127,8 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
         <p className="text-xs text-gray-400">
           Última atualização:{' '}
           {snapshot.snapshotDate instanceof Date
-            ? snapshot.snapshotDate.toLocaleDateString('pt-BR')
-            : new Date(snapshot.snapshotDate).toLocaleDateString('pt-BR')}
+            ? formatarDia(snapshot.snapshotDate)
+            : formatarDia(new Date(snapshot.snapshotDate))}
         </p>
 
         {/* Refresh button */}

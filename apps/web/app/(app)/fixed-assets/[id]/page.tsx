@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { UpdateValueForm } from './update-value-form'
 import { DeleteAssetButton } from './delete-asset-button'
 import dynamic from 'next/dynamic'
+import { formatarDia } from '@/lib/formatar-dia'
 
 const AssetValueHistory = dynamic(() => import('@/components/fixed-assets/asset-value-history').then(m => ({ default: m.AssetValueHistory })), {
   loading: () => <div className="min-h-[200px] animate-pulse rounded-xl bg-gray-100" />,
@@ -66,7 +67,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Valor de Compra</p>
           <p className="mt-2 text-xl font-bold text-foreground">{formatBRL(asset.purchaseValueCents)}</p>
-          <p className="mt-1 text-xs text-gray-400">{purchaseDate.toLocaleDateString('pt-BR')}</p>
+          <p className="mt-1 text-xs text-gray-400">{formatarDia(purchaseDate)}</p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Valor Atual Estimado</p>
@@ -92,7 +93,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
               href={`/transactions?q=${encodeURIComponent(acquisition.description)}`}
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm hover:underline"
             >
-              <span className="text-gray-500">{acquisition.date.toLocaleDateString('pt-BR')}</span>
+              <span className="text-gray-500">{formatarDia(acquisition.date)}</span>
               <span className="text-foreground">{acquisition.description}</span>
               <span className="font-medium text-foreground">{formatBRL(acquisition.amountCents)}</span>
             </Link>
@@ -139,7 +140,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
         <CardHeader><CardTitle className="text-sm">Atualizar Valor de Mercado</CardTitle></CardHeader>
         <CardContent>
           <p className="text-xs text-gray-400 mb-3">
-            Última atualização: {baseDate.toLocaleDateString('pt-BR')} — {formatBRL(asset.currentValueCents)}
+            Última atualização: {formatarDia(baseDate)} — {formatBRL(asset.currentValueCents)}
           </p>
           <UpdateValueForm assetId={id} />
         </CardContent>

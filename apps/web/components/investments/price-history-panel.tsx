@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { getPriceHistory } from '@/lib/investments/client-actions'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { PriceHistoryEntry } from '@/lib/investments/queries'
+import { formatarDia } from '@/lib/formatar-dia'
 
 const historyCache = new Map<string, PriceHistoryEntry[]>()
 
@@ -62,8 +63,8 @@ export function PriceHistoryPanel({ orgId, assetId }: PriceHistoryPanelProps) {
         <tbody>
           {entries.map((entry, idx) => {
             const dateStr = entry.priceDate instanceof Date
-              ? entry.priceDate.toLocaleDateString('pt-BR')
-              : new Date(entry.priceDate as unknown as string).toLocaleDateString('pt-BR')
+              ? formatarDia(entry.priceDate)
+              : formatarDia(new Date(entry.priceDate as unknown as string))
             return (
               <tr key={idx} className="border-b border-gray-100 last:border-0">
                 <td className="px-3 py-1.5 text-gray-600">{dateStr}</td>

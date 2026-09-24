@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, CartesianGrid } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { PatrimonySnapshot } from '@floow/db'
+import { formatarDia } from '@/lib/formatar-dia'
 
 const chartConfig = {
   netWorthCents: {
@@ -42,7 +43,7 @@ export function NetWorthEvolution({ snapshots }: NetWorthEvolutionProps) {
   const chartData = snapshots.map((s) => {
     const date = s.snapshotDate instanceof Date ? s.snapshotDate : new Date(s.snapshotDate as unknown as string)
     return {
-      date: date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+      date: formatarDia(date, { month: 'short', year: '2-digit' }),
       netWorthCents: s.netWorthCents,
     }
   })

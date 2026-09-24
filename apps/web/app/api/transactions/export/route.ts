@@ -3,6 +3,7 @@ import { getTransactionsWithCount } from '@/lib/finance/queries'
 import { getVerifiedIdentity, getOrgId } from '@/lib/auth/session'
 import { formatBRL } from '@floow/core-finance'
 import { recordAudit } from '@/lib/audit/record'
+import { formatarDia } from '@/lib/formatar-dia'
 
 const TYPE_LABELS: Record<string, string> = {
   income: 'Receita',
@@ -55,8 +56,8 @@ export async function GET(request: NextRequest) {
     const header = 'Data,Descrição,Categoria,Tipo,Valor'
     const rows = transactions.map((tx) => {
       const date = tx.date instanceof Date
-        ? tx.date.toLocaleDateString('pt-BR')
-        : new Date(tx.date).toLocaleDateString('pt-BR')
+        ? formatarDia(tx.date)
+        : formatarDia(new Date(tx.date))
       const desc = `"${(tx.description ?? '').replace(/"/g, '""')}"`
       const cat = tx.categoryName ? `"${tx.categoryName.replace(/"/g, '""')}"` : ''
       const type = TYPE_LABELS[tx.type] ?? tx.type

@@ -1,3 +1,5 @@
+import { formatarDia } from '@/lib/formatar-dia'
+
 export interface TransactionRowData {
   id: string
   type: 'income' | 'expense' | 'transfer'
@@ -103,9 +105,9 @@ export const TYPE_LABELS = {
   transfer: 'Transferência',
 } as const
 
+/** Dia do lançamento (coluna `date`) — ver `formatarDia`. */
 export function formatDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return formatarDia(date)
 }
 
 export function toDateInputValue(date: Date | string): string {

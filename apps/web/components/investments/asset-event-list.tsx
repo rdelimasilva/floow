@@ -6,6 +6,7 @@ import { formatBRL } from '@floow/core-finance/src/balance'
 import { deletePortfolioEvent } from '@/lib/investments/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
+import { formatarDia } from '@/lib/formatar-dia'
 
 interface EventRow {
   id: string
@@ -68,7 +69,7 @@ export function AssetEventList({ events }: AssetEventListProps) {
                   {event.splitRatio ? ` (${event.splitRatio}x)` : ''}
                 </td>
                 <td className="py-2 text-gray-600">
-                  {new Date(event.eventDate).toLocaleDateString('pt-BR')}
+                  {formatarDia(new Date(event.eventDate))}
                 </td>
                 <td className="py-2 text-right tabular-nums text-gray-700">
                   {event.quantity != null ? event.quantity.toLocaleString('pt-BR') : '—'}

@@ -66,7 +66,10 @@ function formatDateBR(dateStr: string): string {
 function buildDebtRow(base: Omit<DebtRow, 'remainingCents' | 'progressPct' | 'nextDueDate'>): DebtRow {
   const remainingCents = Math.max(0, base.totalCents - base.paidCents)
   const progressPct = base.totalCents > 0 ? Math.round((base.paidCents / base.totalCents) * 100) : 0
-  const nextDue = new Date(base.startDate)
+  // No fuso local, como os getters abaixo: `new Date('2026-09-13')` é meia-noite
+  // UTC, que em Brasília ainda é dia 12 — o vencimento saía um dia antes.
+  const [ano, mes, dia] = base.startDate.split('-').map(Number)
+  const nextDue = new Date(ano, mes - 1, dia)
   nextDue.setMonth(nextDue.getMonth() + base.paidCount)
 
   return {
