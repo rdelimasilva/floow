@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { decidirAutoVinculo, diaSeguinte, semDestinos } from '@/lib/openfinance/auto-vinculo'
+import { decidirAutoVinculo, diaSeguinte, elegivelAoAutoVinculo, semDestinos } from '@/lib/openfinance/auto-vinculo'
 
 /**
  * A conexão guiada escolhe o destino ANTES da autorização, quando os recursos
@@ -109,5 +109,17 @@ describe('semDestinos', () => {
   it('só é legado com as quatro colunas vazias', () => {
     expect(semDestinos(NADA)).toBe(true)
     expect(semDestinos({ ...NADA, targetCardNewName: 'x' })).toBe(false)
+  })
+})
+
+describe('elegivelAoAutoVinculo', () => {
+  it('com destino guardado: sim', () => {
+    expect(elegivelAoAutoVinculo({ ...NADA, targetAccountId: 'a' }, ['ACCOUNT'])).toBe(true)
+  })
+  it('só investimentos, sem destino: sim (a primeira importação também é automática)', () => {
+    expect(elegivelAoAutoVinculo(NADA, ['INVESTMENTS'])).toBe(true)
+  })
+  it('sem destino e sem investimentos (conexão antiga): não', () => {
+    expect(elegivelAoAutoVinculo(NADA, ['ACCOUNT', 'CREDIT_CARD_ACCOUNT'])).toBe(false)
   })
 })

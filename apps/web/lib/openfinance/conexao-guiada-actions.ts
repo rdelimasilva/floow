@@ -26,6 +26,7 @@ import { getLastTransactionDateByAccount } from './queries'
 import {
   TIPOS_COMPATIVEIS,
   decidirAutoVinculo,
+  elegivelAoAutoVinculo,
   semDestinos,
   type DestinosGuardados,
   type TipoDeRecurso,
@@ -142,6 +143,7 @@ export async function concluirConexaoGuiada(connectionId: string): Promise<Resul
         targetAccountNewName: openfinanceConnections.targetAccountNewName,
         targetCardNewName: openfinanceConnections.targetCardNewName,
         autoLinkDoneAt: openfinanceConnections.autoLinkDoneAt,
+        products: openfinanceConnections.products,
       })
       .from(openfinanceConnections)
       .where(and(eq(openfinanceConnections.id, connectionId), eq(openfinanceConnections.orgId, orgId)))
@@ -149,12 +151,14 @@ export async function concluirConexaoGuiada(connectionId: string): Promise<Resul
   )
   if (!conexao) throw new Error('Conexão não encontrada')
 
-  if (semDestinos(conexao)) return { ...base, etapa: 'legado' }
+  if (!elegivelAoAutoVinculo(conexao, conexao.products ?? [])) return { ...base, etapa: 'legado' }
   if (conexao.autoLinkDoneAt) return { ...base, etapa: 'ja-concluida' }
 
   // Sem contas ainda, ou parte delas em preparo: decidir agora poderia chamar
-  // de "ambíguo" o que só estava incompleto. A próxima volta decide.
-  if (atualizacao.resources.length === 0 || atualizacao.pendingResourceCount > 0) {
+  // de "ambíguo" o que só estava incompleto. A próxima volta decide. Conexão
+  // só de investimentos não tem conta nem cartão a esperar.
+  const esperaContas = !semDestinos(conexao)
+  if (esperaContas && (atualizacao.resources.length === 0 || atualizacao.pendingResourceCount > 0)) {
     return { ...base, etapa: 'aguardando-contas' }
   }
 

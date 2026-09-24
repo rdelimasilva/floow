@@ -139,3 +139,9 @@ describe('resumoDaConclusao — autorização que não vingou', () => {
     expect(resumoDaConclusao(comStatus('aguardando-autorizacao', 'EXPIRED')).erro).toMatch(/Reabrir autorização/)
   })
 })
+
+describe('resumoDaConclusao — só investimentos', () => {
+  it('sem conta vinculada e sem pendência: fala da primeira importação', () => {
+    expect(resumoDaConclusao(r({ vinculados: 0, importadas: 0 })).texto).toBe('Pronto: primeira importação feita.')
+  })
+})

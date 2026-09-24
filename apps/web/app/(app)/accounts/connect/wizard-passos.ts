@@ -129,5 +129,10 @@ export function resumoDaConclusao(r: Conclusao): ResumoDaConclusao {
     pendencia = `Falta vincular: ${tipos}. Contas liberadas depois pelo banco aparecem na tela da conexão.`
   }
 
+  // Só investimentos: nada a vincular, a notícia é a importação.
+  if (r.vinculados === 0 && !pendencia) {
+    return { texto: 'Pronto: primeira importação feita.', pendencia, erro: r.erro }
+  }
+
   return { texto: `Pronto: ${vinculadas}${importadas}.`, pendencia, erro: r.erro }
 }

@@ -54,6 +54,16 @@ export function semDestinos(d: DestinosGuardados): boolean {
   return !d.targetAccountId && !d.targetCardAccountId && !d.targetAccountNewName && !d.targetCardNewName
 }
 
+/**
+ * A conexão tem jornada automática? Destino guardado (conta ou cartão) OU
+ * investimentos no consentimento — estes não têm destino a escolher, mas a
+ * primeira importação também deve acontecer sozinha. `auto_link_done_at`
+ * garante que roda uma vez.
+ */
+export function elegivelAoAutoVinculo(d: DestinosGuardados, products: string[]): boolean {
+  return !semDestinos(d) || products.includes('INVESTMENTS')
+}
+
 function destinoDoTipo(d: DestinosGuardados, tipo: TipoDeRecurso): LinkTarget | null {
   const id = tipo === 'ACCOUNT' ? d.targetAccountId : d.targetCardAccountId
   if (id) return { kind: 'existing', accountId: id }

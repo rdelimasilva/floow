@@ -157,6 +157,7 @@ const DESTINOS = {
   targetAccountNewName: null,
   targetCardNewName: 'Itaú · Cartão',
   autoLinkDoneAt: null,
+  products: ['ACCOUNT', 'CREDIT_CARD_ACCOUNT'],
 }
 
 function autorizada(resources: unknown[], pendingResourceCount = 0) {
@@ -173,7 +174,7 @@ describe('concluirConexaoGuiada', () => {
 
   it('conexão antiga (sem destino): comportamento de hoje, nada automático', async () => {
     refreshBankConnection.mockResolvedValue(autorizada([{ id: 'r1', resourceType: 'ACCOUNT', accountId: null }]))
-    selectQueue.push([{ targetAccountId: null, targetCardAccountId: null, targetAccountNewName: null, targetCardNewName: null, autoLinkDoneAt: null }])
+    selectQueue.push([{ targetAccountId: null, targetCardAccountId: null, targetAccountNewName: null, targetCardNewName: null, autoLinkDoneAt: null, products: ['ACCOUNT'] }])
     const r = await concluirConexaoGuiada('conn-1')
     expect(r.etapa).toBe('legado')
     expect(linkResourceToAccount).not.toHaveBeenCalled()
@@ -269,5 +270,22 @@ describe('concluirConexaoGuiada', () => {
     syncBankConnection.mockRejectedValueOnce(new Error('Polp fora do ar'))
     const r = await concluirConexaoGuiada('conn-1')
     expect(r).toMatchObject({ etapa: 'concluida', vinculados: 1, importadas: null, erro: 'Polp fora do ar' })
+  })
+
+  it('só investimentos: importa uma vez ao autorizar, mesmo sem conta nem cartão', async () => {
+    refreshBankConnection.mockResolvedValue(autorizada([]))
+    selectQueue.push([{ ...DESTINOS, targetAccountId: null, targetCardNewName: null, products: ['INVESTMENTS'] }])
+    const r = await concluirConexaoGuiada('conn-1')
+    expect(r).toMatchObject({ etapa: 'concluida', vinculados: 0, importadas: 7 })
+    expect(updates[0].set.autoLinkDoneAt).toBeInstanceOf(Date)
+    expect(linkResourceToAccount).not.toHaveBeenCalled()
+    expect(syncBankConnection).toHaveBeenCalledTimes(1)
+  })
+
+  it('só investimentos, já importado: não roda de novo', async () => {
+    refreshBankConnection.mockResolvedValue(autorizada([]))
+    selectQueue.push([{ ...DESTINOS, targetAccountId: null, targetCardNewName: null, products: ['INVESTMENTS'], autoLinkDoneAt: new Date() }])
+    expect((await concluirConexaoGuiada('conn-1')).etapa).toBe('ja-concluida')
+    expect(syncBankConnection).not.toHaveBeenCalled()
   })
 })
