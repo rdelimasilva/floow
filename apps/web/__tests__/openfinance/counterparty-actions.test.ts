@@ -236,9 +236,16 @@ describe('confirmCounterparty', () => {
 
   describe('transferência com conta de destino', () => {
     it('rejeita transferência sem transferAccountId', async () => {
+      // A validação de "transferência exige conta" saiu do schema (agora
+      // aceita nulo, para o caso de CPF próprio) e virou `contaQueARegraGrava`,
+      // dentro da transação — por isso a contraparte precisa existir no mock
+      // para o teste alcançar essa regra, em vez de barrar antes em "não
+      // encontrada".
+      selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
+
       await expect(
         confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: null }),
-      ).rejects.toThrow()
+      ).rejects.toThrow(/exige a outra conta/)
     })
 
     it('rejeita receita/despesa com transferAccountId preenchido', async () => {
