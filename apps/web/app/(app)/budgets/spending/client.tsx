@@ -18,10 +18,8 @@ import type { LinhaDeMeta } from '@/lib/finance/recurring-budget'
 import { RecorrentesNaLinha } from './recorrentes-na-linha'
 import { livreDaCategoria, type ParcelasDaCategoria } from '@/lib/finance/parcelas-a-vencer'
 import { ParcelasNaLinha } from './parcelas-na-linha'
-import { CategorySuggestionsCard } from '@/components/finance/category-suggestions-card'
-import type { PendingSuggestion } from '@/lib/finance/category-suggestion-queries'
-import type { AcceptResult } from '@/lib/finance/category-suggestions/accept'
-import { opcoesDeCategoriaMae } from '@/lib/finance/category-suggestions/parent-options'
+import { BudgetGoalSuggestionsCard } from '@/components/finance/budget-goal-suggestions-card'
+import type { BudgetGoalSuggestionRow } from '@/lib/finance/budget-goal-suggestion-queries'
 
 interface CategoryOption {
   id: string
@@ -49,7 +47,8 @@ interface SpendingClientProps {
   selectedMonth: string
   /** Parcelas de cartão do mês que ainda não venceram, por categoria. */
   parcelasAVencer: Record<string, ParcelasDaCategoria>
-  suggestions: PendingSuggestion[]
+  /** Categorias sem meta com o valor que o histórico sugere. */
+  goalSuggestions: BudgetGoalSuggestionRow[]
 }
 
 function formatMonth(monthStr: string): string {
@@ -71,7 +70,7 @@ export function SpendingClient({
   spending,
   selectedMonth,
   parcelasAVencer,
-  suggestions,
+  goalSuggestions,
 }: SpendingClientProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -160,11 +159,8 @@ export function SpendingClient({
     }
   }
 
-  function handleSuggestionAccepted(r: AcceptResult) {
-    // Mover para categoria existente não pede meta nova.
-    if (!r.created) return
-    setCategories((prev) => [...prev, { id: r.categoryId, name: r.name, type: 'expense', color: null, icon: null, parentId: r.parentId }])
-    setPrefill({ categoryId: r.categoryId, amountCents: r.monthlyAvgCents })
+  function handleCreateSuggestedGoal(categoryId: string, amountCents: number) {
+    setPrefill({ categoryId, amountCents })
     setShowAdd(true)
   }
 
@@ -178,11 +174,7 @@ export function SpendingClient({
 
       <MonthNavigator month={selectedMonth} onShift={navigateMonth} />
 
-      <CategorySuggestionsCard
-        suggestions={suggestions}
-        parentOptions={opcoesDeCategoriaMae(categories)}
-        onAccepted={handleSuggestionAccepted}
-      />
+      <BudgetGoalSuggestionsCard suggestions={goalSuggestions} onCreate={handleCreateSuggestedGoal} />
 
       {/* Summary */}
       {entriesForMonth.length > 0 && (

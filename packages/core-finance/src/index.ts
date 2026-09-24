@@ -33,6 +33,7 @@ export * from './category-tree'
 export * from './budget-pacing'
 // Sugestão de categorias — motor baseado em gasto de 12 meses
 export * from './category-suggestions'
+export * from './budget-goal-suggestions'
 // Open Finance — ingestão via Polp (Celcoin v2)
 export * from './openfinance/taxonomy'
 export * from './openfinance/polp-types'
