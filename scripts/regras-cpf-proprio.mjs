@@ -38,7 +38,15 @@ for (const r of alvo) console.log(`${r.display_name} -> ${r.conta}`)
 console.log(`${alvo.length} regra(s) do titular com conta fixa.`)
 
 if (aplicar && alvo.length > 0) {
-  await sql`update counterparties set transfer_account_id = null, updated_at = now() where id in ${sql(alvo.map((r) => r.id))}`
+  // Agrupar por org_id para garantir escrita filtrada por organização
+  const porOrg = new Map()
+  for (const r of alvo) {
+    if (!porOrg.has(r.org_id)) porOrg.set(r.org_id, [])
+    porOrg.get(r.org_id).push(r.id)
+  }
+  for (const [orgId, ids] of porOrg) {
+    await sql`update counterparties set transfer_account_id = null, updated_at = now() where org_id = ${orgId} and id in ${sql(ids)}`
+  }
   console.log('Conta removida.')
 }
 await sql.end()
