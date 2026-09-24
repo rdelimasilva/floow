@@ -27,7 +27,18 @@ interface Props {
 
 type Nature = 'income' | 'expense' | 'transfer'
 
-export function CounterpartyQueueClient({ mode, pending: initialPending, confirmed, categoryOptions, accountOptions, regraAberta }: Props) {
+/**
+ * A fila, os expandidos e as exceções nascem das props e vivem em estado
+ * local. Depois de `corrigirRegra` + `router.refresh()`, o que voltou para
+ * Classificar chega em props novas; a `key` pelos ids pendentes remonta a
+ * fila para mostrá-lo sem recarregar a página.
+ */
+export function CounterpartyQueueClient(props: Props) {
+  const chave = props.pending.flatMap((g) => g.items.map((i) => i.id)).join(',')
+  return <FilaDeClassificar key={chave} {...props} />
+}
+
+function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryOptions, accountOptions, regraAberta }: Props) {
   const { toast } = useToast()
   const [pending, setPending] = useState(initialPending)
   // CPF próprio já nasce expandido: não tem natureza/categoria de grupo pra
