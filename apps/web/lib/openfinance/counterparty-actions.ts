@@ -387,7 +387,6 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
     return reclassifiedCount
   })
 
-  revalidateTransactionData(orgId)
   invalidateTag(accountsTag(orgId))
   revalidateSnapshotData(orgId)
   // O layout guarda em cache se o portão já destravou; esta action é o único
@@ -404,6 +403,10 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
       console.error('[confirmCounterparty] falha ao propor conciliacao da perna prevista:', error)
     }
   }
+
+  // Depois das propostas, não antes: a lista de lançamentos e as filas leem
+  // as propostas; invalidar antes serviria a tela sem o par recém-proposto.
+  revalidateTransactionData(orgId)
 
   return { reclassified }
 }

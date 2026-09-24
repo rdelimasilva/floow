@@ -462,11 +462,7 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
     return { imported: importedCount, skipped: skippedCount }
   })
 
-  revalidatePath('/transactions')
   revalidatePath('/accounts', 'layout')
-  invalidateTag(transactionsTag(orgId))
-  invalidateTag(recentTransactionsTag(orgId, 6))
-  invalidateTag(recentTransactionsTag(orgId, 24))
   invalidateTag(accountsTag(orgId))
 
   // A ponta real pode já estar na conta de destino: propõe o par agora.
@@ -477,6 +473,13 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
       console.error('[import] falha ao propor conciliacao da perna prevista:', error)
     }
   }
+
+  // Depois das propostas, não antes: a lista de lançamentos lê as propostas;
+  // invalidar antes serviria a tela sem o par recém-proposto.
+  revalidatePath('/transactions')
+  invalidateTag(transactionsTag(orgId))
+  invalidateTag(recentTransactionsTag(orgId, 6))
+  invalidateTag(recentTransactionsTag(orgId, 24))
 
   return { imported, skipped }
 }

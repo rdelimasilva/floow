@@ -97,6 +97,7 @@ vi.mock('@floow/db', async () => {
 })
 
 import { confirmCounterparty } from '@/lib/openfinance/counterparty-actions'
+import { revalidateTag } from 'next/cache'
 
 const dialect = new PgDialect()
 function sqlDoWhere(op: Op | undefined): string {
@@ -534,5 +535,35 @@ describe('confirmCounterparty', () => {
       expect(criarPropostas).toHaveBeenCalledWith(expect.anything(), ORG, 'conta-origem')
       expect(criarPropostas).not.toHaveBeenCalledWith(expect.anything(), ORG, TRANSFER_ACCOUNT_ID)
     })
+  })
+
+  it('invalida a lista de lançamentos DEPOIS de propor a conciliação', async () => {
+    // Invalidar antes deixaria a tela renderizar sem a proposta recém-criada
+    // (e com a ponta real ainda aparecendo em Classificar) até a próxima
+    // expiração do cache.
+    selectQueue.push([{ id: COUNTERPARTY_ID }])
+    selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }])
+    updateQueue.push([])
+    selectQueue.push([{ id: 'tx-1' }])
+    selectQueue.push([{
+      id: 'tx-1', accountId: 'conta-origem', amountCents: -50000,
+      date: new Date('2026-01-15T12:00:00Z'), externalId: 'ext-1', balanceApplied: true,
+    }])
+    selectQueue.push([{ id: TRANSFER_ACCOUNT_ID }])
+    selectQueue.push([{ id: 'resource-1' }]) // linked
+    selectQueue.push([]) // nenhuma perna do outro lado
+    updateQueue.push([])
+    insertQueue.push([{ id: 'tx-1-par' }])
+    selectQueue.push([{ one: 1 }])
+    vi.mocked(revalidateTag).mockClear()
+
+    await confirmCounterparty({
+      counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
+    })
+
+    const chamadas = vi.mocked(revalidateTag).mock
+    const i = chamadas.calls.findIndex(([tag]) => tag === `transactions:${ORG}`)
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(chamadas.invocationCallOrder[i]).toBeGreaterThan(criarPropostas.mock.invocationCallOrder[0])
   })
 })
