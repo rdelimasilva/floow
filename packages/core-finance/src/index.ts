@@ -31,6 +31,8 @@ export { synthesizeInsights } from './cfo/llm/synthesizer'
 export * from './category-tree'
 // Pacing de orçamento — orçado x realizado diário
 export * from './budget-pacing'
+// Sugestão de categorias — motor baseado em gasto de 12 meses
+export * from './category-suggestions'
 // Open Finance — ingestão via Polp (Celcoin v2)
 export * from './openfinance/taxonomy'
 export * from './openfinance/polp-types'
