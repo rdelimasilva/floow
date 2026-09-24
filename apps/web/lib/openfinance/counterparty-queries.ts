@@ -7,6 +7,8 @@ import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 import { requireIdentity } from '@/lib/auth/session'
 import { reviewGateTag } from '@/lib/cache-tags'
 import { condicaoForaDeParDeTransferenciaPendente } from '@/lib/finance/forecast-match-db'
+import { carregarHashesDoTitular, ehCpfProprio } from '@/lib/openfinance/cpf-proprio'
+import { carregarCandidatosDePar, sugerirContaDoPar } from '@/lib/openfinance/sugestao-par'
 
 /**
  * O portão bloqueia o app inteiro no lugar do dashboard, só até a org zerar a
@@ -118,6 +120,8 @@ export interface PendingGroupItem {
    * Transferência escolhida e só pede a conta.
    */
   type?: 'income' | 'expense' | 'transfer'
+  /** CPF próprio: a conta do outro lado, se o par foi achado sem ambiguidade. */
+  sugestaoContaId: string | null
 }
 
 export interface PendingGroup {
@@ -127,6 +131,8 @@ export interface PendingGroup {
   count: number
   totalCents: number
   items: PendingGroupItem[]
+  /** Pix para o próprio CPF: a conta é escolhida por lançamento, nunca pelo grupo. */
+  ehCpfProprio: boolean
 }
 
 /**
@@ -171,6 +177,7 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
         counterpartyId: transactions.counterpartyId,
         displayName: counterparties.displayName,
         keyType: counterparties.keyType,
+        keyValue: counterparties.keyValue,
         id: transactions.id,
         date: transactions.date,
         description: transactions.description,
@@ -193,7 +200,7 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
       if (!row.counterpartyId) continue
       let group = groups.get(row.counterpartyId)
       if (!group) {
-        group = { counterpartyId: row.counterpartyId, displayName: row.displayName, keyType: row.keyType, count: 0, totalCents: 0, items: [] }
+        group = { counterpartyId: row.counterpartyId, displayName: row.displayName, keyType: row.keyType, count: 0, totalCents: 0, items: [], ehCpfProprio: false }
         groups.set(row.counterpartyId, group)
       }
       group.count++
@@ -205,7 +212,24 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
         amountCents: row.amountCents,
         accountId: row.accountId,
         type: row.type,
+        sugestaoContaId: null,
       })
+    }
+
+    // Pix para o próprio CPF: a conta certa é a do lançamento espelhado, nunca
+    // uma regra fixa por contraparte (spec §6) — por isso a sugestão é
+    // preenchida por lançamento, depois de os grupos já estarem montados.
+    const hashes = await carregarHashesDoTitular(db, orgId)
+    const chaves = new Map(rows.map((r) => [r.counterpartyId, { keyType: r.keyType, keyValue: r.keyValue }]))
+    const doTitular = [...groups.values()].filter((g) => {
+      const k = chaves.get(g.counterpartyId)
+      return k?.keyType === 'tax_id' && ehCpfProprio(k.keyValue, hashes)
+    })
+    const itensDoTitular = doTitular.flatMap((g) => g.items)
+    const candidatos = await carregarCandidatosDePar(db, orgId, itensDoTitular)
+    for (const g of doTitular) {
+      g.ehCpfProprio = true
+      for (const item of g.items) item.sugestaoContaId = sugerirContaDoPar(item, candidatos)
     }
 
     return [...groups.values()].sort((a, b) => Math.abs(b.totalCents) - Math.abs(a.totalCents))
@@ -220,9 +244,18 @@ export interface ConfirmedCounterparty {
   transferAccountId: string | null
   transferAccountName: string | null
   confirmedAt: string
+  keyType: 'tax_id' | 'description'
+  direction: 'in' | 'out'
+  /** CPF próprio: nunca devia ter virado regra de conta fixa (spec §6). */
+  ehCpfProprio: boolean
 }
 
-/** Contrapartes já confirmadas, para a aba editável da fila. */
+/**
+ * Contrapartes já confirmadas, para a aba editável da fila.
+ *
+ * `keyValue` (CPF/CNPJ ou descrição crua) fica só nesta função — não sai daqui
+ * para o cliente, só o booleano `ehCpfProprio` derivado dele.
+ */
 export async function getConfirmedCounterparties(orgId: string): Promise<ConfirmedCounterparty[]> {
   return withUserDb(async (db) => {
     const rows = await db
@@ -234,11 +267,16 @@ export async function getConfirmedCounterparties(orgId: string): Promise<Confirm
         transferAccountId: counterparties.transferAccountId,
         transferAccountName: accounts.name,
         confirmedAt: counterparties.confirmedAt,
+        keyType: counterparties.keyType,
+        keyValue: counterparties.keyValue,
+        direction: counterparties.direction,
       })
       .from(counterparties)
       .leftJoin(accounts, eq(accounts.id, counterparties.transferAccountId))
       .where(and(eq(counterparties.orgId, orgId), sql`${counterparties.confirmedAt} is not null`))
       .orderBy(desc(counterparties.confirmedAt))
+
+    const hashes = await carregarHashesDoTitular(db, orgId)
 
     return rows.map((row) => ({
       id: row.id,
@@ -248,6 +286,9 @@ export async function getConfirmedCounterparties(orgId: string): Promise<Confirm
       transferAccountId: row.transferAccountId,
       transferAccountName: row.transferAccountName,
       confirmedAt: row.confirmedAt!.toISOString(),
+      keyType: row.keyType,
+      direction: row.direction,
+      ehCpfProprio: row.keyType === 'tax_id' && ehCpfProprio(row.keyValue, hashes),
     }))
   })
 }

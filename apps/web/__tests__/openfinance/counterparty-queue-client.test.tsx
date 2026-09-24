@@ -43,9 +43,10 @@ const PENDING = [
     keyType: 'tax_id' as const,
     count: 2,
     totalCents: -9_075_000,
+    ehCpfProprio: false,
     items: [
-      { id: 'tx-normal', date: '2026-01-05', description: 'Pix enviado Maraisa Ramos', amountCents: -75_000, accountId: 'conta-origem' },
-      { id: 'tx-outlier', date: '2026-01-29', description: 'Pix enviado Maraisa Ramos', amountCents: -9_000_000, accountId: 'conta-origem' },
+      { id: 'tx-normal', date: '2026-01-05', description: 'Pix enviado Maraisa Ramos', amountCents: -75_000, accountId: 'conta-origem', sugestaoContaId: null },
+      { id: 'tx-outlier', date: '2026-01-29', description: 'Pix enviado Maraisa Ramos', amountCents: -9_000_000, accountId: 'conta-origem', sugestaoContaId: null },
     ],
   },
 ]
@@ -110,7 +111,8 @@ describe('CounterpartyQueueClient — sinal do valor', () => {
         keyType: 'tax_id' as const,
         count: 1,
         totalCents: -75_000,
-        items: [{ id: 'tx-debito', date: '2026-01-05', description: 'Pix enviado Fulano', amountCents: -75_000, accountId: 'conta-origem' }],
+        ehCpfProprio: false,
+        items: [{ id: 'tx-debito', date: '2026-01-05', description: 'Pix enviado Fulano', amountCents: -75_000, accountId: 'conta-origem', sugestaoContaId: null }],
       },
     ]
 
@@ -170,7 +172,8 @@ describe('CounterpartyQueueClient — rótulo da conta segue a direção', () =>
       keyType: 'tax_id' as const,
       count: 1,
       totalCents: 100_000,
-      items: [{ id: 'tx-resgate', date: '2026-01-05', description: 'Resgate CDB', amountCents: 100_000, accountId: 'conta-origem' }],
+      ehCpfProprio: false,
+      items: [{ id: 'tx-resgate', date: '2026-01-05', description: 'Resgate CDB', amountCents: 100_000, accountId: 'conta-origem', sugestaoContaId: null }],
     },
   ]
 
@@ -282,8 +285,8 @@ describe('CounterpartyQueueClient — natureza já decidida pelo banco', () => {
   it('grupo só de transferências abre com Transferência escolhida, pedindo a conta', async () => {
     const pending = [{
       counterpartyId: 'cp-aplic', displayName: 'APLICACAO CDB DI', keyType: 'description' as const,
-      count: 1, totalCents: -100_000,
-      items: [{ id: 'tx-a', date: '2026-01-05', description: 'APLICACAO CDB DI', amountCents: -100_000, accountId: 'conta-origem', type: 'transfer' as const }],
+      count: 1, totalCents: -100_000, ehCpfProprio: false,
+      items: [{ id: 'tx-a', date: '2026-01-05', description: 'APLICACAO CDB DI', amountCents: -100_000, accountId: 'conta-origem', type: 'transfer' as const, sugestaoContaId: null }],
     }]
     render(React.createElement(CounterpartyQueueClient, {
       mode: 'page', pending, confirmed: [], categoryOptions: CATEGORY_OPTIONS, accountOptions: ACCOUNT_OPTIONS,
