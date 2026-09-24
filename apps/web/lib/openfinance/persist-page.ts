@@ -31,6 +31,21 @@ export function sumAppliedDeltasByAccount(
   return deltaByAccount
 }
 
+/**
+ * Contraparte confirmada como transferência para a PRÓPRIA conta do
+ * lançamento (a mesma contraparte aparece em duas contas, e a conta escolhida
+ * numa é esta). Criar a perna poria o valor invertido na mesma conta: a
+ * transferência se anularia e o lançamento sumiria do saldo. Vai para
+ * Classificar, sem conta, para o usuário escolher a outra ponta.
+ */
+export function semTransferenciaParaAPropriaConta<T extends Pick<ResolvedTransaction, 'reviewState' | 'transferAccountId'>>(
+  tx: T,
+  accountId: string,
+): T {
+  if (tx.transferAccountId !== accountId) return tx
+  return { ...tx, reviewState: 'pending', transferAccountId: null }
+}
+
 export interface PersistInput {
   orgId: string
   accountId: string
@@ -78,7 +93,9 @@ export async function persistPage(
   const precisaDoDia = input.normalized.some((t) => t.purchaseDate && !t.billPostDate)
   const diaDeVencimento = precisaDoDia ? await carregarDiaDeVencimento(db, input.orgId, input.accountId) : null
 
-  for (const tx of input.normalized) {
+  for (const recebida of input.normalized) {
+    const tx = semTransferenciaParaAPropriaConta(recebida, input.accountId)
+
     // Contraparte (Nível 2) decide sozinha, confirmada ou pendente — nos dois
     // casos `tx.categoryId` já é a resposta final e não pode ser sobrescrita
     // por `category_rules`. Sem contraparte (Nível 1), a categorização
@@ -201,15 +218,16 @@ export async function persistPage(
         : null
       if (!esperada) {
         transferGroupId = crypto.randomUUID()
-        transferLegsToInsert.push(
-          montarPernaDaTransferencia({
-            source: { orgId: input.orgId, amountCents: tx.amountCents, date, externalId: tx.externalId, balanceApplied: applied },
-            sourceAccountId: input.accountId,
-            otherAccountId: tx.transferAccountId,
-            transferGroupId,
-            destinoOpenFinance: linked,
-          }),
-        )
+        const perna = montarPernaDaTransferencia({
+          source: { orgId: input.orgId, amountCents: tx.amountCents, date, externalId: tx.externalId, balanceApplied: applied },
+          sourceAccountId: input.accountId,
+          otherAccountId: tx.transferAccountId,
+          transferGroupId,
+          destinoOpenFinance: linked,
+        })
+        // Origem agendada entra ignorada; a perna prevista dela também — senão
+        // a conciliação a proporia contra um dinheiro que ainda não saiu.
+        transferLegsToInsert.push(linked && isScheduled ? { ...perna, isIgnored: true } : perna)
         if (linked) contasComPernaPrevista.add(tx.transferAccountId)
       }
     }

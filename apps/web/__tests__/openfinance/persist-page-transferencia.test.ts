@@ -93,4 +93,31 @@ describe('persistPage — transferência para conta Open Finance', () => {
     // A conciliação que casa o par é a desta conta, que o sync já roda.
     expect(r.contasComPernaPrevista).toEqual([])
   })
+
+  it('origem agendada: a perna prevista também nasce ignorada', async () => {
+    // A origem agendada entra ignorada. Perna prevista não ignorada seria
+    // proposta na conciliação contra um dinheiro que ainda não saiu.
+    selectQueue.push([])
+    selectQueue.push([{ id: 'recurso-itau' }])
+    selectQueue.push([])
+
+    await persistPage(db, input([linha({ settlement: 'scheduled' } as Partial<ResolvedTransaction>)]))
+
+    expect(inserts[0][0]).toMatchObject({ isIgnored: true })
+    expect(inserts[1][0]).toMatchObject({ externalId: 'ext-1:transfer-par', isIgnored: true, balanceApplied: false })
+  })
+})
+
+describe('persistPage — contraparte confirmada aponta para a própria conta', () => {
+  it('não cria perna; a linha volta pendente, sem conta', async () => {
+    selectQueue.push([]) // existentes — nenhuma outra consulta: nem linked, nem perna
+
+    const r = await persistPage(db, input([linha({ transferAccountId: 'nubank' })]))
+
+    expect(inserts).toHaveLength(1)
+    expect(inserts[0][0]).toMatchObject({
+      type: 'transfer', reviewState: 'pending', transferAccountId: null, transferGroupId: null, counterpartyId: 'cp-1',
+    })
+    expect(r.contasComPernaPrevista).toEqual([])
+  })
 })
