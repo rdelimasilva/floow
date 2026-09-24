@@ -5,6 +5,8 @@ import type { PolpAccountTransaction, PolpCardTransaction } from '@floow/core-fi
 import { condicaoDeRealizadoSemVinculo } from '@/lib/finance/forecast-match-db'
 import { getPolpClient } from './config'
 import { loadCounterpartyIndex, resolveCounterparty } from './resolve-counterparty'
+import { devolverTransferenciasSemParAClassificar } from './transferencias-sem-par'
+import { criarPernasPrevistasFaltantes } from './pernas-faltantes'
 
 /**
  * Reclassifica os dados de Open Finance já gravados sob as regras antigas
@@ -79,4 +81,31 @@ export async function backfillCounterparties(orgId: string): Promise<{ updated: 
   }
 
   return { updated, skipped }
+}
+
+/**
+ * O que a rota `/api/admin/backfill-counterparties` roda hoje. Mesma
+ * superfície de backfill administrativo deste arquivo, não uma nova: abre o
+ * banco privilegiado aqui, e não na rota, porque as duas rotinas escrevem em
+ * `transactions` e `counterparties`, cujas policies de escrita ainda não estão
+ * no ar (ver `__tests__/auth/rls-ledger.test.ts`).
+ *
+ * Diferente de `backfillCounterparties`, mexe só no recorte de transferência
+ * sem par e pode rodar mais de uma vez:
+ * 1. transferência do banco sem conta volta pendente, com contraparte;
+ * 2. transferência com destino Open Finance sem perna ganha a perna prevista.
+ */
+export async function executarBackfillDeTransferencias(orgId: string): Promise<{
+  transferenciasDevolvidas: number
+  transferenciasSemChave: number
+  pernasPrevistas: number
+}> {
+  const db = getDb()
+  const devolvidas = await devolverTransferenciasSemParAClassificar(db, orgId)
+  const pernas = await criarPernasPrevistasFaltantes(db, orgId)
+  return {
+    transferenciasDevolvidas: devolvidas.devolvidas,
+    transferenciasSemChave: devolvidas.semChave,
+    pernasPrevistas: pernas.criadas,
+  }
 }
