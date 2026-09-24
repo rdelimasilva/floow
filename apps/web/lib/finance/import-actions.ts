@@ -6,12 +6,16 @@ import { parseOFXFile, parseCSVFile, matchCategory } from '@floow/core-finance'
 import type { CsvColumnMapping } from '@floow/core-finance'
 import { eq, sql, and, gte, lte } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
+import { inserirTransferenciaImportada } from './import-transfer'
+import { criarPropostasDeConciliacao } from './forecast-match-db'
 import {
   accountsTag,
   recentTransactionsTag,
   transactionsTag,
   invalidateTag,
 } from '@/lib/cache-tags'
+
+type Db = ReturnType<typeof getDb>
 
 /**
  * Result returned after an import operation.
@@ -400,6 +404,8 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
     }
   })
 
+  const destinosPrevistos = new Set<string>()
+
   const { imported, skipped } = await db.transaction(async (tx) => {
     const [accountRow] = await tx
       .select({ id: accounts.id })
@@ -436,48 +442,20 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
       }
     }
 
-    // Insert transfer transactions (two legs each)
+    // Transferências: perna da conta importada + a da outra conta própria.
     for (const item of transferItems) {
-      const absAmount = Math.abs(item.tx.amountCents)
-      const transferGroupId = crypto.randomUUID()
-      const override = overrideMap.get(item.idx)
-
-      // Source leg (debit from import account)
-      await tx.insert(transactions).values({
+      const { destinoPrevisto } = await inserirTransferenciaImportada(tx as unknown as Db, {
         orgId,
         accountId,
-        type: 'transfer',
-        amountCents: -absAmount,
+        destAccountId: item.destAccountId,
+        amountCents: item.tx.amountCents,
         description: item.tx.description,
         date: item.tx.date,
-        externalId: item.tx.externalId,
+        externalId: item.tx.externalId ?? null,
         importedAt,
-        transferGroupId,
-        categoryId: override?.categoryId ?? null,
-        isAutoCategorized: false,
-      }).onConflictDoNothing()
-
-      // Destination leg (credit to target account)
-      await tx.insert(transactions).values({
-        orgId,
-        accountId: item.destAccountId,
-        type: 'transfer',
-        amountCents: absAmount,
-        description: item.tx.description,
-        date: item.tx.date,
-        transferGroupId,
-        categoryId: override?.categoryId ?? null,
-        isAutoCategorized: false,
+        categoryId: overrideMap.get(item.idx)?.categoryId ?? null,
       })
-
-      // Update both account balances
-      await tx.update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${-absAmount}` })
-        .where(eq(accounts.id, accountId))
-      await tx.update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${absAmount}` })
-        .where(eq(accounts.id, item.destAccountId))
-
+      if (destinoPrevisto) destinosPrevistos.add(destinoPrevisto)
       importedCount++
     }
 
@@ -490,6 +468,15 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
   invalidateTag(recentTransactionsTag(orgId, 6))
   invalidateTag(recentTransactionsTag(orgId, 24))
   invalidateTag(accountsTag(orgId))
+
+  // A ponta real pode já estar na conta de destino: propõe o par agora.
+  for (const conta of destinosPrevistos) {
+    try {
+      await criarPropostasDeConciliacao(getDb(), orgId, conta)
+    } catch (error) {
+      console.error('[import] falha ao propor conciliacao da perna prevista:', error)
+    }
+  }
 
   return { imported, skipped }
 }
