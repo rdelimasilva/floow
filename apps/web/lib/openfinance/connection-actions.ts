@@ -31,7 +31,8 @@ import { hashCpf, isValidCpf, maskCpf } from './cpf'
 import { describePolpError } from './errors'
 import { deriveResourceIdentity } from './resource-label'
 import { decideResourceRouting } from './resource-routing'
-import { syncConnectionTransactions, type SyncSummary } from './sync'
+import { type SyncSummary } from './sync'
+import { sincronizarConexao } from './sincronizar-conexao'
 
 /** Os únicos produtos que esta fase sabe ingerir. */
 const SUPPORTED_PRODUCTS: PolpProduct[] = ['ACCOUNT', 'CREDIT_CARD_ACCOUNT']
@@ -308,7 +309,7 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
       displayLabel: openfinanceResources.displayLabel,
     })
     .from(openfinanceResources)
-    .where(eq(openfinanceResources.connectionId, connection.id))
+    .where(and(eq(openfinanceResources.connectionId, connection.id), isNull(openfinanceResources.assetId)))
 
   revalidatePath('/accounts')
 
@@ -465,7 +466,7 @@ export async function syncBankConnection(connectionId: string): Promise<SyncSumm
   }
 
   const summary = await comErroTraduzido(() =>
-    syncConnectionTransactions(db, getPolpClient(), {
+    sincronizarConexao(db, getPolpClient(), {
       id: connection.id,
       orgId: connection.orgId,
     }),
@@ -475,6 +476,7 @@ export async function syncBankConnection(connectionId: string): Promise<SyncSumm
   await invalidateTag(transactionsTag(orgId))
   revalidatePath('/accounts')
   revalidatePath('/transactions')
+  revalidatePath('/investments')
 
   return summary
 }

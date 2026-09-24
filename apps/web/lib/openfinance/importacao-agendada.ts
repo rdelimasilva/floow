@@ -1,6 +1,6 @@
 import { getDb, openfinanceConnections } from '@floow/db'
 import { eq } from 'drizzle-orm'
-import { syncConnectionTransactions } from './sync'
+import { sincronizarConexao } from './sincronizar-conexao'
 import { getPolpClient } from './config'
 
 export interface ResumoDaImportacaoAgendada {
@@ -58,7 +58,7 @@ export async function importarLancamentosDeTodasAsConexoes(): Promise<ResumoDaIm
 
   for (const conexao of conexoes) {
     try {
-      const parcial = await syncConnectionTransactions(db, client, {
+      const parcial = await sincronizarConexao(db, client, {
         id: conexao.id,
         orgId: conexao.orgId,
       })

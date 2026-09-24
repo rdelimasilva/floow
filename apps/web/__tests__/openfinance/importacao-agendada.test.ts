@@ -23,7 +23,7 @@ vi.mock('@floow/db', () => ({
   }),
   openfinanceConnections: { id: 'id', orgId: 'org_id', status: 'status' },
 }))
-vi.mock('@/lib/openfinance/sync', () => ({ syncConnectionTransactions: syncMock }))
+vi.mock('@/lib/openfinance/sincronizar-conexao', () => ({ sincronizarConexao: syncMock }))
 vi.mock('@/lib/openfinance/config', () => ({ getPolpClient: () => ({}) }))
 
 const { importarLancamentosDeTodasAsConexoes } = await import('@/lib/openfinance/importacao-agendada')

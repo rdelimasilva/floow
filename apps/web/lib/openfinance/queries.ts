@@ -58,7 +58,7 @@ export async function getBankConnections(orgId: string): Promise<BankConnectionS
       })
       .from(openfinanceResources)
       .leftJoin(accounts, eq(accounts.id, openfinanceResources.accountId))
-      .where(eq(openfinanceResources.orgId, orgId))
+      .where(and(eq(openfinanceResources.orgId, orgId), isNull(openfinanceResources.assetId)))
 
     return connections.map((connection) => ({
       id: connection.id,
