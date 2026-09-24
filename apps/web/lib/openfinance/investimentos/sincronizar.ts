@@ -23,6 +23,8 @@ export interface ResumoDeInvestimentos {
   movimentacoes: number
   conflitos: number
   rejeitados: number
+  /** Ativos da conexão que sumiram da listagem e tiveram a posição zerada. */
+  zerados: number
   tiposComFalha: PolpInvestmentKind[]
 }
 
@@ -30,8 +32,9 @@ export async function sincronizarInvestimentos(
   repo: RepositorioDeInvestimentos,
   client: Pick<PolpClient, 'streamInvestments' | 'streamInvestmentTransactions'>,
   conexao: { id: string; orgId: string; polpConsentId: string; institutionName: string | null; products: string[] },
+  hoje: string = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }),
 ): Promise<ResumoDeInvestimentos> {
-  const resumo: ResumoDeInvestimentos = { ativos: 0, posicoes: 0, movimentacoes: 0, conflitos: 0, rejeitados: 0, tiposComFalha: [] }
+  const resumo: ResumoDeInvestimentos = { ativos: 0, posicoes: 0, movimentacoes: 0, conflitos: 0, rejeitados: 0, zerados: 0, tiposComFalha: [] }
   if (!conexao.products.includes('INVESTMENTS')) return resumo
 
   const { orgId } = conexao
@@ -40,13 +43,21 @@ export async function sincronizarInvestimentos(
   const salvos: Array<{ kind: PolpInvestmentKind; polpId: string; assetId: string; resourceId: string }> = []
 
   for (const kind of POLP_INVESTMENT_KINDS) {
+    // O que a listagem devolveu deste tipo — ilegível com id também conta.
+    const vistos: string[] = []
+    let temIlegivelSemId = false
     try {
       for await (const page of client.streamInvestments(conexao.polpConsentId, kind)) {
         const { ok, rejected } = normalizeBatch(page, (raw) => normalizeInvestment(kind, raw))
         resumo.rejeitados += rejected.length
+        for (const r of rejected) {
+          if (r.externalId) vistos.push(r.externalId)
+          else temIlegivelSemId = true
+        }
         problemas.push(...rejected.map((r) => ({ resourceId: null, externalId: r.externalId, reason: `${kind}: ${r.reason}`, payload: r.raw })))
 
         for (const inv of ok) {
+          vistos.push(inv.polpId)
           const salvo = await repo.salvarInvestimento({ orgId, connectionId: conexao.id }, inv)
           if (salvo.tipo === 'conflito') {
             resumo.conflitos++
@@ -61,6 +72,14 @@ export async function sincronizarInvestimentos(
     } catch (error) {
       resumo.tiposComFalha.push(kind)
       problemas.push({ resourceId: null, externalId: null, reason: `falha ao listar ${kind}: ${mensagem(error)}`, payload: {} })
+      continue
+    }
+
+    // Resgatado por inteiro some da listagem: sem isto o valor antigo ficaria
+    // na tela para sempre. Só com a listagem do tipo completa — tipo que falhou
+    // ou item ilegível sem id não dizem quem sumiu de verdade.
+    if (!temIlegivelSemId) {
+      resumo.zerados += await repo.zerarAusentes({ orgId, connectionId: conexao.id }, kind, vistos, hoje)
     }
   }
 

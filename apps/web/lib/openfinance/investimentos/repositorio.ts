@@ -1,10 +1,10 @@
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, isNotNull, notInArray, sql } from 'drizzle-orm'
 import {
   accounts, assets, assetBankPositions, openfinanceConnections,
   openfinanceIngestionIssues, openfinanceResources, portfolioEvents,
   type getDb,
 } from '@floow/db'
-import type { NormalizedInvestment, NormalizedInvestmentEvent } from '@floow/core-finance'
+import type { NormalizedInvestment, NormalizedInvestmentEvent, PolpInvestmentKind } from '@floow/core-finance'
 import { recomputeOrgPositionSnapshots } from '@/lib/investments/position-snapshots'
 import { decidirVinculo } from './vinculo'
 
@@ -24,6 +24,11 @@ export interface RepositorioDeInvestimentos {
     Promise<{ tipo: 'salvo'; assetId: string; resourceId: string } | { tipo: 'conflito' }>
   ultimaDataDeMovimentacao(assetId: string): Promise<string | null>
   salvarMovimentacoes(ctx: { orgId: string; accountId: string; assetId: string }, eventos: NormalizedInvestmentEvent[]): Promise<number>
+  /**
+   * Zera, na data `hoje`, a posição dos ativos desta conexão e deste tipo que
+   * não vieram na listagem (resgatados por inteiro). Devolve quantos zerou.
+   */
+  zerarAusentes(ctx: { orgId: string; connectionId: string }, kind: PolpInvestmentKind, polpIdsVistos: string[], hoje: string): Promise<number>
   registrarProblemas(orgId: string, problemas: ProblemaDeIngestao[]): Promise<void>
   recalcularPosicoes(orgId: string): Promise<void>
 }
@@ -96,6 +101,17 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
           .insert(assetBankPositions)
           .values({ orgId: ctx.orgId, assetId, referenceDate, ...valores })
           .onConflictDoUpdate({ target: [assetBankPositions.assetId, assetBankPositions.referenceDate], set: valores })
+        // Voltou à listagem: a posição zerada por `zerarAusentes` com data
+        // mais nova que a do banco (que costuma vir D-1) esconderia a real.
+        await db
+          .delete(assetBankPositions)
+          .where(and(
+            eq(assetBankPositions.assetId, assetId),
+            gt(assetBankPositions.referenceDate, referenceDate),
+            sql`coalesce(${assetBankPositions.quantity}, 0) = 0`,
+            sql`coalesce(${assetBankPositions.grossCents}, 0) = 0`,
+            sql`coalesce(${assetBankPositions.netCents}, 0) = 0`,
+          ))
       }
 
       await db
@@ -118,7 +134,7 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
 
     async salvarMovimentacoes(ctx, eventos) {
       if (eventos.length === 0) return 0
-      const linhas = eventos.map((e) => ({
+      const linhas = deduplicarPorTransacao(eventos).map((e) => ({
         orgId: ctx.orgId,
         assetId: ctx.assetId,
         accountId: ctx.accountId,
@@ -139,6 +155,8 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
         .values(linhas)
         .onConflictDoUpdate({
           target: portfolioEvents.polpTransactionId,
+          // Defesa em profundidade: nunca reescreve evento de outra org.
+          setWhere: sql`${portfolioEvents.orgId} = excluded.org_id`,
           set: {
             eventType: sqlExcluded('event_type'), eventDate: sqlExcluded('event_date'),
             quantity: sqlExcluded('quantity'), priceCents: sqlExcluded('price_cents'),
@@ -148,6 +166,37 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
           },
         })
       return linhas.length
+    },
+
+    async zerarAusentes(ctx, kind, polpIdsVistos, hoje) {
+      const ausentes = await db
+        .select({ assetId: openfinanceResources.assetId })
+        .from(openfinanceResources)
+        .where(and(
+          eq(openfinanceResources.orgId, ctx.orgId),
+          eq(openfinanceResources.connectionId, ctx.connectionId),
+          eq(openfinanceResources.resourceType, kind),
+          isNotNull(openfinanceResources.assetId),
+          polpIdsVistos.length > 0 ? notInArray(openfinanceResources.polpResourceId, polpIdsVistos) : undefined,
+          // Já zerado na última posição: não empilha uma linha nova por dia.
+          sql`NOT EXISTS (
+            SELECT 1 FROM asset_bank_positions p
+            WHERE p.asset_id = ${openfinanceResources.assetId}
+              AND p.reference_date = (SELECT max(q.reference_date) FROM asset_bank_positions q WHERE q.asset_id = p.asset_id)
+              AND coalesce(p.quantity, 0) = 0 AND coalesce(p.gross_cents, 0) = 0 AND coalesce(p.net_cents, 0) = 0
+          )`,
+        ))
+      if (ausentes.length === 0) return 0
+
+      const zero = {
+        quantity: 0, unitPrice: null, grossCents: 0, netCents: 0,
+        incomeTaxCents: 0, iofCents: 0, blockedCents: 0, purchaseUnitPrice: null,
+      }
+      await db
+        .insert(assetBankPositions)
+        .values(ausentes.map((a) => ({ orgId: ctx.orgId, assetId: a.assetId!, referenceDate: hoje, ...zero })))
+        .onConflictDoUpdate({ target: [assetBankPositions.assetId, assetBankPositions.referenceDate], set: zero })
+      return ausentes.length
     },
 
     async registrarProblemas(orgId, problemas) {
@@ -164,6 +213,14 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
       await recomputeOrgPositionSnapshots(orgId, db)
     },
   }
+}
+
+/**
+ * A mesma movimentação repetida no lote derrubaria o INSERT inteiro ("ON
+ * CONFLICT DO UPDATE command cannot affect row a second time"). Fica a última.
+ */
+export function deduplicarPorTransacao<T extends { polpTransactionId: string }>(eventos: T[]): T[] {
+  return [...new Map(eventos.map((e) => [e.polpTransactionId, e])).values()]
 }
 
 /** `excluded.<coluna>` — o valor que o INSERT tentou gravar. */

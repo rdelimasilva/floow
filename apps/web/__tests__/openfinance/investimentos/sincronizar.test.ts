@@ -5,6 +5,8 @@ import { sincronizarInvestimentos } from '@/lib/openfinance/investimentos/sincro
 
 function repoEmMemoria(donoDe: Record<string, string> = {}) {
   const ativos = new Map<string, string>()          // polpId -> assetId
+  const tipoDe = new Map<string, PolpInvestmentKind>() // polpId -> tipo
+  const zerados: Array<{ kind: PolpInvestmentKind; assetId: string; hoje: string }> = []
   const posicoes = new Map<string, unknown>()       // assetId|data
   const eventos = new Map<string, { assetId: string; eventDate: string }>() // polpTxId
   const problemas: ProblemaDeIngestao[] = []
@@ -15,6 +17,7 @@ function repoEmMemoria(donoDe: Record<string, string> = {}) {
       if (donoDe[inv.polpId] && donoDe[inv.polpId] !== ctx.orgId) return { tipo: 'conflito' }
       const assetId = ativos.get(inv.polpId) ?? `asset-${inv.polpId}`
       ativos.set(inv.polpId, assetId)
+      tipoDe.set(inv.polpId, inv.kind)
       if (inv.position) posicoes.set(`${assetId}|${inv.position.referenceDate}`, inv.position)
       return { tipo: 'salvo', assetId, resourceId: `res-${inv.polpId}` }
     },
@@ -26,10 +29,20 @@ function repoEmMemoria(donoDe: Record<string, string> = {}) {
       for (const e of evs) eventos.set(e.polpTransactionId, { assetId: ctx.assetId, eventDate: e.eventDate })
       return evs.length
     },
+    zerarAusentes: async (_ctx, kind, vistos, hoje) => {
+      let n = 0
+      for (const [polpId, assetId] of ativos) {
+        if (tipoDe.get(polpId) !== kind || vistos.includes(polpId)) continue
+        posicoes.set(`${assetId}|${hoje}`, { quantity: 0, grossCents: 0, netCents: 0 })
+        zerados.push({ kind, assetId, hoje })
+        n++
+      }
+      return n
+    },
     registrarProblemas: async (_org, ps) => { problemas.push(...ps) },
     recalcularPosicoes: async () => { recalculos++ },
   }
-  return { repo, ativos, posicoes, eventos, problemas, recalculos: () => recalculos }
+  return { repo, ativos, posicoes, eventos, problemas, zerados, recalculos: () => recalculos }
 }
 
 const money = (amount: string) => ({ amount, currency: 'BRL' })
@@ -124,10 +137,34 @@ describe('sincronizarInvestimentos', () => {
     expect(m.problemas.some((p) => /BONIFICACAO/.test(p.reason))).toBe(true)
   })
 
-  it('ativo que sumiu da listagem não é tocado', async () => {
+  it('ativo que sumiu da listagem fica, mas com posição zerada na data de hoje', async () => {
     const m = repoEmMemoria()
-    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1')] }), CONEXAO)
-    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [] }), CONEXAO)
+    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1'), fundo('f2')] }), CONEXAO, '2026-09-23')
+    const r = await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f2')] }), CONEXAO, '2026-09-24')
     expect(m.ativos.has('f1')).toBe(true)
+    expect(m.zerados).toEqual([{ kind: 'FUND', assetId: 'asset-f1', hoje: '2026-09-24' }])
+    expect(m.posicoes.get('asset-f1|2026-09-24')).toMatchObject({ quantity: 0, grossCents: 0, netCents: 0 })
+    expect(r.zerados).toBe(1)
+  })
+
+  it('tipo que falhou na listagem não zera nada', async () => {
+    const m = repoEmMemoria()
+    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1')] }), CONEXAO, '2026-09-23')
+    const r = await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: new Error('503') }), CONEXAO, '2026-09-24')
+    expect(m.zerados).toEqual([])
+    expect(r.zerados).toBe(0)
+  })
+
+  it('item ilegível com id conta como visto; sem id, o tipo não é zerado', async () => {
+    const m = repoEmMemoria()
+    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1'), fundo('f2')] }), CONEXAO, '2026-09-23')
+    // f1 volta ilegível (mas com id): continua visto; f2 some → zera.
+    const ilegivel = { ...fundo('f1'), balance: { ...fundo('f1').balance, gross_amount: money('abc') } }
+    const r = await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [ilegivel] }), CONEXAO, '2026-09-24')
+    expect(r.rejeitados).toBe(1)
+    expect(m.zerados.map((z) => z.assetId)).toEqual(['asset-f2'])
+    // Item sem id: não dá para saber quem ele é — não zera o tipo.
+    await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [{ name: 'sem id' }] }), CONEXAO, '2026-09-25')
+    expect(m.zerados.map((z) => z.assetId)).toEqual(['asset-f2'])
   })
 })
