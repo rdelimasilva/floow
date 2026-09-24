@@ -2,7 +2,7 @@
 
 import { memo } from 'react'
 import Link from 'next/link'
-import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, Package } from 'lucide-react'
+import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, Package, SlidersHorizontal } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
@@ -233,6 +233,16 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
               <XCircle className="h-4 w-4" />
             </button>
           )}
+          {tx.counterpartyId && (
+            <Link
+              href={`/transactions/review?regra=${tx.counterpartyId}`}
+              title="Corrigir a regra que classificou este lançamento"
+              aria-label="Corrigir regra"
+              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </Link>
+          )}
           {!tx.transferGroupId && (
             <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-1 text-gray-400 hover:text-gray-700">
               <Pencil className="h-4 w-4" />
@@ -332,6 +342,16 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
             >
               <Zap className="h-3.5 w-3.5" />
             </button>
+          )}
+          {tx.counterpartyId && (
+            <Link
+              href={`/transactions/review?regra=${tx.counterpartyId}`}
+              title="Corrigir a regra que classificou este lançamento"
+              aria-label="Corrigir regra"
+              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+            </Link>
           )}
           {!tx.transferGroupId && (
             <button
