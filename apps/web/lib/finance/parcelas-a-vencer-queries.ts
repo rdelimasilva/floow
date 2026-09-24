@@ -1,10 +1,11 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { and, eq, gt, gte, isNotNull, lte } from 'drizzle-orm'
-import { transactions } from '@floow/db'
+import { transactions, categories } from '@floow/db'
 import { budgetSpendingTag } from '@/lib/cache-tags'
 import { requireIdentity } from '@/lib/auth/session'
 import { withUserDbFor } from '@/lib/db/rls'
+import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import { somarParcelasPorCategoria, type ParcelasDaCategoria } from './parcelas-a-vencer'
 
 /**
@@ -30,6 +31,7 @@ export const getParcelasAVencerDoMes = cache(async function getParcelasAVencerDo
             amountCents: transactions.amountCents,
           })
           .from(transactions)
+          .leftJoin(categories, eq(categories.id, transactions.categoryId))
           .where(
             and(
               eq(transactions.orgId, orgId),
@@ -40,6 +42,8 @@ export const getParcelasAVencerDoMes = cache(async function getParcelasAVencerDo
               isNotNull(transactions.purchaseDate),
               gt(transactions.installmentTotal, 1),
               isNotNull(transactions.categoryId),
+              // Mesmo universo do gasto: aplicação em investimento não conta como gasto nem como a vencer.
+              effectiveAffectsCashFlow,
               gte(transactions.date, start),
               lte(transactions.date, end),
             ),
