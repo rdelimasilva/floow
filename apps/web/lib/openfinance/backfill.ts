@@ -1,7 +1,8 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { getDb, openfinanceConnections, openfinanceResources, transactions } from '@floow/db'
 import { normalizeAccountTransaction, normalizeCardTransaction } from '@floow/core-finance'
 import type { PolpAccountTransaction, PolpCardTransaction } from '@floow/core-finance'
+import { condicaoDeRealizadoSemVinculo } from '@/lib/finance/forecast-match-db'
 import { getPolpClient } from './config'
 import { loadCounterpartyIndex, resolveCounterparty } from './resolve-counterparty'
 
@@ -62,6 +63,10 @@ export async function backfillCounterparties(orgId: string): Promise<{ updated: 
                 eq(transactions.orgId, orgId),
                 eq(transactions.accountId, accountId),
                 eq(transactions.externalId, resolved.externalId),
+                // Ponta real já conciliada com perna prevista, ou origem que
+                // já tem par: a decisão foi tomada, o backfill não a desfaz.
+                condicaoDeRealizadoSemVinculo(),
+                isNull(transactions.transferGroupId),
               ),
             )
             .returning({ id: transactions.id })
