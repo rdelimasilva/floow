@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import type { SQL } from 'drizzle-orm'
 
 const inserts: any[] = []
+// Condições de `where`, na ordem: o mock descarta o resto, e filtro só se
+// prova renderizando o SQL.
+const wheres: SQL[] = []
 const updates: any[] = []
 const selectQueue: unknown[][] = []
 
 function chain(result: unknown[]): any {
   const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve(result).then(r) }
-  for (const m of ['from', 'where', 'limit', 'onConflictDoNothing', 'returning']) c[m] = () => c
+  for (const m of ['from', 'limit', 'onConflictDoNothing', 'returning']) c[m] = () => c
+  c.where = (w: SQL) => { wheres.push(w); return c }
   c.set = (p: unknown) => { updates.push(p); return c }
   return c
 }
@@ -19,7 +25,10 @@ const db: any = {
 }
 
 const propor = vi.fn(async (..._a: unknown[]) => 0)
-vi.mock('@/lib/finance/forecast-match-db', () => ({ criarPropostasDeConciliacao: (...a: unknown[]) => propor(...a) }))
+vi.mock('@/lib/finance/forecast-match-db', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/finance/forecast-match-db')>('@/lib/finance/forecast-match-db')
+  return { ...actual, criarPropostasDeConciliacao: (...a: unknown[]) => propor(...a) }
+})
 
 const { criarPernasPrevistasFaltantes } = await import('@/lib/openfinance/pernas-faltantes')
 
@@ -28,7 +37,18 @@ describe('criarPernasPrevistasFaltantes', () => {
     inserts.length = 0
     updates.length = 0
     selectQueue.length = 0
+    wheres.length = 0
     propor.mockClear()
+  })
+
+  it('ponta real que a conciliação já converteu em transferência fica de fora', async () => {
+    // `aprovarProposta` grava `transfer_account_id` na ponta real e a deixa
+    // sem grupo. Sem este filtro ela pareceria "transferência sem par" e
+    // ganharia uma perna prevista de volta na conta de origem.
+    await criarPernasPrevistasFaltantes(db, 'org-1')
+
+    const gerado = new PgDialect().sqlToQuery(wheres[0]).sql.toLowerCase()
+    expect(gerado).toContain('"matched_transaction_id" = "transactions"."id"')
   })
 
   it('transferência confirmada só com metadado e destino Open Finance ganha perna prevista e proposta', async () => {

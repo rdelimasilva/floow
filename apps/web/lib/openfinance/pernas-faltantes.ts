@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, isNull } from 'drizzle-orm'
 import { getDb, transactions } from '@floow/db'
-import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
+import { condicaoDeRealizadoSemVinculo, criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 import { buildForecastTransferLegRow, isOpenFinanceLinkedAccount } from './transfer-leg'
 import { condicaoNaoEPernaPrevista } from './perna-prevista'
 
@@ -36,6 +36,11 @@ export async function criarPernasPrevistasFaltantes(db: Db, orgId: string): Prom
         isNull(transactions.transferGroupId),
         isNotNull(transactions.externalId),
         condicaoNaoEPernaPrevista(),
+        // A ponta real que `aprovarProposta` converteu também fica assim —
+        // transferência confirmada, com conta, sem grupo. Ela já tem par (a
+        // perna prevista que aponta para ela); ganhar outra seria o mesmo
+        // dinheiro esperado duas vezes.
+        condicaoDeRealizadoSemVinculo(),
       ),
     )
 
