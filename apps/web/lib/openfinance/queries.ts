@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { accounts, openfinanceConnections, openfinanceResources, transactions } from '@floow/db'
 import { withUserDb } from '@/lib/db/rls'
 
@@ -112,5 +112,20 @@ export async function getLastTransactionDateByAccount(
     const mapa: Record<string, string> = {}
     for (const row of rows) if (row.last) mapa[row.accountId] = row.last
     return mapa
+  })
+}
+
+/**
+ * Contas "Investimentos · <banco>" criadas pelo Open Finance. O tipo delas é
+ * travado no banco (migração 00055); a tela de contas usa isto para nem
+ * oferecer a troca.
+ */
+export async function getContasDeInvestimentoOpenFinance(orgId: string): Promise<Set<string>> {
+  return withUserDb(async (db) => {
+    const rows = await db
+      .select({ accountId: openfinanceConnections.investmentAccountId })
+      .from(openfinanceConnections)
+      .where(and(eq(openfinanceConnections.orgId, orgId), isNotNull(openfinanceConnections.investmentAccountId)))
+    return new Set(rows.map((r) => r.accountId!))
   })
 }

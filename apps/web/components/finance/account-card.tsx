@@ -18,9 +18,14 @@ const ACCOUNT_TYPES = ACCOUNT_TYPE_OPTIONS
 
 interface AccountCardProps {
   account: Account
+  /**
+   * Conta de investimentos do Open Finance: o tipo é travado no banco
+   * (migração 00055) e a tela nem oferece a troca.
+   */
+  tipoTravado?: boolean
 }
 
-export function AccountCard({ account }: AccountCardProps) {
+export function AccountCard({ account, tipoTravado = false }: AccountCardProps) {
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -125,6 +130,11 @@ export function AccountCard({ account }: AccountCardProps) {
               <Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="12345-6" />
             </div>
           </div>
+          {tipoTravado ? (
+            <p className="text-xs text-gray-500">
+              Conta de investimentos do Open Finance: não pode mudar de tipo.
+            </p>
+          ) : (
           <div>
             <Label>Tipo</Label>
             <select
@@ -137,6 +147,7 @@ export function AccountCard({ account }: AccountCardProps) {
               ))}
             </select>
           </div>
+          )}
           <div className="flex gap-2">
             <Button size="sm" variant="primary" onClick={handleUpdate} disabled={loading}>
               {loading ? 'Salvando...' : 'Salvar'}
