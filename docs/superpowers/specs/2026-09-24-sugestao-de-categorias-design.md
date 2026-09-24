@@ -38,23 +38,30 @@ suggestCategories(input: {
   transactions: { id, description, amountCents, date, categoryId | null }[]  // só despesas
   categories:   { id, name, parentId | null, isGeneric: boolean }[]
   categoriesWithGoal: Set<string>
-  dismissedFingerprints: Set<string>
-  today: Date
+  excludedFingerprints: Set<string>   // recusadas e aceitas
 }): CategorySuggestion[]
 ```
 
 ### Normalização da descrição
 
-`normalizeMerchant(description)`: minúsculas, sem acento, remove prefixos de adquirente
-(`pag*`, `pg *`, `mp *`, `ifd*`, `ec *`...), dígitos, datas, sufixo de cidade/UF e
-espaços repetidos. Fica com os dois primeiros tokens significativos. Resultado vazio →
-lançamento ignorado. Esse termo normalizado é também o `match_value` da regra.
+`normalizeMerchant(description)`: minúsculas, sem acento, troca pontuação por espaço,
+descarta tokens com dígito, com menos de 2 letras, prefixos de adquirente (`pag`, `pg`,
+`mp`, `ec`...) e palavras bancárias genéricas (`pix`, `ted`, `compra`, `pagamento`,
+`enviado`...). A chave é o primeiro token significativo se tiver ≥ 5 letras
+("ifood"), senão os dois primeiros ("uber trip"). Cidade/UF no fim cai sozinha por esse
+corte. Resultado vazio → lançamento ignorado.
+
+A regra usa `contains` sobre a descrição crua em minúsculas, então o `match_value` precisa
+ser substring dela: `ruleTermFor` usa a chave se todas as descrições do grupo a contêm,
+senão o primeiro token (≥ 3 letras); se nada serve, o aceite não cria regra (só
+recategoriza o histórico).
 
 ### Tipo A
 
 Para cada grupo (termo normalizado) cujos lançamentos estão em categoria genérica ou sem
 categoria:
-- dispara se **≥ 6 lançamentos em ≥ 3 meses distintos**, **ou** total **≥ R$ 300**
+- dispara se **≥ 6 lançamentos em ≥ 3 meses distintos**, **ou** total **≥ R$ 300** com
+  ≥ 2 lançamentos (compra única grande não vira categoria)
 - nome sugerido: o termo em Title Case ("Ifood" → editável no aceite)
 - categoria mãe sugerida: nenhuma (raiz); o usuário pode escolher no aceite
 
@@ -88,7 +95,8 @@ CREATE TABLE public.category_suggestions (
   suggested_name      text NOT NULL,
   parent_category_id  uuid REFERENCES public.categories(id) ON DELETE CASCADE,
   source_category_ids uuid[] NOT NULL DEFAULT '{}',  -- de onde os lançamentos saem; vazio = sem categoria
-  match_value         text NOT NULL,
+  merchant_key        text NOT NULL,                  -- chave normalizada do grupo
+  match_value         text,                           -- termo da regra; NULL = aceite sem regra
   tx_count            integer NOT NULL,
   total_cents         bigint NOT NULL,
   monthly_avg_cents   bigint NOT NULL,
@@ -133,8 +141,8 @@ gastos" no cabeçalho do card (visível também sem sugestões, com estado vazio
 **Aceitar** abre um diálogo curto: nome (editável) e categoria mãe (editável). Confirmar
 chama `acceptCategorySuggestion`, que em uma transação:
 1. cria a categoria (`expense`, cor/ícone herdados da mãe ou padrão)
-2. cria `category_rules` com `match_type = 'contains'`, `match_value` da sugestão
-3. move para a nova categoria os lançamentos de 12 meses cujo termo normalizado casa **e**
+2. cria `category_rules` com `match_type = 'contains'`, `match_value` da sugestão (se houver)
+3. move para a nova categoria os lançamentos de 12 meses cuja chave normalizada é a `merchant_key` **e**
    cuja categoria atual está em `source_category_ids` (ou é nula, no tipo A). Lançamentos
    classificados à mão em outra categoria não são tocados.
 4. marca a sugestão `accepted`
