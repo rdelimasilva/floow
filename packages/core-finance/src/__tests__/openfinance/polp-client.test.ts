@@ -212,6 +212,40 @@ describe('createPolpClient — paginação', () => {
   })
 })
 
+describe('createPolpClient — investimentos', () => {
+  it('lista investimentos pelo consentimento, na rota do tipo, seguindo o cursor', async () => {
+    const { client, calls } = harness([
+      fakeResponse(200, { data: [{ id: 'f1' }], meta: { next_cursor: 'c2' } }),
+      fakeResponse(200, { data: [{ id: 'f2' }], meta: { next_cursor: null } }),
+    ])
+    const ids: string[] = []
+    for await (const page of client.streamInvestments('consent-1', 'FUND')) {
+      ids.push(...page.map((i) => (i as { id: string }).id))
+    }
+    expect(ids).toEqual(['f1', 'f2'])
+    expect(calls[0].url).toBe('https://api.polp.test/api/v2/consents/consent-1/funds')
+    expect(calls[1].url).toContain('cursor=c2')
+  })
+
+  it.each([
+    ['BANK_FIXED_INCOME', 'bank-fixed-incomes'],
+    ['CREDIT_FIXED_INCOME', 'credit-fixed-incomes'],
+    ['FUND', 'funds'],
+    ['TREASURE_TITLE', 'treasure-titles'],
+    ['VARIABLE_INCOME', 'variable-incomes'],
+  ] as const)('movimentações de %s em /%s/{id}/transactions', async (kind, slug) => {
+    const { client, calls } = harness([fakeResponse(200, { data: [], meta: { next_cursor: null } })])
+    for await (const _ of client.streamInvestmentTransactions(kind, 'inv-1', { fromDate: '2026-01-01' })) { /* vazio */ }
+    expect(calls[0].url).toBe(`https://api.polp.test/api/v2/${slug}/inv-1/transactions?fromDate=2026-01-01`)
+  })
+
+  it('tipo desconhecido é erro, nunca rota inventada', async () => {
+    const { client } = harness([])
+    const gen = client.streamInvestments('consent-1', 'LOAN' as never)
+    await expect(gen.next()).rejects.toThrow(/investimento desconhecido/)
+  })
+})
+
 describe('pickTransactionQuery', () => {
   it('mantém só os parâmetros conhecidos da listagem', () => {
     // `query_parameters` chega no payload do webhook. Repassá-lo cru deixaria
