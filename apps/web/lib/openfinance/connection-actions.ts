@@ -34,8 +34,8 @@ import { decideResourceRouting } from './resource-routing'
 import { type SyncSummary } from './sync'
 import { sincronizarConexao } from './sincronizar-conexao'
 
-/** Os únicos produtos que esta fase sabe ingerir. */
-const SUPPORTED_PRODUCTS: PolpProduct[] = ['ACCOUNT', 'CREDIT_CARD_ACCOUNT']
+/** Os produtos que o floow sabe ingerir. */
+const SUPPORTED_PRODUCTS: PolpProduct[] = ['ACCOUNT', 'CREDIT_CARD_ACCOUNT', 'INVESTMENTS']
 
 /** Tipos de recurso que viram conta no floow. O resto é ignorado por ora. */
 const SUPPORTED_RESOURCE_TYPES = new Set(['ACCOUNT', 'CREDIT_CARD_ACCOUNT'])
