@@ -123,7 +123,9 @@ depois que a perna antiga foi apagada, na mesma transação. Assim o índice
 `lib/openfinance/cpf-proprio.ts`: `carregarHashesDoTitular(db, orgId)` lê os
 `openfinance_connections.cpf_hash` da org, e
 `ehCpfProprio(taxId, hashes)` compara com `hashCpf(taxId, getCpfSalt())`.
-Os hashes são carregados uma vez por sync, como `loadCounterpartyIndex`.
+O sync não precisa deles: como a regra do titular nunca grava conta, o
+`resolveCounterparty` atual já a deixa pendente. Os hashes são lidos só ao
+confirmar/corrigir uma regra e ao montar a fila de Classificar.
 
 ### 6.2 Comportamento
 
