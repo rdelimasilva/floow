@@ -29,16 +29,18 @@ CREATE INDEX idx_transactions_installment_key
 
 -- Estorno primeiro, enquanto purchase_date ainda é NULL e identifica o alvo.
 -- Despesa é negativa: subtrair a soma devolve o valor ao saldo.
+-- Sem fatura fechada, a parcela vai para o dia 1 do mês previsto; o sync corrige o dia depois,
+-- porque a parcela futura fica fora do saldo.
 WITH hoje AS (SELECT (now() AT TIME ZONE 'America/Sao_Paulo')::date AS d),
 estorno AS (
   SELECT t.account_id, SUM(t.amount_cents) AS soma
   FROM public.transactions t, hoje
   WHERE t.external_id IS NOT NULL
     AND t.installment_total > 1
-    AND t.bill_post_date IS NOT NULL
+    AND (t.bill_post_date IS NOT NULL OR t.bill_forecast_month ~ '^\d{4}-(0[1-9]|1[0-2])$')
     AND t.purchase_date IS NULL
     AND t.balance_applied
-    AND t.bill_post_date > hoje.d
+    AND COALESCE(t.bill_post_date, to_date(t.bill_forecast_month || '-01', 'YYYY-MM-DD')) > hoje.d
   GROUP BY t.account_id
 )
 UPDATE public.accounts a
@@ -48,14 +50,14 @@ WHERE a.id = e.account_id;
 
 UPDATE public.transactions t
 SET purchase_date = t.date,
-    date = t.bill_post_date,
+    date = COALESCE(t.bill_post_date, to_date(t.bill_forecast_month || '-01', 'YYYY-MM-DD')),
     balance_applied = CASE
-      WHEN t.bill_post_date > (now() AT TIME ZONE 'America/Sao_Paulo')::date THEN false
+      WHEN COALESCE(t.bill_post_date, to_date(t.bill_forecast_month || '-01', 'YYYY-MM-DD')) > (now() AT TIME ZONE 'America/Sao_Paulo')::date THEN false
       ELSE t.balance_applied
     END
 WHERE t.external_id IS NOT NULL
   AND t.installment_total > 1
-  AND t.bill_post_date IS NOT NULL
+  AND (t.bill_post_date IS NOT NULL OR t.bill_forecast_month ~ '^\d{4}-(0[1-9]|1[0-2])$')
   AND t.purchase_date IS NULL;
 
 COMMIT;
