@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { updateAssetValue } from '@/lib/fixed-assets/actions'
 import { currencyToCents } from '@floow/core-finance'
 import { Button } from '@/components/ui/button'
@@ -10,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
 
 export function UpdateValueForm({ assetId }: { assetId: string }) {
-  const router = useRouter()
   const { toast } = useToast()
   const [value, setValue] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -30,7 +28,6 @@ export function UpdateValueForm({ assetId }: { assetId: string }) {
       await updateAssetValue(formData)
       setValue('')
       toast('Valor atualizado com sucesso')
-      router.refresh()
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao atualizar valor', 'error')
     } finally {

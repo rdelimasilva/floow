@@ -1,8 +1,17 @@
 import { revalidateTag } from 'next/cache'
 
-/** Wrapper for Next.js 16 revalidateTag (requires cacheLife profile as 2nd arg) */
+/**
+ * Expira a tag na hora.
+ *
+ * Com um perfil de cacheLife ('default', 'max') o Next 16 faz
+ * stale-while-revalidate: a leitura seguinte ainda devolve o dado velho, e a
+ * resposta da Server Action não traz o RSC novo — a tela não via a própria
+ * edição sem um `router.refresh()`, que é um segundo render inteiro da rota.
+ * `expire: 0` vale também fora de Server Action (route handler, cron), onde
+ * `updateTag` lançaria.
+ */
 export function invalidateTag(tag: string) {
-  revalidateTag(tag, 'default')
+  revalidateTag(tag, { expire: 0 })
 }
 
 /** Estado do portão de revisão do Open Finance (`orgs.review_gate_cleared_at`). */
