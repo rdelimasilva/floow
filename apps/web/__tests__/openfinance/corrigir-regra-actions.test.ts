@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getTableName } from 'drizzle-orm'
+import { getTableName, type SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
 
 const ORG = 'org-1'
 const CP = '11111111-1111-1111-1111-111111111111'
@@ -8,10 +9,14 @@ const ITAU = '33333333-3333-3333-3333-333333333333'
 const XP = '44444444-4444-4444-4444-444444444444'
 const CORRETORA = '55555555-5555-5555-5555-555555555555'
 const CAT = '66666666-6666-6666-6666-666666666666'
+const R1 = '77777777-7777-7777-7777-777777777777'
+
+const dialect = new PgDialect()
+const renderizar = (cond: SQL | undefined) => dialect.sqlToQuery(cond!)
 
 // Op guarda a escrita/leitura na ordem em que aconteceu — a mesma forma de
 // `_fake-tx.ts` e de `counterparty-actions-par.test.ts`, com `delete` a mais.
-interface Op { op: 'select' | 'update' | 'insert' | 'delete'; table: string; set?: Record<string, unknown> }
+interface Op { op: 'select' | 'update' | 'insert' | 'delete'; table: string; set?: Record<string, unknown>; where?: SQL }
 const ops: Op[] = []
 const selectQueue: unknown[][] = []
 
@@ -29,7 +34,10 @@ function makeChain(result: unknown[], op?: Op): any {
     if (op) op.set = payload
     return makeChain(result, op)
   }
-  chain.where = () => makeChain(result, op)
+  chain.where = (cond: SQL) => {
+    if (op) op.where = cond
+    return makeChain(result, op)
+  }
   return chain
 }
 
@@ -204,5 +212,57 @@ describe('previaCorrecaoDeRegra', () => {
     // sem grupo e sem estorno; a perna nova em XP soma −100. O caso com grupo
     // (+100 de estorno, −100 da perna nova) é coberto por somarPrevia (Task 4).
     expect(p.mudam).toBe(1)
+  })
+})
+
+describe('corrigirRegra — reaplica só o que desfez (achado 1)', () => {
+  it('transferência: o lote de reaplicação fica restrito aos ids desfeitos', async () => {
+    selectQueue.push(
+      [REGRA],
+      [{ id: L1, accountId: ITAU, amountCents: 400100, description: 'Resgate CDB DI', transferGroupId: 'g1', balanceApplied: true, isIgnored: false }],
+      [{ id: 'p1', accountId: XP, amountCents: -400100, externalId: 'e:transfer-dest', balanceApplied: true, isIgnored: false, matchedTransactionId: null }],
+      [{ id: L1 }],
+      [{ id: L1, accountId: ITAU, amountCents: 400100, date: '2026-07-08', externalId: 'e', balanceApplied: true, isIgnored: false }],
+    )
+
+    await corrigirRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: CORRETORA, aplicarAoHistorico: true })
+
+    // selects: regra, selecionar, pernas, LOTE, applyTransferSingle
+    const lote = ops.filter((o) => o.op === 'select')[3]
+    const q = renderizar(lote.where)
+    // Pendente que já estava em Classificar (Nível 1, destino = própria conta)
+    // não foi desfeito aqui e não pode ser reclassificado por trás da prévia.
+    expect(q.sql).toContain('"transactions"."id" in (')
+    expect(q.params).toContain(L1)
+  })
+
+  it('receita/despesa: o update em lote fica restrito aos desfeitos, sem o realizado devolvido', async () => {
+    selectQueue.push(
+      [REGRA],
+      [{ id: L1, accountId: ITAU, amountCents: 400100, description: 'Resgate CDB DI', transferGroupId: 'g1', balanceApplied: true, isIgnored: false }],
+      [{ id: 'p1', accountId: XP, amountCents: -400100, externalId: 'e:transfer-par', balanceApplied: false, isIgnored: false, matchedTransactionId: R1 }],
+    )
+
+    await corrigirRegra({ counterpartyId: CP, nature: 'income', categoryId: CAT, transferAccountId: null, aplicarAoHistorico: true })
+
+    const lote = ops.find((o) => o.op === 'update' && o.table === 'transactions' && o.set?.type === 'income')!
+    const q = renderizar(lote.where)
+    expect(q.sql).toContain('"transactions"."id" in (')
+    expect(q.params).toContain(L1)
+    // O realizado do outro banco voltou a pendente como transferência sem
+    // conta: é para Classificar, não para esta regra.
+    expect(q.params).not.toContain(R1)
+  })
+
+  it('nada desfeito (só par do outro lado): não roda lote nenhum', async () => {
+    selectQueue.push(
+      [REGRA],
+      [{ id: L1, accountId: ITAU, amountCents: 100, description: 'x', transferGroupId: null, balanceApplied: true, isIgnored: false }],
+      [{ id: 'perna-de-la', externalId: 'e:transfer-par' }],
+    )
+
+    await corrigirRegra({ counterpartyId: CP, nature: 'income', categoryId: CAT, transferAccountId: null, aplicarAoHistorico: true })
+
+    expect(ops.some((o) => o.op === 'update' && o.table === 'transactions')).toBe(false)
   })
 })

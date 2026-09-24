@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { and, eq, isNull, notInArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm'
 import { getDb, transactions, accounts } from '@floow/db'
 import { assertAccountOwnership } from '@/lib/finance/account-actions'
 import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transfer-leg'
@@ -174,9 +174,10 @@ export async function applyTransferSingle(
 export async function applyTransferBatch(
   tx: Db,
   orgId: string,
-  input: { counterpartyId: string; transferAccountId: string; excludeIds: string[] },
+  input: { counterpartyId: string; transferAccountId: string; excludeIds: string[]; somenteIds?: string[] },
   contasParaConciliar: Set<string>,
 ): Promise<number> {
+  if (input.somenteIds && input.somenteIds.length === 0) return 0
   const conditions = [
     eq(transactions.orgId, orgId),
     eq(transactions.counterpartyId, input.counterpartyId),
@@ -188,6 +189,7 @@ export async function applyTransferBatch(
     condicaoForaDeParDeTransferenciaPendente(),
   ]
   if (input.excludeIds.length > 0) conditions.push(notInArray(transactions.id, input.excludeIds))
+  if (input.somenteIds) conditions.push(inArray(transactions.id, input.somenteIds))
 
   const pending = await tx.select({ id: transactions.id }).from(transactions).where(and(...conditions))
 
@@ -246,15 +248,23 @@ export async function ehRegraDoTitular(
  *
  * Transferência sem conta (CPF próprio) não tem lote: só as exceções, cada
  * uma com a sua conta, são aplicadas. O resto continua pendente.
+ *
+ * `somenteIds` restringe o lote a esses lançamentos. `corrigirRegra` passa os
+ * que acabou de desfazer: um pendente que já estava em Classificar (deixado
+ * pendente de propósito pelo sync, ou devolvido pela forma 2) não entrou na
+ * prévia e não pode ser reclassificado por trás dela. Sem `somenteIds`, o
+ * lote pega todos os pendentes da contraparte (`confirmCounterparty`).
  */
 export async function aplicarDecisaoAosPendentes(
   tx: Db,
   orgId: string,
   decisao: DecisaoDaRegra,
   contasParaConciliar: Set<string>,
+  somenteIds?: string[],
 ): Promise<number> {
   const exceptionIds = decisao.exceptions.map((e) => e.transactionId)
   let reclassifiedCount = 0
+  const loteVazio = somenteIds !== undefined && somenteIds.length === 0
 
   if (decisao.nature === 'transfer') {
     // Mesmo cast de `assertAccountOwnership(tx as unknown as Db, ...)` em
@@ -268,11 +278,12 @@ export async function aplicarDecisaoAosPendentes(
           counterpartyId: decisao.counterpartyId,
           transferAccountId: decisao.transferAccountId,
           excludeIds: exceptionIds,
+          somenteIds,
         },
         contasParaConciliar,
       )
     }
-  } else {
+  } else if (!loteVazio) {
     const batchConditions = [
       eq(transactions.orgId, orgId),
       eq(transactions.counterpartyId, decisao.counterpartyId),
@@ -283,6 +294,7 @@ export async function aplicarDecisaoAosPendentes(
       condicaoForaDeParDeTransferenciaPendente(),
     ]
     if (exceptionIds.length > 0) batchConditions.push(notInArray(transactions.id, exceptionIds))
+    if (somenteIds) batchConditions.push(inArray(transactions.id, somenteIds))
 
     const rows = await tx
       .update(transactions)

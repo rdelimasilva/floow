@@ -95,11 +95,18 @@ export async function corrigirRegra(
 
     let reprocessados = 0
     let ignorados = 0
+    const desfeitos: string[] = []
+    const devolvidos = new Set<string>()
     if (aplicarAoHistorico) {
       for (const l of await selecionarLancamentosDaRegra(tx, orgId, regra)) {
         const r = await desfazerParDaRegra(tx, orgId, l)
-        if (r.forma === 'par-do-outro-lado') ignorados++
-        else reprocessados++
+        if (r.forma === 'par-do-outro-lado') {
+          ignorados++
+          continue
+        }
+        reprocessados++
+        desfeitos.push(l.id)
+        if (r.realizadoDevolvidoId) devolvidos.add(r.realizadoDevolvidoId)
       }
     }
 
@@ -118,11 +125,14 @@ export async function corrigirRegra(
     if (aplicarAoHistorico) {
       // CPF próprio: `conta` é null, o lote não roda e os lançamentos ficam
       // pendentes em Classificar, onde a conta é escolhida um a um.
+      // Só o que foi desfeito aqui é reaplicado; o realizado devolvido pela
+      // forma 2 fica em Classificar, como a prévia mostrou.
       await aplicarDecisaoAosPendentes(
         tx,
         orgId,
         { counterpartyId: input.counterpartyId, nature: input.nature, categoryId: input.categoryId, transferAccountId: conta, exceptions: [] },
         contasParaConciliar,
+        desfeitos.filter((id) => !devolvidos.has(id)),
       )
     }
     return { reprocessados, ignorados }
