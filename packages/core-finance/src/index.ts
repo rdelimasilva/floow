@@ -8,6 +8,7 @@ export * from './cash-flow'
 export * from './snapshot'
 // Phase 3 — Investment engine
 export * from './portfolio'
+export * from './bank-position'
 export * from './income'
 // Phase 4 — Planning engine
 export * from './simulation'
@@ -32,7 +33,9 @@ export * from './budget-pacing'
 // Open Finance — ingestão via Polp (Celcoin v2)
 export * from './openfinance/taxonomy'
 export * from './openfinance/polp-types'
+export * from './openfinance/polp-investment-types'
 export * from './openfinance/normalize'
 export * from './openfinance/polp-client'
 export * from './openfinance/saldo-do-banco'
 export * from './openfinance/duplicata'
+export * from './openfinance/investments'

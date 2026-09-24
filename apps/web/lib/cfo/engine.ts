@@ -25,6 +25,7 @@ import {
 import { eq, and, gte, gt, desc, sql } from 'drizzle-orm'
 import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import { buildBudgetPacingInput } from './budget-pacing-input'
+import { assetDisplayName } from '@/lib/investments/asset-labels'
 import {
   aggregateCashFlow,
   runAnalyzers,
@@ -298,6 +299,7 @@ export async function runCfoEngine(
       const positionRows = await db
         .select({
           ticker: assets.ticker,
+          name: assets.name,
           assetClass: assets.assetClass,
           currentValueCents: assetPositionSnapshots.currentValueCents,
           unrealizedPnLPercentBps: assetPositionSnapshots.unrealizedPnLPercentBps,
@@ -318,7 +320,7 @@ export async function runCfoEngine(
 
       inputs.investment = {
         positions: positionRows.map((p) => ({
-          asset: p.ticker,
+          asset: assetDisplayName(p),
           class: p.assetClass,
           allocation:
             totalInvested > 0

@@ -7,16 +7,12 @@ import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ASSET_CLASS_LABEL, assetDisplayName, type AssetClass } from '@/lib/investments/asset-labels'
 import type { Asset } from '@floow/db'
 
-const ASSET_CLASSES = [
-  { value: 'br_equity', label: 'Ações BR' },
-  { value: 'fii', label: 'FIIs' },
-  { value: 'etf', label: 'ETFs' },
-  { value: 'crypto', label: 'Cripto' },
-  { value: 'fixed_income', label: 'Renda Fixa' },
-  { value: 'international', label: 'Internacional' },
-] as const
+const ASSET_CLASSES = (Object.entries(ASSET_CLASS_LABEL) as [AssetClass, string][]).map(
+  ([value, label]) => ({ value, label })
+)
 
 type SerializedAsset = Omit<Asset, 'createdAt' | 'updatedAt'> & {
   createdAt: string | Date
@@ -50,7 +46,7 @@ export function AssetEditForm({ asset }: AssetEditFormProps) {
     <form action={handleAction} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
       <div>
         <Label htmlFor="ticker">Ticker</Label>
-        <Input id="ticker" name="ticker" defaultValue={asset.ticker} required />
+        <Input id="ticker" name="ticker" defaultValue={assetDisplayName(asset)} required />
       </div>
 
       <div>

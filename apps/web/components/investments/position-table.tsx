@@ -9,6 +9,8 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
+import { ASSET_CLASS_LABEL, type AssetClass } from '@/lib/investments/asset-labels'
+import { positionBadges } from './position-badges'
 import type { EnrichedPosition } from '@/lib/investments/queries'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -16,15 +18,6 @@ import type { EnrichedPosition } from '@/lib/investments/queries'
 interface PositionTableProps {
   positions: EnrichedPosition[]
   orgId: string
-}
-
-const ASSET_CLASS_LABELS: Record<string, string> = {
-  br_equity: 'Ações BR',
-  fii: 'FIIs',
-  etf: 'ETFs',
-  crypto: 'Cripto',
-  fixed_income: 'Renda Fixa',
-  international: 'Internacional',
 }
 
 // ── Row Component ──────────────────────────────────────────────────────────────
@@ -87,6 +80,11 @@ const PositionRow = memo(function PositionRow({
         {/* Ticker */}
         <td className="px-4 py-3 font-mono text-sm font-semibold text-gray-900">
           {position.ticker}
+          {positionBadges(position).map((b) => (
+            <span key={b.label} title={b.title} className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal text-gray-600">
+              {b.label}
+            </span>
+          ))}
         </td>
         {/* Name */}
         <td className="px-4 py-3 text-sm text-gray-700 max-w-[160px] truncate">
@@ -94,11 +92,11 @@ const PositionRow = memo(function PositionRow({
         </td>
         {/* Classe */}
         <td className="px-4 py-3 text-xs text-gray-500">
-          {ASSET_CLASS_LABELS[position.assetClass] ?? position.assetClass}
+          {ASSET_CLASS_LABEL[position.assetClass as AssetClass] ?? position.assetClass}
         </td>
         {/* Qtd */}
         <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-800">
-          {position.quantityHeld.toLocaleString('pt-BR')}
+          {position.quantityHeld.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}
         </td>
         {/* PM (avg cost) */}
         <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-700">
@@ -134,26 +132,30 @@ const PositionRow = memo(function PositionRow({
             >
               {showHistory ? 'Fechar' : 'Histórico'}
             </button>
-            <button
-              type="button"
-              onClick={() => setShowPriceInput((v) => !v)}
-              className="text-xs text-gray-500 hover:text-gray-800 underline"
-            >
-              Preço
-            </button>
+            {position.source !== 'openfinance' && (
+              <button
+                type="button"
+                onClick={() => setShowPriceInput((v) => !v)}
+                className="text-xs text-gray-500 hover:text-gray-800 underline"
+              >
+                Preço
+              </button>
+            )}
             <Link
               href={`/investments/${position.assetId}`}
               className="text-xs text-gray-500 hover:text-gray-800 underline"
             >
               Editar
             </Link>
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              className="text-xs text-red-500 hover:text-red-700 underline"
-            >
-              Excluir
-            </button>
+            {position.source !== 'openfinance' && (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="text-xs text-red-500 hover:text-red-700 underline"
+              >
+                Excluir
+              </button>
+            )}
           </div>
         </td>
       </tr>
@@ -249,9 +251,16 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
             <div key={position.assetId} className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-mono text-sm font-semibold text-gray-900">{position.ticker}</p>
+                  <p className="font-mono text-sm font-semibold text-gray-900">
+                    {position.ticker}
+                    {positionBadges(position).map((b) => (
+                      <span key={b.label} title={b.title} className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal text-gray-600">
+                        {b.label}
+                      </span>
+                    ))}
+                  </p>
                   <p className="text-xs text-gray-500 truncate">{position.name}</p>
-                  <span className="text-[10px] text-gray-400 uppercase">{ASSET_CLASS_LABELS[position.assetClass] ?? position.assetClass}</span>
+                  <span className="text-[10px] text-gray-400 uppercase">{ASSET_CLASS_LABEL[position.assetClass as AssetClass] ?? position.assetClass}</span>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-gray-900">{formatBRL(position.currentValueCents)}</p>

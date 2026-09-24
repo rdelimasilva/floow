@@ -160,3 +160,59 @@ describe('computePosition', () => {
     expect(result.quantityHeld).toBe(100)
   })
 })
+
+describe('computePosition: tipos vindos do Open Finance', () => {
+  it('jcp soma em proventos', () => {
+    const r = computePosition([makeEvent({}), makeEvent({ eventType: 'jcp', quantity: null, totalCents: 500 })], 0)
+    expect(r.totalDividendsCents).toBe(500)
+  })
+
+  it('maturity liquida como venda', () => {
+    const r = computePosition([
+      makeEvent({ quantity: 10, totalCents: 10000 }),
+      makeEvent({ eventType: 'maturity', quantity: 10, totalCents: 12000, eventDate: new Date('2025-01-15') }),
+    ], 0)
+    expect(r.quantityHeld).toBe(0)
+    expect(r.realizedPnLCents).toBe(2000)
+  })
+
+  it('come_cotas reduz cotas sem mexer no custo total', () => {
+    const r = computePosition([
+      makeEvent({ quantity: 100.5, totalCents: 10050 }),
+      makeEvent({ eventType: 'come_cotas', quantity: 0.5, totalCents: 60, eventDate: new Date('2024-05-31') }),
+    ], 0)
+    expect(r.quantityHeld).toBeCloseTo(100, 10)
+    expect(r.totalCostCents).toBe(10050)
+  })
+
+  it('tax e other não afetam posição nem proventos', () => {
+    const r = computePosition([
+      makeEvent({}),
+      makeEvent({ eventType: 'tax', quantity: null, totalCents: 300 }),
+      makeEvent({ eventType: 'other', quantity: 5, totalCents: 999 }),
+    ], 0)
+    expect(r.quantityHeld).toBe(100)
+    expect(r.totalDividendsCents).toBe(0)
+  })
+
+  it('venda de quantidade fracionária mantém centavos inteiros', () => {
+    const r = computePosition([
+      makeEvent({ quantity: 3, totalCents: 1000 }),
+      makeEvent({ eventType: 'sell', quantity: 1.2345678, totalCents: 500, eventDate: new Date('2024-03-01') }),
+      makeEvent({ eventType: 'maturity', quantity: 0.3333333, totalCents: 120, eventDate: new Date('2024-04-01') }),
+    ], 0)
+    expect(Number.isInteger(r.totalCostCents)).toBe(true)
+    expect(Number.isInteger(r.realizedPnLCents)).toBe(true)
+    expect(Number.isInteger(r.avgCostCents)).toBe(true)
+    // custo vendido = round(1000 * 1.2345678 / 3) = 412
+    // depois: round(588 * 0.3333333 / 1.7654322) = 111
+    expect(r.totalCostCents).toBe(1000 - 412 - 111)
+    expect(r.realizedPnLCents).toBe((500 - 412) + (120 - 111))
+  })
+
+  it('quantidade fracionária de cotas', () => {
+    const r = computePosition([makeEvent({ quantity: 12.3456789, totalCents: 12346 })], 0)
+    expect(r.quantityHeld).toBeCloseTo(12.3456789, 10)
+    expect(r.avgCostCents).toBe(1000)
+  })
+})

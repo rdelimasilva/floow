@@ -16,6 +16,7 @@ import {
   priceHistoryTag,
   pricesTag,
 } from '@/lib/cache-tags'
+import { assetDisplayName } from '@/lib/investments/asset-labels'
 
 // ---------------------------------------------------------------------------
 // Type Definitions
@@ -37,6 +38,10 @@ export interface EnrichedPosition {
   unrealizedPnLPercent: number
   realizedPnLCents: number
   totalDividendsCents: number
+  /** De onde vem o ativo. `openfinance` é somente leitura na tela. */
+  source: 'manual' | 'openfinance'
+  /** Selo "custo parcial": posição do banco sem histórico completo de compra. */
+  costIsPartial: boolean
 }
 
 export interface PriceHistoryEntry {
@@ -54,6 +59,8 @@ export interface IncomeEventWithAsset {
   notes: string | null
   ticker: string
   name: string
+  /** Origem do ativo. Provento de `openfinance` é somente leitura na tela. */
+  source: 'manual' | 'openfinance'
 }
 
 export interface PortfolioEventDetail {
@@ -221,15 +228,17 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
           unrealizedPnLPercentBps: assetPositionSnapshots.unrealizedPnLPercentBps,
           realizedPnLCents: assetPositionSnapshots.realizedPnLCents,
           totalDividendsCents: assetPositionSnapshots.totalDividendsCents,
+          source: assets.source,
+          costIsPartial: assetPositionSnapshots.costIsPartial,
         })
         .from(assetPositionSnapshots)
         .innerJoin(assets, eq(assetPositionSnapshots.assetId, assets.id))
         .where(eq(assetPositionSnapshots.orgId, orgId))
-        .orderBy(asc(assets.ticker))
+        .orderBy(asc(sql`coalesce(${assets.ticker}, ${assets.name})`))
 
       return rows.map((row) => ({
         assetId: row.assetId,
-        ticker: row.ticker,
+        ticker: assetDisplayName(row),
         name: row.name,
         assetClass: row.assetClass,
         quantityHeld: row.quantityHeld,
@@ -241,6 +250,8 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
         unrealizedPnLPercent: row.unrealizedPnLPercentBps / 100,
         realizedPnLCents: row.realizedPnLCents,
         totalDividendsCents: row.totalDividendsCents,
+        source: row.source,
+        costIsPartial: row.costIsPartial,
       }))
     },
     ['investment-positions', orgId],
@@ -249,7 +260,7 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
 })
 
 /**
- * Returns income events (dividend, interest, amortization) for the last N months.
+ * Returns income events (dividend, jcp, interest, amortization) for the last N months.
  * Queries portfolio_events (NOT transactions) to avoid INV-07 double-counting.
  * Uses a single JOIN with assets and filters by date in SQL for efficiency.
  */
@@ -257,7 +268,7 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
   return unstable_cache(
     async () => {
       const db = getDb()
-      const INCOME_TYPES: Array<'dividend' | 'interest' | 'amortization'> = ['dividend', 'interest', 'amortization']
+      const INCOME_TYPES: Array<'dividend' | 'interest' | 'amortization' | 'jcp'> = ['dividend', 'interest', 'amortization', 'jcp']
       const cutoff = new Date()
       cutoff.setMonth(cutoff.getMonth() - months)
 
@@ -271,6 +282,7 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
           notes: portfolioEvents.notes,
           ticker: assets.ticker,
           name: assets.name,
+          source: assets.source,
         })
         .from(portfolioEvents)
         .innerJoin(assets, eq(portfolioEvents.assetId, assets.id))
@@ -290,8 +302,9 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
         eventDate: e.eventDate instanceof Date ? e.eventDate : new Date(e.eventDate as unknown as string),
         totalCents: e.totalCents,
         notes: e.notes,
-        ticker: e.ticker,
+        ticker: assetDisplayName(e),
         name: e.name,
+        source: e.source,
       }))
     },
     ['investment-income-events', orgId, String(months)],

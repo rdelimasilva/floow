@@ -60,6 +60,15 @@ export interface SyncSummary {
   rejected: number
 }
 
+/**
+ * Investimento também é `openfinance_resources`, mas não tem conta nem
+ * lançamento. Sem este filtro ele caía em `skippedUnlinked` e inflava o aviso
+ * de "recurso sem conta vinculada".
+ */
+export function recursosDeConta<T extends { resourceType: string }>(rs: T[]): T[] {
+  return rs.filter((r) => r.resourceType === 'ACCOUNT' || r.resourceType === 'CREDIT_CARD_ACCOUNT')
+}
+
 export async function syncConnectionTransactions(
   db: Db,
   client: PolpClient,
@@ -78,7 +87,7 @@ export async function syncConnectionTransactions(
 
   const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0, rejected: 0, propostasDeConciliacao: 0, propostasDeDuplicata: 0 }
 
-  for (const resource of resources) {
+  for (const resource of recursosDeConta(resources)) {
     if (!resource.accountId) {
       summary.skippedUnlinked++
       continue

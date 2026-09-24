@@ -1,38 +1,30 @@
 'use client'
 
 import { PieChart, Pie, Cell } from 'recharts'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { formatBRL } from '@floow/core-finance/src/balance'
+import { ASSET_CLASS_LABEL, type AssetClass } from '@/lib/investments/asset-labels'
 import type { EnrichedPosition } from '@/lib/investments/queries'
 
-// Color palette per asset class
-const ASSET_CLASS_COLORS: Record<string, string> = {
+// Cor por classe — o Record tipado obriga cor para toda classe nova.
+export const ASSET_CLASS_COLORS: Record<AssetClass, string> = {
   br_equity: '#2563eb',
   fii: '#7c3aed',
   etf: '#059669',
   crypto: '#d97706',
   fixed_income: '#0891b2',
   international: '#dc2626',
+  fund: '#db2777',
+  treasury: '#65a30d',
+  credit_fixed_income: '#4f46e5',
 }
 
-// Portuguese labels per asset class
-const ASSET_CLASS_LABELS: Record<string, string> = {
-  br_equity: 'Ações BR',
-  fii: 'FIIs',
-  etf: 'ETFs',
-  crypto: 'Cripto',
-  fixed_income: 'Renda Fixa',
-  international: 'Internacional',
-}
-
-const chartConfig = {
-  br_equity: { label: 'Ações BR', color: '#2563eb' },
-  fii: { label: 'FIIs', color: '#7c3aed' },
-  etf: { label: 'ETFs', color: '#059669' },
-  crypto: { label: 'Cripto', color: '#d97706' },
-  fixed_income: { label: 'Renda Fixa', color: '#0891b2' },
-  international: { label: 'Internacional', color: '#dc2626' },
-}
+const chartConfig = Object.fromEntries(
+  (Object.keys(ASSET_CLASS_LABEL) as AssetClass[]).map((assetClass) => [
+    assetClass,
+    { label: ASSET_CLASS_LABEL[assetClass], color: ASSET_CLASS_COLORS[assetClass] ?? '#6b7280' },
+  ])
+) satisfies ChartConfig
 
 interface AllocationChartProps {
   positions: EnrichedPosition[]
@@ -57,7 +49,7 @@ export function AllocationChart({ positions }: AllocationChartProps) {
 
   const data = Array.from(classMap.entries()).map(([assetClass, valueCents]) => ({
     assetClass,
-    label: ASSET_CLASS_LABELS[assetClass] ?? assetClass,
+    label: ASSET_CLASS_LABEL[assetClass as AssetClass] ?? assetClass,
     valueCents,
   }))
 
@@ -86,7 +78,7 @@ export function AllocationChart({ positions }: AllocationChartProps) {
           {data.map((entry) => (
             <Cell
               key={entry.assetClass}
-              fill={ASSET_CLASS_COLORS[entry.assetClass] ?? '#6b7280'}
+              fill={ASSET_CLASS_COLORS[entry.assetClass as AssetClass] ?? '#6b7280'}
             />
           ))}
         </Pie>

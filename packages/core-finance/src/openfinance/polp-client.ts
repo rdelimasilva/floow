@@ -26,6 +26,7 @@ import type {
   PolpProduct,
   PolpResource,
 } from './polp-types'
+import type { PolpInvestmentKind } from './polp-investment-types'
 
 const DEFAULT_BASE_URL = 'https://api.polp.com.br/api/v2'
 
@@ -36,6 +37,26 @@ const DEFAULT_BASE_URL = 'https://api.polp.com.br/api/v2'
 const RESOURCE_DETAIL_PATH: Record<string, string> = {
   ACCOUNT: '/accounts',
   CREDIT_CARD_ACCOUNT: '/credit-cards',
+}
+
+/**
+ * Slug de rota por tipo de investimento. Fechado: tipo fora daqui é erro, não
+ * rota inventada. A rota de DETALHE (`/<slug>/{id}`) não é usada de propósito —
+ * limite de 30 req/min e a doc pede para não fazer polling nela. A listagem
+ * por consentimento já traz a posição (`balance`).
+ */
+const INVESTMENT_ROUTE: Record<PolpInvestmentKind, string> = {
+  BANK_FIXED_INCOME: 'bank-fixed-incomes',
+  CREDIT_FIXED_INCOME: 'credit-fixed-incomes',
+  FUND: 'funds',
+  TREASURE_TITLE: 'treasure-titles',
+  VARIABLE_INCOME: 'variable-incomes',
+}
+
+function investmentRoute(kind: PolpInvestmentKind): string {
+  const slug = INVESTMENT_ROUTE[kind]
+  if (!slug) throw new Error(`Tipo de investimento desconhecido: ${kind}`)
+  return slug
 }
 
 /** Só estes parâmetros chegam à URL — ver `pickTransactionQuery`. */
@@ -119,6 +140,14 @@ export interface PolpClient {
   /** Páginas de 500 itens, buscadas sob demanda. */
   streamAccountTransactions(accountId: string, query?: TransactionQuery): AsyncGenerator<PolpAccountTransaction[]>
   streamCardTransactions(creditCardId: string, query?: TransactionQuery): AsyncGenerator<PolpCardTransaction[]>
+  /** Investimentos do consentimento, com `balance` embutido. Páginas de 15. */
+  streamInvestments(consentId: string, kind: PolpInvestmentKind): AsyncGenerator<unknown[]>
+  /** Movimentações de um investimento. Páginas de 500. */
+  streamInvestmentTransactions(
+    kind: PolpInvestmentKind,
+    investmentId: string,
+    query?: TransactionQuery,
+  ): AsyncGenerator<unknown[]>
 }
 
 /**
@@ -307,6 +336,17 @@ export function createPolpClient(config: PolpClientConfig): PolpClient {
       return paginate<PolpCardTransaction>(`/credit-cards/${encodeURIComponent(creditCardId)}/transactions`, {
         ...query,
       })
+    },
+
+    async *streamInvestments(consentId, kind) {
+      yield* paginate<unknown>(`/consents/${encodeURIComponent(consentId)}/${investmentRoute(kind)}`)
+    },
+
+    async *streamInvestmentTransactions(kind, investmentId, query = {}) {
+      yield* paginate<unknown>(
+        `/${investmentRoute(kind)}/${encodeURIComponent(investmentId)}/transactions`,
+        { ...query },
+      )
     },
   }
 }

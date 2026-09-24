@@ -16,6 +16,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const conexoesMock = vi.fn()
 const syncMock = vi.fn()
+const investimentosMock = vi.fn()
 
 vi.mock('@floow/db', () => ({
   getDb: () => ({
@@ -24,6 +25,7 @@ vi.mock('@floow/db', () => ({
   openfinanceConnections: { id: 'id', orgId: 'org_id', status: 'status' },
 }))
 vi.mock('@/lib/openfinance/sync', () => ({ syncConnectionTransactions: syncMock }))
+vi.mock('@/lib/openfinance/sincronizar-conexao', () => ({ sincronizarInvestimentosDaConexao: investimentosMock }))
 vi.mock('@/lib/openfinance/config', () => ({ getPolpClient: () => ({}) }))
 
 const { importarLancamentosDeTodasAsConexoes } = await import('@/lib/openfinance/importacao-agendada')
@@ -36,6 +38,8 @@ const RESUMO_VAZIO = {
 beforeEach(() => {
   conexoesMock.mockReset()
   syncMock.mockReset()
+  investimentosMock.mockReset()
+  investimentosMock.mockResolvedValue(null)
 })
 
 describe('importarLancamentosDeTodasAsConexoes', () => {
@@ -95,5 +99,38 @@ describe('importarLancamentosDeTodasAsConexoes', () => {
 
     expect(syncMock).not.toHaveBeenCalled()
     expect(r.conexoes).toBe(0)
+  })
+
+  it('todos os extratos entram antes de qualquer investimento', async () => {
+    // Investimento é lento (várias chamadas por ativo). Se rodasse entre uma
+    // conexão e outra, um timeout no meio deixaria extratos sem importar.
+    conexoesMock.mockResolvedValue([
+      { id: 'c1', orgId: 'org-1' },
+      { id: 'c2', orgId: 'org-2' },
+    ])
+    const ordem: string[] = []
+    syncMock.mockImplementation(async (_db: unknown, _c: unknown, cx: { id: string }) => {
+      ordem.push(`extrato:${cx.id}`)
+      return RESUMO_VAZIO
+    })
+    investimentosMock.mockImplementation(async (_db: unknown, _c: unknown, cx: { id: string }) => {
+      ordem.push(`investimentos:${cx.id}`)
+      return null
+    })
+
+    await importarLancamentosDeTodasAsConexoes()
+
+    expect(ordem).toEqual(['extrato:c1', 'extrato:c2', 'investimentos:c1', 'investimentos:c2'])
+  })
+
+  it('falha de investimento não conta como falha de extrato', async () => {
+    conexoesMock.mockResolvedValue([{ id: 'c1', orgId: 'org-1' }])
+    syncMock.mockResolvedValue({ ...RESUMO_VAZIO, imported: 1 })
+    investimentosMock.mockRejectedValue(new Error('inesperado'))
+
+    const r = await importarLancamentosDeTodasAsConexoes()
+
+    expect(r.falhas).toBe(0)
+    expect(r.importadas).toBe(1)
   })
 })

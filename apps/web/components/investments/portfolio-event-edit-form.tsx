@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast'
 import type { Asset, Account } from '@floow/db'
+import { ativosManuais } from '@/lib/investments/ativos-manuais'
 import type { PortfolioEventDetail } from '@/lib/investments/queries'
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
@@ -180,7 +181,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
                   <SelectValue placeholder="Selecione o ativo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {assets.map((asset) => (
+                  {ativosManuais(assets).map((asset) => (
                     <SelectItem key={asset.id} value={asset.id}>
                       {asset.ticker} — {asset.name}
                     </SelectItem>

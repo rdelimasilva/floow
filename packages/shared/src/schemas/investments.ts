@@ -3,7 +3,17 @@ import { z } from 'zod'
 export const createAssetSchema = z.object({
   ticker: z.string().min(1).max(20),
   name: z.string().min(1).max(200),
-  assetClass: z.enum(['br_equity', 'fii', 'etf', 'crypto', 'fixed_income', 'international']),
+  assetClass: z.enum([
+    'br_equity',
+    'fii',
+    'etf',
+    'crypto',
+    'fixed_income',
+    'international',
+    'fund',
+    'treasury',
+    'credit_fixed_income',
+  ]),
   currency: z.string().default('BRL'),
   notes: z.string().optional(),
 })
@@ -14,7 +24,9 @@ export const createPortfolioEventSchema = z.object({
   eventType: z.enum(['buy', 'sell', 'dividend', 'interest', 'split', 'amortization']),
   eventDate: z.coerce.date(),
   // null for dividend/interest events (no quantity change)
-  quantity: z.number().int().optional(),
+  // Aceita fração (cotas) e 0: evento antigo gravado com 0 (o `.int()` antigo
+  // aceitava) tem de continuar editável. Negativo não.
+  quantity: z.number().nonnegative().optional(),
   // null for split events (no price)
   priceCents: z.number().int().optional(),
   totalCents: z.number().int().optional(),
@@ -27,7 +39,17 @@ export const updateAssetSchema = z.object({
   id: z.string().uuid(),
   ticker: z.string().min(1).max(20),
   name: z.string().min(1).max(200),
-  assetClass: z.enum(['br_equity', 'fii', 'etf', 'crypto', 'fixed_income', 'international']),
+  assetClass: z.enum([
+    'br_equity',
+    'fii',
+    'etf',
+    'crypto',
+    'fixed_income',
+    'international',
+    'fund',
+    'treasury',
+    'credit_fixed_income',
+  ]),
   currency: z.string().default('BRL'),
   notes: z.string().optional(),
 })

@@ -6,7 +6,7 @@
  *
  * This module is safe for client-side bundling (no DB runtime imports).
  *
- * Income event types: dividend, interest, amortization
+ * Income event types: dividend, jcp (balde de dividendos), interest, amortization
  * Non-income types (filtered out): buy, sell, split
  */
 
@@ -39,7 +39,8 @@ export interface IncomeMonth {
   eventCount: number
 }
 
-const INCOME_EVENT_TYPES = new Set(['dividend', 'interest', 'amortization'])
+// jcp é provento de ação como o dividendo — entra no mesmo balde.
+const INCOME_EVENT_TYPES = new Set(['dividend', 'jcp', 'interest', 'amortization'])
 
 /**
  * Pure function: aggregates income events by calendar month.
@@ -85,7 +86,7 @@ export function aggregateIncome(events: IncomeEvent[]): IncomeMonth[] {
     entry.totalCents += amount
     entry.eventCount += 1
 
-    if (event.eventType === 'dividend') {
+    if (event.eventType === 'dividend' || event.eventType === 'jcp') {
       entry.dividendCents += amount
     } else if (event.eventType === 'interest') {
       entry.interestCents += amount

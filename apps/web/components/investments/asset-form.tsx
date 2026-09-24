@@ -16,13 +16,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ASSET_CLASS_LABEL, type AssetClass } from '@/lib/investments/asset-labels'
+
+// ── Labels ─────────────────────────────────────────────────────────────────────
+
+const ASSET_CLASS_OPTIONS = Object.entries(ASSET_CLASS_LABEL) as [AssetClass, string][]
+const ASSET_CLASS_VALUES = ASSET_CLASS_OPTIONS.map(([value]) => value) as [AssetClass, ...AssetClass[]]
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
 const assetFormSchema = z.object({
   ticker: z.string().min(1, 'Ticker é obrigatório').max(20),
   name: z.string().min(1, 'Nome é obrigatório').max(200),
-  assetClass: z.enum(['br_equity', 'fii', 'etf', 'crypto', 'fixed_income', 'international'], {
+  assetClass: z.enum(ASSET_CLASS_VALUES, {
     required_error: 'Selecione a classe do ativo',
   }),
   currency: z.string().default('BRL'),
@@ -30,17 +36,6 @@ const assetFormSchema = z.object({
 })
 
 type AssetFormData = z.infer<typeof assetFormSchema>
-
-// ── Labels ─────────────────────────────────────────────────────────────────────
-
-const ASSET_CLASS_OPTIONS = [
-  { value: 'br_equity', label: 'Ações BR' },
-  { value: 'fii', label: 'FIIs' },
-  { value: 'etf', label: 'ETFs' },
-  { value: 'crypto', label: 'Cripto' },
-  { value: 'fixed_income', label: 'Renda Fixa' },
-  { value: 'international', label: 'Internacional' },
-] as const
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -117,9 +112,9 @@ export function AssetForm() {
                   <SelectValue placeholder="Selecione a classe do ativo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ASSET_CLASS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                  {ASSET_CLASS_OPTIONS.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectContent>

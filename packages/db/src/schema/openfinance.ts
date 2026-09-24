@@ -20,6 +20,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import { orgs } from './auth'
 import { accounts } from './finance'
+import { assets } from './investments'
 
 /** Um consentimento Open Finance. Sempre de um CPF. */
 export const openfinanceConnections = pgTable(
@@ -43,6 +44,11 @@ export const openfinanceConnections = pgTable(
     executionStatus: text('execution_status'),
     flags: text('flags').array().notNull().default([]),
     products: text('products').array().notNull().default([]),
+    /**
+     * Conta `brokerage` que recebe os eventos de investimento desta conexão
+     * ("Investimentos · <Instituição>"). Criada na primeira ingestão.
+     */
+    investmentAccountId: uuid('investment_account_id').references(() => accounts.id, { onDelete: 'set null' }),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -76,6 +82,8 @@ export const openfinanceResources = pgTable(
     status: text('status').notNull(),
     /** Conta espelho no floow. NULL até o usuário escolher vincular ou criar. */
     accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    /** Ativo espelho quando o recurso é um investimento. Paralelo a `accountId`. */
+    assetId: uuid('asset_id').references(() => assets.id, { onDelete: 'set null' }),
     /**
      * Rotulo curto para a tela, ex.: "Cartao · Platinum · final 1234". Sempre
      * preenchido: o ultimo elo da cadeia usa o fim do resource_id, entao duas
@@ -118,6 +126,9 @@ export const openfinanceResources = pgTable(
     uqAccount: uniqueIndex('uq_openfinance_resources_account')
       .on(table.accountId)
       .where(sql`account_id IS NOT NULL`),
+    uqAsset: uniqueIndex('uq_openfinance_resources_asset')
+      .on(table.assetId)
+      .where(sql`asset_id IS NOT NULL`),
     idxOrgType: index('idx_openfinance_resources_org_type').on(table.orgId, table.resourceType),
     idxConnection: index('idx_openfinance_resources_connection').on(table.connectionId),
   })

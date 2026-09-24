@@ -6,14 +6,9 @@ import { formatBRL } from '@floow/core-finance/src/balance'
 import { deletePortfolioEvent } from '@/lib/investments/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
+import { EVENT_TYPE_LABEL } from '@/lib/investments/asset-labels'
 import type { IncomeEventWithAsset } from '@/lib/investments/queries'
 import { formatarDia } from '@/lib/formatar-dia'
-
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  dividend: 'Dividendo',
-  interest: 'Juros',
-  amortization: 'Amortização',
-}
 
 type SerializedIncomeEvent = Omit<IncomeEventWithAsset, 'eventDate'> & {
   eventDate: string | Date
@@ -63,7 +58,7 @@ export function IncomeEventTable({ events }: IncomeEventTableProps) {
               <tr key={event.id} className="border-b last:border-0">
                 <td className="py-2 font-medium">{event.ticker}</td>
                 <td className="py-2 text-gray-600">
-                  {EVENT_TYPE_LABELS[event.eventType] ?? event.eventType}
+                  {EVENT_TYPE_LABEL[event.eventType as keyof typeof EVENT_TYPE_LABEL] ?? event.eventType}
                 </td>
                 <td className="py-2 text-gray-600">
                   {formatarDia(new Date(event.eventDate))}
@@ -72,21 +67,24 @@ export function IncomeEventTable({ events }: IncomeEventTableProps) {
                   {formatBRL(event.totalCents ?? 0)}
                 </td>
                 <td className="py-2">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/investments/events/${event.id}/edit`}
-                      className="text-xs text-gray-500 hover:text-gray-800 underline"
-                    >
-                      Editar
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteId(event.id)}
-                      className="text-xs text-red-500 hover:text-red-700 underline"
-                    >
-                      Excluir
-                    </button>
-                  </div>
+                  {/* Provento do banco é somente leitura: editar pela action manual criaria lançamento (D3). */}
+                  {event.source !== 'openfinance' && (
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/investments/events/${event.id}/edit`}
+                        className="text-xs text-gray-500 hover:text-gray-800 underline"
+                      >
+                        Editar
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(event.id)}
+                        className="text-xs text-red-500 hover:text-red-700 underline"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -100,7 +98,7 @@ export function IncomeEventTable({ events }: IncomeEventTableProps) {
           onClose={() => setConfirmDeleteId(null)}
           onConfirm={() => handleDelete(confirmDeleteId)}
           title="Remover evento"
-          description={`Tem certeza que deseja remover o evento de ${deletingEvent ? EVENT_TYPE_LABELS[deletingEvent.eventType] ?? deletingEvent.eventType : ''} de "${deletingEvent?.ticker ?? ''}"?`}
+          description={`Tem certeza que deseja remover o evento de ${deletingEvent ? EVENT_TYPE_LABEL[deletingEvent.eventType as keyof typeof EVENT_TYPE_LABEL] ?? deletingEvent.eventType : ''} de "${deletingEvent?.ticker ?? ''}"?`}
           confirmLabel="Remover"
           loading={deleting}
         />

@@ -27,7 +27,7 @@ interface ConnectWizardProps {
  * permissão de acesso contínuo a dado que o floow não usa seria cobrar do
  * usuário um consentimento maior do que o serviço prestado.
  */
-const PRODUCTS = [
+export const PRODUCTS = [
   {
     value: 'ACCOUNT',
     label: 'Conta corrente e poupança',
@@ -37,6 +37,11 @@ const PRODUCTS = [
     value: 'CREDIT_CARD_ACCOUNT',
     label: 'Cartão de crédito',
     hint: 'Compras, faturas e parcelas.',
+  },
+  {
+    value: 'INVESTMENTS',
+    label: 'Investimentos',
+    hint: 'Renda fixa, Tesouro, fundos e ações: posição e movimentações. Não mexe no seu extrato.',
   },
 ] as const
 

@@ -2,10 +2,14 @@ import { describe, it, expect } from 'vitest'
 import {
   assetClassEnum,
   eventTypeEnum,
+  assetSourceEnum,
   assets,
   portfolioEvents,
   assetPrices,
+  assetBankPositions,
+  assetPositionSnapshots,
 } from '../schema/investments'
+import { openfinanceConnections, openfinanceResources } from '../schema/openfinance'
 
 describe('investments schema: enums', () => {
   it('assetClassEnum exports with correct values', () => {
@@ -16,6 +20,9 @@ describe('investments schema: enums', () => {
       'crypto',
       'fixed_income',
       'international',
+      'fund',
+      'treasury',
+      'credit_fixed_income',
     ])
   })
 
@@ -27,6 +34,11 @@ describe('investments schema: enums', () => {
       'interest',
       'split',
       'amortization',
+      'come_cotas',
+      'jcp',
+      'maturity',
+      'tax',
+      'other',
     ])
   })
 })
@@ -94,5 +106,51 @@ describe('investments schema: inferred types exported', () => {
     expect(assetPrices).toBeDefined()
     expect(assetClassEnum).toBeDefined()
     expect(eventTypeEnum).toBeDefined()
+  })
+})
+
+describe('investments schema: Open Finance', () => {
+  it('asset_class inclui as classes novas', () => {
+    expect(assetClassEnum.enumValues).toEqual([
+      'br_equity', 'fii', 'etf', 'crypto', 'fixed_income', 'international',
+      'fund', 'treasury', 'credit_fixed_income',
+    ])
+  })
+
+  it('event_type inclui os tipos novos', () => {
+    expect(eventTypeEnum.enumValues).toEqual([
+      'buy', 'sell', 'dividend', 'interest', 'split', 'amortization',
+      'come_cotas', 'jcp', 'maturity', 'tax', 'other',
+    ])
+  })
+
+  it('asset_source separa manual de openfinance', () => {
+    expect(assetSourceEnum.enumValues).toEqual(['manual', 'openfinance'])
+  })
+
+  it('assets tem os metadados do banco e ticker anulável', () => {
+    for (const col of ['source', 'assetSubtype', 'isin', 'cnpj', 'issuerName', 'indexer', 'preFixedRate', 'indexerPercentage', 'dueDate']) {
+      expect((assets as unknown as Record<string, unknown>)[col]).toBeDefined()
+    }
+    expect(assets.ticker.notNull).toBe(false)
+  })
+
+  it('portfolio_events guarda a movimentação da Polp', () => {
+    for (const col of ['unitPrice', 'polpTransactionId', 'grossCents', 'netCents', 'incomeTaxCents']) {
+      expect((portfolioEvents as unknown as Record<string, unknown>)[col]).toBeDefined()
+    }
+    expect(portfolioEvents.quantity.getSQLType()).toBe('numeric(28, 10)')
+  })
+
+  it('asset_bank_positions existe com dinheiro em centavos', () => {
+    for (const col of ['assetId', 'orgId', 'referenceDate', 'quantity', 'unitPrice', 'grossCents', 'netCents', 'incomeTaxCents', 'iofCents', 'blockedCents', 'purchaseUnitPrice']) {
+      expect((assetBankPositions as unknown as Record<string, unknown>)[col]).toBeDefined()
+    }
+  })
+
+  it('snapshot marca custo parcial e openfinance_resources aponta para o ativo', () => {
+    expect(assetPositionSnapshots.costIsPartial).toBeDefined()
+    expect(openfinanceResources.assetId).toBeDefined()
+    expect(openfinanceConnections.investmentAccountId).toBeDefined()
   })
 })

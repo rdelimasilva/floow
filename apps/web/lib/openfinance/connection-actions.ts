@@ -25,16 +25,17 @@ import {
 import { requireIdentity } from '@/lib/auth/session'
 import { recordAudit } from '@/lib/audit/record'
 import { getOrgId } from '@/lib/finance/queries'
-import { accountsTag, transactionsTag, invalidateTag } from '@/lib/cache-tags'
+import { accountsTag, transactionsTag, investmentsTag, invalidateTag } from '@/lib/cache-tags'
 import { getCpfSalt, getPolpClient } from './config'
 import { hashCpf, isValidCpf, maskCpf } from './cpf'
 import { describePolpError } from './errors'
 import { deriveResourceIdentity } from './resource-label'
 import { decideResourceRouting } from './resource-routing'
-import { syncConnectionTransactions, type SyncSummary } from './sync'
+import { type SyncSummary } from './sync'
+import { sincronizarConexao } from './sincronizar-conexao'
 
-/** Os únicos produtos que esta fase sabe ingerir. */
-const SUPPORTED_PRODUCTS: PolpProduct[] = ['ACCOUNT', 'CREDIT_CARD_ACCOUNT']
+/** Os produtos que o floow sabe ingerir. */
+const SUPPORTED_PRODUCTS: PolpProduct[] = ['ACCOUNT', 'CREDIT_CARD_ACCOUNT', 'INVESTMENTS']
 
 /** Tipos de recurso que viram conta no floow. O resto é ignorado por ora. */
 const SUPPORTED_RESOURCE_TYPES = new Set(['ACCOUNT', 'CREDIT_CARD_ACCOUNT'])
@@ -308,7 +309,7 @@ export async function refreshBankConnection(connectionId: string): Promise<Conne
       displayLabel: openfinanceResources.displayLabel,
     })
     .from(openfinanceResources)
-    .where(eq(openfinanceResources.connectionId, connection.id))
+    .where(and(eq(openfinanceResources.connectionId, connection.id), isNull(openfinanceResources.assetId)))
 
   revalidatePath('/accounts')
 
@@ -465,7 +466,7 @@ export async function syncBankConnection(connectionId: string): Promise<SyncSumm
   }
 
   const summary = await comErroTraduzido(() =>
-    syncConnectionTransactions(db, getPolpClient(), {
+    sincronizarConexao(db, getPolpClient(), {
       id: connection.id,
       orgId: connection.orgId,
     }),
@@ -473,8 +474,10 @@ export async function syncBankConnection(connectionId: string): Promise<SyncSumm
 
   await invalidateTag(accountsTag(orgId))
   await invalidateTag(transactionsTag(orgId))
+  await invalidateTag(investmentsTag(orgId))
   revalidatePath('/accounts')
   revalidatePath('/transactions')
+  revalidatePath('/investments')
 
   return summary
 }
