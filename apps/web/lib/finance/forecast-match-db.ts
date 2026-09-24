@@ -2,7 +2,7 @@ import { and, eq, gte, isNotNull, isNull, lte, notExists, or, sql } from 'drizzl
 import { alias } from 'drizzle-orm/pg-core'
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { matchForecast, type ForecastCandidate } from '@floow/core-finance'
-import { condicaoDePernaPrevista, condicaoNaoEPernaPrevista } from '@/lib/openfinance/perna-prevista'
+import { condicaoDePernaPrevista, condicaoNaoEPernaPrevista, SUFIXO_PERNA_PREVISTA } from '@/lib/openfinance/perna-prevista'
 
 type Db = ReturnType<typeof getDb>
 
@@ -37,6 +37,22 @@ export function condicaoDePrevisaoSemPropostaAberta() {
   return notExists(
     sql`(select 1 from ${forecastMatchProposals} where ${forecastMatchProposals.forecastTransactionId} = ${transactions.id} and ${forecastMatchProposals.status} = 'pending')`,
   )
+}
+
+/**
+ * Verdadeiro quando a linha de `transactions` sendo filtrada NÃO é o
+ * realizado de uma proposta pendente contra perna prevista de transferência.
+ *
+ * Essa ponta já tem decisão esperando em Confirmar previsões. Se Classificar
+ * também a mostrasse, o usuário poderia marcá-la como transferência de novo —
+ * criando uma perna prevista na conta de origem, que casaria com a linha real
+ * de lá: dois pares cruzados para o mesmo dinheiro.
+ *
+ * Aliases `fmp`/`prev` porque a subconsulta relê `transactions`; sem alias,
+ * `"transactions"."id"` apontaria para a linha de dentro.
+ */
+export function condicaoForaDeParDeTransferenciaPendente() {
+  return sql`not exists (select 1 from ${forecastMatchProposals} fmp inner join ${transactions} prev on prev.id = fmp.forecast_transaction_id where fmp.realized_transaction_id = ${transactions.id} and fmp.status = 'pending' and prev.external_id like ${`%${SUFIXO_PERNA_PREVISTA}`})`
 }
 
 /**

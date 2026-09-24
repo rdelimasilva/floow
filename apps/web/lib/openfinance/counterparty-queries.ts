@@ -6,6 +6,7 @@ import { unstable_rethrow } from 'next/navigation'
 import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 import { requireIdentity } from '@/lib/auth/session'
 import { reviewGateTag } from '@/lib/cache-tags'
+import { condicaoForaDeParDeTransferenciaPendente } from '@/lib/finance/forecast-match-db'
 
 /**
  * O portão bloqueia o app inteiro no lugar do dashboard, só até a org zerar a
@@ -34,6 +35,8 @@ export async function getReviewGateStatus(orgId: string, userId: string): Promis
         eq(transactions.orgId, orgId),
         eq(transactions.reviewState, 'pending'),
         isNotNull(transactions.counterpartyId),
+        // Ponta com par de transferência pendente decide-se em Confirmar previsões.
+        condicaoForaDeParDeTransferenciaPendente(),
       ))
       .limit(1)
 
@@ -146,6 +149,8 @@ export async function contarLancamentosAClassificar(orgId: string): Promise<numb
         eq(transactions.orgId, orgId),
         eq(transactions.reviewState, 'pending'),
         isNotNull(transactions.counterpartyId),
+        // Ponta com par de transferência pendente decide-se em Confirmar previsões.
+        condicaoForaDeParDeTransferenciaPendente(),
       ))
 
     return Number(row?.total ?? 0)
@@ -168,7 +173,12 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
       })
       .from(transactions)
       .innerJoin(counterparties, eq(counterparties.id, transactions.counterpartyId))
-      .where(and(eq(transactions.orgId, orgId), eq(transactions.reviewState, 'pending')))
+      .where(and(
+        eq(transactions.orgId, orgId),
+        eq(transactions.reviewState, 'pending'),
+        // Ponta com par de transferência pendente decide-se em Confirmar previsões.
+        condicaoForaDeParDeTransferenciaPendente(),
+      ))
       .orderBy(transactions.date)
 
     const groups = new Map<string, PendingGroup>()

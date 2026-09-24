@@ -9,7 +9,7 @@ import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag, reviewGateTag } from '@/lib/cache-tags'
 import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transfer-leg'
-import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
+import { condicaoForaDeParDeTransferenciaPendente, criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 
 /**
  * O usuário confirma a natureza e a categoria de uma contraparte, e a
@@ -317,6 +317,8 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
           eq(transactions.orgId, orgId),
           eq(transactions.reviewState, 'pending'),
           isNotNull(transactions.counterpartyId),
+          // Ponta com par de transferência pendente decide-se em Confirmar previsões.
+          condicaoForaDeParDeTransferenciaPendente(),
         ),
       )
       .limit(1)
