@@ -4,6 +4,7 @@ import { getDb, accounts, transactions } from '@floow/db'
 import { matchCategory, type CategoryRule } from '@floow/core-finance'
 import type { ResolvedTransaction } from './resolve-counterparty'
 import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
+import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela } from './parcelas-previstas'
 
 /**
  * Gravação de uma página de transações já normalizadas e resolvidas.
@@ -68,6 +69,11 @@ export async function persistPage(
   const linkedAccountCache = new Map<string, boolean>()
   let updated = 0
 
+  // Só busca no banco quando a página tem parcela sem fatura fechada — é a
+  // única situação em que o dia de vencimento importa (`dataFinalDaParcela`).
+  const precisaDoDia = input.normalized.some((t) => t.purchaseDate && !t.billPostDate)
+  const diaDeVencimento = precisaDoDia ? await carregarDiaDeVencimento(db, input.orgId, input.accountId) : null
+
   for (const tx of input.normalized) {
     // Contraparte (Nível 2) decide sozinha, confirmada ou pendente — nos dois
     // casos `tx.categoryId` já é a resposta final e não pode ser sobrescrita
@@ -79,7 +85,9 @@ export async function persistPage(
         : (matchCategory(tx.description, input.rules) ??
            (tx.categoryRef ? (input.categoryByRef.get(tx.categoryRef) ?? null) : null))
 
-    const date = new Date(`${tx.date}T12:00:00Z`)
+    const dataFinal = dataFinalDaParcela(tx, diaDeVencimento)
+    const date = new Date(`${dataFinal}T12:00:00Z`)
+    const purchaseDate = tx.purchaseDate ? new Date(`${tx.purchaseDate}T12:00:00Z`) : null
     const existingId = existingByExternalId.get(tx.externalId)
 
     if (existingId) {
@@ -98,6 +106,10 @@ export async function persistPage(
           billForecastMonth: tx.billForecastMonth,
           installmentNumber: tx.installmentNumber,
           installmentTotal: tx.installmentTotal,
+          purchaseDate,
+          // A data só corrige enquanto a linha está fora do saldo — uma vez
+          // aplicada, mexer nela exigiria desfazer o efeito já contado.
+          date: sql`CASE WHEN ${transactions.balanceApplied} THEN ${transactions.date} ELSE ${dataFinal}::date END`,
           // Categoria manual do usuário nunca é sobrescrita (mesma regra da v1.1).
           ...(categoryId ? { categoryId: sql`COALESCE(${transactions.categoryId}, ${categoryId})` } : {}),
         })
@@ -108,6 +120,44 @@ export async function persistPage(
 
       updated++
       continue
+    }
+
+    // Parcela real que casa com uma previsão já gravada ocupa a linha dela
+    // em vez de inserir duplicada — a previsão nunca esteve no saldo, então
+    // só a real (se já venceu) soma.
+    if (tx.purchaseDate && tx.installmentTotal && tx.installmentNumber) {
+      const previsaoId = await acharPrevisao(db, input.orgId, input.accountId, {
+        purchaseDate: tx.purchaseDate,
+        installmentTotal: tx.installmentTotal,
+        installmentNumber: tx.installmentNumber,
+      })
+      if (previsaoId) {
+        const campos = camposDaOcupacao(
+          { externalId: tx.externalId, amountCents: tx.amountCents, description: tx.description, date: dataFinal, categoryId },
+          new Date(),
+        )
+        await db.transaction(async (dbTx) => {
+          await dbTx
+            .update(transactions)
+            .set({
+              ...campos,
+              billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
+              billForecastMonth: tx.billForecastMonth,
+              categoryRef: tx.categoryRef,
+              payeeMcc: tx.payeeMcc,
+            })
+            .where(and(eq(transactions.id, previsaoId), eq(transactions.orgId, input.orgId)))
+          // A previsão nunca esteve no saldo; a real entra uma vez, se já venceu.
+          if (campos.balanceApplied) {
+            await dbTx
+              .update(accounts)
+              .set({ balanceCents: sql`balance_cents + ${tx.amountCents}` })
+              .where(eq(accounts.id, input.accountId))
+          }
+        })
+        updated++
+        continue
+      }
     }
 
     // Lançamento agendado ainda não aconteceu: entra para o usuário ver, mas
@@ -154,6 +204,7 @@ export async function persistPage(
       billForecastMonth: tx.billForecastMonth,
       installmentNumber: tx.installmentNumber,
       installmentTotal: tx.installmentTotal,
+      purchaseDate,
       counterpartyId: tx.counterpartyId,
       counterpartyTaxId: tx.counterpartyTaxId,
       counterpartyName: tx.counterpartyName,
