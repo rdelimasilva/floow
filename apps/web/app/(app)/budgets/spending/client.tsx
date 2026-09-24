@@ -166,7 +166,7 @@ export function SpendingClient({
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Meta de Gastos" description="Orçado vs Realizado por categoria">
+      <PageHeader title="Plano de Gastos" description="Orçado vs Realizado por categoria">
         <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" /> Novo lançamento
         </Button>

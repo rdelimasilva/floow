@@ -20,7 +20,7 @@ const COMMANDS: CommandItem[] = [
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight, keywords: ['extrato', 'lancamentos'] },
   { label: 'Importar Extrato', href: '/transactions/import', icon: ArrowLeftRight, keywords: ['importar', 'ofx', 'csv', 'banco'] },
   { label: 'Classificar lançamentos', href: '/transactions/review', icon: ArrowLeftRight, keywords: ['revisar', 'contraparte', 'fila', 'pendente', 'classificar'] },
-  { label: 'Meta de Gastos', href: '/budgets/spending', icon: PiggyBank, keywords: ['orcamento', 'gastos', 'limite'] },
+  { label: 'Plano de Gastos', href: '/budgets/spending', icon: PiggyBank, keywords: ['orcamento', 'gastos', 'limite', 'meta'] },
   { label: 'Meta de Investimentos', href: '/budgets/investing', icon: Target, keywords: ['aporte', 'investir', 'meta'] },
   { label: 'Investimentos', href: '/investments', icon: TrendingUp, keywords: ['carteira', 'portfolio', 'acoes', 'fundos'] },
   { label: 'Ativos Imobilizados', href: '/fixed-assets', icon: Building2, keywords: ['imovel', 'carro', 'bens'] },

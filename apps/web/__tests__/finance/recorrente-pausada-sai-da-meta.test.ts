@@ -49,7 +49,7 @@ describe('recorrente pausada e a meta de gasto', () => {
     expect(new PgDialect().sqlToQuery(condicao!).sql).toContain('"recurring_templates"."is_active" = ')
   })
 
-  it('pausar invalida o cache da Meta de Gastos', async () => {
+  it('pausar invalida o cache da Plano de Gastos', async () => {
     const fd = new FormData()
     fd.set('id', 'tpl-1')
     await toggleRecurringActive(fd)

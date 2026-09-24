@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import React from 'react'
 
 /**
- * O lançamento de Meta de Gastos e de Investimentos abre no mesmo molde do diálogo de Recorrentes:
+ * O lançamento de Plano de Gastos e de Investimentos abre no mesmo molde do diálogo de Recorrentes:
  * modal, com bloco de Duração e um resumo do que vai ser criado.
  */
 
@@ -39,7 +39,7 @@ function renderDialog(onClose = vi.fn()) {
   return onClose
 }
 
-describe('diálogo de novo lançamento em Meta de Gastos', () => {
+describe('diálogo de novo lançamento em Plano de Gastos', () => {
   beforeEach(() => createBudgetEntry.mockClear())
 
   const inicio = () => document.querySelectorAll('input[type="month"]')[0] as HTMLInputElement

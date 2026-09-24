@@ -2,7 +2,7 @@
  * Parcela de cartão que cai no mês e ainda não venceu. Já é certa — o banco
  * cobrou a compra —, mas só vira gasto no vencimento da fatura, quando
  * `applyDueBankTransactions` a aplica. Até lá aparece como "a vencer" na
- * Meta de Gastos, e nunca nos dois lugares.
+ * Plano de Gastos, e nunca nos dois lugares.
  */
 export interface ParcelaAVencer {
   categoryId: string
