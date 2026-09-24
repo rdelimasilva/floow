@@ -1,6 +1,7 @@
 import { getDb, openfinanceConnections } from '@floow/db'
 import { eq } from 'drizzle-orm'
-import { sincronizarConexao } from './sincronizar-conexao'
+import { syncConnectionTransactions } from './sync'
+import { sincronizarInvestimentosDaConexao } from './sincronizar-conexao'
 import { getPolpClient } from './config'
 
 export interface ResumoDaImportacaoAgendada {
@@ -34,6 +35,11 @@ export interface ResumoDaImportacaoAgendada {
  * Sequencial de propósito: a Polp é uma credencial só para o floow inteiro
  * (ver `config.ts`), e disparar todas as conexões de uma vez convida o 429 que
  * o cliente teria de segurar sozinho.
+ *
+ * Duas voltas: primeiro o extrato de TODAS as conexões, depois os
+ * investimentos. Investimento faz várias chamadas por ativo; intercalado,
+ * um timeout do disparo no meio deixaria extratos de outras orgs sem entrar.
+ * Falha de investimento só vai para o log — não é falha de extrato.
  */
 export async function importarLancamentosDeTodasAsConexoes(): Promise<ResumoDaImportacaoAgendada> {
   const db = getDb()
@@ -58,7 +64,7 @@ export async function importarLancamentosDeTodasAsConexoes(): Promise<ResumoDaIm
 
   for (const conexao of conexoes) {
     try {
-      const parcial = await sincronizarConexao(db, client, {
+      const parcial = await syncConnectionTransactions(db, client, {
         id: conexao.id,
         orgId: conexao.orgId,
       })
@@ -72,6 +78,18 @@ export async function importarLancamentosDeTodasAsConexoes(): Promise<ResumoDaIm
       // a única pista que sobra, já que ninguém está olhando a tela.
       console.error(
         `[openfinance] importacao agendada falhou para conexao=${conexao.id} org=${conexao.orgId}:`,
+        error,
+      )
+    }
+  }
+
+  for (const conexao of conexoes) {
+    try {
+      await sincronizarInvestimentosDaConexao(db, client, { id: conexao.id, orgId: conexao.orgId })
+    } catch (error) {
+      // Já isolado lá dentro; isto só segura o inesperado para não parar a volta.
+      console.error(
+        `[openfinance] investimentos agendados falharam para conexao=${conexao.id} org=${conexao.orgId}:`,
         error,
       )
     }
