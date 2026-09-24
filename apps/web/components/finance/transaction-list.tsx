@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
-import { deleteTransaction, toggleIgnoreTransaction, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/actions'
+import { deleteTransaction, toggleIgnoreTransaction, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/transaction-actions'
 import { cancelRecurring } from '@/lib/finance/recurring-cancel'
 import { setTransactionAffectsCashFlow } from '@/lib/finance/cash-flow-actions'
 import { nextAffectsCashFlow } from '@/lib/finance/affects-cash-flow-cycle'

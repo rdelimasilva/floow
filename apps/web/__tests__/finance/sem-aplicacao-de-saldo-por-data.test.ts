@@ -35,7 +35,9 @@ describe('aplicação de saldo por data', () => {
   it('não existe mais reconcileRecurringBalances', () => {
     // A declaração, não a palavra: o comentário que ficou no lugar dela
     // explica por que o caminho foi removido, e precisa continuar lá.
-    expect(ler('lib/finance/actions.ts')).not.toContain(
+    // Migrou de `lib/finance/actions.ts` para `transaction-actions.ts` quando
+    // aquele arquivo foi dividido (500 linhas por arquivo, CLAUDE.md).
+    expect(ler('lib/finance/transaction-actions.ts')).not.toContain(
       'function reconcileRecurringBalances',
     )
   })

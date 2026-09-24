@@ -79,8 +79,6 @@ describe('ciclo do botão', () => {
   })
 })
 
-vi.mock('@/lib/finance/actions', () => ({}))
-
 const { TransactionDesktopRow } = await import('@/components/finance/transaction-display-row')
 
 const ACOES = {

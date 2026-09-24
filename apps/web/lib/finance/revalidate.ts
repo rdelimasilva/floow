@@ -3,6 +3,7 @@ import {
   budgetSpendingTag,
   categoriesTag,
   futureTransactionsTag,
+  investmentsTag,
   patrimonyHistoryTag,
   recentTransactionsTag,
   snapshotsTag,
@@ -42,6 +43,18 @@ export function revalidateAccountData(orgId: string) {
 
 export function revalidateCategoryData(orgId: string) {
   invalidateTag(categoriesTag(orgId))
+}
+
+/**
+ * O valor da carteira de investimentos mudou.
+ *
+ * Migrada de `actions.ts`: função definida ali mas nunca chamada — os
+ * pontos que invalidam investimentos vivem em `lib/investments/actions.ts`,
+ * com cópia própria. Segue não usada aqui; existe para não perder o símbolo
+ * na divisão do arquivo.
+ */
+export function revalidateInvestmentData(orgId: string) {
+  invalidateTag(investmentsTag(orgId))
 }
 
 export function revalidateSnapshotData(orgId: string) {

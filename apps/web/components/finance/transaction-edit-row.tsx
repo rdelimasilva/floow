@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
-import { updateTransaction } from '@/lib/finance/actions'
+import { updateTransaction } from '@/lib/finance/transaction-actions'
 import { createCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'

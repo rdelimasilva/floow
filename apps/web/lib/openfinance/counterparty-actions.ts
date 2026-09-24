@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { and, eq, isNotNull, notInArray, sql } from 'drizzle-orm'
 import { getDb, orgs, counterparties, transactions, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
-import { assertAccountOwnership } from '@/lib/finance/actions'
+import { assertAccountOwnership } from '@/lib/finance/account-actions'
 import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag, reviewGateTag } from '@/lib/cache-tags'
@@ -106,7 +106,7 @@ async function applyTransferSingle(
     throw new Error('A conta da transferência não pode ser a mesma conta do lançamento.')
   }
 
-  // Mesma cerca do fluxo manual (`lib/finance/actions.ts`): garante que a
+  // Mesma cerca do fluxo manual (`lib/finance/account-actions.ts`): garante que a
   // conta de destino é desta org antes de qualquer escrita — sem isso um
   // `transferAccountId` de outra org gravaria linha e creditaria saldo
   // cross-tenant (ver docs/superpowers/specs/2026-09-07-counterparty-transfer-account-design.md §7).
@@ -243,7 +243,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
 
     if (input.nature === 'transfer') {
       // Mesmo cast de `assertAccountOwnership(tx as unknown as Db, ...)` em
-      // `lib/finance/actions.ts`: o `tx` de dentro do callback não é
+      // `lib/finance/account-actions.ts`: o `tx` de dentro do callback não é
       // diretamente atribuível ao tipo cheio de `getDb()`.
       reclassifiedCount += await applyTransferBatch(tx as unknown as Db, orgId, {
         counterpartyId: input.counterpartyId,

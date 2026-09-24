@@ -83,7 +83,7 @@ vi.mock('@/lib/finance/revalidate', () => ({
   revalidateCategoryData: vi.fn(),
 }))
 
-const { updateTransaction, toggleIgnoreTransaction } = await import('@/lib/finance/actions')
+const { updateTransaction, toggleIgnoreTransaction } = await import('@/lib/finance/transaction-actions')
 
 const TX = '44444444-4444-4444-8444-444444444444'
 const CONTA = '11111111-1111-4111-8111-111111111111'
