@@ -49,6 +49,17 @@ export const openfinanceConnections = pgTable(
      * ("Investimentos · <Instituição>"). Criada na primeira ingestão.
      */
     investmentAccountId: uuid('investment_account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    /**
+     * Conexão guiada (migration 00056): o destino de cada produto, escolhido
+     * ANTES da autorização. Conta existente (id) OU nome da conta a criar.
+     * Os quatro nulos = conexão antiga, vínculo manual como sempre foi.
+     */
+    targetAccountId: uuid('target_account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    targetCardAccountId: uuid('target_card_account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    targetAccountNewName: text('target_account_new_name'),
+    targetCardNewName: text('target_card_new_name'),
+    /** Quando o vínculo automático rodou. Preenchido uma vez: nunca roda de novo. */
+    autoLinkDoneAt: timestamp('auto_link_done_at', { withTimezone: true }),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

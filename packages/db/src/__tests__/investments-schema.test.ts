@@ -154,3 +154,13 @@ describe('investments schema: Open Finance', () => {
     expect(openfinanceConnections.investmentAccountId).toBeDefined()
   })
 })
+
+describe('openfinance schema: conexão guiada', () => {
+  it('guarda o destino escolhido antes da autorização', () => {
+    expect(openfinanceConnections.targetAccountId.name).toBe('target_account_id')
+    expect(openfinanceConnections.targetCardAccountId.name).toBe('target_card_account_id')
+    expect(openfinanceConnections.targetAccountNewName.name).toBe('target_account_new_name')
+    expect(openfinanceConnections.targetCardNewName.name).toBe('target_card_new_name')
+    expect(openfinanceConnections.autoLinkDoneAt.name).toBe('auto_link_done_at')
+  })
+})
