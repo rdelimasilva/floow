@@ -25,8 +25,21 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   const sp = await searchParams
   const orgId = await getOrgId()
 
-  const account = await getAccountById(orgId, accountId)
-  if (!account) notFound()
+  // A conta, as categorias e a lista de contas não dependem da página: saem
+  // junto com a contagem, e `notFound()` decide quando conta e contagem voltam.
+  const accountP = getAccountById(orgId, accountId)
+  const categoriesP = getCategories(orgId)
+  // Todas as contas da org, e não só esta: a edição inline monta o dropdown
+  // de conta de destino a partir deste prop, filtrando a conta do próprio
+  // lançamento. Passando só a conta atual, o filtro esvaziava a lista e o
+  // select de destino ficava sem nenhuma opção. A lista de lançamentos
+  // continua restrita a esta conta pelo `filters.accountId`, que é outra
+  // coisa.
+  const allAccountsP = getAccounts(orgId)
+  // Falha enquanto outra espera não vira "unhandled rejection"; o erro sobe
+  // no await de cada uma.
+  categoriesP.catch(() => {})
+  allAccountsP.catch(() => {})
 
   const filters = {
     accountId,
@@ -41,14 +54,19 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   // O extrato da conta corre do mais antigo para o mais novo, como o de
   // transações, e abre na última página — onde está a data mais recente.
   // Com futuros ligados, abre na página de hoje, não na da parcela mais distante.
-  const [totalParaAbrir, totalAteHoje] = sp.page
-    ? [0, undefined]
-    : await Promise.all([
-        getTransactionCount(orgId, filters),
-        filters.includeFuture
-          ? getTransactionCount(orgId, filtrosAteHoje(filters, hojeEmSaoPaulo()))
-          : undefined,
-      ])
+  const [account, [totalParaAbrir, totalAteHoje]] = await Promise.all([
+    accountP,
+    sp.page
+      ? ([0, undefined] as const)
+      : Promise.all([
+          getTransactionCount(orgId, filters),
+          filters.includeFuture
+            ? getTransactionCount(orgId, filtrosAteHoje(filters, hojeEmSaoPaulo()))
+            : undefined,
+        ]),
+  ])
+  if (!account) notFound()
+
   const page = paginaQueAbre({
     pageParam: sp.page,
     totalCount: totalParaAbrir,
@@ -58,14 +76,8 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   const [{ transactions, totalCount }, categories, allAccounts] = await Promise.all([
     getTransactionsWithCount(orgId, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, ...filters }),
-    getCategories(orgId),
-    // Todas as contas da org, e não só esta: a edição inline monta o dropdown
-    // de conta de destino a partir deste prop, filtrando a conta do próprio
-    // lançamento. Passando só a conta atual, o filtro esvaziava a lista e o
-    // select de destino ficava sem nenhuma opção. A lista de lançamentos
-    // continua restrita a esta conta pelo `filters.accountId`, que é outra
-    // coisa.
-    getAccounts(orgId),
+    categoriesP,
+    allAccountsP,
   ])
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)

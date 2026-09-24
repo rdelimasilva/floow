@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { debts, transactions } from '@floow/db'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, inArray, sql } from 'drizzle-orm'
 import { withUserDb } from '@/lib/db/rls'
 
 // Os filtros por orgId continuam explícitos de propósito. O RLS já isola, mas
@@ -42,31 +42,46 @@ export async function getDebtProgress(orgId: string, categoryId: string) {
   return { paidCount: Number(row.paidCount), paidCents: Number(row.paidCents) }
 }
 
-/** Returns payment progress for multiple debts at once (batch). */
+/**
+ * Dívidas ativas com o progresso de pagamento, numa transação só.
+ *
+ * Eram duas `withUserDb` em sequência — cada uma abre e fecha transação no
+ * pooler — e a soma agrupava toda categoria de despesa da org para usar só as
+ * das dívidas. Agora o progresso filtra pelas categorias das dívidas.
+ */
 export async function getDebtsWithProgress(orgId: string) {
-  const allDebts = await getDebts(orgId)
-  if (allDebts.length === 0) return []
+  const { allDebts, progressRows } = await withUserDb(async (tx) => {
+    const allDebts = await tx
+      .select()
+      .from(debts)
+      .where(and(eq(debts.orgId, orgId), eq(debts.isActive, true)))
+      .orderBy(debts.startDate)
+    if (allDebts.length === 0) return { allDebts, progressRows: [] }
 
-  const progressRows = await withUserDb((tx) =>
-    tx.select({
-      categoryId: transactions.categoryId,
-      paidCount: sql<number>`COUNT(*)`.as('paid_count'),
-      // Despesas são persistidas negativas (actions.ts). -x em vez de ABS(x) dá o
-      // mesmo resultado para elas e abate corretamente um estorno importado como
-      // expense positivo, em vez de contá-lo como pagamento.
-      paidCents: sql<number>`COALESCE(SUM(-${transactions.amountCents}), 0)`.as('paid_cents'),
-    })
+    const categoriasDasDividas = [...new Set(allDebts.map((d) => d.categoryId))]
+    const progressRows = await tx
+      .select({
+        categoryId: transactions.categoryId,
+        paidCount: sql<number>`COUNT(*)`.as('paid_count'),
+        // Despesas são persistidas negativas (actions.ts). -x em vez de ABS(x) dá o
+        // mesmo resultado para elas e abate corretamente um estorno importado como
+        // expense positivo, em vez de contá-lo como pagamento.
+        paidCents: sql<number>`COALESCE(SUM(-${transactions.amountCents}), 0)`.as('paid_cents'),
+      })
       .from(transactions)
       .where(
         and(
           eq(transactions.orgId, orgId),
+          inArray(transactions.categoryId, categoriasDasDividas),
           eq(transactions.type, 'expense'),
           eq(transactions.reviewState, 'confirmed'),
           eq(transactions.isIgnored, false),
         ),
       )
-      .groupBy(transactions.categoryId),
-  )
+      .groupBy(transactions.categoryId)
+    return { allDebts, progressRows }
+  })
+  if (allDebts.length === 0) return []
 
   const progressByCategory = new Map(
     progressRows.map((row) => [

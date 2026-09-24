@@ -8,11 +8,10 @@ import { PageHeader } from '@/components/ui/page-header'
 
 export default async function AccountsPage() {
   const orgId = await getOrgId()
-  const accounts = await getAccounts(orgId)
   // O saldo aqui e derivado da soma dos lancamentos; o banco tem o proprio
   // numero. Conferir os dois e o que pega o lancamento duplicado, o que
   // faltou, e o erro nosso — sem precisar saber de antemao qual foi.
-  const saldosDoBanco = await getSaldosDoBanco(orgId)
+  const [accounts, saldosDoBanco] = await Promise.all([getAccounts(orgId), getSaldosDoBanco(orgId)])
   const conferidas = accounts.map((a) => ({
     accountId: a.id,
     nome: a.name,

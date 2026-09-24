@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { getOrgId, getAccounts } from '@/lib/finance/queries'
+import { getOrgId } from '@/lib/finance/queries'
 import { PageHeader } from '@/components/ui/page-header'
 import {
   getPlanningPortfolioSummary,
@@ -24,17 +24,9 @@ async function SuccessionContent({ orgId }: { orgId: string }) {
     ? await getHeirs(orgId, successionPlan.id)
     : []
 
-  // Compute liquidAssetsCents: prefer latest patrimony snapshot, else sum non-credit-card accounts
-  let liquidAssetsCents = 0
-  if (snapshots.length > 0) {
-    liquidAssetsCents = snapshots[snapshots.length - 1].liquidAssetsCents
-  } else {
-    const accounts = await getAccounts(orgId)
-    // We don't have balance here from accounts alone — use 0 as safe fallback
-    // The snapshot will be populated once user triggers a snapshot update
-    liquidAssetsCents = 0
-    void accounts // suppress unused warning
-  }
+  // Sem snapshot de patrimônio ainda, o líquido fica 0 até o primeiro ser gerado.
+  const liquidAssetsCents =
+    snapshots.length > 0 ? snapshots[snapshots.length - 1].liquidAssetsCents : 0
 
   return (
     <SuccessionForm
