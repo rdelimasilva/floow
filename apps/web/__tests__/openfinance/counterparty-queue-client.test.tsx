@@ -16,8 +16,13 @@ vi.mock('@/lib/openfinance/counterparty-actions', () => ({
   confirmCounterparty: vi.fn(async () => ({ reclassified: 2 })),
 }))
 
+// vi.hoisted é necessário: a factory de vi.mock sobe para o topo do arquivo,
+// antes de qualquer `const` — sem isso, `toastMock` ainda não existiria no
+// momento em que a factory roda (mesmo racional de auth/session.test.ts).
+const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }))
+
 vi.mock('@/components/ui/toast', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: toastMock }),
 }))
 
 vi.mock('@/components/ui/select', () => ({
@@ -61,6 +66,7 @@ const ACCOUNT_OPTIONS = [
 
 beforeEach(() => {
   vi.mocked(confirmCounterparty).mockClear()
+  toastMock.mockClear()
 })
 
 describe('CounterpartyQueueClient — exceção por lançamento', () => {
@@ -298,5 +304,82 @@ describe('CounterpartyQueueClient — natureza já decidida pelo banco', () => {
     expect(confirmCounterparty).toHaveBeenCalledWith(expect.objectContaining({
       counterpartyId: 'cp-aplic', nature: 'transfer', categoryId: null, transferAccountId: 'conta-destino',
     }))
+  })
+})
+
+describe('CounterpartyQueueClient — CPF próprio', () => {
+  const grupoBase = {
+    counterpartyId: 'cp-titular',
+    displayName: 'Fulano da Silva',
+    keyType: 'tax_id' as const,
+    count: 2,
+    totalCents: -50_000,
+    ehCpfProprio: true,
+  }
+  const itemBase = {
+    date: '2026-01-05',
+    description: 'Pix enviado Fulano da Silva',
+    amountCents: -25_000,
+    accountId: 'conta-origem',
+  }
+
+  it('sem conta de grupo, lançamentos abertos e sugestão pré-selecionada', async () => {
+    const grupo = {
+      ...grupoBase,
+      items: [
+        { ...itemBase, id: 'i1', type: 'transfer' as const, sugestaoContaId: 'nu' },
+        { ...itemBase, id: 'i2', type: 'transfer' as const, sugestaoContaId: null },
+      ],
+    }
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending: [grupo],
+        confirmed: [],
+        categoryOptions: [],
+        accountOptions: [{ id: 'nu', name: 'NU' }, { id: 'itau', name: 'Itaú' }],
+      })
+    )
+
+    // `getByText` já lança se não achar — a asserção é a própria query (mesmo
+    // racional do teste de "sinal do valor" acima).
+    screen.getByText(/Pix para você mesmo/)
+    // Grupo de CPF próprio já nasce expandido — sem clicar em "ver lançamentos".
+    expect(screen.getByTestId('item-i1').textContent).toContain('NU')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    })
+
+    expect(confirmCounterparty).not.toHaveBeenCalled()
+    expect(toastMock).toHaveBeenCalledWith('Escolha a conta de cada lançamento.', 'error')
+  })
+})
+
+describe('CounterpartyQueueClient — aviso de descrição genérica', () => {
+  it('transferência por descrição mostra o aviso de alcance', () => {
+    const grupo = {
+      counterpartyId: 'cp-resgate',
+      displayName: 'Resgate CDB DI',
+      keyType: 'description' as const,
+      count: 1,
+      totalCents: 100_000,
+      ehCpfProprio: false,
+      items: [{
+        id: 'tx-resgate-cdb', date: '2026-01-05', description: 'Resgate CDB DI',
+        amountCents: 100_000, accountId: 'conta-origem', type: 'transfer' as const, sugestaoContaId: null,
+      }],
+    }
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending: [grupo],
+        confirmed: [],
+        categoryOptions: [],
+        accountOptions: [],
+      })
+    )
+
+    screen.getByText('Vale para todo lançamento com o texto "Resgate CDB DI" nesta conta.')
   })
 })
