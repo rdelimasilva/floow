@@ -72,6 +72,15 @@ export async function vincularAplicacoesOrfas(
 ): Promise<number> {
   if (!contaInvestimentoId) return 0
 
+  // A perna só é neutra no patrimônio porque a conta é `brokerage`. Conta que
+  // mudou de tipo (antes da trava da 00055) somaria o dinheiro duas vezes.
+  const [conta] = await db
+    .select({ type: accounts.type })
+    .from(accounts)
+    .where(and(eq(accounts.id, contaInvestimentoId), eq(accounts.orgId, conexao.orgId)))
+    .limit(1)
+  if (conta?.type !== 'brokerage') return 0
+
   // Só contas de extrato desta conexão (recurso ACCOUNT), nunca de outra.
   const contasDaConexao = db
     .select({ accountId: openfinanceResources.accountId })

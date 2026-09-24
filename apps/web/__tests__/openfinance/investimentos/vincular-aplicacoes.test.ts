@@ -53,11 +53,13 @@ describe('montarVinculos (puro)', () => {
 })
 
 /** Driver falso: grava o SQL e responde por prefixo. Transação roda direto. */
-function dbFalso(resposta: (sql: string, params: unknown[]) => unknown[][]) {
+function dbFalso(resposta: (sql: string, params: unknown[]) => unknown[][], tipoDaConta = 'brokerage') {
   const consultas: Array<{ sql: string; params: unknown[] }> = []
   const db = drizzle(async (sql, params) => {
     const s = sql.toLowerCase()
     consultas.push({ sql: s, params })
+    // Tipo da conta de investimentos: a guarda antes de qualquer vínculo.
+    if (s.startsWith('select "type" from "accounts"')) return { rows: tipoDaConta ? [[tipoDaConta]] : [] }
     return { rows: resposta(s, params) }
   }) as unknown as { transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown> }
   db.transaction = (fn) => fn(db)
@@ -72,8 +74,8 @@ describe('vincularAplicacoesOrfas (SQL)', () => {
     const { db, consultas } = dbFalso(() => [])
     const r = await vincularAplicacoesOrfas(db, { id: 'con-1', orgId: 'org-a' }, 'conta-inv')
     expect(r).toBe(0)
-    expect(consultas).toHaveLength(1)
-    const [sel] = consultas
+    expect(consultas).toHaveLength(2)
+    const [, sel] = consultas
     expect(sel.sql).toContain('"polp_type" in')
     expect(sel.sql).toContain('"transfer_account_id" is null')
     expect(sel.sql).toContain('"is_ignored" =')
@@ -122,5 +124,19 @@ describe('vincularAplicacoesOrfas (SQL)', () => {
     })
     expect(await vincularAplicacoesOrfas(db, { id: 'con-1', orgId: 'org-a' }, 'conta-inv')).toBe(1)
     expect(consultas.some((c) => c.sql.startsWith('update "accounts"'))).toBe(false)
+  })
+
+  it('conta de investimentos que não é brokerage: não liga nada', async () => {
+    // Se a conta virou corrente, a perna somaria o dinheiro duas vezes no patrimônio.
+    const { db, consultas } = dbFalso(() => [linha('a', -50_000)], 'checking')
+    expect(await vincularAplicacoesOrfas(db, { id: 'con-1', orgId: 'org-a' }, 'conta-inv')).toBe(0)
+    expect(consultas).toHaveLength(1)
+    expect(consultas[0].params).toEqual(expect.arrayContaining(['conta-inv', 'org-a']))
+  })
+
+  it('conta de investimentos que não existe (ou é de outra org): não liga nada', async () => {
+    const { db, consultas } = dbFalso(() => [linha('a', -50_000)], '')
+    expect(await vincularAplicacoesOrfas(db, { id: 'con-1', orgId: 'org-a' }, 'conta-inv')).toBe(0)
+    expect(consultas).toHaveLength(1)
   })
 })

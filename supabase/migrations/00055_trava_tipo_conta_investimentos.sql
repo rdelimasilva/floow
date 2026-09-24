@@ -30,7 +30,21 @@ $$;
 
 DROP TRIGGER IF EXISTS trg_trava_tipo_conta_investimentos ON public.accounts;
 
+-- Conta de investimentos que já mudou de tipo antes da trava: volta para
+-- brokerage. Sem isto ela ficaria travada no tipo errado — e o vínculo das
+-- aplicações (que só liga em conta brokerage) nunca a alcançaria. Depois do
+-- DROP TRIGGER: numa segunda execução, a trava antiga não barra a correção.
+UPDATE public.accounts
+SET type = 'brokerage'
+WHERE id IN (
+  SELECT investment_account_id FROM public.openfinance_connections
+  WHERE investment_account_id IS NOT NULL
+)
+AND type <> 'brokerage';
+
+-- WHEN: só dispara quando o tipo muda — atualização de saldo e nome não paga a consulta.
 CREATE TRIGGER trg_trava_tipo_conta_investimentos
   BEFORE UPDATE ON public.accounts
   FOR EACH ROW
+  WHEN (OLD.type IS DISTINCT FROM NEW.type)
   EXECUTE FUNCTION public.trava_tipo_conta_investimentos();

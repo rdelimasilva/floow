@@ -37,6 +37,18 @@ describe('migration 00055', () => {
     expect(SQL).toMatch(/investment_account_id = old\.id/)
     expect(SQL).toContain('a conta de investimentos do open finance não pode mudar de tipo.')
   })
+
+  it('normaliza para brokerage a conta de investimentos que já mudou de tipo, antes do trigger', () => {
+    const normaliza = SQL.search(/update public\.accounts\s+set type = 'brokerage'/)
+    expect(normaliza).toBeGreaterThan(-1)
+    expect(SQL).toMatch(/select investment_account_id from public\.openfinance_connections\s+where investment_account_id is not null/)
+    expect(SQL).toMatch(/and type <> 'brokerage'/)
+    expect(normaliza).toBeLessThan(SQL.indexOf('create trigger'))
+  })
+
+  it('o trigger só dispara quando o tipo muda (saldo e nome passam direto)', () => {
+    expect(SQL).toMatch(/for each row\s+when \(old\.type is distinct from new\.type\)\s+execute function/)
+  })
 })
 
 describe('AccountCard', () => {
