@@ -160,3 +160,44 @@ describe('computePosition', () => {
     expect(result.quantityHeld).toBe(100)
   })
 })
+
+describe('computePosition: tipos vindos do Open Finance', () => {
+  it('jcp soma em proventos', () => {
+    const r = computePosition([makeEvent({}), makeEvent({ eventType: 'jcp', quantity: null, totalCents: 500 })], 0)
+    expect(r.totalDividendsCents).toBe(500)
+  })
+
+  it('maturity liquida como venda', () => {
+    const r = computePosition([
+      makeEvent({ quantity: 10, totalCents: 10000 }),
+      makeEvent({ eventType: 'maturity', quantity: 10, totalCents: 12000, eventDate: new Date('2025-01-15') }),
+    ], 0)
+    expect(r.quantityHeld).toBe(0)
+    expect(r.realizedPnLCents).toBe(2000)
+  })
+
+  it('come_cotas reduz cotas sem mexer no custo total', () => {
+    const r = computePosition([
+      makeEvent({ quantity: 100.5, totalCents: 10050 }),
+      makeEvent({ eventType: 'come_cotas', quantity: 0.5, totalCents: 60, eventDate: new Date('2024-05-31') }),
+    ], 0)
+    expect(r.quantityHeld).toBeCloseTo(100, 10)
+    expect(r.totalCostCents).toBe(10050)
+  })
+
+  it('tax e other não afetam posição nem proventos', () => {
+    const r = computePosition([
+      makeEvent({}),
+      makeEvent({ eventType: 'tax', quantity: null, totalCents: 300 }),
+      makeEvent({ eventType: 'other', quantity: 5, totalCents: 999 }),
+    ], 0)
+    expect(r.quantityHeld).toBe(100)
+    expect(r.totalDividendsCents).toBe(0)
+  })
+
+  it('quantidade fracionária de cotas', () => {
+    const r = computePosition([makeEvent({ quantity: 12.3456789, totalCents: 12346 })], 0)
+    expect(r.quantityHeld).toBeCloseTo(12.3456789, 10)
+    expect(r.avgCostCents).toBe(1000)
+  })
+})

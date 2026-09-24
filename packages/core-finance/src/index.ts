@@ -8,6 +8,7 @@ export * from './cash-flow'
 export * from './snapshot'
 // Phase 3 — Investment engine
 export * from './portfolio'
+export * from './bank-position'
 export * from './income'
 // Phase 4 — Planning engine
 export * from './simulation'

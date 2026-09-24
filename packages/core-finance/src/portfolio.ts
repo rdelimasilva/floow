@@ -7,19 +7,38 @@
  * Rules:
  *  - Events are sorted chronologically before processing
  *  - buy: add quantity, add totalCents to cost basis
- *  - sell: compute realized PnL from avg cost, subtract quantity and cost
+ *  - sell/maturity: liquidam como venda — realiza PnL, reduz quantidade e custo
  *  - split: multiply quantity by splitRatio, total cost unchanged, avg cost recalculated
- *  - dividend/interest/amortization: add totalCents to totalDividendsCents
+ *  - dividend/interest/amortization/jcp: add totalCents to totalDividendsCents
+ *  - come_cotas: reduz quantidade (IR antecipado pago em cotas), custo total não muda
+ *  - tax/other: ficam no histórico, não afetam posição nem proventos
  *  - avgCostCents = Math.round(totalCostCents / quantityHeld) — 0 if quantityHeld = 0
  *  - All divisions use Math.round() to maintain integer cents convention
  */
+
+/**
+ * Union dos tipos de evento de carteira — inclui os que só o Open Finance
+ * produz (come_cotas, jcp, maturity, tax, other).
+ */
+export type PortfolioEventType =
+  | 'buy'
+  | 'sell'
+  | 'dividend'
+  | 'interest'
+  | 'split'
+  | 'amortization'
+  | 'come_cotas'
+  | 'jcp'
+  | 'maturity'
+  | 'tax'
+  | 'other'
 
 /**
  * Input interface for a single portfolio event.
  * Safe to use on both client and server (no DB dependency at runtime).
  */
 export interface PortfolioEventInput {
-  eventType: 'buy' | 'sell' | 'dividend' | 'interest' | 'split' | 'amortization'
+  eventType: PortfolioEventType
   quantity: number | null
   priceCents: number | null
   totalCents: number | null
@@ -84,7 +103,8 @@ export function computePosition(
         break
       }
 
-      case 'sell': {
+      case 'sell':
+      case 'maturity': {
         const qty = event.quantity ?? 0
         const proceeds = event.totalCents ?? 0
 
@@ -121,11 +141,29 @@ export function computePosition(
       }
 
       case 'dividend':
+      case 'jcp':
       case 'interest':
       case 'amortization': {
         totalDividendsCents += event.totalCents ?? 0
         break
       }
+
+      // Come-cotas é IR antecipado pago em COTAS: o fundo recolhe o imposto
+      // resgatando parte delas. O dinheiro investido não muda, as cotas caem —
+      // o custo total fica e o custo médio por cota sobe.
+      case 'come_cotas': {
+        quantityHeld -= event.quantity ?? 0
+        if (quantityHeld <= 0) {
+          quantityHeld = 0
+          totalCostCents = 0
+        }
+        break
+      }
+
+      // tax e other ficam no histórico, fora da conta.
+      case 'tax':
+      case 'other':
+        break
 
       default:
         // Unknown event type — silently skip
