@@ -5,6 +5,7 @@ import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { revalidateSnapshotData, revalidateTransactionData } from './revalidate'
 import { accountsTag, investmentsTag, invalidateTag } from '@/lib/cache-tags'
+import { condicaoNaoEPernaPrevista } from '@/lib/openfinance/perna-prevista'
 
 /**
  * Aplica no saldo o lancamento DO BANCO cuja data ja chegou.
@@ -40,6 +41,11 @@ export async function applyDueBankTransactions() {
     // exigir os dois deixa a intencao explicita para quem ler o SQL.
     isNotNull(transactions.externalId),
     isNull(transactions.recurringTemplateId),
+    // Perna prevista de transferência (destino Open Finance) também tem
+    // `external_id` e nasce com `balance_applied = false`, mas não é
+    // lançamento do banco: quem move o saldo daquela conta é o extrato dela.
+    // Aplicá-la contaria o mesmo dinheiro duas vezes.
+    condicaoNaoEPernaPrevista(),
     // Agendado entra do sync com `is_ignored = true` e `balance_applied =
     // false` (`sync.ts:386`): visivel para o usuario, fora das somas. Aplicar
     // por data sem olhar esta coluna fazia dele o "gasto que ninguem fez" que
