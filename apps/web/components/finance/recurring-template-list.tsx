@@ -19,7 +19,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { dataDeCalendario, formatarDataDeCalendario } from '@/lib/finance/recurring-dates'
 
 interface AccountOption {

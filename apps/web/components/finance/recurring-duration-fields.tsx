@@ -1,8 +1,9 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
-import { currencyToCents, generateInstallmentDates, formatBRL } from '@floow/core-finance'
-import type { RecurringFrequency } from '@floow/core-finance'
+import { currencyToCents, formatBRL } from '@floow/core-finance/src/balance'
+import { generateInstallmentDates } from '@floow/core-finance/src/recurring-batch'
+import type { RecurringFrequency } from '@floow/core-finance/src/recurring'
 
 export type EndMode = 'count' | 'end_date' | 'indefinite'
 

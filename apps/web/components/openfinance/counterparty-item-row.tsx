@@ -1,6 +1,6 @@
 'use client'
 
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import type { PendingGroupItem } from '@/lib/openfinance/counterparty-queries'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'

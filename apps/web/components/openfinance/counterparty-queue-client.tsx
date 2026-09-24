@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { confirmCounterparty } from '@/lib/openfinance/counterparty-actions'
 import type { PendingGroup, ConfirmedCounterparty } from '@/lib/openfinance/counterparty-queries'
 import { Button } from '@/components/ui/button'

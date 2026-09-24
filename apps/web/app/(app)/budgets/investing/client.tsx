@@ -12,7 +12,7 @@ import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
 import { updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
-import { formatBRL, currencyToCents } from '@floow/core-finance'
+import { formatBRL, currencyToCents } from '@floow/core-finance/src/balance'
 import { BudgetEntryDialog } from '@/components/finance/budget-entry-dialog'
 
 interface EntryForMonth {

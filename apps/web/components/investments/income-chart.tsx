@@ -2,7 +2,8 @@
 
 import { BarChart, Bar, XAxis, CartesianGrid } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
-import { formatBRL, type IncomeMonth } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
+import type { IncomeMonth } from '@floow/core-finance/src/income'
 
 const chartConfig = {
   dividendCents: {

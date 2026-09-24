@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import type { CashFlowMonth } from '@floow/core-finance'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import type { ChartType } from './cash-flow-chart-picker'
 
 const chartConfig = {

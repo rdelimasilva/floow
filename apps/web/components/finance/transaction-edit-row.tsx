@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { updateTransaction } from '@/lib/finance/actions'
 import { createCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'

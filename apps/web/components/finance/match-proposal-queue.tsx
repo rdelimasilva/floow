@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { aprovarProposta, recusarProposta } from '@/lib/finance/forecast-match-actions'
 import type { PropostaPendente } from '@/lib/finance/forecast-match-queries'
 import { Button } from '@/components/ui/button'

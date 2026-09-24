@@ -2,7 +2,7 @@
 
 import { LineChart, Line, XAxis, CartesianGrid } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import type { PatrimonySnapshot } from '@floow/db'
 
 const chartConfig = {

@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useContext, useMemo, useTransition } from 'react'
 import { TransactionList } from './transaction-list'
-import { currencyToCents } from '@floow/core-finance'
+import { currencyToCents } from '@floow/core-finance/src/balance'
 import { InlineFormContext, type InlineCreatedTransaction } from './inline-transaction-form'
 import { lembrarFiltros } from '@/lib/finance/filtros-lembrados'
 

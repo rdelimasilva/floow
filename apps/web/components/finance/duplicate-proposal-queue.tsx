@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { aprovarDuplicata, recusarDuplicata } from '@/lib/finance/duplicata-actions'
 import type { DuplicataPendente } from '@/lib/finance/duplicata-queries'
 import { Button } from '@/components/ui/button'

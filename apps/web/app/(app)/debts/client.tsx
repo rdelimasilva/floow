@@ -10,7 +10,7 @@ import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { createDebt, updateDebt, deleteDebt } from '@/lib/finance/debt-actions'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 
 interface DebtRow {

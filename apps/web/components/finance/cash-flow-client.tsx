@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useDeferredValue } from 'react'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { CashFlowPeriodFilter, getPeriodDates, type PeriodKey } from './cash-flow-period-filter'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
 import dynamic from 'next/dynamic'

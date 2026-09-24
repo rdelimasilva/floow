@@ -2,14 +2,21 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { AlertTriangle, TrendingUp, Check, List } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
 import { MonthNavigator } from '@/components/finance/month-navigator'
-import { BudgetPacingChart } from '@/components/finance/budget-pacing-chart'
 import { PacingTransactionsDialog } from '@/components/finance/pacing-transactions-dialog'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import type { BudgetPacingResult, PacingStatus } from '@floow/core-finance'
+
+// recharts inteiro só chega depois da página: as outras telas com gráfico já
+// fazem assim, e esta era a única que o levava no JS inicial.
+const BudgetPacingChart = dynamic(
+  () => import('@/components/finance/budget-pacing-chart').then((m) => ({ default: m.BudgetPacingChart })),
+  { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-xl bg-gray-100" /> },
+)
 
 interface Props {
   result: BudgetPacingResult

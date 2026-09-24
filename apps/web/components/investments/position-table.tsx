@@ -2,7 +2,7 @@
 
 import { useState, useMemo, memo } from 'react'
 import Link from 'next/link'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { updateAssetPrice, deleteAsset } from '@/lib/investments/actions'
 import { PriceHistoryPanel } from './price-history-panel'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'

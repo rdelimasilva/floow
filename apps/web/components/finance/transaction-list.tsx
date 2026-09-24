@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { deleteTransaction, toggleIgnoreTransaction, bulkDeleteTransactions, bulkCategorizeTransactions } from '@/lib/finance/actions'
 import { cancelRecurring } from '@/lib/finance/recurring-cancel'
 import { setTransactionAffectsCashFlow } from '@/lib/finance/cash-flow-actions'

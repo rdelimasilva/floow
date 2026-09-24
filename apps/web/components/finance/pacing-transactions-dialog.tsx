@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import {
   getPacingCategoryTransactions,
   type PacingTransaction,

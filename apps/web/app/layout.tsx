@@ -16,10 +16,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <head>
-        <title>floow - finanças pessoais em floow</title>
-        <link rel="icon" href="https://ak8t3l6j6j.ufs.sh/f/CwfRtcqQB4vVBQBMqgGTkLbIyjwphG5CfF2KE4ru9eNaDWMP" />
-      </head>
       <body>{children}</body>
     </html>
   );

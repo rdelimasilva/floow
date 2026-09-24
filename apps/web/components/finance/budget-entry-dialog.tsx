@@ -6,7 +6,7 @@ import { createCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { currencyToCents, formatBRL } from '@floow/core-finance'
+import { currencyToCents, formatBRL } from '@floow/core-finance/src/balance'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 import { ACCOUNT_TYPE_LABEL } from '@/lib/finance/account-types'
 

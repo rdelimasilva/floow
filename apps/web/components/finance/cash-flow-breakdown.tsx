@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useDeferredValue } from 'react'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type Grouping = 'daily' | 'monthly' | 'quarterly' | 'semiannual' | 'annual'

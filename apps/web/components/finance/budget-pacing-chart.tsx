@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import type { AccountKind, BudgetPacingResult } from '@floow/core-finance'
 
 /**

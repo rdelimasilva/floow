@@ -3,7 +3,7 @@
 import { memo } from 'react'
 import Link from 'next/link'
 import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, Package } from 'lucide-react'
-import { formatBRL } from '@floow/core-finance'
+import { formatBRL } from '@floow/core-finance/src/balance'
 import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
 import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
