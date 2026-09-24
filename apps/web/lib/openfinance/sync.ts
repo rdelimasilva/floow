@@ -20,6 +20,7 @@ import { normalizeBatch, type RejectedItem } from './normalize-batch'
 import { loadCounterpartyIndex, resolveCounterparty } from './resolve-counterparty'
 import { registrarSaldoDoBanco } from './conferir-saldo'
 import { persistPage, type Db } from './persist-page'
+import { completarParcelas } from './completar-parcelas'
 import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 import { criarPropostasDeDuplicata } from '@/lib/finance/duplicata-db'
 import { aplicarRedirecionamentos } from '@/lib/finance/polp-redirect'
@@ -143,6 +144,16 @@ export async function syncConnectionTransactions(
     }
 
     summary.rejected += rejectedHere
+
+    // Previsão das parcelas que a Polp ainda não mandou. Falha aqui não
+    // derruba o sync: o dado real já entrou, e a próxima passada completa.
+    if (isCard) {
+      try {
+        await completarParcelas(db, connection.orgId, resource.accountId)
+      } catch (error) {
+        console.error('[sync] falha ao completar parcelas previstas:', error)
+      }
+    }
 
     // Propõe o par previsto x realizado com o que acabou de entrar. Quem
     // efetiva é o usuário, na aprovação — o sync não decide mais.
