@@ -42,6 +42,9 @@ export function SettingsForm({ email, fullName, avatarUrl, provider }: SettingsF
         data: { full_name: name.trim() },
       })
       if (error) throw error
+      // O menu lê o nome do token (getShellProfile), não do servidor de Auth.
+      // Sem renovar, o nome novo só apareceria lá quando o token expirasse.
+      await supabase.auth.refreshSession()
       toast('Perfil atualizado com sucesso')
       router.refresh()
     } catch (err: any) {

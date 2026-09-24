@@ -23,7 +23,7 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 
-import { getVerifiedIdentity, getOrgId, requireUserId, getAuthenticatedUser } from '@/lib/auth/session'
+import { getVerifiedIdentity, getOrgId, requireUserId, getAuthenticatedUser, getShellProfile } from '@/lib/auth/session'
 
 const ORG = '11111111-1111-1111-1111-111111111111'
 const USER = '22222222-2222-2222-2222-222222222222'
@@ -134,5 +134,50 @@ describe('getAuthenticatedUser', () => {
     h.getUser.mockResolvedValue({ data: { user: null }, error: { message: 'invalid JWT' } })
 
     expect(await getAuthenticatedUser()).toBeNull()
+  })
+})
+
+describe('getShellProfile', () => {
+  it('monta nome, e-mail e avatar das claims verificadas, sem ir ao servidor de Auth', async () => {
+    h.getClaims.mockResolvedValue({
+      data: {
+        claims: {
+          sub: USER,
+          email: 'ana@example.com',
+          user_metadata: { full_name: 'Ana', avatar_url: 'https://x/a.png' },
+          app_metadata: {},
+        },
+      },
+      error: null,
+    })
+
+    const profile = await getShellProfile()
+
+    expect(profile).toEqual({ userId: USER, email: 'ana@example.com', name: 'Ana', avatarUrl: 'https://x/a.png' })
+    expect(h.getUser).not.toHaveBeenCalled()
+  })
+
+  it('aceita os nomes de campo do login Google (name, picture)', async () => {
+    h.getClaims.mockResolvedValue({
+      data: { claims: { sub: USER, email: 'b@x.com', user_metadata: { name: 'Bia', picture: 'https://x/p.png' } } },
+      error: null,
+    })
+
+    const profile = await getShellProfile()
+
+    expect(profile?.name).toBe('Bia')
+    expect(profile?.avatarUrl).toBe('https://x/p.png')
+  })
+
+  it('sem metadata, nome e avatar vêm nulos e o e-mail segue', async () => {
+    h.getClaims.mockResolvedValue({ data: { claims: { sub: USER, email: 'c@x.com' } }, error: null })
+
+    expect(await getShellProfile()).toEqual({ userId: USER, email: 'c@x.com', name: null, avatarUrl: null })
+  })
+
+  it('devolve null quando a assinatura não confere', async () => {
+    h.getClaims.mockResolvedValue({ data: null, error: new Error('invalid signature') })
+
+    expect(await getShellProfile()).toBeNull()
   })
 })

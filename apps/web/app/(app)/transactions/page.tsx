@@ -16,7 +16,7 @@ import { PendingQueuesNotice } from '@/components/finance/pending-queues-notice'
 import { contarDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
 import { contarPropostasPendentes } from '@/lib/finance/forecast-match-queries'
 import { contarLancamentosAClassificar } from '@/lib/openfinance/counterparty-queries'
-import { getAuthenticatedUser } from '@/lib/auth/session'
+import { getVerifiedIdentity } from '@/lib/auth/session'
 import { FILTERS_COOKIE, restaurarFiltros, temFiltroNaUrl, hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const
@@ -117,8 +117,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   // custar a tela que ele existe para melhorar.
   // Sem usuario resolvido a pagina nao renderiza de qualquer forma (o layout
   // ja redireciona); aqui o `null` so apaga o aviso, em vez de estourar.
-  const usuario = await getAuthenticatedUser()
-  const userId = usuario?.id ?? null
+  const userId = (await getVerifiedIdentity())?.userId ?? null
   const [{ transactions, totalCount }, accounts, categories, categoryOrder, duplicatasPendentes, conciliacoesPendentes, aClassificar] =
     await Promise.all([
       getTransactionsWithCount(orgId, queryOpts),

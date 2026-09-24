@@ -45,17 +45,64 @@ function readOrgIds(appMetadata: unknown): string[] {
  * Devolve a identidade verificada da requisição, ou null se não houver JWT
  * válido. Envolvido em cache() para deduplicar dentro da mesma requisição.
  */
+/**
+ * As claims verificadas da requisição, ou null. Uma verificação por request:
+ * identidade e perfil do shell leem daqui.
+ */
+const readVerifiedClaims = cache(async function readVerifiedClaims() {
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.getClaims()
+
+  if (error || !data?.claims?.sub) return null
+  return data.claims
+})
+
 export const getVerifiedIdentity = cache(
   async function getVerifiedIdentity(): Promise<VerifiedIdentity | null> {
-    const supabase = await createClient()
-    const { data, error } = await supabase.auth.getClaims()
+    const claims = await readVerifiedClaims()
+    if (!claims) return null
 
-    const sub = data?.claims?.sub
-    if (error || !sub) return null
-
-    return { userId: sub, orgIds: readOrgIds(data.claims.app_metadata) }
+    return { userId: claims.sub, orgIds: readOrgIds(claims.app_metadata) }
   },
 )
+
+export interface ShellProfile {
+  userId: string
+  email: string
+  name: string | null
+  avatarUrl: string | null
+}
+
+function readString(obj: unknown, ...keys: string[]): string | null {
+  if (!obj || typeof obj !== 'object') return null
+  for (const key of keys) {
+    const value = (obj as Record<string, unknown>)[key]
+    if (typeof value === 'string' && value.length > 0) return value
+  }
+  return null
+}
+
+/**
+ * Nome, e-mail e avatar para o menu e o cabeçalho, lidos do token verificado.
+ *
+ * O layout de `(app)` roda em toda navegação; buscar isso com `getUser()`
+ * custava uma ida ao servidor de Auth antes até do skeleton aparecer. O token
+ * já traz `email` e `user_metadata`. O preço: um nome trocado em Configurações
+ * só chega aqui quando o token é renovado — por isso aquela tela renova a
+ * sessão depois de salvar.
+ */
+export const getShellProfile = cache(async function getShellProfile(): Promise<ShellProfile | null> {
+  const claims = await readVerifiedClaims()
+  if (!claims) return null
+
+  const meta = claims.user_metadata
+  return {
+    userId: claims.sub,
+    email: typeof claims.email === 'string' ? claims.email : '',
+    name: readString(meta, 'full_name', 'name'),
+    avatarUrl: readString(meta, 'avatar_url', 'picture'),
+  }
+})
 
 /** Igual a getVerifiedIdentity, mas lança em vez de devolver null. */
 export async function requireIdentity(): Promise<VerifiedIdentity> {

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getAuthenticatedUser } from '@/lib/auth/session'
+import { getShellProfile } from '@/lib/auth/session'
 import { AppShell } from '@/components/layout/app-shell'
 import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
@@ -16,13 +16,14 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  const user = await getAuthenticatedUser()
+  // As duas leituras saem juntas e nenhuma vai ao servidor de Auth: o perfil
+  // vem do token já verificado. Este layout roda em toda navegação, antes até
+  // do skeleton — cada ida à rede aqui é espera em todas as telas.
+  const [profile, gate] = await Promise.all([getShellProfile(), getReviewGateStatusSafe()])
 
-  if (!user) {
+  if (!profile) {
     redirect('/auth')
   }
-
-  const gate = await getReviewGateStatusSafe()
 
   if (gate.ok && gate.blocked) {
     return (
@@ -36,8 +37,6 @@ export default async function AppLayout({
   // agora se anunciam no topo da lista de lançamentos (`PendingQueuesNotice`),
   // que é onde o assunto aparece. O layout volta a não consultar nada para
   // montar o menu.
-  const meta = user.user_metadata ?? {}
-
   const cookieStore = await cookies()
   const sidebarPinned = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === 'true'
 
@@ -48,9 +47,9 @@ export default async function AppLayout({
           <div className="min-h-screen bg-gray-50">
             <CommandPalette />
             <AppShell
-              userEmail={user.email ?? ''}
-              userName={meta.full_name ?? meta.name ?? null}
-              avatarUrl={meta.avatar_url ?? meta.picture ?? null}
+              userEmail={profile.email}
+              userName={profile.name}
+              avatarUrl={profile.avatarUrl}
             />
             <SidebarLayout>
               {children}
