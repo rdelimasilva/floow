@@ -11,6 +11,8 @@ import {
   syncBankConnection,
 } from '@/lib/openfinance/connection-actions'
 import type { BankConnectionSummary } from '@/lib/openfinance/queries'
+import { abrirAutorizacao } from '@/lib/openfinance/abrir-autorizacao'
+import { AvisoDeAutorizacao, useAtualizarAoVoltar } from './aguardando-autorizacao'
 
 /**
  * Rótulos dos status que o usuário vê.
@@ -49,6 +51,15 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
   const { toast } = useToast()
   const [pending, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
+  // Conexão cuja autorização está aberta na aba do banco.
+  const [aguardando, setAguardando] = useState<string | null>(null)
+
+  // Voltou da aba do banco: relê o status pelo mesmo caminho de Buscar contas,
+  // até a conexão aparecer autorizada.
+  const esperandoBanco = connections.some((c) => c.id === aguardando && c.status !== 'AUTHORISED')
+  useAtualizarAoVoltar(esperandoBanco, () => {
+    if (aguardando && !pending) handleRefresh(aguardando)
+  })
 
   function handleRefresh(id: string) {
     setBusyId(id)
@@ -114,13 +125,17 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
 
   function handleReauthorize(id: string) {
     setBusyId(id)
+    // Abre a aba em branco já no clique: o request_uri dentro do link é de uso
+    // único e vale dezenas de segundos, e depois do await o navegador
+    // bloquearia o pop-up. Guardar para clicar depois é o que produz
+    // "request_uri is invalid or expired" na página do banco.
+    const abertura = abrirAutorizacao(async () => (await recreateBankAuthorization(id)).authUrl)
     startTransition(async () => {
       try {
-        const { authUrl } = await recreateBankAuthorization(id)
-        // Redireciona na hora: o request_uri dentro do link é de uso único e
-        // vale dezenas de segundos. Guardar para clicar depois é o que produz
-        // "request_uri is invalid or expired" na página do banco.
-        window.location.href = authUrl
+        if ((await abertura) === 'nova-aba') {
+          setAguardando(id)
+          setBusyId(null)
+        }
       } catch (error) {
         toast(error instanceof Error ? error.message : 'Não foi possível reabrir a autorização', 'error')
         setBusyId(null)
@@ -228,6 +243,12 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
                 </li>
               ))}
             </ul>
+          )}
+
+          {aguardando === connection.id && connection.status !== 'AUTHORISED' && (
+            <div className="mt-3">
+              <AvisoDeAutorizacao />
+            </div>
           )}
 
           {connection.status === 'AWAITING_AUTHORIZATION' && (

@@ -1,11 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
-import { startBankConnection } from '@/lib/openfinance/connection-actions'
+import { refreshBankConnection, startBankConnection } from '@/lib/openfinance/connection-actions'
+import { abrirAutorizacao } from '@/lib/openfinance/abrir-autorizacao'
+import { AvisoDeAutorizacao, useAtualizarAoVoltar } from './aguardando-autorizacao'
 
 interface Institution {
   id: string
@@ -47,11 +50,27 @@ export const PRODUCTS = [
 
 export function ConnectWizard({ institutions, loadError }: ConnectWizardProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const [institutionId, setInstitutionId] = useState('')
   const [search, setSearch] = useState('')
   const [cpf, setCpf] = useState('')
   const [products, setProducts] = useState<string[]>(['ACCOUNT', 'CREDIT_CARD_ACCOUNT'])
   const [submitting, setSubmitting] = useState(false)
+  // Conexão cuja autorização está aberta na aba do banco.
+  const [aguardando, setAguardando] = useState<string | null>(null)
+
+  useAtualizarAoVoltar(aguardando !== null, () => {
+    if (!aguardando) return
+    // Mesmo caminho do botão Buscar contas; falha aqui não merece alarme —
+    // o usuário ainda tem o botão.
+    refreshBankConnection(aguardando)
+      .then((r) => {
+        // Autorizada: a lista de conexões assume daqui, o aviso sai.
+        if (r.status === 'AUTHORISED') setAguardando(null)
+      })
+      .catch(() => {})
+      .finally(() => router.refresh())
+  })
 
   const filtered = search
     ? institutions.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
@@ -67,23 +86,34 @@ export function ConnectWizard({ institutions, loadError }: ConnectWizardProps) {
     event.preventDefault()
     setSubmitting(true)
 
+    let connectionId: string | null = null
     try {
-      const result = await startBankConnection({
-        institutionId,
-        institutionName: selected?.name,
-        cpf,
-        products,
+      // A aba do banco abre dentro do clique (antes do await) — ver
+      // abrir-autorizacao.ts. O link tem validade curta, por isso vai direto
+      // para a aba em vez de ficar guardado para depois.
+      const resultado = await abrirAutorizacao(async () => {
+        const result = await startBankConnection({
+          institutionId,
+          institutionName: selected?.name,
+          cpf,
+          products,
+        })
+        connectionId = result.connectionId
+        return result.authUrl
       })
 
-      if (!result.authUrl) {
+      if (resultado === 'sem-url') {
         toast('Consentimento criado, mas o banco não devolveu o link de autorização.', 'error')
+        setSubmitting(false)
         return
       }
 
-      // O usuário sai do floow para autorizar no banco e volta pela tela da
-      // conexão. O link tem validade curta, por isso o redirecionamento é
-      // imediato em vez de ficar guardado para depois.
-      window.location.href = result.authUrl
+      if (resultado === 'nova-aba') {
+        setAguardando(connectionId)
+        setSubmitting(false)
+        router.refresh()
+      }
+      // 'mesma-aba': esta tela já está indo para o banco.
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Não foi possível iniciar a conexão', 'error')
       setSubmitting(false)
@@ -182,6 +212,8 @@ export function ConnectWizard({ institutions, loadError }: ConnectWizardProps) {
           conexão.
         </p>
       </fieldset>
+
+      {aguardando && <AvisoDeAutorizacao />}
 
       <div className="flex justify-end">
         <Button type="submit" variant="primary" disabled={submitting || !institutionId || products.length === 0}>
