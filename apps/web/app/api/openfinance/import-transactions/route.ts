@@ -54,3 +54,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Import failed' }, { status: 500 })
   }
 }
+
+// O cron da Vercel dispara com GET; o POST fica para o disparo manual.
+export { POST as GET }
