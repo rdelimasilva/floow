@@ -17,7 +17,7 @@
  * para as demais.
  */
 
-import { and, eq, ilike, isNull, notExists, or, sql } from 'drizzle-orm'
+import { and, eq, isNull, notExists, or, sql } from 'drizzle-orm'
 import {
   getDb,
   categories,
@@ -33,6 +33,7 @@ import { getOrgId } from './queries'
 import { revalidateCategoryData, revalidateTransactionData } from './revalidate'
 import { planejarHierarquia } from './category-hierarchy'
 import { redirecionarCodigoPolp } from './polp-redirect'
+import { assertNameIsFree } from './category-name'
 
 type Db = ReturnType<typeof getDb>
 
@@ -279,17 +280,6 @@ async function findVisibleCategory(db: Db, orgId: string, id: string) {
     .limit(1)
 
   return row ?? null
-}
-
-async function assertNameIsFree(db: Db, orgId: string, name: string, exceptId?: string) {
-  const rows = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(and(ilike(categories.name, name), or(eq(categories.orgId, orgId), isNull(categories.orgId))))
-
-  if (rows.some((row) => row.id !== exceptId)) {
-    throw new Error('Já existe uma categoria com esse nome')
-  }
 }
 
 interface CategoryValues {
