@@ -229,7 +229,7 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
 
       return rows.map((row) => ({
         assetId: row.assetId,
-        ticker: row.ticker,
+        ticker: row.ticker ?? row.name,
         name: row.name,
         assetClass: row.assetClass,
         quantityHeld: row.quantityHeld,
@@ -290,7 +290,7 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
         eventDate: e.eventDate instanceof Date ? e.eventDate : new Date(e.eventDate as unknown as string),
         totalCents: e.totalCents,
         notes: e.notes,
-        ticker: e.ticker,
+        ticker: e.ticker ?? e.name,
         name: e.name,
       }))
     },

@@ -298,6 +298,7 @@ export async function runCfoEngine(
       const positionRows = await db
         .select({
           ticker: assets.ticker,
+          name: assets.name,
           assetClass: assets.assetClass,
           currentValueCents: assetPositionSnapshots.currentValueCents,
           unrealizedPnLPercentBps: assetPositionSnapshots.unrealizedPnLPercentBps,
@@ -318,7 +319,7 @@ export async function runCfoEngine(
 
       inputs.investment = {
         positions: positionRows.map((p) => ({
-          asset: p.ticker,
+          asset: p.ticker ?? p.name,
           class: p.assetClass,
           allocation:
             totalInvested > 0

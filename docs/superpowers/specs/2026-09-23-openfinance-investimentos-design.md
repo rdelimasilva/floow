@@ -123,26 +123,57 @@ Migração nova (número livre no momento da implementação; hoje a última é 
 
 ### `asset_bank_positions` (nova)
 
-`id`, `org_id`, `asset_id`, `reference_date` (date), `quantity`, `unit_price`,
-`gross_amount`, `net_amount`, `income_tax`, `iof`, `blocked_amount`,
-`purchase_unit_price` — todos `numeric`, nulos onde o tipo não informa —
-`created_at`. Único em (`asset_id`, `reference_date`). RLS no padrão do projeto.
+`id`, `org_id`, `asset_id`, `reference_date` (date), `quantity` `numeric`,
+`unit_price` `numeric`, `gross_cents`, `net_cents`, `income_tax_cents`,
+`iof_cents`, `blocked_cents` (dinheiro em **centavos inteiros**, como o resto
+do sistema), `purchase_unit_price` `numeric`, `created_at`. Único em
+(`asset_id`, `reference_date`). RLS no padrão do projeto.
 
 Guarda uma linha por dia de referência: é a série histórica que desenha a
 evolução do ativo.
 
 ### `portfolio_events` (alterada)
 
-- `quantity` → `numeric`; novo `unit_price` `numeric` substitui `price_cents`
-  (migração copia `price_cents / 100`). `total_cents` segue em centavos.
+- `quantity` → `numeric`. `price_cents` **fica** (é o que 7 arquivos de UI
+  leem); ganha a coluna irmã `unit_price` `numeric` com o preço cheio do
+  banco. `total_cents` segue em centavos; `computePosition` não usa preço
+  unitário, só `total_cents`, então nada se perde no cálculo.
 - `event_type` ganha `come_cotas`, `jcp`, `maturity`, `tax`, `other`.
 - Novas colunas nulas: `polp_transaction_id` (único), `gross_cents`,
   `net_cents`, `income_tax_cents`.
+
+### `asset_position_snapshots` (alterada)
+
+- `quantity_held` → `numeric`.
+- Ganha `cost_is_partial` (boolean, default `false`): selo "custo parcial"
+  quando o custo do ativo Open Finance não vem do banco (soma de
+  compras/vendas conhecidas em vez de `purchase_unit_price`).
 
 ### `openfinance_resources` (alterada)
 
 - Ganha `asset_id` (FK para `assets`, `on delete set null`), paralelo a
   `account_id`.
+
+### `openfinance_connections` (alterada)
+
+- Ganha `investment_account_id` (FK para `accounts`, `on delete set null`):
+  a conta `brokerage` que recebe os eventos de investimento desta conexão,
+  criada na primeira ingestão.
+
+### `numeric` em TypeScript
+
+Drizzle 0.40 devolve `numeric` como `string`. `quantity`, `unit_price`,
+`purchase_unit_price`, `pre_fixed_rate`, `indexer_percentage` e
+`quantity_held` usam o customType `numericNumber` (`packages/db/src/schema/numeric-number.ts`)
+para chegar ao TS como `number`, sem mudar `quantity` de `integer` para
+`numeric` e forçar `.toString()`/`parseFloat` em uma dúzia de arquivos.
+Dinheiro não usa isto — dinheiro é centavo inteiro.
+
+### Edição manual e Open Finance
+
+`lib/investments/actions.ts` (555 linhas) não muda nesta migração: ativo
+`openfinance` é somente leitura **na tela** (ver seção 5); uma edição feita
+por fora (script, SQL) se autocorrige na próxima sincronização.
 
 ### Mapeamento de movimentações
 
@@ -165,15 +196,13 @@ evolução do ativo.
 
 - **Ativo manual**: nada muda — posição calculada pelos eventos.
 - **Ativo Open Finance**:
-  - valor atual = última `asset_bank_positions` (`net_amount` quando existir,
-    senão `gross_amount`);
+  - valor atual = última `asset_bank_positions` (`net_cents` quando existir,
+    senão `gross_cents`);
   - custo = `purchase_unit_price × quantity` quando o banco informa; senão soma
-    das compras menos vendas conhecidas, marcado como **custo parcial**;
+    das compras menos vendas conhecidas, marcado como `cost_is_partial = true`;
   - proventos = soma de `dividend`, `jcp`, `interest` dos eventos.
 - `asset_position_snapshots` é preenchido para as duas origens; tela e patrimônio
   continuam lendo de um lugar só.
-- `quantity_held` e colunas de preço em `asset_position_snapshots` passam a
-  `numeric` pela mesma razão de `portfolio_events`.
 
 ## 5. Tela
 
