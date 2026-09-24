@@ -273,6 +273,28 @@ export const hiddenSystemCategories = pgTable(
   })
 )
 
+/**
+ * Para onde vai um código Polp (`category_ref`) cuja categoria a org excluiu
+ * com reatribuição. Vence o `polp_ref` das categorias na ingestão: sem isto, as
+ * transações com aquele código chegariam sem categoria depois da exclusão.
+ */
+export const polpRefRedirects = pgTable(
+  'polp_ref_redirects',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    polpRef: text('polp_ref').notNull(),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.orgId, table.polpRef] }),
+  })
+)
+
 // ---------------------------------------------------------------------------
 // Inferred TypeScript types
 // ---------------------------------------------------------------------------

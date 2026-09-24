@@ -25,12 +25,14 @@ import {
   budgetEntries,
   debts,
   hiddenSystemCategories,
+  polpRefRedirects,
   recurringTemplates,
   transactions,
 } from '@floow/db'
 import { getOrgId } from './queries'
 import { revalidateCategoryData, revalidateTransactionData } from './revalidate'
 import { planejarHierarquia } from './category-hierarchy'
+import { redirecionarCodigoPolp } from './polp-redirect'
 
 type Db = ReturnType<typeof getDb>
 
@@ -195,6 +197,9 @@ export async function reassignAndDeleteCategory(formData: FormData) {
   if (newCat.type !== oldCat.type) throw new Error('A categoria de destino deve ser do mesmo tipo')
 
   await moveOrgReferences(db, orgId, oldId, newId)
+  // O histórico foi; o código Polp também tem de ir, senão a próxima
+  // importação com ele chega sem categoria.
+  await redirecionarCodigoPolp(db, orgId, oldCat.polpRef, newId)
 
   if (oldCat.orgId === null) {
     await hideForOrg(db, orgId, oldId)
@@ -423,6 +428,10 @@ async function moveOrgReferences(db: Db, orgId: string, fromId: string, toId: st
       .update(categoryRules)
       .set({ categoryId: toId })
       .where(and(eq(categoryRules.orgId, orgId), eq(categoryRules.categoryId, fromId))),
+    db
+      .update(polpRefRedirects)
+      .set({ categoryId: toId })
+      .where(and(eq(polpRefRedirects.orgId, orgId), eq(polpRefRedirects.categoryId, fromId))),
   ])
 }
 

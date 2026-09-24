@@ -79,6 +79,7 @@ vi.mock('@floow/db', () => ({
   budgetEntries: { _table: 'budget_entries' },
   debts: { _table: 'debts' },
   hiddenSystemCategories: { _table: 'hidden_system_categories' },
+  polpRefRedirects: { _table: 'polp_ref_redirects' },
   recurringTemplates: { _table: 'recurring_templates' },
   transactions: { _table: 'transactions' },
 }))
