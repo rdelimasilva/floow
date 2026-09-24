@@ -25,7 +25,7 @@ import {
 import { requireIdentity } from '@/lib/auth/session'
 import { recordAudit } from '@/lib/audit/record'
 import { getOrgId } from '@/lib/finance/queries'
-import { accountsTag, transactionsTag, invalidateTag } from '@/lib/cache-tags'
+import { accountsTag, transactionsTag, investmentsTag, invalidateTag } from '@/lib/cache-tags'
 import { getCpfSalt, getPolpClient } from './config'
 import { hashCpf, isValidCpf, maskCpf } from './cpf'
 import { describePolpError } from './errors'
@@ -474,6 +474,7 @@ export async function syncBankConnection(connectionId: string): Promise<SyncSumm
 
   await invalidateTag(accountsTag(orgId))
   await invalidateTag(transactionsTag(orgId))
+  await invalidateTag(investmentsTag(orgId))
   revalidatePath('/accounts')
   revalidatePath('/transactions')
   revalidatePath('/investments')

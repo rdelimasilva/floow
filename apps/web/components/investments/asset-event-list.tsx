@@ -21,9 +21,11 @@ interface EventRow {
 
 interface AssetEventListProps {
   events: EventRow[]
+  /** Ativo do Open Finance: sem editar/excluir, o banco é a fonte da verdade. */
+  readOnly?: boolean
 }
 
-export function AssetEventList({ events }: AssetEventListProps) {
+export function AssetEventList({ events, readOnly = false }: AssetEventListProps) {
   const { toast } = useToast()
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -57,7 +59,7 @@ export function AssetEventList({ events }: AssetEventListProps) {
               <th className="pb-2 font-medium text-right">Preço</th>
               <th className="pb-2 font-medium text-right">Total</th>
               <th className="pb-2 font-medium">Notas</th>
-              <th className="pb-2 font-medium">Ações</th>
+              {!readOnly && <th className="pb-2 font-medium">Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -82,23 +84,25 @@ export function AssetEventList({ events }: AssetEventListProps) {
                 <td className="py-2 text-gray-500 max-w-[160px] truncate">
                   {event.notes || '—'}
                 </td>
-                <td className="py-2">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/investments/events/${event.id}/edit`}
-                      className="text-xs text-gray-500 hover:text-gray-800 underline"
-                    >
-                      Editar
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteId(event.id)}
-                      className="text-xs text-red-500 hover:text-red-700 underline"
-                    >
-                      Excluir
-                    </button>
-                  </div>
-                </td>
+                {!readOnly && (
+                  <td className="py-2">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/investments/events/${event.id}/edit`}
+                        className="text-xs text-gray-500 hover:text-gray-800 underline"
+                      >
+                        Editar
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(event.id)}
+                        className="text-xs text-red-500 hover:text-red-700 underline"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

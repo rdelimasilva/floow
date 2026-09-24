@@ -6,13 +6,8 @@ import { formatBRL } from '@floow/core-finance'
 import { deletePortfolioEvent } from '@/lib/investments/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
+import { EVENT_TYPE_LABEL } from '@/lib/investments/asset-labels'
 import type { IncomeEventWithAsset } from '@/lib/investments/queries'
-
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  dividend: 'Dividendo',
-  interest: 'Juros',
-  amortization: 'Amortização',
-}
 
 type SerializedIncomeEvent = Omit<IncomeEventWithAsset, 'eventDate'> & {
   eventDate: string | Date
@@ -62,7 +57,7 @@ export function IncomeEventTable({ events }: IncomeEventTableProps) {
               <tr key={event.id} className="border-b last:border-0">
                 <td className="py-2 font-medium">{event.ticker}</td>
                 <td className="py-2 text-gray-600">
-                  {EVENT_TYPE_LABELS[event.eventType] ?? event.eventType}
+                  {EVENT_TYPE_LABEL[event.eventType as keyof typeof EVENT_TYPE_LABEL] ?? event.eventType}
                 </td>
                 <td className="py-2 text-gray-600">
                   {new Date(event.eventDate).toLocaleDateString('pt-BR')}
@@ -99,7 +94,7 @@ export function IncomeEventTable({ events }: IncomeEventTableProps) {
           onClose={() => setConfirmDeleteId(null)}
           onConfirm={() => handleDelete(confirmDeleteId)}
           title="Remover evento"
-          description={`Tem certeza que deseja remover o evento de ${deletingEvent ? EVENT_TYPE_LABELS[deletingEvent.eventType] ?? deletingEvent.eventType : ''} de "${deletingEvent?.ticker ?? ''}"?`}
+          description={`Tem certeza que deseja remover o evento de ${deletingEvent ? EVENT_TYPE_LABEL[deletingEvent.eventType as keyof typeof EVENT_TYPE_LABEL] ?? deletingEvent.eventType : ''} de "${deletingEvent?.ticker ?? ''}"?`}
           confirmLabel="Remover"
           loading={deleting}
         />

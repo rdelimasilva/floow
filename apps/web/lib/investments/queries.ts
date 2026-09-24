@@ -38,6 +38,10 @@ export interface EnrichedPosition {
   unrealizedPnLPercent: number
   realizedPnLCents: number
   totalDividendsCents: number
+  /** De onde vem o ativo. `openfinance` é somente leitura na tela. */
+  source: 'manual' | 'openfinance'
+  /** Selo "custo parcial": posição do banco sem histórico completo de compra. */
+  costIsPartial: boolean
 }
 
 export interface PriceHistoryEntry {
@@ -222,11 +226,13 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
           unrealizedPnLPercentBps: assetPositionSnapshots.unrealizedPnLPercentBps,
           realizedPnLCents: assetPositionSnapshots.realizedPnLCents,
           totalDividendsCents: assetPositionSnapshots.totalDividendsCents,
+          source: assets.source,
+          costIsPartial: assetPositionSnapshots.costIsPartial,
         })
         .from(assetPositionSnapshots)
         .innerJoin(assets, eq(assetPositionSnapshots.assetId, assets.id))
         .where(eq(assetPositionSnapshots.orgId, orgId))
-        .orderBy(asc(assets.ticker))
+        .orderBy(asc(sql`coalesce(${assets.ticker}, ${assets.name})`))
 
       return rows.map((row) => ({
         assetId: row.assetId,
@@ -242,6 +248,8 @@ export const getPositions = cache(async function getPositions(orgId: string): Pr
         unrealizedPnLPercent: row.unrealizedPnLPercentBps / 100,
         realizedPnLCents: row.realizedPnLCents,
         totalDividendsCents: row.totalDividendsCents,
+        source: row.source,
+        costIsPartial: row.costIsPartial,
       }))
     },
     ['investment-positions', orgId],
@@ -258,7 +266,7 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
   return unstable_cache(
     async () => {
       const db = getDb()
-      const INCOME_TYPES: Array<'dividend' | 'interest' | 'amortization'> = ['dividend', 'interest', 'amortization']
+      const INCOME_TYPES: Array<'dividend' | 'interest' | 'amortization' | 'jcp'> = ['dividend', 'interest', 'amortization', 'jcp']
       const cutoff = new Date()
       cutoff.setMonth(cutoff.getMonth() - months)
 
