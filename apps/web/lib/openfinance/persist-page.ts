@@ -3,7 +3,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getDb, accounts, transactions } from '@floow/db'
 import { matchCategory, type CategoryRule } from '@floow/core-finance'
 import type { ResolvedTransaction } from './resolve-counterparty'
-import { isOpenFinanceLinkedAccount, buildTransferLegRow } from './transfer-leg'
+import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transfer-leg'
 import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, ocuparPrevisao } from './parcelas-previstas'
 
 /**
@@ -41,8 +41,8 @@ export interface PersistInput {
 export async function persistPage(
   db: Db,
   input: PersistInput,
-): Promise<{ imported: number; updated: number }> {
-  if (input.normalized.length === 0) return { imported: 0, updated: 0 }
+): Promise<{ imported: number; updated: number; contasComPernaPrevista: string[] }> {
+  if (input.normalized.length === 0) return { imported: 0, updated: 0, contasComPernaPrevista: [] }
 
   const externalIds = input.normalized.map((t) => t.externalId)
 
@@ -67,6 +67,9 @@ export async function persistPage(
   const toInsert: (typeof transactions.$inferInsert)[] = []
   const transferLegsToInsert: (typeof transactions.$inferInsert)[] = []
   const linkedAccountCache = new Map<string, boolean>()
+  // Contas onde nasceu perna prevista nesta página: o sync propõe a
+  // conciliação nelas também, porque a ponta real pode já ter chegado.
+  const contasComPernaPrevista = new Set<string>()
   let updated = 0
 
   // Só busca no banco quando a página tem parcela sem fatura fechada — é a
@@ -111,8 +114,12 @@ export async function persistPage(
           // A data só corrige enquanto a linha está fora do saldo — uma vez
           // aplicada, mexer nela exigiria desfazer o efeito já contado.
           date: sql`CASE WHEN ${transactions.balanceApplied} THEN ${transactions.date} ELSE ${dataFinal}::date END`,
-          // Categoria manual do usuário nunca é sobrescrita (mesma regra da v1.1).
-          ...(categoryId ? { categoryId: sql`COALESCE(${transactions.categoryId}, ${categoryId})` } : {}),
+          // Categoria manual do usuário nunca é sobrescrita (mesma regra da
+          // v1.1), e transferência nunca tem categoria — inclusive a ponta
+          // real que a conciliação converteu em transferência.
+          ...(categoryId
+            ? { categoryId: sql`CASE WHEN ${transactions.type} = 'transfer' THEN ${transactions.categoryId} ELSE COALESCE(${transactions.categoryId}, ${categoryId}) END` }
+            : {}),
         })
         // O id ja veio de uma consulta filtrada por org; repetir o filtro aqui
         // e defesa em profundidade — no caminho do app o RLS nao vale, porque a
@@ -179,16 +186,17 @@ export async function persistPage(
         linked = await isOpenFinanceLinkedAccount(db, input.orgId, tx.transferAccountId)
         linkedAccountCache.set(tx.transferAccountId, linked)
       }
-      if (!linked) {
-        transferGroupId = crypto.randomUUID()
-        transferLegsToInsert.push(
-          buildTransferLegRow(
-            { orgId: input.orgId, amountCents: tx.amountCents, date, externalId: tx.externalId, balanceApplied: applied },
-            tx.transferAccountId,
-            transferGroupId,
-          ),
-        )
-      }
+      transferGroupId = crypto.randomUUID()
+      transferLegsToInsert.push(
+        montarPernaDaTransferencia({
+          source: { orgId: input.orgId, amountCents: tx.amountCents, date, externalId: tx.externalId, balanceApplied: applied },
+          sourceAccountId: input.accountId,
+          otherAccountId: tx.transferAccountId,
+          transferGroupId,
+          destinoOpenFinance: linked,
+        }),
+      )
+      if (linked) contasComPernaPrevista.add(tx.transferAccountId)
     }
 
     toInsert.push({
@@ -221,7 +229,7 @@ export async function persistPage(
     })
   }
 
-  if (toInsert.length === 0) return { imported: 0, updated }
+  if (toInsert.length === 0) return { imported: 0, updated, contasComPernaPrevista: [...contasComPernaPrevista] }
 
   const imported = await db.transaction(async (dbTx) => {
     // O índice único (external_id, account_id) é a rede: se dois syncs
@@ -274,5 +282,5 @@ export async function persistPage(
 
   // `imported` conta o que entrou de fato: `onConflictDoNothing` descarta em
   // silencio o que outro sync ja tinha gravado.
-  return { imported, updated }
+  return { imported, updated, contasComPernaPrevista: [...contasComPernaPrevista] }
 }

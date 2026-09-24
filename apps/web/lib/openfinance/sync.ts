@@ -87,6 +87,8 @@ export async function syncConnectionTransactions(
       continue
     }
 
+    const contasComPernaPrevista = new Set<string>()
+
     // Primeira sincronização puxa tudo; as seguintes pedem só o que mudou
     // desde a última. `fromUpdatedAt` e não `fromDate` de propósito: a
     // counterparty e a categoria chegam depois, na mesma transação, e é a data
@@ -141,6 +143,7 @@ export async function syncConnectionTransactions(
       })
       summary.imported += result.imported
       summary.updated += result.updated
+      for (const conta of result.contasComPernaPrevista) contasComPernaPrevista.add(conta)
     }
 
     summary.rejected += rejectedHere
@@ -163,6 +166,13 @@ export async function syncConnectionTransactions(
     // dado já entrou, e a proposta é criada de novo na próxima passada.
     try {
       summary.propostasDeConciliacao += await criarPropostasDeConciliacao(db, connection.orgId, resource.accountId)
+
+      // A perna prevista nasceu em OUTRA conta. Se a ponta real de lá já
+      // chegou num sync anterior, a proposta tem que nascer agora — o próximo
+      // sync daquela conta só olharia o que é novo nela.
+      for (const conta of contasComPernaPrevista) {
+        summary.propostasDeConciliacao += await criarPropostasDeConciliacao(db, connection.orgId, conta)
+      }
     } catch (error) {
       console.error('[sync] falha ao propor conciliacao de previsto com realizado:', error)
     }
