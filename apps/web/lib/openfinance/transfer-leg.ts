@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { getDb, openfinanceResources, type NewTransaction } from '@floow/db'
+import { SUFIXO_PERNA_PREVISTA } from './perna-prevista'
 
 type Db = ReturnType<typeof getDb>
 
@@ -95,4 +96,37 @@ export function buildTransferLegRow(
     balanceApplied: source.balanceApplied,
     reviewState: 'confirmed',
   }
+}
+
+/**
+ * A perna do lado de uma conta Open Finance: previsão, não lançamento. Quem
+ * move o saldo daquela conta é o extrato dela; esta linha só espera a ponta
+ * real para a conciliação casar. `transferAccountId` guarda a conta de ORIGEM
+ * — é o que `aprovarProposta` grava na ponta real ao conciliar.
+ */
+export function buildForecastTransferLegRow(
+  source: TransferSourceLeg,
+  sourceAccountId: string,
+  otherAccountId: string,
+  transferGroupId: string,
+): NewTransaction {
+  return {
+    ...buildTransferLegRow(source, otherAccountId, transferGroupId),
+    externalId: `${source.externalId}${SUFIXO_PERNA_PREVISTA}`,
+    balanceApplied: false,
+    transferAccountId: sourceAccountId,
+  }
+}
+
+/** O fork do §3.1 da spec, num lugar só: quem cria perna não decide de novo. */
+export function montarPernaDaTransferencia(args: {
+  source: TransferSourceLeg
+  sourceAccountId: string
+  otherAccountId: string
+  transferGroupId: string
+  destinoOpenFinance: boolean
+}): NewTransaction {
+  return args.destinoOpenFinance
+    ? buildForecastTransferLegRow(args.source, args.sourceAccountId, args.otherAccountId, args.transferGroupId)
+    : buildTransferLegRow(args.source, args.otherAccountId, args.transferGroupId)
 }
