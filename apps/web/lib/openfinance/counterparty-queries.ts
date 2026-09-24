@@ -2,6 +2,7 @@ import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { orgs, transactions, counterparties, accounts } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { unstable_cache } from 'next/cache'
+import { unstable_rethrow } from 'next/navigation'
 import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 import { requireIdentity } from '@/lib/auth/session'
 import { reviewGateTag } from '@/lib/cache-tags'
@@ -86,6 +87,9 @@ export async function getReviewGateStatusSafe(): Promise<ReviewGateSafeResult> {
     const { blocked } = await getReviewGateStatus(orgId, userId)
     return { ok: true, orgId, blocked }
   } catch (error) {
+    // Erros de controle do Next (render dinâmico, redirect) não são falha do
+    // portão: engoli-los aqui esconderia do Next que a rota lê cookies.
+    unstable_rethrow(error)
     console.error('[review-gate] falha ao checar o portao, seguindo sem bloquear:', error)
     return { ok: false }
   }

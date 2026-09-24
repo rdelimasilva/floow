@@ -20,6 +20,7 @@ vi.mock('@/lib/db/rls', async () => {
 
 // Fora de uma requisição não há cache incremental; o que se testa é a lógica.
 vi.mock('next/cache', () => ({ unstable_cache: (fn: () => unknown) => fn }))
+vi.mock('next/navigation', () => ({ unstable_rethrow: () => {} }))
 
 vi.mock('@/lib/auth/session', () => ({
   requireIdentity: () => Promise.resolve({ userId: 'user-1', orgIds: ['org-1'] }),
