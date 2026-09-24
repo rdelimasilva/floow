@@ -5,7 +5,7 @@
  * bater com o "Realizado" que a tela mostra depois.
  */
 import { and, eq, gte, lt, min, sql } from 'drizzle-orm'
-import { categories, transactions } from '@floow/db'
+import { budgetGoalSuggestionDismissals, categories, transactions } from '@floow/db'
 import {
   goalWindowMonths,
   suggestBudgetGoals,
@@ -18,6 +18,9 @@ import { somenteRealizado } from '@/lib/finance/realized-spending'
 
 export interface BudgetGoalSuggestionRow extends BudgetGoalSuggestion {
   categoryName: string
+  /** Primeiro e último mês considerados (YYYY-MM), para explicar o cálculo. */
+  firstMonth: string
+  lastMonth: string
 }
 
 export async function getBudgetGoalSuggestions(
@@ -37,7 +40,13 @@ export async function getBudgetGoalSuggestions(
     effectiveAffectsCashFlow,
   )
 
-  const { rows, months } = await withUserDb(async (tx) => {
+  const { rows, months, descartadas } = await withUserDb(async (tx) => {
+    const descartes = await tx
+      .select({ categoryId: budgetGoalSuggestionDismissals.categoryId })
+      .from(budgetGoalSuggestionDismissals)
+      .where(eq(budgetGoalSuggestionDismissals.orgId, orgId))
+    const descartadas = new Set(descartes.map((d) => d.categoryId))
+
     const [{ primeiro }] = await tx
       .select({ primeiro: sql<string | null>`to_char(${min(transactions.date)}, 'YYYY-MM')` })
       .from(transactions)
@@ -45,7 +54,7 @@ export async function getBudgetGoalSuggestions(
       .leftJoin(categories, eq(categories.id, transactions.categoryId))
       .where(gasto)
     const meses = goalWindowMonths(hoje, primeiro)
-    if (meses.length === 0) return { rows: [], months: meses }
+    if (meses.length === 0) return { rows: [], months: meses, descartadas }
 
     const mes = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`
     const linhas = await tx
@@ -64,7 +73,7 @@ export async function getBudgetGoalSuggestions(
         ),
       )
       .groupBy(transactions.categoryId, mes)
-    return { rows: linhas, months: meses }
+    return { rows: linhas, months: meses, descartadas }
   })
 
   const nomes = new Map(expenseCategories.map((c) => [c.id, c.name]))
@@ -73,5 +82,11 @@ export async function getBudgetGoalSuggestions(
     categories: expenseCategories,
     categoriesWithGoal,
     months,
-  }).map((s) => ({ ...s, categoryName: nomes.get(s.categoryId) ?? '' }))
+    dismissedCategories: descartadas,
+  }).map((s) => ({
+    ...s,
+    categoryName: nomes.get(s.categoryId) ?? '',
+    firstMonth: months[0],
+    lastMonth: months[months.length - 1],
+  }))
 }

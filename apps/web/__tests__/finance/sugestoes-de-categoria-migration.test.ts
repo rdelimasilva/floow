@@ -20,6 +20,18 @@ describe('migration 00058 category_suggestions', () => {
   })
 })
 
+describe('migration 00060 budget_goal_suggestion_dismissals', () => {
+  const sql60 = readFileSync(
+    resolve(__dirname, '../../../../supabase/migrations/00060_meta_sugerida_descartada.sql'),
+    'utf8',
+  )
+  it('um descarte por categoria por org, com RLS', () => {
+    expect(sql60).toMatch(/PRIMARY KEY \(org_id, category_id\)/)
+    expect(sql60).toMatch(/ENABLE ROW LEVEL SECURITY/)
+    for (const op of ['SELECT', 'INSERT', 'DELETE']) expect(sql60).toMatch(new RegExp(`FOR ${op} TO authenticated`))
+  })
+})
+
 describe('migration 00059 target_category_id', () => {
   const sql59 = readFileSync(
     resolve(__dirname, '../../../../supabase/migrations/00059_sugestao_para_categoria_existente.sql'),
