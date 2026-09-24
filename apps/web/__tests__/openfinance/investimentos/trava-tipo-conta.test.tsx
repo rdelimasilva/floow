@@ -11,7 +11,7 @@ import type { Account } from '@floow/db'
  * aplicações contar duas vezes. O banco barra a troca; a tela nem oferece.
  */
 
-vi.mock('@/lib/finance/actions', () => ({
+vi.mock('@/lib/finance/account-actions', () => ({
   updateAccount: vi.fn(), deleteAccount: vi.fn(), adjustAccountBalance: vi.fn(),
 }))
 vi.mock('@/components/ui/toast', () => ({ useToast: () => ({ toast: vi.fn() }) }))

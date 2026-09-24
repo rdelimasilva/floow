@@ -40,12 +40,17 @@ const PENDENTES = [
   'lib/cfo/chat-actions.ts',
   'lib/cfo/chat-context.ts',
   'lib/cfo/queries.ts',
-  'lib/finance/actions.ts',
-  // Saiu de `lib/finance/actions.ts` (tambem pendente) quando
-  // `reconcileRecurringBalances` virou `applyDueBankTransactions`: e o mesmo
-  // codigo em outro arquivo, nao superficie nova. Escrita, entao so converte
-  // depois que as politicas de escrita de `transactions` e `accounts`
-  // estiverem no ar — hoje a migracao cobre leitura.
+  'lib/finance/account-actions.ts',
+  'lib/finance/transaction-actions.ts',
+  'lib/finance/transaction-create-actions.ts',
+  'lib/finance/rule-actions.ts',
+  // Saiu de `lib/finance/actions.ts` (tambem pendente, hoje dividido em
+  // account-actions.ts/transaction-actions.ts/transaction-create-actions.ts/
+  // rule-actions.ts) quando `reconcileRecurringBalances` virou
+  // `applyDueBankTransactions`: e o mesmo codigo em outro arquivo, nao
+  // superficie nova. Escrita, entao so converte depois que as politicas de
+  // escrita de `transactions` e `accounts` estiverem no ar — hoje a migracao
+  // cobre leitura.
   'lib/finance/apply-due.ts',
   'lib/finance/budget-actions.ts',
   'lib/finance/budget-daily-queries.ts',
@@ -76,9 +81,10 @@ const PENDENTES = [
   'lib/finance/queries-snapshots.ts',
   'lib/finance/queries-transactions.ts',
   'lib/finance/recurring-actions.ts',
-  // Saiu de `lib/finance/actions.ts` (também pendente): `cancelRecurring`
-  // ganhou a opção de limpar as parcelas vencidas, e aquele arquivo já tem
-  // 1250 linhas. Mesmo código em outro lugar, não superfície nova.
+  // Saiu do antigo `lib/finance/actions.ts` (também pendente, hoje dividido —
+  // ver acima): `cancelRecurring` ganhou a opção de limpar as parcelas
+  // vencidas, e aquele arquivo já tinha 1250 linhas. Mesmo código em outro
+  // lugar, não superfície nova.
   'lib/finance/recurring-cancel.ts',
   'lib/fixed-assets/actions.ts',
   'lib/fixed-assets/queries.ts',

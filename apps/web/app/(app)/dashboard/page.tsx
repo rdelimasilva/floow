@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getLatestSnapshot, getTransactionsWithCount } from '@/lib/finance/queries'
-import { refreshSnapshot } from '@/lib/finance/actions'
+import { refreshSnapshot } from '@/lib/finance/account-actions'
 import { AccountSummaryRow } from '@/components/finance/account-summary-row'
 import { QuickStatsRow } from '@/components/finance/quick-stats-row'
 import { PatrimonySummary } from '@/components/finance/patrimony-summary'

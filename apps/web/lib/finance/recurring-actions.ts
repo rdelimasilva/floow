@@ -18,7 +18,7 @@ import {
 import type { RecurringFrequency } from '@floow/core-finance'
 import { eq, and, sql } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
-import { assertAccountOwnership, refreshSnapshot } from './actions'
+import { assertAccountOwnership, refreshSnapshot } from './account-actions'
 import {
   accountsTag,
   budgetInvestingTag,

@@ -7,7 +7,7 @@ import {
   toggleEnabled,
   previewBulkRecategorize,
   bulkRecategorize,
-} from '@/lib/finance/actions'
+} from '@/lib/finance/rule-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'

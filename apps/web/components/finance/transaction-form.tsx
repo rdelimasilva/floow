@@ -13,7 +13,7 @@ import {
   type EndMode,
   type CreatedTransaction,
 } from './transaction-form-schema'
-import { createTransaction, createRecurringTransactions } from '@/lib/finance/actions'
+import { createTransaction, createRecurringTransactions } from '@/lib/finance/transaction-create-actions'
 import { createCategory } from '@/lib/finance/category-actions'
 import { formatBRL, currencyToCents } from '@floow/core-finance/src/balance'
 import { generateInstallmentDates } from '@floow/core-finance/src/recurring-batch'

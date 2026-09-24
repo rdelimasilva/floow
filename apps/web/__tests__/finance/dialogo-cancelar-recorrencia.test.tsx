@@ -30,7 +30,7 @@ const cancelRecurring = vi.fn(async (_formData: FormData) => ({
 }))
 
 vi.mock('@/lib/finance/recurring-cancel', () => ({ cancelRecurring }))
-vi.mock('@/lib/finance/actions', () => ({
+vi.mock('@/lib/finance/transaction-actions', () => ({
   deleteTransaction: vi.fn(),
   toggleIgnoreTransaction: vi.fn(),
   bulkDeleteTransactions: vi.fn(),

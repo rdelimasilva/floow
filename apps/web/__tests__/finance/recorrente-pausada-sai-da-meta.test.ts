@@ -19,7 +19,7 @@ vi.mock('@floow/db', async () => {
   return { ...actual, getDb: () => ({ select: () => semLinhas, update: () => semLinhas }) }
 })
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: () => Promise.resolve('org-1'), getCategoryRules: () => Promise.resolve([]) }))
-vi.mock('@/lib/finance/actions', () => ({ assertAccountOwnership: () => Promise.resolve(), refreshSnapshot: () => Promise.resolve() }))
+vi.mock('@/lib/finance/account-actions', () => ({ assertAccountOwnership: () => Promise.resolve(), refreshSnapshot: () => Promise.resolve() }))
 vi.mock('@/lib/cfo/trigger', () => ({ triggerCfoAnalysis: vi.fn() }))
 vi.mock('@/lib/auth/session', () => ({ requireIdentity: vi.fn() }))
 vi.mock('@/lib/db/rls', () => ({ withUserDbFor: vi.fn() }))

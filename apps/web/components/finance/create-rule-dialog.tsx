@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createRule, updateRule, previewBulkRecategorize, bulkRecategorize } from '@/lib/finance/actions'
+import { createRule, updateRule, previewBulkRecategorize, bulkRecategorize } from '@/lib/finance/rule-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
