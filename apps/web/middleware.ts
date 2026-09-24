@@ -22,6 +22,7 @@ const PUBLIC_ROUTE_PREFIXES = [
   '/api/cfo/run-event',  // Event trigger — uses SERVICE_ROLE_KEY
   '/api/reconcile',      // Background job — auth enforced internally
   '/api/openfinance/import-transactions', // Cron 3x/dia — usa CRON_SECRET / SERVICE_ROLE_KEY
+  '/api/category-suggestions/run-weekly', // Cron semanal — usa CRON_SECRET / SERVICE_ROLE_KEY
   '/api/email/unsubscribe', // Link do rodapé do e-mail — autoriza pelo token assinado
 ]
 

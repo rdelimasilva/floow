@@ -23,6 +23,7 @@ const rel = (f: string) => relative(WEB, f).split(sep).join('/')
  */
 const SERVICO: Record<string, string> = {
   'app/api/cfo/run-daily/route.ts': 'cron: varre todas as orgs, sem usuário na requisição',
+  'app/api/category-suggestions/run-weekly/route.ts': 'cron semanal: varre todas as orgs, sem usuário na requisição',
   'lib/cfo/engine.ts': 'só é chamado por run-daily e run-event, ambas autenticadas por segredo',
   'lib/audit/record.ts': 'audit_log não tem policy de INSERT por desenho — só o backend escreve',
   'lib/openfinance/importacao-agendada.ts':

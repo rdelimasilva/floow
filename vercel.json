@@ -12,6 +12,10 @@
     {
       "path": "/api/openfinance/import-transactions",
       "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/category-suggestions/run-weekly",
+      "schedule": "0 10 * * 1"
     }
   ]
 }
