@@ -95,9 +95,11 @@ acesso ao banco em `apps/web/lib/openfinance`).
 - Livre = meta − gasto realizado − parcelas a vencer.
 - Aviso quando as parcelas a vencer passam da meta do mês, no mesmo formato do
   `abaixoDoPiso`.
-- Aplicar nas quatro consultas que somam gasto contra meta, que precisam
-  concordar entre si: `budget-queries.ts`, `budget-daily-queries.ts`,
-  `budget-pacing-actions.ts`, `lib/cfo/budget-pacing-input.ts`.
+- As quatro consultas que somam gasto contra meta (`budget-queries.ts`,
+  `budget-daily-queries.ts`, `budget-pacing-actions.ts`,
+  `lib/cfo/budget-pacing-input.ts`) já usam `somenteRealizado` e excluem a
+  parcela futura sem mudança. O "a vencer" entra só na tela de Meta de Gastos;
+  ritmo e insight do CFO ficam como estão.
 - Nunca conta duas vezes: a parcela sai de "a vencer" e entra em "gasto" no
   mesmo update (`balance_applied` vira true).
 
