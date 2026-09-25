@@ -7,6 +7,7 @@ import { corrigirRegra, previaCorrecaoDeRegra } from '@/lib/openfinance/corrigir
 import type { PreviaCorrecao } from '@/lib/openfinance/previa-correcao'
 import { mensagemNaContaNova, MSG_CONTA_DA_REGRA } from '@/lib/openfinance/mesma-conta'
 import type { ConfirmedCounterparty } from '@/lib/openfinance/counterparty-queries'
+import { filtrarRegras } from '@/lib/openfinance/filtrar-regras'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast'
@@ -40,6 +41,7 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
   const [historico, setHistorico] = useState(false)
   const [previa, setPrevia] = useState<PreviaCorrecao | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const [busca, setBusca] = useState('')
 
   const regra = confirmed.find((c) => c.id === aberta) ?? null
   const atual: Decisao | null = regra
@@ -124,12 +126,33 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
         ? mensagemNaContaNova(previa.naContaNova)
         : null
 
+  // A regra aberta (inclusive pelo link do extrato) não some quando o filtro
+  // não a inclui: sumir no meio da edição perderia o que já foi escolhido.
+  const filtradas = filtrarRegras(confirmed, busca)
+  const visiveis = regra && !filtradas.includes(regra) ? [regra, ...filtradas] : filtradas
+
   return (
     <div>
       <h2 className="text-sm font-semibold text-gray-900">Já confirmadas</h2>
       <p className="mt-1 text-xs text-gray-500">Quem você já classificou. Vale para os lançamentos futuros também.</p>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="search"
+          aria-label="Buscar regra"
+          placeholder="Buscar por nome ou conta"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          className="w-full max-w-sm rounded-md border border-gray-200 px-3 py-1.5 text-sm"
+        />
+        {busca.trim() && (
+          <span className="shrink-0 text-xs text-gray-500">
+            {filtradas.length} de {confirmed.length} regras
+          </span>
+        )}
+      </div>
+      {visiveis.length === 0 && <p className="mt-3 text-sm text-gray-500">Nenhuma regra encontrada.</p>}
       <ul className="mt-3 space-y-2">
-        {confirmed.map((c) => (
+        {visiveis.map((c) => (
           <li key={c.id} className="rounded-lg border border-gray-100 px-3 py-2 text-sm">
             <div className="flex items-center justify-between gap-3">
               <span className="text-gray-900">{c.displayName}</span>
