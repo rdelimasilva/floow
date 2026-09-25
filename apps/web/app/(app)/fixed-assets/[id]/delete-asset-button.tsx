@@ -19,7 +19,7 @@ export function DeleteAssetButton({ assetId, assetName }: { assetId: string; ass
       const formData = new FormData()
       formData.append('id', assetId)
       await deleteFixedAsset(formData)
-      toast('Ativo removido')
+      toast('Bem removido')
       router.push('/fixed-assets')
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao remover', 'error')
@@ -35,8 +35,8 @@ export function DeleteAssetButton({ assetId, assetName }: { assetId: string; ass
         open={open}
         onClose={() => setOpen(false)}
         onConfirm={handleDelete}
-        title="Excluir ativo"
-        description={`Tem certeza que deseja excluir "${assetName}"? O ativo será desativado.`}
+        title="Excluir bem"
+        description={`Tem certeza que deseja excluir "${assetName}"? O bem será desativado.`}
         confirmLabel="Excluir"
         loading={loading}
       />

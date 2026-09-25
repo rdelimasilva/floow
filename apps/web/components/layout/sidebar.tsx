@@ -69,7 +69,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Controle Patrimonial',
     items: [
       { href: '/investments', label: 'Investimentos', icon: TrendingUp },
-      { href: '/fixed-assets', label: 'Ativos Imobilizados', icon: Building2 },
+      { href: '/fixed-assets', label: 'Bens Imóveis', icon: Building2 },
     ],
   },
   {

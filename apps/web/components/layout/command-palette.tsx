@@ -23,7 +23,7 @@ const COMMANDS: CommandItem[] = [
   { label: 'Plano de Gastos', href: '/budgets/spending', icon: PiggyBank, keywords: ['orcamento', 'gastos', 'limite', 'meta'] },
   { label: 'Meta de Investimentos', href: '/budgets/investing', icon: Target, keywords: ['aporte', 'investir', 'meta'] },
   { label: 'Investimentos', href: '/investments', icon: TrendingUp, keywords: ['carteira', 'portfolio', 'acoes', 'fundos'] },
-  { label: 'Ativos Imobilizados', href: '/fixed-assets', icon: Building2, keywords: ['imovel', 'carro', 'bens'] },
+  { label: 'Bens Imóveis', href: '/fixed-assets', icon: Building2, keywords: ['imovel', 'carro', 'bens'] },
   { label: 'Controle de Dívidas', href: '/debts', icon: Landmark, keywords: ['divida', 'emprestimo', 'financiamento'] },
   { label: 'Planejamento', href: '/planning', icon: Target, keywords: ['aposentadoria', 'fi', 'simulacao'] },
   { label: 'Simulação', href: '/planning/simulation', icon: BarChart3, keywords: ['cenario', 'projecao'] },
