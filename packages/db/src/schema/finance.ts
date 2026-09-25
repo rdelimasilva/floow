@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import {
   pgTable,
   pgEnum,
@@ -244,6 +245,13 @@ export const transactions = pgTable(
     idxTransactionsOrgBalanceDate: index('idx_transactions_org_balance_date').on(table.orgId, table.balanceApplied, table.date),
     idxTransactionsOrgReviewState: index('idx_transactions_org_review_state').on(table.orgId, table.reviewState),
     idxTransactionsCounterpartyId: index('idx_transactions_counterparty_id').on(table.counterpartyId),
+    // 00063: filtros por grupo de transferência e agrupamento por template.
+    idxTransactionsTransferGroup: index('idx_transactions_transfer_group')
+      .on(table.transferGroupId)
+      .where(sql`transfer_group_id IS NOT NULL`),
+    idxTransactionsOrgTemplateDate: index('idx_transactions_org_template_date')
+      .on(table.orgId, table.recurringTemplateId, table.date)
+      .where(sql`recurring_template_id IS NOT NULL`),
     idxTransactionsInstallmentKey: index('idx_transactions_installment_key').on(
       table.accountId,
       table.purchaseDate,

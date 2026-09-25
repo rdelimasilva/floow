@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
@@ -22,7 +21,6 @@ interface Props {
 }
 
 export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted }: Props) {
-  const router = useRouter()
   const { toast } = useToast()
   const [busy, setBusy] = useState(false)
   const [accepting, setAccepting] = useState<PendingSuggestion | null>(null)
@@ -34,7 +32,6 @@ export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted
     try {
       const r = await analyzeCategorySuggestions()
       toast(r.pending > 0 ? `${r.pending} sugestão(ões) encontrada(s)` : 'Nenhuma sugestão nova')
-      router.refresh()
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao analisar', 'error')
     } finally {
@@ -46,7 +43,6 @@ export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted
     setBusy(true)
     try {
       await dismissCategorySuggestion(id)
-      router.refresh()
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao recusar', 'error')
     } finally {
@@ -65,7 +61,6 @@ export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted
       )
       setAccepting(null)
       onAccepted(r)
-      router.refresh()
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao aceitar sugestão', 'error')
     } finally {

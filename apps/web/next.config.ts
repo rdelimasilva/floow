@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   },
   transpilePackages: ['@floow/db', '@floow/shared', '@floow/core-finance'],
+  // Fora do bundle para o Sentry instrumentar as consultas (postgresJsIntegration
+  // funciona por hook de require, que não alcança código empacotado). Sem isto
+  // os traces mostram a rota, mas não quanto dela foi banco.
+  serverExternalPackages: ['postgres'],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },

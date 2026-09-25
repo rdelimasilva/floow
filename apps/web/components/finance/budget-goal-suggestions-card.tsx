@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { HelpTooltip } from '@/components/ui/help-tooltip'
@@ -36,7 +35,6 @@ export function explicacaoDaSugestao(s: BudgetGoalSuggestionRow): string {
 
 /** Categorias sem meta, com o valor que o histórico sugere. Some quando não há nenhuma. */
 export function BudgetGoalSuggestionsCard({ suggestions, onCreate }: Props) {
-  const router = useRouter()
   const { toast } = useToast()
   const [descartando, setDescartando] = useState<string | null>(null)
 
@@ -46,7 +44,6 @@ export function BudgetGoalSuggestionsCard({ suggestions, onCreate }: Props) {
     setDescartando(categoryId)
     try {
       await dismissBudgetGoalSuggestion(categoryId)
-      router.refresh()
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao descartar', 'error')
     } finally {

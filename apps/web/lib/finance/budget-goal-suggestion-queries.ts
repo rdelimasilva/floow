@@ -23,13 +23,24 @@ export interface BudgetGoalSuggestionRow extends BudgetGoalSuggestion {
   lastMonth: string
 }
 
-export async function getBudgetGoalSuggestions(
-  orgId: string,
-  expenseCategories: GoalCategory[],
-  categoriesWithGoal: Set<string>,
-): Promise<BudgetGoalSuggestionRow[]> {
+/** O que sai do banco. Não depende das categorias nem das metas da tela. */
+export interface DadosDaSugestao {
+  rows: { categoryId: string | null; month: string; cents: number }[]
+  months: string[]
+  descartadas: Set<string>
+}
+
+/**
+ * A parte de banco, separada da montagem para a página disparar junto com as
+ * outras consultas — antes ela esperava o `Promise.all` da página terminar,
+ * só porque recebia categorias e metas que o banco nem usa.
+ */
+export async function carregarDadosDaSugestao(orgId: string): Promise<DadosDaSugestao> {
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const inicioMesAtual = `${hoje.slice(0, 7)}-01`
+  // O mês mais antigo que a janela pode ter. Gasto antes dele só importa por
+  // existir: a janela então começa aqui.
+  const inicioDaJanela = `${goalWindowMonths(hoje, '0000-00')[0]}-01`
 
   const gasto = and(
     eq(transactions.orgId, orgId),
@@ -40,20 +51,29 @@ export async function getBudgetGoalSuggestions(
     effectiveAffectsCashFlow,
   )
 
-  const { rows, months, descartadas } = await withUserDb(async (tx) => {
+  return withUserDb(async (tx) => {
     const descartes = await tx
       .select({ categoryId: budgetGoalSuggestionDismissals.categoryId })
       .from(budgetGoalSuggestionDismissals)
       .where(eq(budgetGoalSuggestionDismissals.orgId, orgId))
     const descartadas = new Set(descartes.map((d) => d.categoryId))
 
-    const [{ primeiro }] = await tx
-      .select({ primeiro: sql<string | null>`to_char(${min(transactions.date)}, 'YYYY-MM')` })
+    // O primeiro mês com gasto, sem varrer o histórico inteiro: o `min` fica
+    // dentro da janela, e o que veio antes dela só precisa de um `exists`, que
+    // para na primeira linha. Era um `min` sobre todos os anos da org.
+    const [{ primeiro, antes }] = await tx
+      .select({
+        primeiro: sql<string | null>`to_char(${min(transactions.date)}, 'YYYY-MM')`,
+        antes: sql<boolean>`exists (
+          select 1 from ${transactions}
+            left join ${categories} on ${categories.id} = ${transactions.categoryId}
+           where ${gasto} and ${transactions.date} < ${inicioDaJanela}::date)`,
+      })
       .from(transactions)
       // effectiveAffectsCashFlow lê categories.affects_cash_flow.
       .leftJoin(categories, eq(categories.id, transactions.categoryId))
-      .where(gasto)
-    const meses = goalWindowMonths(hoje, primeiro)
+      .where(and(gasto, gte(transactions.date, sql`${inicioDaJanela}::date`)))
+    const meses = goalWindowMonths(hoje, antes ? inicioDaJanela.slice(0, 7) : primeiro)
     if (meses.length === 0) return { rows: [], months: meses, descartadas }
 
     const mes = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`
@@ -73,12 +93,22 @@ export async function getBudgetGoalSuggestions(
         ),
       )
       .groupBy(transactions.categoryId, mes)
-    return { rows: linhas, months: meses, descartadas }
+    return {
+      rows: linhas.map((r) => ({ categoryId: r.categoryId, month: r.month, cents: Number(r.cents) })),
+      months: meses,
+      descartadas,
+    }
   })
+}
 
+export function montarSugestoesDeMeta(
+  { rows, months, descartadas }: DadosDaSugestao,
+  expenseCategories: GoalCategory[],
+  categoriesWithGoal: Set<string>,
+): BudgetGoalSuggestionRow[] {
   const nomes = new Map(expenseCategories.map((c) => [c.id, c.name]))
   return suggestBudgetGoals({
-    rows: rows.map((r) => ({ categoryId: r.categoryId, month: r.month, cents: Number(r.cents) })),
+    rows,
     categories: expenseCategories,
     categoriesWithGoal,
     months,

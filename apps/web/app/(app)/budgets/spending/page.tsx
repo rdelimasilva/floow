@@ -2,7 +2,7 @@ import { getOrgId, getCategories } from '@/lib/finance/queries'
 import { getAllBudgetEntries, getSpendingByCategory } from '@/lib/finance/budget-queries'
 import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { getParcelasAVencerDoMes } from '@/lib/finance/parcelas-a-vencer-queries'
-import { getBudgetGoalSuggestions } from '@/lib/finance/budget-goal-suggestion-queries'
+import { carregarDadosDaSugestao, montarSugestoesDeMeta } from '@/lib/finance/budget-goal-suggestion-queries'
 import { SpendingClient } from './client'
 
 interface Props {
@@ -21,12 +21,13 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
   const monthDate = new Date(sy, sm - 1, 1)
   const monthEnd = new Date(sy, sm, 0)
 
-  const [categories, entriesForMonth, allEntries, spending, parcelasAVencer] = await Promise.all([
+  const [categories, entriesForMonth, allEntries, spending, parcelasAVencer, dadosDaSugestao] = await Promise.all([
     getCategories(orgId),
     getSpendingPlanForMonth(orgId, monthDate, monthEnd),
     getAllBudgetEntries(orgId, 'spending'),
     getSpendingByCategory(orgId, monthDate, monthEnd),
     getParcelasAVencerDoMes(orgId, monthDate, monthEnd),
+    carregarDadosDaSugestao(orgId),
   ])
 
   const expenseCategories = categories
@@ -40,7 +41,7 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
       (id): id is string => !!id,
     ),
   )
-  const goalSuggestions = await getBudgetGoalSuggestions(orgId, expenseCategories, categoriesWithGoal)
+  const goalSuggestions = montarSugestoesDeMeta(dadosDaSugestao, expenseCategories, categoriesWithGoal)
 
   return (
     <SpendingClient
