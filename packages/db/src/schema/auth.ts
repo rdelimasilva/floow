@@ -33,8 +33,11 @@ export const profiles = pgTable('profiles', {
   email: text('email').notNull(),
   fullName: text('full_name'),
   avatarUrl: text('avatar_url'),
-  /** E-mail de alerta de ritmo de gasto. Ligado por padrão; o rodapé do e-mail desliga. */
+  /** OBSOLETA desde 00065 — a preferência vive em notification_preferences. */
   emailPacingAlerts: boolean('email_pacing_alerts').notNull().default(true),
+  /** WhatsApp em E.164 (+5511999998888). Só vale com whatsappVerifiedAt preenchido. */
+  whatsappPhone: text('whatsapp_phone'),
+  whatsappVerifiedAt: timestamp('whatsapp_verified_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })

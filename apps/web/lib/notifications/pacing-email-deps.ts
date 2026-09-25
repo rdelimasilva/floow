@@ -43,7 +43,12 @@ export function defaultPacingEmailDeps(): PacingEmailDeps {
         .insert(pacingAlertState)
         .values(alerts.map((a) => ({ orgId, month, categoryId: a.categoryId, status: a.status })))
         .onConflictDoUpdate({
-          target: [pacingAlertState.orgId, pacingAlertState.month, pacingAlertState.categoryId],
+          target: [
+            pacingAlertState.orgId,
+            pacingAlertState.month,
+            pacingAlertState.categoryId,
+            pacingAlertState.channel,
+          ],
           set: { status: sql`excluded.status`, sentAt: sql`now()` },
         })
     },
