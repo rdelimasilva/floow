@@ -28,13 +28,13 @@ describe('normalizeInvestment — renda fixa bancária', () => {
     const r = normalizeInvestment('BANK_FIXED_INCOME', cdb)
     expect(r.polpId).toBe('bfi-1')
     expect(r.asset).toEqual({
-      name: 'CDB 110% CDI · venc. 05/2027',
+      name: 'CDB Itaú 110% CDI · venc. 05/2027',
       ticker: null,
       assetClass: 'fixed_income',
       assetSubtype: 'CDB',
       isin: 'BRITAUCDB001',
       cnpj: '60701190000104',
-      issuerName: null,
+      issuerName: 'Itaú',
       indexer: 'CDI',
       preFixedRate: null,
       indexerPercentage: 1.1,
@@ -56,6 +56,18 @@ describe('normalizeInvestment — renda fixa bancária', () => {
     })
   })
 
+  it('emissor pela raiz do CNPJ, com ou sem pontuação', () => {
+    const r = normalizeInvestment('BANK_FIXED_INCOME', { ...cdb, issuer_institution_cnpj_number: '30.306.294/0002-26' })
+    expect(r.asset.issuerName).toBe('BTG Pactual')
+  })
+
+  it('emissor desconhecido: sem nome, CNPJ guardado', () => {
+    const r = normalizeInvestment('BANK_FIXED_INCOME', { ...cdb, issuer_institution_cnpj_number: '12345678000199' })
+    expect(r.asset.issuerName).toBeNull()
+    expect(r.asset.cnpj).toBe('12345678000199')
+    expect(r.asset.name).toBe('CDB 110% CDI · venc. 05/2027')
+  })
+
   it('balance nulo: posição nula, ativo continua', () => {
     const r = normalizeInvestment('BANK_FIXED_INCOME', { ...cdb, balance: null })
     expect(r.position).toBeNull()
@@ -66,7 +78,7 @@ describe('normalizeInvestment — renda fixa bancária', () => {
     const r = normalizeInvestment('BANK_FIXED_INCOME', {
       ...cdb, remuneration: { indexer: 'PRE_FIXADO', pre_fixed_rate: '0.125000' },
     })
-    expect(r.asset.name).toBe('CDB 12,5% a.a. · venc. 05/2027')
+    expect(r.asset.name).toBe('CDB Itaú 12,5% a.a. · venc. 05/2027')
     expect(r.asset.preFixedRate).toBeCloseTo(0.125)
   })
 })

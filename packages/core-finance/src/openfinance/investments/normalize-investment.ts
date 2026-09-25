@@ -10,6 +10,7 @@ import type {
   PolpInvestmentKind, PolpRemuneration, PolpTreasureTitle, PolpVariableIncome,
 } from '../polp-investment-types'
 import { dateOnly, decimal, moneyCents, toFraction } from './convert'
+import { bancoEmissor } from './emissores'
 
 export type InvestmentAssetClass = 'fixed_income' | 'credit_fixed_income' | 'fund' | 'treasury' | 'br_equity'
 
@@ -64,7 +65,9 @@ export function normalizeInvestment(kind: PolpInvestmentKind, raw: unknown): Nor
     case 'CREDIT_FIXED_INCOME': {
       const r = raw as PolpCreditFixedIncome
       const rem = remuneration(r.remuneration)
-      const issuerName = kind === 'CREDIT_FIXED_INCOME' ? (r.debtor_name ?? null) : null
+      const issuerName = kind === 'CREDIT_FIXED_INCOME'
+        ? (r.debtor_name ?? null)
+        : bancoEmissor(r.issuer_institution_cnpj_number)
       const head = [r.investment_type ?? (kind === 'BANK_FIXED_INCOME' ? 'Renda fixa' : 'Crédito privado'), issuerName]
         .filter(Boolean).join(' ')
       return {
