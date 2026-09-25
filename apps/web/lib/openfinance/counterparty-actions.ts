@@ -9,7 +9,7 @@ import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag, reviewGateTag } from '@/lib/cache-tags'
 import { condicaoForaDeParDeTransferenciaPendente, criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
-import { aplicarDecisaoAosPendentes, contaQueARegraGrava, ehRegraDoTitular, exceptionSchema } from './aplicar-regra'
+import { aplicarDecisaoAosPendentes, camposDaRegra, contaQueARegraGrava, ehRegraDoTitular, exceptionSchema } from './aplicar-regra'
 export type { ConfirmCounterpartyException } from './aplicar-regra'
 
 /**
@@ -94,14 +94,7 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
 
     await tx
       .update(counterparties)
-      .set({
-        nature: input.nature,
-        categoryId: input.categoryId,
-        transferAccountId: contaDaRegra,
-        confirmedAt: new Date(),
-        confirmedBy: userId,
-        updatedAt: new Date(),
-      })
+      .set(camposDaRegra({ nature: input.nature, categoryId: input.categoryId, transferAccountId: contaDaRegra, cpfProprio }, userId))
       .where(and(eq(counterparties.id, input.counterpartyId), eq(counterparties.orgId, orgId)))
 
     // Mesmo cast de `assertAccountOwnership(tx as unknown as Db, ...)` em

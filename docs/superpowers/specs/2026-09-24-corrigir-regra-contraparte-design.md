@@ -76,14 +76,20 @@ lançamento muda. É o padrão da caixa no editor.
 
 Numa única transação de banco:
 
-1. **Seleciona** os lançamentos da regra que ainda seguem a decisão antiga:
-   `counterparty_id = X`, `review_state = 'confirmed'` e
-   - regra antiga transferência: `type = 'transfer'` e
-     `transfer_account_id = conta antiga`;
-   - regra antiga receita/despesa: `type` e `category_id` iguais aos da regra.
+1. **Seleciona** os lançamentos da regra que estão diferentes da decisão
+   nova: `counterparty_id = X`, `review_state = 'confirmed'` e
+   - decisão nova transferência para a conta A: não é `transfer` para A;
+   - decisão nova receita/despesa na categoria C: não é esse `type` com C.
 
-   Lançamento que diverge da regra antiga foi uma exceção decidida à mão e
-   fica como está. Não há coluna de "override": a divergência é o sinal.
+   *Revisado em 24/09, depois do uso real:* a versão anterior selecionava
+   pelo que a regra dizia no momento. Se ela tinha sido salva antes sem o
+   histórico, já apontava para a conta nova, e os lançamentos antigos, que
+   ficaram na conta velha, não eram achados. O custo da regra nova: uma
+   exceção decidida à mão também entra, e aparece na contagem da prévia.
+
+   Exceção: CPF próprio (transferência sem conta). "Diferente da decisão"
+   seria tudo, inclusive o que foi decidido lançamento a lançamento; ali
+   continua valendo o que segue a regra atual.
 2. **Desfaz** cada selecionado com `desfazerParDaRegra` (§5).
 3. **Atualiza** a contraparte com a decisão nova.
 4. **Reaplica** com o núcleo do `confirmCounterparty` atual, extraído para
@@ -130,8 +136,10 @@ confirmar/corrigir uma regra e ao montar a fila de Classificar.
 ### 6.2 Comportamento
 
 - `confirmCounterparty`/`corrigirRegra` numa contraparte de CPF próprio aplicam
-  a decisão aos lançamentos escolhidos, mas gravam na contraparte
-  `nature = 'transfer'` com `transfer_account_id = null`.
+  a decisão aos lançamentos escolhidos e desfazem a regra: `nature`,
+  `category_id`, `transfer_account_id`, `confirmed_at` e `confirmed_by` ficam
+  nulos. *Revisado em 24/09:* a versão anterior gravava `nature = 'transfer'`
+  sem conta, que o `counterparties_nature_check` (00037) recusa.
 - `resolveCounterparty` já devolve `pending` para transferência confirmada sem
   conta (`resolve-counterparty.ts:193`). Cada novo Pix/TED para o próprio CPF
   cai em Classificar como Transferência, sem mudança no sync.
@@ -144,7 +152,7 @@ confirmar/corrigir uma regra e ao montar a fila de Classificar.
 
 ### 6.3 Migração
 
-Migration que zera `transfer_account_id` das contrapartes `tax_id` de CPF
+Script que desfaz (como acima) as contrapartes `tax_id` de CPF
 próprio. Como o hash depende do salt da aplicação, a migração é um script
 (`scripts/`), não SQL puro: lê as contrapartes `tax_id` com
 `nature = 'transfer'`, calcula o hash e atualiza as que batem. Lançamentos

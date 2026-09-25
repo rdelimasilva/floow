@@ -2,7 +2,8 @@
 /**
  * Regras de contraparte do CPF do titular que ainda gravam conta fixa.
  * Spec 2026-09-24-corrigir-regra-contraparte §6.3. Não mexe em lançamento:
- * só tira a conta da regra, para o próximo Pix cair em Classificar.
+ * só desfaz a regra (sem natureza e sem confirmação, porque o banco não aceita
+ * transferência sem conta), para o próximo Pix cair em Classificar.
  *
  *   node scripts/regras-cpf-proprio.mjs            # só lista
  *   node scripts/regras-cpf-proprio.mjs --aplicar  # grava
@@ -45,7 +46,7 @@ if (aplicar && alvo.length > 0) {
     porOrg.get(r.org_id).push(r.id)
   }
   for (const [orgId, ids] of porOrg) {
-    await sql`update counterparties set transfer_account_id = null, updated_at = now() where org_id = ${orgId} and id in ${sql(ids)}`
+    await sql`update counterparties set nature = null, category_id = null, transfer_account_id = null, confirmed_at = null, confirmed_by = null, updated_at = now() where org_id = ${orgId} and id in ${sql(ids)}`
   }
   console.log('Conta removida.')
 }

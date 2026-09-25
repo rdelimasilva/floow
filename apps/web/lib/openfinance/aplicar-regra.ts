@@ -238,6 +238,33 @@ export function contaQueARegraGrava(v: { nature: string; transferAccountId: stri
   return v.transferAccountId
 }
 
+/**
+ * O que a correção/confirmação grava em `counterparties`.
+ *
+ * Pix para o próprio CPF não tem conta fixa, mas o banco não aceita
+ * transferência sem conta (`counterparties_nature_check`, 00037). A regra do
+ * titular, então, é desfeita: sem natureza e sem confirmação, como uma
+ * contraparte nova. `resolveCounterparty` deixa pendente todo lançamento de
+ * contraparte não confirmada, e cada Pix novo cai em Classificar.
+ */
+export function camposDaRegra(
+  v: { nature: 'income' | 'expense' | 'transfer'; categoryId: string | null; transferAccountId: string | null; cpfProprio: boolean },
+  userId: string,
+  agora: Date = new Date(),
+) {
+  if (v.cpfProprio && v.nature === 'transfer') {
+    return { nature: null, categoryId: null, transferAccountId: null, confirmedAt: null, confirmedBy: null, updatedAt: agora }
+  }
+  return {
+    nature: v.nature,
+    categoryId: v.categoryId,
+    transferAccountId: v.transferAccountId,
+    confirmedAt: agora,
+    confirmedBy: userId,
+    updatedAt: agora,
+  }
+}
+
 export async function ehRegraDoTitular(
   tx: Pick<Db, 'select'>,
   orgId: string,
