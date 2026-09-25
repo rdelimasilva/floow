@@ -10,7 +10,8 @@ import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { createDebt, updateDebt, deleteDebt } from '@/lib/finance/debt-actions'
-import { formatBRL } from '@floow/core-finance/src/balance'
+import { formatBRL, currencyToCents } from '@floow/core-finance/src/balance'
+import { InputMoeda, formatarMoedaDigitada } from '@/components/ui/input-moeda'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 
 interface DebtRow {
@@ -49,12 +50,13 @@ const TYPE_COLORS: Record<string, string> = {
   consortium: 'bg-teal-100 text-teal-800',
 }
 
+// "150.000,00" é cento e cinquenta mil: o ponto é milhar, não decimal.
 function parseCents(value: string): number {
-  return Math.round(parseFloat(value.replace(',', '.')) * 100)
+  return currencyToCents(value)
 }
 
 function centsToDisplay(cents: number): string {
-  return (cents / 100).toFixed(2).replace('.', ',')
+  return formatarMoedaDigitada(String(Math.abs(cents)))
 }
 
 function formatDateBR(dateStr: string): string {
@@ -249,7 +251,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Valor total (R$)</label>
-                  <Input type="text" inputMode="decimal" value={formTotal} onChange={(e) => setFormTotal(e.target.value)} required placeholder="Ex: 150.000,00" />
+                  <InputMoeda value={formTotal} onChange={(e) => setFormTotal(e.target.value)} required placeholder="Ex: 150.000,00" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Parcelas</label>
@@ -257,7 +259,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Valor da parcela (R$)</label>
-                  <Input type="text" inputMode="decimal" value={formInstallmentValue} onChange={(e) => setFormInstallmentValue(e.target.value)} required placeholder="Ex: 1.200,00" />
+                  <InputMoeda value={formInstallmentValue} onChange={(e) => setFormInstallmentValue(e.target.value)} required placeholder="Ex: 1.200,00" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Taxa de juros (%)</label>

@@ -20,6 +20,7 @@ import { generateInstallmentDates } from '@floow/core-finance/src/recurring-batc
 import type { RecurringFrequency } from '@floow/core-finance/src/recurring'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { InputMoeda } from '@/components/ui/input-moeda'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -326,9 +327,8 @@ export function TransactionForm({
       {/* Amount */}
       <div className="space-y-1.5">
         <Label htmlFor="amountRaw">Valor (R$)</Label>
-        <Input
+        <InputMoeda
           id="amountRaw"
-          placeholder="Ex: 150,75"
           error={!!errors.amountRaw}
           {...register('amountRaw')}
         />

@@ -6,6 +6,7 @@ import { createCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { InputMoeda, formatarMoedaDigitada } from '@/components/ui/input-moeda'
 import { currencyToCents } from '@floow/core-finance/src/balance'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 import { dataDeCalendario } from '@/lib/finance/recurring-dates'
@@ -78,7 +79,7 @@ function hojeEmSaoPaulo(): string {
 }
 
 function centsToInput(cents: number): string {
-  return (cents / 100).toFixed(2).replace('.', ',')
+  return formatarMoedaDigitada(String(Math.abs(cents)))
 }
 
 export function CreateRecurringDialog({
@@ -299,10 +300,9 @@ export function CreateRecurringDialog({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
-                <Input
+                <InputMoeda
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Ex: 150,75"
                   required
                 />
               </div>

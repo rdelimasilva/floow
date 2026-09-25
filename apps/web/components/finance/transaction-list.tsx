@@ -7,7 +7,7 @@ import { cancelRecurring } from '@/lib/finance/recurring-cancel'
 import { setTransactionAffectsCashFlow } from '@/lib/finance/cash-flow-actions'
 import { nextAffectsCashFlow } from '@/lib/finance/affects-cash-flow-cycle'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { textoDeRemocao } from '@/lib/finance/delete-copy'
+import { useExclusaoComDesfazer } from './use-exclusao-com-desfazer'
 import { desconciliarLancamento } from '@/lib/finance/desconciliar-actions'
 import { podeDesconciliar } from '@/lib/finance/desconciliar'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
@@ -43,7 +43,7 @@ interface TransactionListProps {
 }
 
 export function TransactionList({
-  transactions, accounts, categories,
+  transactions: todasAsTransacoes, accounts, categories,
   sortBy = 'date', sortDir = 'desc', faturas,
   activeTypes = [], activeCategoryIds = [],
   activeMinAmount = '', activeMaxAmount = '',
@@ -54,8 +54,22 @@ export function TransactionList({
   toastRef.current = toast
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
 
+  // Excluir esconde a linha e oferece "Desfazer"; o banco só é tocado quando o aviso expira.
+  const exclusao = useExclusaoComDesfazer({
+    excluir: (id) => {
+      const formData = new FormData()
+      formData.append('id', id)
+      return deleteTransaction(formData)
+    },
+    toast,
+  })
+  const { oculta } = exclusao
+  const transactions = useMemo(
+    () => todasAsTransacoes.filter((t) => !oculta(t)),
+    [todasAsTransacoes, oculta],
+  )
+
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<TransactionRowData | null>(null)
   const [unreconcileTarget, setUnreconcileTarget] = useState<TransactionRowData | null>(null)
   const [loading, setLoading] = useState(false)
   const [ruleShortcut, setRuleShortcut] = useState<{ matchValue: string; categoryId: string } | null>(null)
@@ -105,9 +119,8 @@ export function TransactionList({
     setEditingId(tx.id)
   }, [])
 
-  const handleDelete = useCallback((tx: TransactionRowData) => {
-    setDeleteTarget(tx)
-  }, [])
+  const { pedir: pedirExclusao } = exclusao
+  const handleDelete = useCallback((tx: TransactionRowData) => pedirExclusao(tx), [pedirExclusao])
 
   const handleIgnore = useCallback(async (tx: TransactionRowData) => {
     setLoading(true)
@@ -191,22 +204,6 @@ export function TransactionList({
       toast(fila === 'previsoes' ? 'Devolvido para Confirmar previsões' : 'Devolvido para Classificar lançamentos')
     } catch (e) {
       toast(mensagemDeErro(e, 'Não foi possível desconciliar.'), 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return
-    setLoading(true)
-    try {
-      const formData = new FormData()
-      formData.append('id', deleteTarget.id)
-      await deleteTransaction(formData)
-      setDeleteTarget(null)
-      toast('Transação removida com sucesso')
-    } catch (e) {
-      toast(mensagemDeErro(e, 'Não foi possível remover a transação.'), 'error')
     } finally {
       setLoading(false)
     }
@@ -381,17 +378,6 @@ export function TransactionList({
         </div>
       )}
 
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
-        // O texto depende do que está sendo removido: previsão não mexe em
-        // saldo nenhum, e apagar uma parcela não cancela a recorrência.
-        title={textoDeRemocao(deleteTarget).title}
-        description={textoDeRemocao(deleteTarget).description}
-        confirmLabel="Excluir"
-        loading={loading}
-      />
 
       <ConfirmDialog
         open={!!unreconcileTarget}

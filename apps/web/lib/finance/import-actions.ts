@@ -23,6 +23,8 @@ type Db = ReturnType<typeof getDb>
 export interface ImportResult {
   imported: number
   skipped: number
+  /** `importedAt` do lote — a chave para desfazer a importação. */
+  lote?: string
 }
 
 /**
@@ -481,5 +483,5 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
   invalidateTag(recentTransactionsTag(orgId, 6))
   invalidateTag(recentTransactionsTag(orgId, 24))
 
-  return { imported, skipped }
+  return { imported, skipped, lote: importedAt.toISOString() }
 }

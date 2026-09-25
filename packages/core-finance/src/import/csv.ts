@@ -60,6 +60,25 @@ function generateExternalId(row: Record<string, string>): string {
  * - Empty line skipping (via papaparse skipEmptyLines)
  * - Deterministic externalId for deduplication
  */
+/**
+ * Cabeçalho do CSV, com o separador detectado pelo Papa — extrato de banco
+ * brasileiro costuma vir com ponto e vírgula.
+ */
+export function lerCabecalhoCsv(content: string): string[] {
+  const { meta } = Papa.parse<Record<string, string>>(content, { header: true, preview: 1 })
+  return (meta.fields ?? []).map((f) => f.trim())
+}
+
+/**
+ * Valor em texto para número. Com vírgula, é formato brasileiro: ponto é
+ * milhar ("1.234,56"). Sem vírgula, o ponto é decimal ("5000.00").
+ */
+function lerValor(texto: string): number {
+  const limpo = texto.replace(/R\$|\s/g, '')
+  const normalizado = limpo.includes(',') ? limpo.replace(/\./g, '').replace(',', '.') : limpo
+  return parseFloat(normalizado)
+}
+
 export function parseCSVFile(
   content: string,
   mapping: CsvColumnMapping,
@@ -73,10 +92,10 @@ export function parseCSVFile(
 
   return data.map((row) => {
     const dateStr = (row[mapping.dateColumn] ?? '').trim()
-    const amountStr = (row[mapping.amountColumn] ?? '0').trim().replace(',', '.')
+    const amountStr = (row[mapping.amountColumn] ?? '0').trim()
     const description = (row[mapping.descriptionColumn] ?? '').trim()
 
-    const rawAmount = parseFloat(amountStr)
+    const rawAmount = lerValor(amountStr)
     const amountCents = Math.round(rawAmount * 100)
     const type: 'income' | 'expense' = rawAmount >= 0 ? 'income' : 'expense'
 

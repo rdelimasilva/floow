@@ -85,7 +85,7 @@ describe('clonar recorrência', () => {
     const d = dialogAberto()
     expect(d.getByRole('heading').textContent).toBe('Nova Recorrência')
     expect(d.getByDisplayValue('Aluguel')).toBeTruthy()
-    expect(d.getByDisplayValue('2500,00')).toBeTruthy()
+    expect(d.getByDisplayValue('2.500,00')).toBeTruthy()
     expect(d.getByDisplayValue('Apto 12')).toBeTruthy()
     expect(d.getByDisplayValue('Itaú')).toBeTruthy()
     expect(d.getByDisplayValue('Moradia')).toBeTruthy()

@@ -1,23 +1,18 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Link from 'next/link'
-import { parseOFXFile, parseCSVFile, type NormalizedTransaction, type CsvColumnMapping } from '@floow/core-finance'
+import { parseOFXFile, parseCSVFile, lerCabecalhoCsv, type NormalizedTransaction, type CsvColumnMapping } from '@floow/core-finance'
+import { mapeamentoAutomatico } from '@/lib/finance/mapear-colunas-csv'
 import type { Account } from '@floow/db'
 import { previewImport, importSelectedTransactions, type PreviewItem, type TransactionOverride } from '@/lib/finance/import-actions'
 import { ImportPreview } from './import-preview'
 import { ImportReview } from './import-review'
+import { ImportacaoConcluida } from './importacao-concluida'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { EtapasDaImportacao } from './etapas-da-importacao'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -27,20 +22,7 @@ type Step = 'select-file' | 'preview' | 'reconciliation' | 'review' | 'importing
 interface ImportDoneResult {
   imported: number
   skipped: number
-}
-
-// Common CSV column name heuristics for auto-detection
-const DATE_HEADERS = ['data', 'date', 'dt', 'data lançamento', 'data lancamento']
-const AMOUNT_HEADERS = ['valor', 'amount', 'value', 'vlr', 'valor (em r$)', 'debit', 'credit']
-const DESC_HEADERS = ['descricao', 'descrição', 'description', 'memo', 'historico', 'histórico', 'nome', 'name']
-
-function detectColumn(headers: string[], candidates: string[]): string {
-  const normalized = headers.map((h) => h.toLowerCase().trim())
-  for (const candidate of candidates) {
-    const idx = normalized.findIndex((h) => h === candidate || h.includes(candidate))
-    if (idx >= 0) return headers[idx]
-  }
-  return headers[0] ?? ''
+  lote?: string
 }
 
 function formatCents(cents: number): string {
@@ -91,6 +73,7 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ImportDoneResult | null>(null)
+  const [verificando, setVerificando] = useState(false)
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([])
   const [reconciling, setReconciling] = useState(false)
   const [reviewSelectedIndices, setReviewSelectedIndices] = useState<number[]>([])
@@ -115,17 +98,9 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
         setPreview(transactions)
         setStep('preview')
       } else {
-        // CSV: detect headers first for column mapping UI
-        const firstLine = content.split('\n')[0] ?? ''
-        // Use papaparse-compatible header detection
-        const headers = firstLine.split(',').map((h) => h.trim().replace(/^"|"$/g, ''))
-
-        const autoMapping: Required<CsvColumnMapping> = {
-          dateColumn: detectColumn(headers, DATE_HEADERS),
-          amountColumn: detectColumn(headers, AMOUNT_HEADERS),
-          descriptionColumn: detectColumn(headers, DESC_HEADERS),
-          dateFormat: 'dd/MM/yyyy',
-        }
+        // CSV: cabeçalho com o separador detectado (vírgula ou ponto e vírgula)
+        const headers = lerCabecalhoCsv(content)
+        const autoMapping = mapeamentoAutomatico(headers)
         setCsvHeaders(headers)
         setCsvMapping(autoMapping)
 
@@ -166,6 +141,7 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
   async function handleReconciliation() {
     if (!selectedFile || !selectedAccountId) return
     setError(null)
+    setVerificando(true)
 
     try {
       const formData = new FormData()
@@ -185,6 +161,8 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
       setStep('reconciliation')
     } catch (err) {
       setError(mensagemDeErro(err, 'Erro ao analisar transações'))
+    } finally {
+      setVerificando(false)
     }
   }
 
@@ -248,6 +226,7 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
 
   return (
     <div className="space-y-6">
+      <EtapasDaImportacao step={step} />
       {error && (
         <div className="rounded-md bg-red-50 border border-red-200 p-4 text-sm text-red-800">
           {error}
@@ -459,8 +438,8 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
               </div>
 
               <div className="flex gap-3 mt-4">
-                <Button variant="primary" onClick={handleReconciliation} disabled={preview.length === 0}>
-                  Verificar duplicatas
+                <Button variant="primary" onClick={handleReconciliation} disabled={preview.length === 0 || verificando}>
+                  {verificando ? 'Verificando...' : 'Verificar duplicatas'}
                 </Button>
                 <Button variant="outline" onClick={handleReset}>
                   Cancelar
@@ -507,32 +486,7 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
 
       {/* Step 4: Done */}
       {step === 'done' && result && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Importação concluída</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-center">
-                <div className="text-3xl font-bold text-green-700">{result.imported}</div>
-                <div className="text-sm text-green-600 mt-1">importadas</div>
-              </div>
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-4 text-center">
-                <div className="text-3xl font-bold text-gray-700">{result.skipped}</div>
-                <div className="text-sm text-gray-600 mt-1">duplicadas (ignoradas)</div>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Link href="/transactions">
-                <Button variant="primary">Ver transações</Button>
-              </Link>
-              <Button variant="outline" onClick={handleReset}>
-                Importar outro arquivo
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <ImportacaoConcluida resultado={result} accountId={selectedAccountId} onNovaImportacao={handleReset} />
       )}
     </div>
   )

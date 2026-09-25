@@ -5,15 +5,29 @@ import { X } from 'lucide-react'
 
 type ToastType = 'success' | 'error' | 'info'
 
+interface ToastOptions {
+  /** Botão no próprio aviso — o "Desfazer" de uma exclusão, por exemplo. */
+  acao?: { rotulo: string; onClick: () => void }
+}
+
 interface Toast {
   id: string
   message: string
   type: ToastType
+  acao?: ToastOptions['acao']
 }
 
 interface ToastContextValue {
-  toast: (message: string, type?: ToastType) => void
+  toast: (message: string, type?: ToastType, options?: ToastOptions) => void
 }
+
+/**
+ * Erro fica até o usuário fechar: costuma ter mais de uma frase e dizer o que
+ * fazer, e sumir antes da leitura era perder a única pista. Aviso com ação
+ * dura mais que o comum para dar tempo de clicar.
+ */
+const DURACAO_MS = 4000
+export const DURACAO_COM_ACAO_MS = 8000
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
@@ -26,12 +40,13 @@ export function useToast() {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
-  const toast = useCallback((message: string, type: ToastType = 'success') => {
+  const toast = useCallback((message: string, type: ToastType = 'success', options?: ToastOptions) => {
     const id = crypto.randomUUID()
-    setToasts((prev) => [...prev, { id, message, type }])
+    setToasts((prev) => [...prev, { id, message, type, acao: options?.acao }])
+    if (type === 'error') return
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 4000)
+    }, options?.acao ? DURACAO_COM_ACAO_MS : DURACAO_MS)
   }, [])
 
   const dismiss = useCallback((id: string) => {
@@ -47,10 +62,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* Toast container — fixed bottom-right */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2" role="status" aria-live="polite">
         {toasts.map((t) => (
           <div
             key={t.id}
+            role={t.type === 'error' ? 'alert' : undefined}
             className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium shadow-lg transition-all ${
               t.type === 'success'
                 ? 'bg-green-50 text-green-800 border border-green-200'
@@ -60,9 +76,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             }`}
           >
             <span>{t.message}</span>
+            {t.acao && (
+              <button
+                type="button"
+                onClick={() => {
+                  t.acao?.onClick()
+                  dismiss(t.id)
+                }}
+                className="font-semibold underline underline-offset-2"
+              >
+                {t.acao.rotulo}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => dismiss(t.id)}
+              aria-label="Fechar aviso"
               className="ml-2 text-current opacity-60 hover:opacity-100"
             >
               <X className="h-4 w-4" />
