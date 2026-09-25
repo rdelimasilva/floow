@@ -30,14 +30,16 @@ export default async function AccountsPage() {
   // saldo de lançamentos (zerado numa conexão só de investimentos).
   const valorDe = (a: (typeof accounts)[number]) => valorDasPosicoes.get(a.id) ?? a.balanceCents
   const totalBalanceCents = accounts.reduce((sum, a) => sum + valorDe(a), 0)
+  const blocos = agruparPorBloco(accounts).map((b) => ({
+    ...b,
+    subtotalCents: b.contas.reduce((sum, a) => sum + valorDe(a), 0),
+  }))
+  const corDoValor = (cents: number) => (cents < 0 ? 'text-red-600' : 'text-gray-900')
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <PageHeader
-        title="Contas"
-        description={accounts.length > 0 ? 'Patrimônio total' : undefined}
-      >
+      <PageHeader title="Contas">
         <Button asChild variant="outline">
           <Link href="/accounts/connect">Conectar Banco</Link>
         </Button>
@@ -46,9 +48,22 @@ export default async function AccountsPage() {
         </Button>
       </PageHeader>
       {accounts.length > 0 && (
-        <p className={`-mt-4 text-lg font-semibold ${totalBalanceCents < 0 ? 'text-red-600' : 'text-green-700'}`}>
-          {formatBRL(totalBalanceCents)}
-        </p>
+        <div className="-mt-2 flex flex-wrap gap-x-10 gap-y-3">
+          {blocos.map((b) => (
+            <div key={b.key}>
+              <p className="text-xs text-gray-500">{b.titulo}</p>
+              <p className={`text-lg font-semibold ${corDoValor(b.subtotalCents)}`}>{formatBRL(b.subtotalCents)}</p>
+            </div>
+          ))}
+          {blocos.length > 1 && (
+            <div className="border-l border-gray-200 pl-10">
+              <p className="text-xs text-gray-500">Patrimônio total</p>
+              <p className={`text-lg font-semibold ${totalBalanceCents < 0 ? 'text-red-600' : 'text-green-700'}`}>
+                {formatBRL(totalBalanceCents)}
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       <BankDivergenceAlert divergencias={conferidas} />
@@ -66,16 +81,12 @@ export default async function AccountsPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {agruparPorBloco(accounts).map((bloco) => {
-            const subtotalCents = bloco.contas.reduce((sum, a) => sum + valorDe(a), 0)
+          {blocos.map((bloco) => {
             return (
               <section key={bloco.key} className="space-y-3">
-                <div className="flex items-baseline justify-between border-b border-gray-200 pb-2">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{bloco.titulo}</h2>
-                  <span className={`text-sm font-semibold ${subtotalCents < 0 ? 'text-red-600' : 'text-gray-700'}`}>
-                    {formatBRL(subtotalCents)}
-                  </span>
-                </div>
+                <h2 className="border-b border-gray-200 pb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  {bloco.titulo}
+                </h2>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {bloco.contas.map((account) => (
                     <AccountCard
