@@ -32,6 +32,8 @@ export interface TransactionRowData {
   installmentTotal?: number | null
   /** Data da compra, só em parcela de cartão. */
   purchaseDate?: Date | string | null
+  /** Quatro últimos dígitos do cartão da compra, só em lançamento de cartão Open Finance. */
+  cardLastDigits?: string | null
   counterpartyId?: string | null
   /** `pending` enquanto espera Classificar; ver `lib/finance/desconciliar.ts`. */
   reviewState?: string | null

@@ -67,6 +67,13 @@ export interface NormalizedPolpTransaction {
   settlement: 'settled' | 'scheduled' | 'processing'
   /** Valor na moeda original, quando a compra não foi em BRL. */
   foreign: { amountCents: number; currency: string } | null
+  /**
+   * Quatro últimos dígitos do cartão que fez a compra (`identification_number`).
+   * Separa titular, adicional e virtual dentro da mesma fatura. Null em conta
+   * corrente e quando o banco não manda. Nunca o número inteiro: não temos
+   * motivo nem direito de guardar PAN.
+   */
+  cardLastDigits: string | null
 }
 
 /** Data-sentinela que a Celcoin usa para "ainda não lançada em fatura". */
@@ -250,6 +257,7 @@ export function normalizeAccountTransaction(tx: PolpAccountTransaction): Normali
     purchaseDate: null,
     settlement,
     foreign: null,
+    cardLastDigits: null,
   }
 }
 
@@ -291,7 +299,14 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
     purchaseDate: ehParcela ? competencia : null,
     settlement: 'settled',
     foreign,
+    cardLastDigits: lastFourDigits(tx.identification_number),
   }
+}
+
+/** Mesma regra de `resource-label.ts`: menos de 3 dígitos não identifica nada. */
+function lastFourDigits(valor: string | null | undefined): string | null {
+  const digitos = (valor ?? '').replace(/\D/g, '')
+  return digitos.length < 3 ? null : digitos.slice(-4)
 }
 
 /**

@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useCallback, useRef, useEffect, useTransition } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
+import { CardDigitsFilter } from './card-digits-filter'
+import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
 import {
   PERIOD_LABELS,
   type PeriodKey,
@@ -27,6 +29,8 @@ interface TransactionFiltersProps {
   baseUrl?: string
   /** Estado atual do recorte: a lista abre em hoje e o futuro entra por opcao. */
   includeFuture?: boolean
+  /** Finais de cartão das contas marcadas. Com menos de dois, o filtro não aparece. */
+  cardDigitsOptions?: FinalDoCartao[]
 }
 
 /**
@@ -55,7 +59,7 @@ const PILL_OFF = 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50
  * pílula ativa clicada volta ao neutro, a busca tem o × dentro do campo e cada
  * data tem o seu, então nenhum clique mexe em filtro que o usuário não tocou.
  */
-export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/transactions', includeFuture = false }: TransactionFiltersProps) {
+export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/transactions', includeFuture = false, cardDigitsOptions = [] }: TransactionFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
@@ -93,6 +97,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
       search, startDate, endDate,
       accountId: accountIds.join(','),
       future: searchParams.get('future') ?? '',
+      cardDigits: searchParams.get('cardDigits') ?? '',
       ...overrides,
     }
     if (values.search) params.set('search', values.search)
@@ -102,6 +107,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     const currentPageSize = searchParams.get('pageSize')
     if (currentPageSize) params.set('pageSize', currentPageSize)
     if (values.future === '1') params.set('future', '1')
+    if (values.cardDigits) params.set('cardDigits', values.cardDigits)
     for (const key of PARAMS_DA_TABELA) {
       const v = searchParams.get(key)
       if (v) params.set(key, v)
@@ -136,10 +142,12 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   function trocarContas(ids: string[]) {
     setAccountIds(ids)
     persistirContas(ids)
-    navigate({ accountId: ids.join(',') })
+    // O final pertence ao cartão: trocar a conta solta os finais escolhidos.
+    navigate({ accountId: ids.join(','), cardDigits: '' })
   }
 
-  const hasFilters = search || accountIds.length > 0 || startDate || endDate
+  const finaisMarcados = (searchParams.get('cardDigits') ?? '').split(',').filter(Boolean)
+  const hasFilters = search || accountIds.length > 0 || startDate || endDate || finaisMarcados.length > 0
 
   return (
     <div className="space-y-2">
@@ -227,6 +235,15 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
         {/* Contas — várias de uma vez, e a marcada se desmarca no clique */}
         {!hideAccountFilter && (
           <AccountFilter accounts={accounts} selected={accountIds} onChange={trocarContas} />
+        )}
+
+        {/* Final do cartão — só quando a fatura marcada tem mais de um */}
+        {cardDigitsOptions.length > 1 && (
+          <CardDigitsFilter
+            options={cardDigitsOptions}
+            selected={finaisMarcados}
+            onChange={(digits) => navigate({ cardDigits: digits.join(',') })}
+          />
         )}
 
         {/* Date range — cada ponta se solta pelo × ao lado dela */}

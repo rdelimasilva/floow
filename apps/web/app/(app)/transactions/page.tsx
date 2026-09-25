@@ -7,6 +7,7 @@ import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
 import { contasParaLancamento, contasDeTransferencia } from '@/lib/finance/account-options'
 import { contasDoFiltro } from '@/lib/finance/queries-transactions'
 import { getFaturasDoExtrato } from '@/lib/finance/queries-fatura'
+import { getFinaisDoCartao } from '@/lib/finance/queries-final-do-cartao'
 import { intervaloDaPagina } from '@/lib/finance/intercalar-faturas'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
@@ -83,6 +84,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
     // A lista abre em hoje. O futuro entra por este toggle — ver o porque em
     // `buildTransactionConditions`.
     includeFuture: params.future === '1',
+    cardDigits: params.cardDigits,
   }
 
   // O que não depende da página sai já, junto com a contagem abaixo. Só a
@@ -92,6 +94,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
     getCategories(orgId),
     getCategoryUsageOrder(orgId),
     getVerifiedIdentity().then((identity) => identity?.userId ?? null),
+    getFinaisDoCartao(orgId, contasDoFiltro(filters)),
   ])
   // Uma falha aqui enquanto a contagem ainda roda não pode virar "unhandled
   // rejection"; o erro de verdade sobe no await lá embaixo.
@@ -121,7 +124,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const queryOpts = { limit: pageSize, offset: (page - 1) * pageSize, ...filters }
 
-  const [{ transactions, totalCount }, [accounts, categories, categoryOrder, userId]] = await Promise.all([
+  const [{ transactions, totalCount }, [accounts, categories, categoryOrder, userId, finaisDoCartao]] = await Promise.all([
     getTransactionsWithCount(orgId, queryOpts),
     independentes,
   ])
@@ -155,6 +158,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (params.categoryIds) paginationParams.categoryIds = params.categoryIds
   if (params.minAmount) paginationParams.minAmount = params.minAmount
   if (params.maxAmount) paginationParams.maxAmount = params.maxAmount
+  if (params.cardDigits) paginationParams.cardDigits = params.cardDigits
   if (pageSize !== DEFAULT_PAGE_SIZE) paginationParams.pageSize = String(pageSize)
 
   const accountOptions = contasParaLancamento(accounts)
@@ -202,7 +206,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
         <PendingQueuesSlot orgId={orgId} userId={userId} />
       </Suspense>
 
-      <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} />
+      <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} cardDigitsOptions={finaisDoCartao} />
 
       <div className="flex items-center justify-between gap-3">
         <PageSizeSelector current={pageSize} />

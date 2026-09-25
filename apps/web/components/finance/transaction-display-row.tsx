@@ -100,6 +100,19 @@ export function textoDaParcela(tx: {
   return `${tx.installmentNumber}/${tx.installmentTotal} · compra em ${dia}/${mes}`
 }
 
+/** Final do cartão da compra: separa titular, adicional e virtual na mesma fatura. */
+function SeloDoFinal({ tx }: { tx: TransactionRowData }) {
+  if (!tx.cardLastDigits) return null
+  return (
+    <span
+      title={`Cartão final ${tx.cardLastDigits}`}
+      className="inline-flex shrink-0 items-center rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-gray-600"
+    >
+      •{tx.cardLastDigits}
+    </span>
+  )
+}
+
 function SeloDeParcela({ tx }: { tx: TransactionRowData }) {
   const texto = textoDaParcela(tx)
   if (!texto) return null
@@ -230,6 +243,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
               </span>
             )}
             <SeloDeParcela tx={tx} />
+            <SeloDoFinal tx={tx} />
             <ForecastBadge tx={tx} />
             {tx.acquiredAssetId && tx.acquiredAssetName && (
               <AcquiredAssetBadge assetId={tx.acquiredAssetId} assetName={tx.acquiredAssetName} />
@@ -310,6 +324,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
             <AcquiredAssetBadge assetId={tx.acquiredAssetId} assetName={tx.acquiredAssetName} />
           )}
           <SeloDeParcela tx={tx} />
+          <SeloDoFinal tx={tx} />
           <ForecastBadge tx={tx} />
         </span>
       </td>

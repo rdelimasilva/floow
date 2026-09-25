@@ -26,7 +26,7 @@ const PERIOD_KEYS = Object.keys(PERIOD_LABELS) as PeriodKey[]
 // Tudo que é recorte. `page`/`pageSize` ficam de fora de propósito.
 const FILTER_KEYS = [
   'accountId', 'search', 'startDate', 'endDate', 'future',
-  'types', 'categoryIds', 'minAmount', 'maxAmount', 'sortBy', 'sortDir',
+  'types', 'categoryIds', 'minAmount', 'maxAmount', 'sortBy', 'sortDir', 'cardDigits',
 ] as const
 
 /** O dia de hoje no calendário do usuário, e não no UTC do servidor. */

@@ -365,3 +365,26 @@ describe('normalizeCardTransaction — parcelas', () => {
 it('transação de conta não tem purchaseDate', () => {
   expect(normalizeAccountTransaction(accountTx()).purchaseDate).toBeNull()
 })
+
+describe('normalizeCardTransaction — final do cartão', () => {
+  it('guarda os quatro últimos dígitos de identification_number', () => {
+    expect(normalizeCardTransaction(cardTx({ identification_number: '1234' })).cardLastDigits).toBe('1234')
+  })
+
+  it('corta número mascarado ou inteiro nos quatro últimos', () => {
+    expect(normalizeCardTransaction(cardTx({ identification_number: '**** **** **** 9876' })).cardLastDigits).toBe('9876')
+    expect(normalizeCardTransaction(cardTx({ identification_number: '5502090012345678' })).cardLastDigits).toBe('5678')
+  })
+
+  it('fica null quando o campo não traz dígitos que bastem', () => {
+    expect(normalizeCardTransaction(cardTx({ identification_number: '' })).cardLastDigits).toBeNull()
+    expect(normalizeCardTransaction(cardTx({ identification_number: 'NA' })).cardLastDigits).toBeNull()
+    expect(
+      normalizeCardTransaction(cardTx({ identification_number: undefined as unknown as string })).cardLastDigits,
+    ).toBeNull()
+  })
+
+  it('conta corrente não tem final de cartão', () => {
+    expect(normalizeAccountTransaction(accountTx()).cardLastDigits).toBeNull()
+  })
+})

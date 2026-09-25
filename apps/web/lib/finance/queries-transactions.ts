@@ -18,6 +18,8 @@ export interface TransactionFilterOpts {
   startDate?: string; endDate?: string;
   types?: string; categoryIds?: string;
   minAmount?: number; maxAmount?: number;
+  /** Finais de cartão separados por vírgula (`1035,2270`). Ver `finaisDoFiltro`. */
+  cardDigits?: string;
   /**
    * Traz tambem a previsao com data futura. Desligado por padrao: sem isso a
    * lista abre em 2031, por causa dos 60 meses que o template indefinido
@@ -80,6 +82,15 @@ function hojeSP(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
 
+/**
+ * Finais de cartão do filtro, só os de quatro dígitos: o valor vem da URL e
+ * vai para um IN, então o que não tiver a forma de um final fica de fora.
+ */
+export function finaisDoFiltro(opts?: Pick<TransactionFilterOpts, 'cardDigits'>): string[] {
+  if (!opts?.cardDigits) return []
+  return [...new Set(opts.cardDigits.split(',').filter((f) => /^\d{4}$/.test(f)))]
+}
+
 export function buildTransactionConditions(orgId: string, opts?: TransactionFilterOpts) {
   const conditions = [eq(transactions.orgId, orgId)]
 
@@ -114,6 +125,9 @@ export function buildTransactionConditions(orgId: string, opts?: TransactionFilt
     const catList = opts.categoryIds.split(',').filter(Boolean)
     if (catList.length > 0) conditions.push(inArray(transactions.categoryId, catList))
   }
+  // Recorta a lista, não a fatura: o escopo do saldo segue sendo a conta.
+  const finais = finaisDoFiltro(opts)
+  if (finais.length > 0) conditions.push(inArray(transactions.cardLastDigits, finais))
   if (opts?.minAmount !== undefined) {
     conditions.push(sql`ABS(${transactions.amountCents}) >= ${opts.minAmount}`)
   }
@@ -271,6 +285,7 @@ export function consultaDaPagina(
       installmentNumber: transactions.installmentNumber,
       installmentTotal: transactions.installmentTotal,
       purchaseDate: transactions.purchaseDate,
+      cardLastDigits: transactions.cardLastDigits,
       counterpartyId: transactions.counterpartyId,
       reviewState: transactions.reviewState,
       categoryName: categories.name,

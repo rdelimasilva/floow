@@ -202,6 +202,8 @@ export const transactions = pgTable(
     billForecastMonth: text('bill_forecast_month'),
     /** Merchant Category Code, desempate quando category_ref é genérico. */
     payeeMcc: integer('payee_mcc'),
+    /** Quatro últimos dígitos do cartão da compra (titular, adicional, virtual). Nunca o PAN. */
+    cardLastDigits: text('card_last_digits'),
     /** Valor cru do enum TransactionCategory da Polp. */
     categoryRef: text('category_ref'),
     /**
@@ -252,6 +254,10 @@ export const transactions = pgTable(
     idxTransactionsOrgTemplateDate: index('idx_transactions_org_template_date')
       .on(table.orgId, table.recurringTemplateId, table.date)
       .where(sql`recurring_template_id IS NOT NULL`),
+    // 00065: filtro por final do cartão dentro da mesma fatura.
+    idxTransactionsCardLastDigits: index('idx_transactions_card_last_digits')
+      .on(table.orgId, table.accountId, table.cardLastDigits)
+      .where(sql`card_last_digits IS NOT NULL`),
     idxTransactionsInstallmentKey: index('idx_transactions_installment_key').on(
       table.accountId,
       table.purchaseDate,
