@@ -67,7 +67,7 @@ const STOP_WORDS = new Set(['sair', 'parar', 'stop'])
 export function isStopWord(text: string): boolean {
   const t = text
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '')
   return STOP_WORDS.has(t) && text.trim().split(/\s+/).length === 1

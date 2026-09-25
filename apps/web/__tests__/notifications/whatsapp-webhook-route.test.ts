@@ -82,21 +82,30 @@ describe('POST /api/webhooks/whatsapp', () => {
   })
 
   it('uma mensagem lançar erro não impede o processamento da seguinte, e responde 200', async () => {
-    vi.stubEnv('WHATSAPP_APP_SECRET', 's')
-    mocks.findUserByPhone.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(undefined)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      vi.stubEnv('WHATSAPP_APP_SECRET', 's')
+      mocks.findUserByPhone.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(undefined)
 
-    const payload = {
-      entry: [{ changes: [{ value: {
-        messages: [
-          { from: '5511999990001', type: 'text', text: { body: 'oi' } },
-          { from: '5511999990002', type: 'text', text: { body: 'oi' } },
-        ],
-      } }] }],
+      const payload = {
+        entry: [{ changes: [{ value: {
+          messages: [
+            { from: '5511999990001', type: 'text', text: { body: 'oi' } },
+            { from: '5511999990002', type: 'text', text: { body: 'oi' } },
+          ],
+        } }] }],
+      }
+      const body = JSON.stringify(payload)
+      const res = await POST(postReq(body, { 'x-hub-signature-256': sig(body, 's') }))
+
+      expect(res.status).toBe(200)
+      expect(mocks.findUserByPhone).toHaveBeenCalledTimes(2)
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[whatsapp] erro ao tratar mensagem de •••0001:'),
+        expect.any(Error),
+      )
+    } finally {
+      errorSpy.mockRestore()
     }
-    const body = JSON.stringify(payload)
-    const res = await POST(postReq(body, { 'x-hub-signature-256': sig(body, 's') }))
-
-    expect(res.status).toBe(200)
-    expect(mocks.findUserByPhone).toHaveBeenCalledTimes(2)
   })
 })
