@@ -93,14 +93,28 @@ export function sqlContaNoSaldo(
     AND NOT ${refs.tx.isIgnored}
     AND (
       ${refs.tx.balanceApplied}
-      OR (
-        ${refs.tx.matchedTransactionId} IS NULL
-        AND ${refs.tx.date} > ${hoje}::date
-        AND NOT EXISTS (select 1 from ${forecastMatchProposals}
-           where ${forecastMatchProposals.forecastTransactionId} = ${refs.tx.id}
-             and ${forecastMatchProposals.status} = 'pending')
-      )
+      OR ${sqlPrevisaoAindaPorVencer(hoje, refs)}
     )
+  )`
+}
+
+/**
+ * Criterios 4 e 5 de `sqlContaNoSaldo`, sozinhos: "esta previsao ainda
+ * projeta?". Por vencer, sem vinculo com o realizado e sem proposta de
+ * conciliacao aberta.
+ *
+ * Existe separado porque a projecao do fluxo de caixa precisa da mesma
+ * resposta. Sem ela, a recorrencia criada hoje com inicio em janeiro deixava
+ * as ocorrencias passadas somando como "projetado", e em "Ambos" o mesmo
+ * salario contava duas vezes nos meses que ja passaram.
+ */
+export function sqlPrevisaoAindaPorVencer(hoje: string, refs: Pick<Refs, 'tx'> = PADRAO) {
+  return sql`(
+    ${refs.tx.matchedTransactionId} IS NULL
+    AND ${refs.tx.date} > ${hoje}::date
+    AND NOT EXISTS (select 1 from ${forecastMatchProposals}
+       where ${forecastMatchProposals.forecastTransactionId} = ${refs.tx.id}
+         and ${forecastMatchProposals.status} = 'pending')
   )`
 }
 

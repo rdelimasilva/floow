@@ -3,7 +3,7 @@ import { unstable_cache } from 'next/cache'
 import { getDb, accounts, transactions, categories, fixedAssets, forecastMatchProposals } from '@floow/db'
 import { eq, and, desc, asc, count, gte, ilike, lte, inArray, sql } from 'drizzle-orm'
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
-import { sqlValorNoSaldo } from './balance-sql'
+import { sqlPrevisaoAindaPorVencer, sqlValorNoSaldo } from './balance-sql'
 import { futureTransactionsTag, recentTransactionsTag } from '@/lib/cache-tags'
 
 /** Filter options shared between getTransactions queries. */
@@ -355,8 +355,9 @@ export const getRecentTransactions = cache(async function getRecentTransactions(
   )
 })
 /**
- * Returns future transactions (balance_applied = false) for cash flow projection.
- * These are recurring installments with date > today that haven't impacted the balance yet.
+ * Returns future transactions (balance_applied = false) for cash flow projection:
+ * previsões ainda por vencer, sem vínculo com o realizado — a mesma regra do
+ * saldo projetado da listagem.
  */
 export async function getFutureTransactions(orgId: string, months: number = 24) {
   return unstable_cache(
@@ -380,6 +381,7 @@ export async function getFutureTransactions(orgId: string, months: number = 24) 
           eq(transactions.balanceApplied, false),
           eq(transactions.isIgnored, false),
           lte(transactions.date, endDate),
+          sqlPrevisaoAindaPorVencer(hojeSP()),
         ))
         .orderBy(asc(transactions.date))
     },

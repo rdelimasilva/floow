@@ -3,6 +3,12 @@ import { unstable_cache } from 'next/cache'
 import { getDb, transactions, categories } from '@floow/db'
 import { sql } from 'drizzle-orm'
 import { futureTransactionsTag, recentTransactionsTag } from '@/lib/cache-tags'
+import { sqlPrevisaoAindaPorVencer } from './balance-sql'
+
+/** Hoje em Sao Paulo, e nao no fuso do servidor do banco. */
+function hojeSP(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
 
 export interface MonthlyCashFlowSummary {
   month: string
@@ -47,7 +53,8 @@ async function loadMonthlyCashFlowSummary(
       -- o comportamento de hoje, contar.
       and coalesce(${transactions.affectsCashFlow}, ${categories.affectsCashFlow}, true)
       and ${projected
-        ? sql`${transactions.date} <= ${boundaryDateStr}::date`
+        ? sql`${transactions.date} <= ${boundaryDateStr}::date
+            and ${sqlPrevisaoAindaPorVencer(hojeSP())}`
         : sql`${transactions.date} >= ${boundaryDateStr}::date`}
     group by 1
     order by 1 desc
