@@ -81,6 +81,17 @@ try {
         where org_id = ${membro.org_id} and month = '2099-01' and category_id = ${cat}`
       checar('PK por canal aceita os dois canais', doisCanais === 2, `${doisCanais}/2`)
 
+      // Candidato para o teste de INSERT da trigger da seção 5: um usuário sem
+      // linha em counterparties.confirmed_by (a única FK que aponta para
+      // profiles.id). Apagar e reinserir o profile do "membro" usado acima
+      // quebraria essa FK antes mesmo de chegar na trigger — não prova nada
+      // sobre ela, só sobre dado de desenvolvimento.
+      const [semReferencia] = await tx`
+        select m.user_id from org_members m
+        where not exists (select 1 from counterparties c where c.confirmed_by = m.user_id)
+        order by m.created_at
+        limit 1`
+
       // Índice único: dois usuários não verificam o mesmo número.
       const outros = await tx`select id from profiles order by created_at limit 2`
       if (outros.length === 2) {
@@ -128,6 +139,41 @@ try {
         'authenticated limpa o próprio whatsapp (remoção)',
         comoUsuarioLimpou.whatsapp_phone === null && comoUsuarioLimpou.whatsapp_verified_at === null,
       )
+
+      // Trigger da seção 5 (INSERT): apagar a própria linha e inserir de novo
+      // já com o whatsapp verificado não escapa da trigger — ela cobre INSERT,
+      // não só UPDATE. Troca o sub das claims para o candidato sem referência
+      // em counterparties, exercita o INSERT como ele, e devolve o sub para o
+      // "membro" antes de continuar (os testes de notification_preferences
+      // abaixo dependem dele).
+      if (semReferencia) {
+        const claimsAlt = JSON.stringify({ sub: semReferencia.user_id, role: 'authenticated' })
+        await tx`select set_config('request.jwt.claims', ${claimsAlt}, true)`
+        const [perfilAlt] = await tx`select email, full_name from profiles where id = ${semReferencia.user_id}`
+
+        await deveFalhar(tx, 'authenticated não insere a própria linha com whatsapp já verificado', async () => {
+          await tx`delete from profiles where id = ${semReferencia.user_id}`
+          await tx`insert into profiles (id, email, full_name, whatsapp_phone, whatsapp_verified_at)
+                   values (${semReferencia.user_id}, ${perfilAlt.email}, ${perfilAlt.full_name},
+                           '+5511922222222', now())`
+        })
+
+        // O mesmo delete+insert, mas com as duas colunas vazias (linha nova,
+        // ainda sem WhatsApp) — isto continua permitido.
+        await tx`delete from profiles where id = ${semReferencia.user_id}`
+        await tx`insert into profiles (id, email, full_name) values
+                 (${semReferencia.user_id}, ${perfilAlt.email}, ${perfilAlt.full_name})`
+        const [perfilReinserido] = await tx`
+          select whatsapp_phone, whatsapp_verified_at from profiles where id = ${semReferencia.user_id}`
+        checar(
+          'authenticated insere a própria linha sem whatsapp (ambos NULL)',
+          perfilReinserido.whatsapp_phone === null && perfilReinserido.whatsapp_verified_at === null,
+        )
+
+        await tx`select set_config('request.jwt.claims', ${claims}, true)`
+      } else {
+        console.log('  (pulei o teste de INSERT da trigger: todo mundo em org_members tem confirmed_by)')
+      }
 
       await tx`insert into notification_preferences (org_id, user_id, channel, frequency)
                values (${membro.org_id}, ${membro.user_id}, 'whatsapp', 'daily')

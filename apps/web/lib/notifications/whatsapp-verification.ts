@@ -100,10 +100,14 @@ export async function confirmCode(
   // que tem tentativa de sobra.
   const claimed = await deps.claimAttempt(userId)
   if (!claimed) {
+    // Classifica sem o relógio do app: o claim já decidiu contra o relógio do
+    // banco (o mesmo que grava expires_at). Comparar de novo aqui com
+    // deps.now() arriscava os dois relógios discordarem por alguns
+    // milissegundos e trocar o motivo mostrado.
     const pending = await deps.loadPending(userId)
     if (!pending) return { ok: false, error: 'no_pending' }
-    if (pending.expiresAt.getTime() <= deps.now().getTime()) return { ok: false, error: 'expired' }
-    return { ok: false, error: 'too_many_attempts' }
+    if (pending.attempts >= MAX_ATTEMPTS) return { ok: false, error: 'too_many_attempts' }
+    return { ok: false, error: 'expired' }
   }
 
   const expected = Buffer.from(claimed.codeHash, 'utf8')

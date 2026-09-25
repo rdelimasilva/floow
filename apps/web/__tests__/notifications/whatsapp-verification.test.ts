@@ -83,7 +83,7 @@ describe('confirmCode', () => {
     expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'no_pending' })
   })
 
-  it('expirado: claim não reivindica (expires_at > now falha) e a linha está vencida', async () => {
+  it('expirado: claim não reivindica (expires_at > now falha no banco) e attempts ainda cabia', async () => {
     const d = deps({ loadPending: vi.fn(async () => pending({ expiresAt: new Date(NOW.getTime() - 1) })) })
     expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'expired' })
     expect(d.markVerified).not.toHaveBeenCalled()
@@ -100,6 +100,13 @@ describe('confirmCode', () => {
     const d = deps({ loadPending: vi.fn(async () => pending({ attempts: MAX_ATTEMPTS })) })
     expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'too_many_attempts' })
     expect(d.markVerified).not.toHaveBeenCalled()
+  })
+
+  it('esgotou as tentativas prevalece mesmo se a linha também já expirou', async () => {
+    const d = deps({
+      loadPending: vi.fn(async () => pending({ attempts: MAX_ATTEMPTS, expiresAt: new Date(NOW.getTime() - 1) })),
+    })
+    expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'too_many_attempts' })
   })
 
   it('outro usuário verificou o número no meio do caminho', async () => {
