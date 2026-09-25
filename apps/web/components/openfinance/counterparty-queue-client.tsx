@@ -70,7 +70,14 @@ function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryO
     // O banco já disse que é transferência em todos os lançamentos do grupo:
     // abre em Transferência, falta só a conta.
     const soTransferencia = Boolean(grupo?.items.length) && grupo!.items.every((i) => i.type === 'transfer')
-    return { nature: soTransferencia ? ('transfer' as Nature) : null, categoryId: null, transferAccountId: null }
+    if (soTransferencia) return { nature: 'transfer' as Nature, categoryId: null, transferAccountId: null }
+    // Sugestão do floow (histórico ou Claude): abre com a categoria marcada,
+    // na natureza do banco — o usuário só confirma ou troca.
+    const naturezaUnica = grupo?.items.length && grupo.items.every((i) => i.type === grupo.items[0].type) ? grupo.items[0].type : null
+    if (grupo?.suggestedCategoryId && (naturezaUnica === 'expense' || naturezaUnica === 'income')) {
+      return { nature: naturezaUnica as Nature, categoryId: grupo.suggestedCategoryId, transferAccountId: null }
+    }
+    return { nature: null, categoryId: null, transferAccountId: null }
   }
 
   function setDraft(id: string, patch: Partial<{ nature: Nature | null; categoryId: string | null; transferAccountId: string | null }>) {
@@ -238,7 +245,14 @@ function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryO
     return (
       <li key={group.counterpartyId} className="rounded-lg border border-gray-200 p-4">
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-sm font-medium text-gray-900">{group.displayName}</p>
+                  <p className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                    {group.displayName}
+                    {group.suggestedCategoryId && draft.categoryId === group.suggestedCategoryId && (
+                      <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                        {group.suggestionSource === 'historico' ? 'sugerido pelo seu histórico' : 'sugerido pelo Claude'}
+                      </span>
+                    )}
+                  </p>
                   <p className="shrink-0 text-sm font-semibold text-gray-900">
                     {group.totalCents >= 0 ? '+' : ''}{formatBRL(group.totalCents)}
                   </p>

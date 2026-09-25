@@ -20,6 +20,8 @@ import { normalizeBatch, type RejectedItem } from './normalize-batch'
 import { loadCounterpartyIndex, resolveCounterparty } from './resolve-counterparty'
 import { registrarSaldoDoBanco } from './conferir-saldo'
 import { persistPage, type Db } from './persist-page'
+import { sugerirCategoriasDaFila } from './sugestao-da-fila'
+import { sugestaoDaFilaDeps } from './sugestao-da-fila-deps'
 import { completarParcelas } from './completar-parcelas'
 import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 import { criarPropostasDeDuplicata } from '@/lib/finance/duplicata-db'
@@ -186,6 +188,15 @@ export async function syncConnectionTransactions(
       summary.propostasDeDuplicata += await criarPropostasDeDuplicata(db, connection.orgId, resource.accountId)
     } catch (error) {
       console.error('[sync] falha ao propor duplicata:', error)
+    }
+
+    // Contraparte nova chega na fila com a categoria pré-selecionada
+    // (histórico ou Claude); quem confirma é o usuário. Falha aqui não
+    // derruba o sync — a fila só fica sem sugestão, como antes.
+    try {
+      await sugerirCategoriasDaFila(connection.orgId, sugestaoDaFilaDeps(db))
+    } catch (error) {
+      console.error('[sync] falha ao sugerir categorias da fila:', error)
     }
 
     // O saldo do banco vale como conferencia do que ACABOU de entrar, entao

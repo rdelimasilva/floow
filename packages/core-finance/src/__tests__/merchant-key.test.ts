@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeMerchant, ruleTermFor, normalizeCategoryName } from '../category-suggestions/merchant-key'
+import { normalizeMerchant, ruleTermFor, normalizeCategoryName, personKey } from '../category-suggestions/merchant-key'
 
 describe('normalizeMerchant', () => {
   it('fica com o primeiro token quando ele tem 5+ letras', () => {
@@ -38,6 +38,16 @@ describe('normalizeMerchant', () => {
   it('pix por QR code usa o recebedor, não "qr code"', () => {
     expect(normalizeMerchant('Pagamento de Pix QR Code PIX QRS VINDI PAGAM27/02')).toBe('vindi')
     expect(normalizeMerchant('Pagamento de Pix QR Code Clientbase Ltda')).toBe('clientbase')
+  })
+})
+
+describe('personKey', () => {
+  it('usa os dois primeiros nomes, sem palavras de banco', () => {
+    expect(personKey('Pix enviado Flavio Accursio')).toBe('flavio accursio')
+    expect(personKey('Pix enviado 65.196.812 IGOR DA SILVA BLANCO')).toBe('igor silva')
+  })
+  it('primeiro nome sozinho não identifica pessoa', () => {
+    expect(personKey('PIX MAURICIO')).toBe('')
   })
 })
 

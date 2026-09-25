@@ -463,3 +463,46 @@ describe('CounterpartyQueueClient — aviso de descrição genérica', () => {
     screen.getByText('Vale para todo lançamento com o texto "Resgate CDB DI" nesta conta.')
   })
 })
+
+describe('CounterpartyQueueClient — sugestão do floow', () => {
+  const comSugestao = [{
+    ...PENDING[0],
+    counterpartyId: 'cp-air',
+    displayName: 'AIRBNB',
+    suggestedCategoryId: 'cat-expense',
+    suggestionSource: 'claude' as const,
+    items: PENDING[0].items.map((i) => ({ ...i, type: 'expense' as const })),
+  }]
+
+  it('abre com a categoria sugerida marcada; um clique em Confirmar basta', async () => {
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending: comSugestao,
+        confirmed: [],
+        categoryOptions: CATEGORY_OPTIONS,
+        accountOptions: ACCOUNT_OPTIONS,
+      })
+    )
+    expect(screen.getByText('sugerido pelo Claude')).toBeTruthy()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    })
+    expect(confirmCounterparty).toHaveBeenCalledWith(expect.objectContaining({
+      counterpartyId: 'cp-air', nature: 'expense', categoryId: 'cat-expense',
+    }))
+  })
+
+  it('sem sugestão, continua abrindo sem categoria', () => {
+    render(
+      React.createElement(CounterpartyQueueClient, {
+        mode: 'page',
+        pending: PENDING,
+        confirmed: [],
+        categoryOptions: CATEGORY_OPTIONS,
+        accountOptions: ACCOUNT_OPTIONS,
+      })
+    )
+    expect(screen.queryByText(/sugerido pelo/)).toBeNull()
+  })
+})

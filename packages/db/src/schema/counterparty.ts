@@ -35,6 +35,11 @@ export const counterparties = pgTable(
     displayName: text('display_name').notNull(),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
     confirmedBy: uuid('confirmed_by'),
+    /** Categoria que a fila pré-seleciona para o usuário confirmar (00061). */
+    suggestedCategoryId: uuid('suggested_category_id').references(() => categories.id, { onDelete: 'set null' }),
+    suggestionSource: text('suggestion_source').$type<'historico' | 'claude'>(),
+    /** Preenchido = já tentou sugerir; não pergunta de novo ao Claude (00061). */
+    autoAttemptedAt: timestamp('auto_attempted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

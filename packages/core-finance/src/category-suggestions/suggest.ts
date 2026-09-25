@@ -142,14 +142,15 @@ function montar(kind: SuggestionKind, g: Grupo, parentId: string | null, sources
  * aquele estabelecimento/pessoa. "TED enviada jussara…" em "Assistente de
  * limpeza" diz para onde vão os "PIX TRANSF JUSSARA" sem categoria.
  */
-function destinosPorHistorico(
+export function destinosPorHistorico(
   txs: SuggestionTransaction[],
   especifica: (id: string | null) => boolean,
+  chave: (description: string) => string = normalizeMerchant,
 ): Map<string, string> {
   const contagem = new Map<string, Map<string, number>>()
   for (const t of txs) {
     if (!especifica(t.categoryId)) continue
-    const key = normalizeMerchant(t.description)
+    const key = chave(t.description)
     if (!key) continue
     const porCat = contagem.get(key) ?? new Map<string, number>()
     porCat.set(t.categoryId!, (porCat.get(t.categoryId!) ?? 0) + 1)
