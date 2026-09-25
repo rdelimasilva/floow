@@ -7,6 +7,7 @@ import { and, eq, gte, inArray, isNotNull, isNull, notExists, or, sql } from 'dr
 import { categories, counterparties, hiddenSystemCategories, transactions } from '@floow/db'
 import { condicaoForaDeParDeTransferenciaPendente } from '@/lib/finance/forecast-match-db'
 import { createCounterpartyClassifier } from './classificador-contraparte'
+import { comTeto, controleDeGastoNoBanco } from '@/lib/llm/teto-de-gasto'
 import type { Db } from './persist-page'
 import type { SugestaoDaFilaDeps, GrupoPendente } from './sugestao-da-fila'
 
@@ -14,8 +15,13 @@ import type { SugestaoDaFilaDeps, GrupoPendente } from './sugestao-da-fila'
 const MESES_DE_HISTORICO = 12
 
 export function sugestaoDaFilaDeps(db: Db): SugestaoDaFilaDeps {
+  const claude = createCounterpartyClassifier()
+  const controle = controleDeGastoNoBanco(db)
   return {
-    classificar: createCounterpartyClassifier(),
+    // Teto de US$ 0,50 por org/mês: passou, lança e a fila segue sem sugestão do Claude.
+    classificar: claude
+      ? (orgId, grupos, categorias) => comTeto(orgId, controle, () => claude(grupos, categorias))
+      : undefined,
 
     async carregarPendentes(orgId) {
       const rows = await db

@@ -8,6 +8,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod/v4'
 import { isGenericCategory } from '@floow/core-finance'
 import type { CategoriaDaOrg, GrupoPendente, RespostaDoClassificador } from './sugestao-da-fila'
+import { custoMicroUsd } from '@/lib/llm/teto-de-gasto'
 
 const MODEL = 'claude-opus-5'
 
@@ -59,7 +60,7 @@ export function createCounterpartyClassifier(apiKey = process.env.ANTHROPIC_API_
   return async function classificar(
     grupos: GrupoPendente[],
     categorias: CategoriaDaOrg[],
-  ): Promise<RespostaDoClassificador[]> {
+  ): Promise<{ resultado: RespostaDoClassificador[]; custoMicroUsd: number }> {
     const response = await client.messages.parse({
       model: MODEL,
       max_tokens: 8000,
@@ -67,11 +68,15 @@ export function createCounterpartyClassifier(apiKey = process.env.ANTHROPIC_API_
       system: SISTEMA,
       messages: [{ role: 'user', content: JSON.stringify(montarPedido(grupos, categorias)) }],
     })
-    if (response.stop_reason === 'refusal' || !response.parsed_output) return []
-    return response.parsed_output.decisoes.map((d) => ({
-      counterpartyId: d.id,
-      categoryId: d.categoriaId,
-      confianca: d.confianca,
-    }))
+    const custo = custoMicroUsd(MODEL, response.usage)
+    if (response.stop_reason === 'refusal' || !response.parsed_output) return { resultado: [], custoMicroUsd: custo }
+    return {
+      resultado: response.parsed_output.decisoes.map((d) => ({
+        counterpartyId: d.id,
+        categoryId: d.categoriaId,
+        confianca: d.confianca,
+      })),
+      custoMicroUsd: custo,
+    }
   }
 }

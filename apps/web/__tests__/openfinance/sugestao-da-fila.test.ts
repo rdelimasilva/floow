@@ -138,6 +138,23 @@ describe('sugerirCategoriasDaFila', () => {
     err.mockRestore()
   })
 
+  it('teto de gasto atingido: segue sem o Claude, sem marcar tentativa, só com aviso', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const esgotado = Object.assign(new Error('Teto mensal de gasto com o Claude atingido para org=org'), { name: 'OrcamentoDoClaudeEsgotado' })
+    const { d, sugerir, marcarTentativa } = deps({
+      carregarPendentes: async () => [grupo({ counterpartyId: 'airbnb' })],
+      classificar: async () => { throw esgotado },
+    })
+    await sugerirCategoriasDaFila('org', d)
+    expect(sugerir).not.toHaveBeenCalled()
+    expect(marcarTentativa).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalled()
+    expect(err).not.toHaveBeenCalled()
+    warn.mockRestore()
+    err.mockRestore()
+  })
+
   it('sem pendentes, não carrega mais nada', async () => {
     const carregarHistorico = vi.fn(async () => [])
     const { d } = deps({ carregarHistorico })

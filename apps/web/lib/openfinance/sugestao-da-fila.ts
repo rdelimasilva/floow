@@ -66,7 +66,7 @@ export interface SugestaoDaFilaDeps {
   carregarHistorico(orgId: string): Promise<LancamentoDoHistorico[]>
   carregarCategorias(orgId: string): Promise<CategoriaDaOrg[]>
   /** Ausente = sem chave de API: só o histórico sugere. */
-  classificar?(grupos: GrupoPendente[], categorias: CategoriaDaOrg[]): Promise<RespostaDoClassificador[]>
+  classificar?(orgId: string, grupos: GrupoPendente[], categorias: CategoriaDaOrg[]): Promise<RespostaDoClassificador[]>
   sugerir(orgId: string, sugestao: SugestaoDeCategoria): Promise<void>
   marcarTentativa(orgId: string, counterpartyIds: string[]): Promise<void>
 }
@@ -124,7 +124,7 @@ export async function sugerirCategoriasDaFila(
 
   if (paraOClaude.length > 0 && deps.classificar) {
     try {
-      const respostas = new Map((await deps.classificar(paraOClaude, categorias)).map((r) => [r.counterpartyId, r]))
+      const respostas = new Map((await deps.classificar(orgId, paraOClaude, categorias)).map((r) => [r.counterpartyId, r]))
       for (const g of paraOClaude) {
         const r = respostas.get(g.counterpartyId)
         if (r && r.confianca !== 'baixa' && valida(r.categoryId, g.nature!)) {
@@ -133,8 +133,10 @@ export async function sugerirCategoriasDaFila(
         tentados.push(g.counterpartyId)
       }
     } catch (err) {
-      // Sem marcar tentativa: a próxima importação pergunta de novo.
-      console.error(`[sugestao-da-fila] classificador falhou para org=${orgId}:`, err)
+      // Sem marcar tentativa: a próxima importação pergunta de novo — no caso
+      // do teto de gasto, quando o mês virar.
+      if (err instanceof Error && err.name === 'OrcamentoDoClaudeEsgotado') console.warn(`[sugestao-da-fila] ${err.message}`)
+      else console.error(`[sugestao-da-fila] classificador falhou para org=${orgId}:`, err)
     }
   }
 
