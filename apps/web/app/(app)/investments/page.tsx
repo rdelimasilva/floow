@@ -4,11 +4,13 @@ import { getPositions } from '@/lib/investments/queries'
 import { getContasDosAtivos } from '@/lib/investments/contas-dos-ativos'
 import { PositionTable } from '@/components/investments/position-table'
 import { FiltroDeContaDaCarteira } from '@/components/investments/filtro-de-conta-da-carteira'
+import { MostrarEncerrados } from '@/components/investments/mostrar-encerrados'
+import { estaEncerrada } from '@/lib/investments/encerrados'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 
 interface InvestmentsPageProps {
-  searchParams: Promise<{ accountId?: string }>
+  searchParams: Promise<{ accountId?: string; encerrados?: string }>
 }
 
 export default async function InvestmentsPage({ searchParams }: InvestmentsPageProps) {
@@ -22,9 +24,12 @@ export default async function InvestmentsPage({ searchParams }: InvestmentsPageP
   // Marcada que não guarda mais ativo nenhum não filtra — senão a carteira
   // some sem que o filtro mostre por quê.
   const marcadas = new Set((sp.accountId ?? '').split(',').filter((id) => contas.some((c) => c.id === id)))
-  const positions = marcadas.size === 0
+  const daConta = marcadas.size === 0
     ? todas
     : todas.filter((p) => [...(porAtivo.get(p.assetId) ?? [])].some((id) => marcadas.has(id)))
+  const verEncerrados = sp.encerrados === '1'
+  const encerrados = daConta.filter(estaEncerrada).length
+  const positions = verEncerrados ? daConta : daConta.filter((p) => !estaEncerrada(p))
 
   return (
     <div className="space-y-6">
@@ -38,10 +43,19 @@ export default async function InvestmentsPage({ searchParams }: InvestmentsPageP
         </Button>
       </PageHeader>
 
-      {contas.length > 1 && <FiltroDeContaDaCarteira contas={contas} />}
+      {(contas.length > 1 || encerrados > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {contas.length > 1 && <FiltroDeContaDaCarteira contas={contas} />}
+          {encerrados > 0 && <MostrarEncerrados quantidade={encerrados} ativo={verEncerrados} />}
+        </div>
+      )}
 
       {/* Position table or empty state */}
-      {marcadas.size > 0 && positions.length === 0 ? (
+      {daConta.length > 0 && positions.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-500">
+          Nenhum ativo com saldo{marcadas.size > 0 ? ' nas contas selecionadas' : ''}.
+        </div>
+      ) : marcadas.size > 0 && positions.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-500">
           Nenhum ativo nas contas selecionadas.
         </div>
