@@ -14,3 +14,6 @@ export const MESES = [
  * mais de 4 espaços seguidos — e nome de categoria é texto livre do usuário.
  */
 export const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
+
+export const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')

@@ -5,7 +5,7 @@
  * Sem dependência de template — é um e-mail só, e string pura é testável.
  */
 import type { PacingAlert } from './pacing-alerts'
-import { brl, MESES } from './format'
+import { brl, MESES, escapeHtml } from './format'
 
 export interface PacingEmailInput {
   orgName: string
@@ -24,9 +24,6 @@ export interface BuiltEmail {
   html: string
   text: string
 }
-
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 /**
  * "23 de setembro de 2026". Montada de `month` + dia, e não de um Date, para não
