@@ -24,9 +24,14 @@ interface AccountCardProps {
    * (migração 00055) e a tela nem oferece a troca.
    */
   tipoTravado?: boolean
+  /**
+   * Conta de investimentos do Open Finance: o valor exibido é o das posições,
+   * não o saldo de lançamentos — e por isso não há "Ajustar saldo".
+   */
+  valorDasPosicoesCents?: number
 }
 
-export function AccountCard({ account, tipoTravado = false }: AccountCardProps) {
+export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCents }: AccountCardProps) {
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -49,7 +54,8 @@ export function AccountCard({ account, tipoTravado = false }: AccountCardProps) 
 
   const config = ACCOUNT_TYPE_CONFIG[account.type]
   const { Icon, label } = config
-  const isNegative = account.balanceCents < 0
+  const valorExibidoCents = valorDasPosicoesCents ?? account.balanceCents
+  const isNegative = valorExibidoCents < 0
 
   async function handleUpdate() {
     setLoading(true)
@@ -169,6 +175,7 @@ export function AccountCard({ account, tipoTravado = false }: AccountCardProps) 
           </div>
 
           {/* Adjust balance — creates an income/expense transaction with the delta */}
+          {valorDasPosicoesCents === undefined && (
           <div className="mt-4 border-t border-gray-200 pt-4">
             {!showAdjust ? (
               <div className="flex items-center justify-between">
@@ -236,6 +243,7 @@ export function AccountCard({ account, tipoTravado = false }: AccountCardProps) 
               </div>
             )}
           </div>
+          )}
         </CardContent>
       </Card>
     )
@@ -269,8 +277,11 @@ export function AccountCard({ account, tipoTravado = false }: AccountCardProps) 
         </CardHeader>
         <CardContent>
           <p className={`text-2xl font-bold tracking-tight ${isNegative ? 'text-red-600' : 'text-green-700'}`}>
-            {formatBRL(account.balanceCents)}
+            {formatBRL(valorExibidoCents)}
           </p>
+          {valorDasPosicoesCents !== undefined && (
+            <p className="mt-1 text-xs text-gray-400">Valor das posições informadas pelo banco</p>
+          )}
           {(account.branch || account.accountNumber) && (
             <p className="mt-1 text-xs text-gray-400">
               {[account.branch && `Ag ${account.branch}`, account.accountNumber && `Nº ${account.accountNumber}`].filter(Boolean).join(' · ')}

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { getAccounts, getOrgId, getSaldosDoBanco } from '@/lib/finance/queries'
 import { BankDivergenceAlert } from '@/components/finance/bank-divergence-alert'
 import { AccountCard } from '@/components/finance/account-card'
-import { getContasDeInvestimentoOpenFinance } from '@/lib/openfinance/queries'
+import { getContasDeInvestimentoOpenFinance, getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
 import { formatBRL } from '@floow/core-finance'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -12,8 +12,9 @@ export default async function AccountsPage() {
   // O saldo aqui e derivado da soma dos lancamentos; o banco tem o proprio
   // numero. Conferir os dois e o que pega o lancamento duplicado, o que
   // faltou, e o erro nosso — sem precisar saber de antemao qual foi.
-  const [accounts, saldosDoBanco, contasDeInvestimento] = await Promise.all([
+  const [accounts, saldosDoBanco, contasDeInvestimento, valorDasPosicoes] = await Promise.all([
     getAccounts(orgId), getSaldosDoBanco(orgId), getContasDeInvestimentoOpenFinance(orgId),
+    getValorDasContasDeInvestimento(orgId),
   ])
   const conferidas = accounts.map((a) => ({
     accountId: a.id,
@@ -23,7 +24,9 @@ export default async function AccountsPage() {
     apuradoEm: saldosDoBanco.get(a.id)?.bankBalanceAt ?? null,
   }))
 
-  const totalBalanceCents = accounts.reduce((sum, a) => sum + a.balanceCents, 0)
+  // Conta de investimentos do Open Finance vale o que as posições valem, não o
+  // saldo de lançamentos (zerado numa conexão só de investimentos).
+  const totalBalanceCents = accounts.reduce((sum, a) => sum + (valorDasPosicoes.get(a.id) ?? a.balanceCents), 0)
 
   return (
     <div className="space-y-6">
@@ -61,7 +64,12 @@ export default async function AccountsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {accounts.map((account) => (
-            <AccountCard key={account.id} account={account} tipoTravado={contasDeInvestimento.has(account.id)} />
+            <AccountCard
+              key={account.id}
+              account={account}
+              tipoTravado={contasDeInvestimento.has(account.id)}
+              valorDasPosicoesCents={contasDeInvestimento.has(account.id) ? (valorDasPosicoes.get(account.id) ?? 0) : undefined}
+            />
           ))}
         </div>
       )}

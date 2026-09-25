@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { formatBRL } from '@floow/core-finance'
 import { ACCOUNT_TYPE_CONFIG } from '@/lib/finance/account-types'
+import { getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
 
 const PAGE_SIZE = 30
 
@@ -36,10 +37,12 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   // continua restrita a esta conta pelo `filters.accountId`, que é outra
   // coisa.
   const allAccountsP = getAccounts(orgId)
+  const valorDasPosicoesP = getValorDasContasDeInvestimento(orgId)
   // Falha enquanto outra espera não vira "unhandled rejection"; o erro sobe
   // no await de cada uma.
   categoriesP.catch(() => {})
   allAccountsP.catch(() => {})
+  valorDasPosicoesP.catch(() => {})
 
   const filters = {
     accountId,
@@ -90,7 +93,11 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   const config = ACCOUNT_TYPE_CONFIG[account.type] ?? { label: account.type, Icon: Banknote }
   const { Icon, label } = config
-  const isNegative = account.balanceCents < 0
+  // Conta de investimentos do Open Finance vale o que as posições valem; o
+  // saldo de lançamentos dela fica zerado numa conexão só de investimentos.
+  const valorDasPosicoesCents = (await valorDasPosicoesP).get(account.id)
+  const saldoExibidoCents = valorDasPosicoesCents ?? account.balanceCents
+  const isNegative = saldoExibidoCents < 0
 
   return (
     <div className="space-y-4">
@@ -112,8 +119,11 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
             </div>
           </PageHeader>
           <p className={`text-lg font-semibold ${isNegative ? 'text-red-600' : 'text-green-700'}`}>
-            {formatBRL(account.balanceCents)}
+            {formatBRL(saldoExibidoCents)}
           </p>
+          {valorDasPosicoesCents !== undefined && (
+            <p className="text-xs text-gray-400">Valor das posições informadas pelo banco</p>
+          )}
         </div>
       </div>
 

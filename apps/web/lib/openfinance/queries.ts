@@ -1,5 +1,5 @@
 import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
-import { accounts, openfinanceConnections, openfinanceResources, transactions } from '@floow/db'
+import { accounts, assetPositionSnapshots, openfinanceConnections, openfinanceResources, transactions } from '@floow/db'
 import { withUserDb } from '@/lib/db/rls'
 import { concluiAoAbrir } from './auto-vinculo'
 
@@ -134,5 +134,29 @@ export async function getContasDeInvestimentoOpenFinance(orgId: string): Promise
       .from(openfinanceConnections)
       .where(and(eq(openfinanceConnections.orgId, orgId), isNotNull(openfinanceConnections.investmentAccountId)))
     return new Set(rows.map((r) => r.accountId!))
+  })
+}
+
+/**
+ * Valor das posições de cada conta "Investimentos · <banco>", em centavos.
+ *
+ * O `balance_cents` dessas contas é só o líquido das aplicações ligadas pelo
+ * extrato — numa conexão só de investimentos fica zerado. A verdade são as
+ * posições (ver `core-finance/src/account-kind.ts`), e este é o mesmo valor
+ * que a carteira mostra: o snapshot de cada ativo da conexão.
+ */
+export async function getValorDasContasDeInvestimento(orgId: string): Promise<Map<string, number>> {
+  return withUserDb(async (db) => {
+    const rows = await db
+      .select({
+        accountId: openfinanceConnections.investmentAccountId,
+        valorCents: sql<string>`coalesce(sum(${assetPositionSnapshots.currentValueCents}), 0)`,
+      })
+      .from(openfinanceConnections)
+      .innerJoin(openfinanceResources, eq(openfinanceResources.connectionId, openfinanceConnections.id))
+      .innerJoin(assetPositionSnapshots, eq(assetPositionSnapshots.assetId, openfinanceResources.assetId))
+      .where(and(eq(openfinanceConnections.orgId, orgId), isNotNull(openfinanceConnections.investmentAccountId)))
+      .groupBy(openfinanceConnections.investmentAccountId)
+    return new Map(rows.map((r) => [r.accountId!, Number(r.valorCents)]))
   })
 }
