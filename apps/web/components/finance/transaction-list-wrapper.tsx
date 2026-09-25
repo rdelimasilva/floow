@@ -7,6 +7,7 @@ import { currencyToCents } from '@floow/core-finance/src/balance'
 import { InlineFormContext, type InlineCreatedTransaction } from './inline-transaction-form'
 import { lembrarFiltros } from '@/lib/finance/filtros-lembrados'
 import type { FaturaNoExtrato } from '@/lib/finance/intercalar-faturas'
+import { temRecorte } from '@/lib/finance/tem-recorte'
 
 interface Props {
   transactions: Parameters<typeof TransactionList>[0]['transactions']
@@ -116,6 +117,7 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
 
   return (
     <TransactionList
+      comFiltro={temRecorte(new URLSearchParams(searchParams.toString()))}
       transactions={visibleTransactions}
       accounts={accounts}
       categories={categories}

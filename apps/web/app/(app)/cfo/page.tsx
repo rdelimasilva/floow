@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { getOrgId } from '@/lib/finance/queries'
 import { getActiveInsights, getLatestRun } from '@/lib/cfo/queries'
 import { CfoClient } from './client'
+import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 
 async function CfoContent({ orgId }: { orgId: string }) {
   const [insights, latestRun] = await Promise.all([
@@ -51,7 +52,9 @@ export default async function CfoPage() {
       <PageHeader
         title="Consultor Financeiro"
         description="Análises diárias sobre sua estratégia financeira"
-      />
+      >
+        <LinkDeAjuda topico="consultor" />
+      </PageHeader>
 
       <Suspense fallback={<CfoSkeleton />}>
         <CfoContent orgId={orgId} />

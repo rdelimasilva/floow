@@ -10,6 +10,7 @@ import { MonthNavigator } from '@/components/finance/month-navigator'
 import { PacingTransactionsDialog } from '@/components/finance/pacing-transactions-dialog'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { BudgetPacingResult, PacingStatus } from '@floow/core-finance'
+import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 
 // recharts inteiro só chega depois da página: as outras telas com gráfico já
 // fazem assim, e esta era a única que o levava no JS inicial.
@@ -92,9 +93,11 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Ritmo de gastos"
+        title="Ritmo de Gastos"
         description="Quanto você já gastou no mês, por onde saiu, e onde isso deve fechar."
-      />
+      >
+        <LinkDeAjuda topico="ritmo-de-gastos" />
+      </PageHeader>
 
       <MonthNavigator month={selectedMonth} onShift={go}>
         {total.daysElapsed > 0 && (

@@ -40,6 +40,8 @@ interface TransactionListProps {
   onFilterTypes?: (types: string[]) => void
   onFilterCategories?: (ids: string[]) => void
   onFilterAmount?: (min: string, max: string) => void
+  /** A URL tem recorte: lista vazia é culpa do filtro, não da conta. */
+  comFiltro?: boolean
 }
 
 export function TransactionList({
@@ -48,6 +50,7 @@ export function TransactionList({
   activeTypes = [], activeCategoryIds = [],
   activeMinAmount = '', activeMaxAmount = '',
   onSort = () => {}, onFilterTypes = () => {}, onFilterCategories = () => {}, onFilterAmount = () => {},
+  comFiltro = false,
 }: TransactionListProps) {
   const { toast } = useToast()
   const toastRef = useRef(toast)
@@ -266,8 +269,17 @@ export function TransactionList({
   if (transactions.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
-        <p className="text-gray-500">Nenhuma transação encontrada.</p>
-        <p className="mt-1 text-sm text-gray-400">Registre sua primeira transação para começar.</p>
+        {comFiltro ? (
+          <>
+            <p className="text-gray-500">Nenhuma transação com os filtros atuais.</p>
+            <p className="mt-1 text-sm text-gray-400">Ajuste ou desligue os filtros acima para ver mais lançamentos.</p>
+          </>
+        ) : (
+          <>
+            <p className="text-gray-500">Nenhuma transação encontrada.</p>
+            <p className="mt-1 text-sm text-gray-400">Registre sua primeira transação para começar.</p>
+          </>
+        )}
       </div>
     )
   }

@@ -9,6 +9,7 @@ import {
 import { contasParaLancamento } from '@/lib/finance/account-options'
 import { RecurringTemplateList } from '@/components/finance/recurring-template-list'
 import { PageHeader } from '@/components/ui/page-header'
+import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 
 export default async function RecurringPage() {
   const orgId = await getOrgId()
@@ -29,7 +30,9 @@ export default async function RecurringPage() {
       <PageHeader
         title="Transações Recorrentes"
         description="Gerencie os modelos de transações recorrentes e gere lançamentos automaticamente"
-      />
+      >
+        <LinkDeAjuda topico="recorrentes" />
+      </PageHeader>
       <RecurringTemplateList
         templates={templates.map((t) => ({
           ...t,

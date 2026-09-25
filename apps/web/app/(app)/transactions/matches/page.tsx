@@ -2,6 +2,7 @@ import { getOrgId } from '@/lib/finance/queries'
 import { getPropostasPendentes } from '@/lib/finance/forecast-match-queries'
 import { MatchProposalQueue } from '@/components/finance/match-proposal-queue'
 import { PageHeader } from '@/components/ui/page-header'
+import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 
 export default async function MatchesPage() {
   const orgId = await getOrgId()
@@ -12,7 +13,9 @@ export default async function MatchesPage() {
       <PageHeader
         title="Confirmar previsões"
         description="Previsões suas que parecem já ter acontecido, com o lançamento do banco que as cumpriu. Nada é confirmado sem você aprovar."
-      />
+      >
+        <LinkDeAjuda topico="filas" />
+      </PageHeader>
       <MatchProposalQueue propostas={propostas} />
     </div>
   )

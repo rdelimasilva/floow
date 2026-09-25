@@ -43,7 +43,7 @@ export function CfoClient({ insights, latestRun }: CfoClientProps) {
 
       {insights.length === 0 && (
         <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-          Nenhum insight no momento. Os insights são gerados diariamente com base nos seus dados financeiros.
+          Nenhuma análise no momento. As análises são geradas diariamente com base nos seus dados financeiros.
         </div>
       )}
 

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ConnectWizard } from './connect-wizard'
 import { ConnectionList } from './connection-list'
 import { contasDisponiveis } from './wizard-passos'
+import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 
 export default async function ConnectBankPage() {
   const orgId = await getOrgId()
@@ -61,6 +62,7 @@ export default async function ConnectBankPage() {
         title="Importar do meu banco"
         description="Traga extrato e fatura automaticamente pelo Open Finance."
       >
+        <LinkDeAjuda topico="open-finance" />
         <Button asChild variant="outline">
           <Link href="/accounts">Voltar</Link>
         </Button>

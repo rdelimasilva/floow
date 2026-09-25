@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { EMAIL_CONTATO } from '@/lib/ajuda/conteudo'
 
 export const metadata: Metadata = {
   title: 'Política de Privacidade — Floow',
@@ -7,7 +8,6 @@ export const metadata: Metadata = {
 }
 
 const ATUALIZADA_EM = '23 de setembro de 2026'
-const EMAIL_CONTATO = 'rdelimasilva@gmail.com'
 
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (

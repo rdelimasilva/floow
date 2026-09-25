@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ImportForm } from '@/components/finance/import-form'
 import { getOrgId, getAccounts, getCategories } from '@/lib/finance/queries'
 import { semContasDeInvestimento } from '@/lib/finance/account-options'
+import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 
 /**
  * Import page — allows users to upload OFX or CSV bank statements.
@@ -33,6 +34,9 @@ export default async function ImportPage() {
           Importe um extrato bancário em formato OFX ou CSV. Duplicatas são ignoradas
           automaticamente.
         </p>
+        <div className="mt-2">
+          <LinkDeAjuda topico="importar-extrato" />
+        </div>
       </div>
 
       <ImportForm
