@@ -207,6 +207,9 @@ export async function getTransactionsWithCount(
   // e sem ele o `sum` interno leria as colunas da linha de fora.
   const txSaldo = alias(transactions, 'tx_saldo')
   const contaSaldo = alias(accounts, 'conta_saldo')
+  // Extrato de uma conta so: a corretora nao divide a coluna com a corrente,
+  // entao o aporte nao se anula e ela precisa do proprio saldo corrido.
+  const incluirInvestimento = contasDoFiltro(opts).length === 1
 
   const rows = await db
     .select({
@@ -286,7 +289,7 @@ export async function getTransactionsWithCount(
        * mesma coisa depois de descontar a latencia.
        */
       balanceAfter: sql<number>`(
-        select coalesce(sum(${sqlValorNoSaldo(hoje, { tx: txSaldo, acc: contaSaldo })}), 0)
+        select coalesce(sum(${sqlValorNoSaldo(hoje, { tx: txSaldo, acc: contaSaldo }, { incluirInvestimento })}), 0)
           from ${transactions} ${txSaldo}
           left join ${accounts} ${contaSaldo} on ${contaSaldo.id} = ${txSaldo.accountId}
          where ${and(...buildBalanceScopeConditions(orgId, opts, txSaldo))}

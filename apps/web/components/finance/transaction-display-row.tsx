@@ -134,7 +134,9 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
     )
   }
 
-  if (!contaNoSaldoProjetado(tx, new Date())) {
+  // O selo fala do estado da previsão, não do tipo da conta: previsão futura
+  // em corretora é "previsto", não "não confirmado".
+  if (!contaNoSaldoProjetado(tx, new Date(), { incluirInvestimento: true })) {
     return (
       <span
         className="inline-flex shrink-0 items-center rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
@@ -165,7 +167,7 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
  */
 function classeDeOpacidade(tx: TransactionRowData): string {
   if (tx.balanceApplied !== false) return ''
-  if (!tx.matchedTransactionId && !contaNoSaldoProjetado(tx, new Date())) return ''
+  if (!tx.matchedTransactionId && !contaNoSaldoProjetado(tx, new Date(), { incluirInvestimento: true })) return ''
   return 'opacity-60'
 }
 
