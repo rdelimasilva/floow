@@ -28,7 +28,7 @@ const onDelete = vi.fn()
 const onCancelRecurring = vi.fn()
 
 const ACOES = {
-  onToggleSelect: vi.fn(),
+  onToggleSelect: vi.fn(), onUnreconcile: vi.fn(),
   onEdit: vi.fn(),
   onDelete,
   onIgnore: vi.fn(),

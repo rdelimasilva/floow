@@ -71,6 +71,10 @@ const PENDENTES = [
   // a mesma dívida, e sai junto com ela — a leitura da fila
   // (`duplicata-queries.ts`) já nasceu em `withUserDb`.
   'lib/finance/duplicata-actions.ts',
+  // Desconciliar desfaz o que `forecast-match-actions.ts` e
+  // `corrigir-regra-actions.ts` gravam — `transactions`, `accounts.balance_cents`
+  // e `forecast_match_proposals` — com a mesma dívida de policy de ESCRITA.
+  'lib/finance/desconciliar-actions.ts',
   'lib/finance/import-actions.ts',
   // `lib/finance/queries.ts` era uma entrada só, de 590 linhas. Virou fachada
   // de reexport — não chama mais `getDb()` — e os seis módulos abaixo herdaram

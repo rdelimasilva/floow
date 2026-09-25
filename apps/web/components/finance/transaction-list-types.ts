@@ -33,6 +33,10 @@ export interface TransactionRowData {
   /** Data da compra, só em parcela de cartão. */
   purchaseDate?: Date | string | null
   counterpartyId?: string | null
+  /** `pending` enquanto espera Classificar; ver `lib/finance/desconciliar.ts`. */
+  reviewState?: string | null
+  /** Realizado que alguma previsão aponta como cumprida. */
+  cumprePrevisao?: boolean
   /**
    * O bem que este lancamento adquiriu, quando ha vinculo em
    * `fixed_assets.acquisition_transaction_id`. Vem por subquery e nao por

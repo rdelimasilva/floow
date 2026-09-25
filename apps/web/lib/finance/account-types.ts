@@ -42,3 +42,20 @@ export const ACCOUNT_TYPE_OPTIONS = [
   { value: 'credit_card', label: ACCOUNT_TYPE_LABEL.credit_card },
   { value: 'cash', label: ACCOUNT_TYPE_LABEL.cash },
 ] as const satisfies ReadonlyArray<{ value: AccountType; label: string }>
+
+/**
+ * Blocos da tela de Contas. Poupança e dinheiro ficam com as correntes: são
+ * dinheiro parado à mão, não aplicação — "Investimentos" é só `brokerage`.
+ */
+export const BLOCOS_DE_CONTA = [
+  { key: 'correntes', titulo: 'Contas correntes', tipos: ['checking', 'savings', 'cash'] },
+  { key: 'investimentos', titulo: 'Investimentos', tipos: ['brokerage'] },
+  { key: 'cartoes', titulo: 'Cartões', tipos: ['credit_card'] },
+] as const satisfies ReadonlyArray<{ key: string; titulo: string; tipos: ReadonlyArray<AccountType> }>
+
+/** Agrupa na ordem dos blocos, omitindo bloco vazio. */
+export function agruparPorBloco<T extends { type: AccountType }>(contas: T[]) {
+  return BLOCOS_DE_CONTA
+    .map((b) => ({ ...b, contas: contas.filter((c) => (b.tipos as ReadonlyArray<AccountType>).includes(c.type)) }))
+    .filter((b) => b.contas.length > 0)
+}

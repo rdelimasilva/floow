@@ -14,7 +14,7 @@ export default async function ConnectBankPage() {
   if (!isPolpConfigured()) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Conectar banco" />
+        <PageHeader title="Importar do meu banco" />
         <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
           <p className="text-gray-700">A integração com Open Finance ainda não está configurada.</p>
           <p className="mt-2 text-sm text-gray-500">
@@ -58,7 +58,7 @@ export default async function ConnectBankPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Conectar banco"
+        title="Importar do meu banco"
         description="Traga extrato e fatura automaticamente pelo Open Finance."
       >
         <Button asChild variant="outline">

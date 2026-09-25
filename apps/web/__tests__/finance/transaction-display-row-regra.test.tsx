@@ -7,7 +7,7 @@ const { TransactionDesktopRow, TransactionMobileCard } = await import(
 )
 
 const ACOES = {
-  onToggleSelect: vi.fn(),
+  onToggleSelect: vi.fn(), onUnreconcile: vi.fn(),
   onEdit: vi.fn(),
   onDelete: vi.fn(),
   onIgnore: vi.fn(),
@@ -83,5 +83,35 @@ describe('link para corrigir regra no lançamento', () => {
   it('lançamento manual não mostra (mobile)', () => {
     renderMobile({ counterpartyId: null })
     expect(screen.queryByRole('link', { name: 'Corrigir regra' })).toBeNull()
+  })
+})
+
+describe('botão desconciliar no lançamento', () => {
+  it('classificado pela regra mostra (desktop e mobile)', () => {
+    renderDesktop({ counterpartyId: 'cp-1', reviewState: 'confirmed' })
+    expect(screen.getByRole('button', { name: 'Desconciliar' })).toBeTruthy()
+  })
+
+  it('ainda na fila não mostra', () => {
+    renderMobile({ counterpartyId: 'cp-1', reviewState: 'pending' })
+    expect(screen.queryByRole('button', { name: 'Desconciliar' })).toBeNull()
+  })
+
+  it('previsão cumprida mostra e chama a ação com o lançamento', () => {
+    const onUnreconcile = vi.fn()
+    render(
+      React.createElement(TransactionMobileCard, {
+        tx: { ...BASE, matchedTransactionId: 'r-1' } as never,
+        balance: 0, isSelected: false, loading: false,
+        actions: { ...(ACOES as object), onUnreconcile } as never,
+      }),
+    )
+    screen.getByRole('button', { name: 'Desconciliar' }).click()
+    expect(onUnreconcile).toHaveBeenCalledWith(expect.objectContaining({ id: 'tx-1' }))
+  })
+
+  it('lançamento manual não mostra', () => {
+    renderDesktop({ reviewState: 'confirmed' })
+    expect(screen.queryByRole('button', { name: 'Desconciliar' })).toBeNull()
   })
 })

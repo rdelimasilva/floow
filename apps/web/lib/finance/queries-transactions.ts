@@ -272,6 +272,7 @@ export function consultaDaPagina(
       installmentTotal: transactions.installmentTotal,
       purchaseDate: transactions.purchaseDate,
       counterpartyId: transactions.counterpartyId,
+      reviewState: transactions.reviewState,
       categoryName: categories.name,
       categoryColor: categories.color,
       categoryIcon: categories.icon,
@@ -310,6 +311,11 @@ export function consultaDaPagina(
          where ${forecastMatchProposals.forecastTransactionId} = ${transactions.id}
            and ${forecastMatchProposals.orgId} = ${orgId}
            and ${forecastMatchProposals.status} = 'pending')`,
+      /** Realizado que cumpre uma previsão: dá para desconciliar por ele. */
+      cumprePrevisao: sql<boolean>`exists (
+        select 1 from transactions previsao
+         where previsao.matched_transaction_id = ${transactions.id}
+           and previsao.org_id = ${orgId})`,
       totalCount: pagina.totalCount,
       /**
        * O saldo APOS esta linha, em ordem cronologica.

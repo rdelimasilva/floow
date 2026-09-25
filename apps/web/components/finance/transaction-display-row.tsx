@@ -2,12 +2,13 @@
 
 import { memo } from 'react'
 import Link from 'next/link'
-import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, Package, SlidersHorizontal } from 'lucide-react'
+import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, Package, SlidersHorizontal, Unlink } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
 import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
 import { rotuloDeRemocao } from '@/lib/finance/delete-copy'
+import { podeDesconciliar } from '@/lib/finance/desconciliar'
 
 interface RowActions {
   onEdit: (tx: TransactionRowData) => void
@@ -17,6 +18,23 @@ interface RowActions {
   onCancelRecurring: (templateId: string, description: string) => void
   onCreateRule: (matchValue: string, categoryId: string) => void
   onToggleSelect: (id: string) => void
+  onUnreconcile: (tx: TransactionRowData) => void
+}
+
+/** Devolve o lançamento à fila onde foi conciliado. Ver `lib/finance/desconciliar.ts`. */
+function UnreconcileButton({ tx, onClick, size }: { tx: TransactionRowData; onClick: (tx: TransactionRowData) => void; size: string }) {
+  if (!podeDesconciliar(tx)) return null
+  return (
+    <button
+      type="button"
+      title="Desconciliar: devolver à fila"
+      aria-label="Desconciliar"
+      onClick={() => onClick(tx)}
+      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+    >
+      <Unlink className={size} />
+    </button>
+  )
 }
 
 interface MobileCardProps {
@@ -245,6 +263,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
               <SlidersHorizontal className="h-4 w-4" />
             </Link>
           )}
+          <UnreconcileButton tx={tx} onClick={actions.onUnreconcile} size="h-4 w-4" />
           {!tx.transferGroupId && (
             <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-1 text-gray-400 hover:text-gray-700">
               <Pencil className="h-4 w-4" />
@@ -355,6 +374,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
               <SlidersHorizontal className="h-3.5 w-3.5" />
             </Link>
           )}
+          <UnreconcileButton tx={tx} onClick={actions.onUnreconcile} size="h-3.5 w-3.5" />
           {!tx.transferGroupId && (
             <button
               type="button"
