@@ -92,8 +92,8 @@ export function AssetTypeList({ types }: AssetTypeListProps) {
               <div className="flex-1">
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do tipo" />
               </div>
-              <Button size="sm" variant="primary" onClick={handleCreate} disabled={loading || !name.trim()}>Criar</Button>
               <Button size="sm" variant="outline" onClick={() => { setShowCreate(false); setName('') }}>Cancelar</Button>
+              <Button size="sm" variant="primary" onClick={handleCreate} disabled={loading || !name.trim()}>Criar Tipo</Button>
             </div>
           </div>
         ) : (

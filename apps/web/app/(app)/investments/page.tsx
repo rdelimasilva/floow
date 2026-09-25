@@ -33,11 +33,8 @@ export default async function InvestmentsPage({ searchParams }: InvestmentsPageP
         title="Investimentos"
         description="Acompanhe sua carteira de investimentos e evolução patrimonial"
       >
-        <Button asChild variant="outline">
-          <Link href="/investments/new">Registrar Evento</Link>
-        </Button>
         <Button asChild variant="primary">
-          <Link href="/investments/new">Novo Ativo</Link>
+          <Link href="/investments/new">Novo Ativo / Evento</Link>
         </Button>
       </PageHeader>
 
@@ -56,7 +53,7 @@ export default async function InvestmentsPage({ searchParams }: InvestmentsPageP
           </p>
           <div className="mt-6">
             <Button asChild variant="primary">
-              <Link href="/investments/new">Cadastrar Ativo</Link>
+              <Link href="/investments/new">Novo Ativo</Link>
             </Button>
           </div>
         </div>

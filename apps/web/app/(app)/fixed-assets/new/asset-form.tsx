@@ -238,7 +238,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
                   loading || !name || !typeId || !purchaseValue || !annualRate
                 }
               >
-                {loading ? 'Cadastrando...' : 'Cadastrar Bem'}
+                {loading ? 'Criando...' : 'Criar Bem'}
               </Button>
             </div>
           </form>

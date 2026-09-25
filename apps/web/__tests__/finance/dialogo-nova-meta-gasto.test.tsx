@@ -61,7 +61,7 @@ describe('diálogo de novo lançamento em Plano de Gastos', () => {
     expect(inicio().value).toBe('')
     fireEvent.change(screen.getByRole('combobox', { hidden: true }), { target: { value: 'cat-1' } })
     fireEvent.change(screen.getByPlaceholderText('Ex: 800,00'), { target: { value: '800,00' } })
-    const criar = screen.getByRole('button', { name: 'Criar', hidden: true }) as HTMLButtonElement
+    const criar = screen.getByRole('button', { name: 'Criar Lançamento', hidden: true }) as HTMLButtonElement
     expect(criar.disabled).toBe(true)
     fireEvent.change(inicio(), { target: { value: '2027-01' } })
     expect(criar.disabled).toBe(false)
@@ -78,7 +78,7 @@ describe('diálogo de novo lançamento em Plano de Gastos', () => {
     expect(screen.getByText(/durante 4 meses/)).toBeTruthy()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Criar', hidden: true }))
+      fireEvent.click(screen.getByRole('button', { name: 'Criar Lançamento', hidden: true }))
     })
 
     const fd = createBudgetEntry.mock.calls[0][0]
@@ -101,7 +101,7 @@ describe('diálogo de novo lançamento em Plano de Gastos', () => {
     expect(screen.getByText(/Meta de R\$\s2\.000,00 por mês/)).toBeTruthy()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Criar', hidden: true }))
+      fireEvent.click(screen.getByRole('button', { name: 'Criar Lançamento', hidden: true }))
     })
 
     const fd = createBudgetEntry.mock.calls[0][0]

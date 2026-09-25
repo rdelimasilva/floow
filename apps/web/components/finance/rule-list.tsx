@@ -131,7 +131,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
           </p>
           <Button variant="primary" className="mt-4" onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-1" />
-            Criar Regra
+            Nova Regra
           </Button>
         </div>
 

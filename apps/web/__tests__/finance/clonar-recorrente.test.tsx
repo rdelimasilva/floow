@@ -100,7 +100,7 @@ describe('clonar recorrência', () => {
 
     const d = dialogAberto()
     fireEvent.change(d.getByDisplayValue('Aluguel'), { target: { value: 'Aluguel garagem' } })
-    fireEvent.click(d.getByRole('button', { name: 'Criar' }))
+    fireEvent.click(d.getByRole('button', { name: 'Criar Recorrência' }))
 
     await waitFor(() => expect(createRecurringTemplate).toHaveBeenCalledTimes(1))
     expect(updateRecurringTemplate).not.toHaveBeenCalled()

@@ -14,6 +14,7 @@ const NetWorthEvolution = dynamic(() => import('@/components/investments/net-wor
 })
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 // -- Async sub-components for Suspense streaming ----------------------------
 
@@ -31,12 +32,9 @@ async function PortfolioContent({ orgId }: { orgId: string }) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] text-center space-y-4">
         <p className="text-gray-500 text-sm">Nenhum investimento cadastrado.</p>
-        <Link
-          href="/investments/new"
-          className="inline-flex items-center px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-        >
-          Adicionar Investimento
-        </Link>
+        <Button asChild variant="primary">
+          <Link href="/investments/new">Novo Ativo</Link>
+        </Button>
       </div>
     )
   }

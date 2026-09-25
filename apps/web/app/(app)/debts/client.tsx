@@ -223,7 +223,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
     <div className="space-y-6">
       <PageHeader title="Controle de Dívidas">
         <Button variant="primary" size="sm" onClick={openAdd}>
-          <Plus className="h-4 w-4" /> Nova dívida
+          <Plus className="h-4 w-4" /> Nova Dívida
         </Button>
       </PageHeader>
 
@@ -282,7 +282,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
               </div>
               <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" variant="outline" onClick={closeForm}>Cancelar</Button>
-                <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : editingDebt ? 'Salvar' : 'Criar'}</Button>
+                <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Salvando...' : editingDebt ? 'Salvar' : 'Criar Dívida'}</Button>
               </div>
             </form>
           </CardContent>
@@ -294,7 +294,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
           <CardContent className="py-8 text-center">
             <p className="text-sm text-gray-500">Nenhuma dívida cadastrada.</p>
             <Button variant="primary" className="mt-3" onClick={openAdd}>
-              <Plus className="h-4 w-4" /> Nova dívida
+              <Plus className="h-4 w-4" /> Nova Dívida
             </Button>
           </CardContent>
         </Card>

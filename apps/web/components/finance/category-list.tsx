@@ -203,8 +203,8 @@ export function CategoryList({ categories }: CategoryListProps) {
               <div className="pb-2">
                 <CashFlowToggle checked={affectsCashFlow} onChange={setAffectsCashFlow} />
               </div>
-              <Button size="sm" variant="primary" onClick={handleCreate} disabled={loading || !name} className="h-9">Criar</Button>
               <Button size="sm" variant="outline" onClick={() => { setShowCreate(false); resetForm() }} className="h-9">Cancelar</Button>
+              <Button size="sm" variant="primary" onClick={handleCreate} disabled={loading || !name} className="h-9">Criar Categoria</Button>
             </div>
           </div>
         ) : (

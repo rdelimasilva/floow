@@ -49,7 +49,7 @@ export default async function FixedAssetsPage() {
               <p className="text-gray-600 font-medium">Nenhum bem cadastrado.</p>
               <p className="mt-1 text-sm text-gray-400">Cadastre imóveis, veículos e outros bens.</p>
               <Button variant="primary" className="mt-4" asChild>
-                <Link href="/fixed-assets/new">Cadastrar Bem</Link>
+                <Link href="/fixed-assets/new">Novo Bem</Link>
               </Button>
             </div>
           ) : (

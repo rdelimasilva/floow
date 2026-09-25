@@ -10,6 +10,7 @@ const IncomeChart = dynamic(() => import('@/components/investments/income-chart'
 import { IncomeEventTable } from '@/components/investments/income-event-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 /**
  * IncomePage — React Server Component (DASH-04).
@@ -94,12 +95,9 @@ export default async function IncomePage() {
       ) : (
         <div className="flex flex-col items-center justify-center min-h-[300px] text-center space-y-4">
           <p className="text-gray-500 text-sm">Nenhuma renda passiva registrada.</p>
-          <Link
-            href="/investments/new"
-            className="inline-flex items-center px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-          >
-            Registrar Dividendo
-          </Link>
+          <Button asChild variant="primary">
+            <Link href="/investments/new">Registrar Dividendo</Link>
+          </Button>
         </div>
       )}
     </div>

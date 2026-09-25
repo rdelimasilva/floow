@@ -87,7 +87,7 @@ describe('recorrente como meta de gasto — popup', () => {
     const box = d.getByLabelText(ROTULO) as HTMLInputElement
     expect(box.checked).toBe(true)
 
-    fireEvent.click(d.getByRole('button', { name: 'Atualizar' }))
+    fireEvent.click(d.getByRole('button', { name: 'Salvar' }))
     await waitFor(() => expect(updateRecurringTemplate).toHaveBeenCalledTimes(1))
     expect(updateRecurringTemplate.mock.calls[0][0].get('countsAsBudget')).toBe('true')
   })
@@ -98,7 +98,7 @@ describe('recorrente como meta de gasto — popup', () => {
 
     const d = dialogAberto()
     fireEvent.click(d.getByLabelText(ROTULO))
-    fireEvent.click(d.getByRole('button', { name: 'Atualizar' }))
+    fireEvent.click(d.getByRole('button', { name: 'Salvar' }))
     await waitFor(() => expect(updateRecurringTemplate).toHaveBeenCalledTimes(1))
     expect(updateRecurringTemplate.mock.calls[0][0].get('countsAsBudget')).toBe('false')
   })

@@ -355,7 +355,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
             Cancelar
           </Button>
           <Button type="submit" variant="primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+            {isSubmitting ? 'Salvando...' : 'Salvar'}
           </Button>
         </div>
       </form>

@@ -354,7 +354,7 @@ export function BudgetEntryDialog({
                 (endMode === 'end_month' && !endMonth)
               }
             >
-              {loading ? 'Salvando...' : 'Criar'}
+              {loading ? 'Salvando...' : 'Criar Lançamento'}
             </Button>
           </div>
         </div>

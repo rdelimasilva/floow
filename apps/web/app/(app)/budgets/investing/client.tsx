@@ -116,7 +116,7 @@ export function InvestingClient({
     <div className="space-y-6">
       <PageHeader title="Meta de Investimentos" description="Orçado vs Realizado — Aportes para corretora">
         <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
-          <Plus className="h-4 w-4" /> Novo lançamento
+          <Plus className="h-4 w-4" /> Novo Lançamento
         </Button>
       </PageHeader>
 

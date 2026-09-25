@@ -445,7 +445,7 @@ export function CreateRecurringDialog({
               variant="primary"
               disabled={loading || !description || !accountId || !amount || !nextDueDate}
             >
-              {loading ? 'Salvando...' : isEdit ? 'Atualizar' : 'Criar'}
+              {loading ? 'Salvando...' : isEdit ? 'Salvar' : 'Criar Recorrência'}
             </Button>
           </div>
         </div>

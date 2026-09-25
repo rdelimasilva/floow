@@ -69,7 +69,7 @@ export function AssetForm() {
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-4">Cadastrar Ativo</h2>
+      <h2 className="text-base font-semibold text-gray-900 mb-4">Novo Ativo</h2>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* Ticker */}
         <div className="space-y-1.5">
@@ -159,7 +159,7 @@ export function AssetForm() {
             Cancelar
           </Button>
           <Button type="submit" variant="primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Cadastrando...' : 'Cadastrar Ativo'}
+            {isSubmitting ? 'Criando...' : 'Criar Ativo'}
           </Button>
         </div>
       </form>
