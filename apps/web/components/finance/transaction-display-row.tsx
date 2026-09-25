@@ -16,7 +16,7 @@ interface RowActions {
   onToggleCashFlow: (tx: TransactionRowData) => void
   onCancelRecurring: (templateId: string, description: string) => void
   onCreateRule: (matchValue: string, categoryId: string) => void
-  onToggleSelect: (id: string) => void
+  onToggleSelect: (id: string, comShift: boolean) => void
   onUnreconcile: (tx: TransactionRowData) => void
 }
 
@@ -206,7 +206,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
       className={`rounded-lg border bg-white p-3 ${isSelected ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'} ${tx.isIgnored ? 'opacity-40' : ''} ${classeDeOpacidade(tx)}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => actions.onToggleSelect(tx.id)} className="mt-1 h-4 w-4 rounded border-gray-300 shrink-0" />
+        <input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => {}} onClick={(e) => actions.onToggleSelect(tx.id, e.shiftKey)} className="mt-1 h-4 w-4 rounded border-gray-300 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
             {tx.recurringTemplateId && <Repeat className="h-3 w-3 text-blue-400 shrink-0" />}
@@ -271,7 +271,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
 }: DesktopRowProps) {
   return (
     <tr className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/50' : ''} ${tx.isIgnored ? 'opacity-40 line-through' : ''} ${classeDeOpacidade(tx)}`}>
-      <td className="px-4 py-3"><input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => actions.onToggleSelect(tx.id)} className="h-4 w-4 rounded border-gray-300" /></td>
+      <td className="px-4 py-3"><input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => {}} onClick={(e) => actions.onToggleSelect(tx.id, e.shiftKey)} className="h-4 w-4 rounded border-gray-300" /></td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{formatDate(tx.date)}</td>
       <td className="px-4 py-3 text-sm font-medium text-gray-900">
         <span className="flex items-center gap-1.5">

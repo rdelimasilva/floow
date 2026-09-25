@@ -255,7 +255,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
         {/* Date range — cada ponta se solta pelo × ao lado dela */}
         <div className="flex items-center gap-1">
           <input
-            type="date"
+            type="date" min="1900-01-01" max="2100-12-31"
             aria-label="Data inicial"
             value={startDate}
             onChange={(e) => { setStartDate(e.target.value); navigate({ startDate: e.target.value }) }}
@@ -276,7 +276,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
         <span className="text-xs text-gray-400">até</span>
         <div className="flex items-center gap-1">
           <input
-            type="date"
+            type="date" min="1900-01-01" max="2100-12-31"
             aria-label="Data final"
             value={endDate}
             onChange={(e) => { setEndDate(e.target.value); navigate({ endDate: e.target.value }) }}

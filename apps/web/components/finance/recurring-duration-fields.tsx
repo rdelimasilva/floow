@@ -72,7 +72,7 @@ export function RecurringDurationFields({
         </label>
         {endMode === 'end_date' && (
           <Input
-            type="date"
+            type="date" min="1900-01-01" max="2100-12-31"
             value={endDate}
             onChange={(e) => onEndDateChange(e.target.value)}
             className="ml-6 w-48"

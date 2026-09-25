@@ -23,6 +23,9 @@ import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
 import { intercalarFaturas, type FaturaNoExtrato } from '@/lib/finance/intercalar-faturas'
 import { FaturaDesktopRow, FaturaMobileCard, chaveDaFatura } from './fatura-row'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { SeletorDeCategoria } from '@/components/finance/seletor-de-categoria'
+import { useSelecao } from './use-selecao'
+import { SelecionarTodasDoFiltro } from './selecionar-todas-do-filtro'
 
 interface TransactionListProps {
   transactions: TransactionRowData[]
@@ -42,6 +45,8 @@ interface TransactionListProps {
   onFilterAmount?: (min: string, max: string) => void
   /** A URL tem recorte: lista vazia é culpa do filtro, não da conta. */
   comFiltro?: boolean
+  /** Quantas transações o filtro tem em todas as páginas. */
+  totalDoFiltro?: number
 }
 
 export function TransactionList({
@@ -51,6 +56,7 @@ export function TransactionList({
   activeMinAmount = '', activeMaxAmount = '',
   onSort = () => {}, onFilterTypes = () => {}, onFilterCategories = () => {}, onFilterAmount = () => {},
   comFiltro = false,
+  totalDoFiltro,
 }: TransactionListProps) {
   const { toast } = useToast()
   const toastRef = useRef(toast)
@@ -82,21 +88,16 @@ export function TransactionList({
   const [limparVencidas, setLimparVencidas] = useState(false)
 
   // Bulk selection
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const idsDaPagina = useMemo(() => transactions.map((t) => t.id), [transactions])
+  const { selecionados: selected, alternar: toggleSelect, definir: setSelecionadas, limpar: limparSelecao, paginaToda: allSelected } = useSelecao(idsDaPagina)
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkCatId, setBulkCatId] = useState<string>('')
   const [showBulkCat, setShowBulkCat] = useState(false)
 
-  const allSelected = transactions.length > 0 && selected.size === transactions.length
-
-  const toggleSelect = useCallback((id: string) => {
-    setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  }, [])
-
   function toggleAll() {
-    if (allSelected) setSelected(new Set())
-    else setSelected(new Set(transactions.map((t) => t.id)))
+    if (allSelected) limparSelecao()
+    else setSelecionadas(idsDaPagina)
   }
 
   // O saldo de cada linha vem pronto do servidor (`runningBalance`), calculado
@@ -241,7 +242,7 @@ export function TransactionList({
     try {
       await bulkDeleteTransactions(Array.from(selected))
       toast(`${selected.size} transações removidas`)
-      setSelected(new Set())
+      limparSelecao()
       setBulkDeleteOpen(false)
     } catch (e) {
       toast(mensagemDeErro(e, 'Não foi possível remover as transações.'), 'error')
@@ -256,7 +257,7 @@ export function TransactionList({
     try {
       await bulkCategorizeTransactions(Array.from(selected), bulkCatId)
       toast(`${selected.size} transações categorizadas`)
-      setSelected(new Set())
+      limparSelecao()
       setShowBulkCat(false)
       setBulkCatId('')
     } catch (e) {
@@ -290,13 +291,23 @@ export function TransactionList({
       {selected.size > 0 && (
         <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 mb-2">
           <span className="text-sm font-medium text-blue-800">{selected.size} selecionadas</span>
+          <SelecionarTodasDoFiltro
+            paginaToda={allSelected}
+            naPagina={transactions.length}
+            selecionadas={selected.size}
+            totalDoFiltro={totalDoFiltro ?? transactions.length}
+            onSelecionar={setSelecionadas}
+          />
           <div className="flex gap-2 ml-auto">
             {showBulkCat ? (
               <div className="flex items-center gap-1.5">
-                <select value={bulkCatId} onChange={(e) => setBulkCatId(e.target.value)} className="h-8 rounded border border-gray-300 text-xs">
-                  <option value="">Escolher categoria</option>
-                  {toCategoryOptions(categories).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                </select>
+                <SeletorDeCategoria
+                  opcoes={toCategoryOptions(categories)}
+                  value={bulkCatId}
+                  onChange={setBulkCatId}
+                  placeholder="Escolher categoria"
+                  className="w-56"
+                />
                 <Button size="sm" variant="primary" onClick={handleBulkCategorize} disabled={bulkLoading || !bulkCatId}>Aplicar</Button>
                 <Button size="sm" variant="outline" onClick={() => setShowBulkCat(false)}>Cancelar</Button>
               </div>
@@ -306,7 +317,7 @@ export function TransactionList({
                 <Button size="sm" variant="destructive" onClick={() => setBulkDeleteOpen(true)} disabled={bulkLoading}>Remover</Button>
               </>
             )}
-            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={bulkLoading}>Limpar</Button>
+            <Button size="sm" variant="ghost" onClick={() => limparSelecao()} disabled={bulkLoading}>Limpar</Button>
           </div>
         </div>
       )}

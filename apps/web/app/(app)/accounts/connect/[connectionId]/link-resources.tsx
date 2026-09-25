@@ -230,7 +230,7 @@ export function LinkResources({
                   <label className="block text-xs text-gray-600">
                     Importar a partir de
                     <Input
-                      type="date"
+                      type="date" min="1900-01-01" max="2100-12-31"
                       className="mt-1"
                       value={fromDate[resource.id] ?? sugestaoDeCorte(selected) ?? ''}
                       onChange={(e) =>

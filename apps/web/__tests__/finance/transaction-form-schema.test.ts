@@ -50,3 +50,18 @@ describe('transactionFormSchema — transferência', () => {
     expect(validar({ type: 'transfer', transferToAccountId: CONTA_B }).success).toBe(true)
   })
 })
+
+/**
+ * Um dígito a mais no ano ("20226") passava e gravava um lançamento no ano
+ * 20226, fora de qualquer filtro de período.
+ */
+describe('transactionFormSchema — data', () => {
+  it('recusa ano fora do razoável', () => {
+    expect(mensagemDo('date', validar({ date: '20226-09-25' }))).toMatch(/Data inválida/)
+    expect(mensagemDo('date', validar({ date: '1899-12-31' }))).toMatch(/Data inválida/)
+  })
+
+  it('aceita data comum, inclusive futura', () => {
+    expect(validar({ date: '2027-01-10' }).success).toBe(true)
+  })
+})

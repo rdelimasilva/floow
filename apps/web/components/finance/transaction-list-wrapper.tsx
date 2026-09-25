@@ -10,6 +10,7 @@ import type { FaturaNoExtrato } from '@/lib/finance/intercalar-faturas'
 import { temRecorte } from '@/lib/finance/tem-recorte'
 
 interface Props {
+  totalDoFiltro?: number
   transactions: Parameters<typeof TransactionList>[0]['transactions']
   accounts: Parameters<typeof TransactionList>[0]['accounts']
   categories: Parameters<typeof TransactionList>[0]['categories']
@@ -18,7 +19,7 @@ interface Props {
   faturas?: FaturaNoExtrato[]
 }
 
-export function TransactionListWrapper({ transactions, accounts, categories, sortBy, sortDir, faturas }: Props) {
+export function TransactionListWrapper({ transactions, accounts, categories, sortBy, sortDir, faturas, totalDoFiltro }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inlineForm = useContext(InlineFormContext)
@@ -117,6 +118,7 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
 
   return (
     <TransactionList
+      totalDoFiltro={totalDoFiltro}
       comFiltro={temRecorte(new URLSearchParams(searchParams.toString()))}
       transactions={visibleTransactions}
       accounts={accounts}

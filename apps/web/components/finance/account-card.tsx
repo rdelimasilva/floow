@@ -218,7 +218,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
                 <div>
                   <Label>Data do ajuste</Label>
                   <Input
-                    type="date"
+                    type="date" min="1900-01-01" max="2100-12-31"
                     className="mt-1"
                     value={adjustDate}
                     onChange={(e) => setAdjustDate(e.target.value)}

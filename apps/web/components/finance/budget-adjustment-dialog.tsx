@@ -60,7 +60,7 @@ export function BudgetAdjustmentDialog({ goalId, open, onClose }: BudgetAdjustme
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Data</label>
-            <Input name="date" type="date" required defaultValue={todayStr} />
+            <Input name="date" type="date" min="1900-01-01" max="2100-12-31" required defaultValue={todayStr} />
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

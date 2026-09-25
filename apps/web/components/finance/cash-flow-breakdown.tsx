@@ -158,14 +158,14 @@ export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlow
 
             {/* Date range */}
             <input
-              type="date"
+              type="date" min="1900-01-01" max="2100-12-31"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
             />
             <span className="text-xs text-gray-400">até</span>
             <input
-              type="date"
+              type="date" min="1900-01-01" max="2100-12-31"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"

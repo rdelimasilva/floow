@@ -18,6 +18,7 @@ import { resumoDaConclusao } from './wizard-passos'
 import { avisoDaAtualizacao } from './lista-conexoes'
 import { useConcluirAoAbrir } from './concluir-ao-abrir'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { haQuantoTempo } from '@/lib/ha-quanto-tempo'
 
 /**
  * Rótulos dos status que o usuário vê.
@@ -56,6 +57,8 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
   const { toast } = useToast()
   const [pending, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
+  // Qual botão da conexão está trabalhando — é ele que troca o rótulo.
+  const [acao, setAcao] = useState<'importar' | 'buscar' | null>(null)
   const [paraEncerrar, setParaEncerrar] = useState<BankConnectionSummary | null>(null)
   // Conexão cuja autorização está aberta na aba do banco.
   const [aguardando, setAguardando] = useState<string | null>(null)
@@ -80,6 +83,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
     const atual = connections.find((c) => c.id === id)
     const antes = { status: atual?.status ?? '', recursos: atual?.resources.length ?? 0 }
     setBusyId(id)
+    setAcao('buscar')
     startTransition(async () => {
       try {
         // Mesmo refresh de sempre; se a conexão foi criada pelo wizard guiado
@@ -116,6 +120,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
 
   function handleSync(id: string) {
     setBusyId(id)
+    setAcao('importar')
     startTransition(async () => {
       try {
         const summary = await syncBankConnection(id)
@@ -209,6 +214,11 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
               <p className="text-sm text-gray-500">
                 CPF {connection.cpfMasked} · {STATUS_LABEL[connection.status] ?? connection.status}
               </p>
+              <p className="mt-1 text-xs text-gray-500">
+                {connection.lastSyncedAt
+                  ? `Última importação: ${haQuantoTempo(connection.lastSyncedAt)}`
+                  : 'Nenhuma importação ainda'}
+              </p>
               {connection.executionStatus && (
                 <p className="mt-1 text-xs text-gray-500">
                   {EXECUTION_LABEL[connection.executionStatus] ?? connection.executionStatus}
@@ -227,7 +237,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
                   onClick={() => handleSync(connection.id)}
                   disabled={pending && busyId === connection.id}
                 >
-                  Importar lançamentos
+                  {pending && busyId === connection.id && acao === 'importar' ? 'Importando...' : 'Importar lançamentos'}
                 </Button>
               ) : (
                 <Button
@@ -245,7 +255,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
                 onClick={() => handleRefresh(connection.id)}
                 disabled={pending && busyId === connection.id}
               >
-                Buscar contas
+                {pending && busyId === connection.id && acao === 'buscar' ? 'Buscando...' : 'Buscar contas'}
               </Button>
               <Button
                 size="sm"

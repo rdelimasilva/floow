@@ -156,7 +156,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
                 <Label htmlFor="purchaseDate">Data de Compra</Label>
                 <Input
                   id="purchaseDate"
-                  type="date"
+                  type="date" min="1900-01-01" max="2100-12-31"
                   value={purchaseDate}
                   onChange={(e) => setPurchaseDate(e.target.value)}
                   required

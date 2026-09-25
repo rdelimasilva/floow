@@ -13,6 +13,7 @@ import { createDebt, updateDebt, deleteDebt } from '@/lib/finance/debt-actions'
 import { formatBRL, currencyToCents } from '@floow/core-finance/src/balance'
 import { InputMoeda, formatarMoedaDigitada } from '@/components/ui/input-moeda'
 import { toCategoryOptions } from '@/lib/finance/category-options'
+import { SeletorDeCategoria } from '@/components/finance/seletor-de-categoria'
 
 interface DebtRow {
   id: string
@@ -139,6 +140,11 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // O seletor com busca não tem `required` nativo: a checagem fica aqui.
+    if (!formCategoryId) {
+      toast('Escolha a categoria da dívida.', 'error')
+      return
+    }
     setSaving(true)
     try {
       const fd = new FormData()
@@ -267,17 +273,17 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Data de início</label>
-                  <Input type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} required />
+                  <Input type="date" min="1900-01-01" max="2100-12-31" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} required />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Categoria</label>
-                  <select value={formCategoryId} onChange={(e) => setFormCategoryId(e.target.value)} required className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
-                    <option value="">Selecione...</option>
-                    <option value="__new__">+ Criar automaticamente</option>
-                    {toCategoryOptions(categories).map((c) => (
-                      <option key={c.id} value={c.id}>{c.label}</option>
-                    ))}
-                  </select>
+                  <SeletorDeCategoria
+                    opcoes={toCategoryOptions(categories)}
+                    extras={[{ id: '__new__', label: '+ Criar automaticamente' }]}
+                    value={formCategoryId}
+                    onChange={setFormCategoryId}
+                    className="h-9 text-sm"
+                  />
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-1">

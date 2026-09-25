@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { PendingQueuesSlot } from '@/components/finance/pending-queues-slot'
 import { getVerifiedIdentity } from '@/lib/auth/session'
+import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { FILTERS_COOKIE, restaurarFiltros, temFiltroNaUrl, hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const
@@ -69,24 +70,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
     redirect(`/transactions?${destino.toString()}`)
   }
 
-  const filters = {
-    accountId: params.accountId,
-    search: params.search,
-    startDate: params.startDate,
-    endDate: params.endDate,
-    sortBy: params.sortBy ?? 'date',
-    // Do mais antigo para o mais novo, como um extrato — ver
-    // `buildTransactionOrder`.
-    sortDir: params.sortDir ?? 'asc',
-    types: params.types,
-    categoryIds: params.categoryIds,
-    minAmount: params.minAmount ? parseInt(params.minAmount, 10) : undefined,
-    maxAmount: params.maxAmount ? parseInt(params.maxAmount, 10) : undefined,
-    // A lista abre em hoje. O futuro entra por este toggle — ver o porque em
-    // `buildTransactionConditions`.
-    includeFuture: params.future === '1',
-    cardDigits: params.cardDigits,
-  }
+  const filters = filtrosDaUrl(params)
 
   // O que não depende da página sai já, junto com a contagem abaixo. Só a
   // consulta das linhas precisa esperar o número da página.
@@ -220,6 +204,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
       </div>
 
       <TransactionListWrapper
+        totalDoFiltro={totalCount}
         transactions={transactions.map((t) => ({
           ...t,
           date: t.date instanceof Date ? t.date.toISOString() : t.date,

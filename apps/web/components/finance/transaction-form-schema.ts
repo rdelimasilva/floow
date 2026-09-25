@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { currencyToCents } from '@floow/core-finance/src/balance'
+import { dataPlausivel } from '@/lib/finance/aviso-de-data'
 
 export type TransactionType = 'income' | 'expense' | 'transfer'
 
@@ -17,7 +18,7 @@ export const transactionFormSchema = z
         return Number.isFinite(cents) && cents > 0
       }, 'Informe um valor maior que zero, como 150,75'),
     description: z.string().min(1, 'Descrição é obrigatória').max(500),
-    date: z.string().min(1, 'Data é obrigatória'),
+    date: z.string().min(1, 'Data é obrigatória').refine(dataPlausivel, 'Data inválida — confira o ano'),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'transfer' && !data.transferToAccountId) {

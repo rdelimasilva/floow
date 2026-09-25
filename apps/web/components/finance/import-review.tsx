@@ -18,6 +18,7 @@ import type { PreviewItem, TransactionOverride } from '@/lib/finance/import-acti
 import type { Account } from '@floow/db'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { SeletorDeCategoria } from '@/components/finance/seletor-de-categoria'
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
@@ -213,16 +214,13 @@ export function ImportReview({
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <select
+                        <SeletorDeCategoria
+                          opcoes={opcoesPorTipo(state.type)}
                           value={state.categoryId}
-                          onChange={(e) => updateRow(item.index, { categoryId: e.target.value })}
-                          className="h-8 w-full min-w-[120px] rounded border border-gray-300 text-xs"
-                        >
-                          <option value="">Sem categoria</option>
-                          {opcoesPorTipo(state.type).map((c) => (
-                            <option key={c.id} value={c.id}>{c.label}</option>
-                          ))}
-                        </select>
+                          onChange={(categoryId) => updateRow(item.index, { categoryId })}
+                          vazio="Sem categoria"
+                          className="min-w-[140px]"
+                        />
                         <button
                           type="button"
                           onClick={() => (isExpanded ? closeCreateCategory() : openCreateCategory(item.index))}

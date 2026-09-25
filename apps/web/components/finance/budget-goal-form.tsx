@@ -120,7 +120,7 @@ export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
             </label>
             <Input
               name="patrimonyDeadline"
-              type="date"
+              type="date" min="1900-01-01" max="2100-12-31"
               defaultValue={deadlineDefault}
             />
           </div>

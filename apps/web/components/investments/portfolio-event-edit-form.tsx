@@ -259,7 +259,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
           <Label htmlFor="eventDate">Data do Evento</Label>
           <Input
             id="eventDate"
-            type="date"
+            type="date" min="1900-01-01" max="2100-12-31"
             {...register('eventDate')}
           />
           {errors.eventDate && (

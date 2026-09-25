@@ -44,7 +44,7 @@ export function UpdateValueForm({ assetId }: { assetId: string }) {
       </div>
       <div>
         <Label className="text-xs">Data</Label>
-        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-9" />
+        <Input type="date" min="1900-01-01" max="2100-12-31" value={date} onChange={(e) => setDate(e.target.value)} className="h-9" />
       </div>
       <Button type="submit" variant="primary" size="sm" disabled={loading || !value} className="h-9">
         {loading ? 'Salvando...' : 'Atualizar'}

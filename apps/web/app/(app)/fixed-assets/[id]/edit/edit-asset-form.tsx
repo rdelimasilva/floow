@@ -140,7 +140,7 @@ export function EditAssetForm({ asset, types, candidates }: { asset: AssetData; 
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="purchaseDate">Data de Compra</Label>
-                <Input id="purchaseDate" type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
+                <Input id="purchaseDate" type="date" min="1900-01-01" max="2100-12-31" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
               </div>
             </div>
 

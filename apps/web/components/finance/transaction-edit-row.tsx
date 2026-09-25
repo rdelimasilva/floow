@@ -17,7 +17,7 @@ interface TransactionEditRowProps {
   categories: CategoryOption[]
   balance: number
   isSelected: boolean
-  onToggleSelect: (id: string) => void
+  onToggleSelect: (id: string, comShift: boolean) => void
   onClose: () => void
 }
 
@@ -161,10 +161,10 @@ export function TransactionEditRow({
   return (
     <tr ref={editRowRef} className="bg-blue-50">
       <td className="px-4 py-2">
-        <input type="checkbox" checked={isSelected} onChange={() => onToggleSelect(tx.id)} className="h-4 w-4 rounded border-gray-300" />
+        <input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => {}} onClick={(e) => onToggleSelect(tx.id, e.shiftKey)} className="h-4 w-4 rounded border-gray-300" />
       </td>
       <td className="px-4 py-2">
-        <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="h-8 text-xs" />
+        <Input type="date" min="1900-01-01" max="2100-12-31" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="h-8 text-xs" />
       </td>
       <td className="px-4 py-2">
         <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="h-8 text-xs" />

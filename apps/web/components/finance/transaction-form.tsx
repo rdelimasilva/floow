@@ -35,6 +35,8 @@ import { useUnsavedChanges } from '@/hooks/use-unsaved-changes'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 import { AccountSelect } from './account-select'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { avisoDeDataFutura, ANO_MINIMO, ANO_MAXIMO } from '@/lib/finance/aviso-de-data'
+import { hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
@@ -357,11 +359,17 @@ export function TransactionForm({
         <Input
           id="date"
           type="date"
+          min={`${ANO_MINIMO}-01-01`}
+          max={`${ANO_MAXIMO}-12-31`}
           error={!!errors.date}
           {...register('date')}
         />
-        {errors.date && (
+        {errors.date ? (
           <p className="text-sm text-red-600">{errors.date.message}</p>
+        ) : (
+          avisoDeDataFutura(watchDate, hojeEmSaoPaulo()) && (
+            <p className="text-xs text-amber-700">{avisoDeDataFutura(watchDate, hojeEmSaoPaulo())}</p>
+          )
         )}
       </div>
 
@@ -434,7 +442,7 @@ export function TransactionForm({
               </label>
               {endMode === 'end_date' && (
                 <Input
-                  type="date"
+                  type="date" min="1900-01-01" max="2100-12-31"
                   value={recurringEndDate}
                   onChange={(e) => setRecurringEndDate(e.target.value)}
                   className="ml-6 w-48"
