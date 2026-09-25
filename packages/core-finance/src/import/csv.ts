@@ -42,13 +42,38 @@ function parseDate(dateStr: string, format: 'dd/MM/yyyy' | 'yyyy-MM-dd'): Date {
 }
 
 /**
- * Generates a deterministic externalId for CSV rows.
- * Uses base64 encoding of the JSON-serialized row content, prefixed with 'csv-'.
- * This ensures the same row always produces the same ID (idempotent deduplication).
+ * Hash de 53 bits (cyrb53), síncrono e igual no navegador e no servidor — o
+ * parse roda nos dois.
  */
-function generateExternalId(row: Record<string, string>): string {
-  const hash = Buffer.from(JSON.stringify(row)).toString('base64').slice(0, 24)
-  return `csv-${hash}`
+function hash53(texto: string): string {
+  let h1 = 0xdeadbeef
+  let h2 = 0x41c6ce57
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto.charCodeAt(i)
+    h1 = Math.imul(h1 ^ c, 2654435761)
+    h2 = Math.imul(h2 ^ c, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36)
+}
+
+/**
+ * Id determinístico da linha do CSV: hash da linha inteira mais a ocorrência
+ * dela no arquivo. O mesmo arquivo sempre gera os mesmos ids (reimportar é
+ * duplicata), e duas compras idênticas no mesmo dia entram as duas.
+ *
+ * Antes era o base64 do JSON cortado em 24 caracteres — só o começo da linha,
+ * `{"Data":"05/09/202` — e todas as linhas do mesmo dia colidiam.
+ */
+function gerarIds(linhas: Record<string, string>[]): string[] {
+  const vistas = new Map<string, number>()
+  return linhas.map((linha) => {
+    const hash = hash53(JSON.stringify(linha))
+    const n = vistas.get(hash) ?? 0
+    vistas.set(hash, n + 1)
+    return n === 0 ? `csv-${hash}` : `csv-${hash}-${n}`
+  })
 }
 
 /**
@@ -90,7 +115,9 @@ export function parseCSVFile(
 
   const dateFormat = mapping.dateFormat ?? 'dd/MM/yyyy'
 
-  return data.map((row) => {
+  const ids = gerarIds(data)
+
+  return data.map((row, i) => {
     const dateStr = (row[mapping.dateColumn] ?? '').trim()
     const amountStr = (row[mapping.amountColumn] ?? '0').trim()
     const description = (row[mapping.descriptionColumn] ?? '').trim()
@@ -100,7 +127,7 @@ export function parseCSVFile(
     const type: 'income' | 'expense' = rawAmount >= 0 ? 'income' : 'expense'
 
     return {
-      externalId: generateExternalId(row),
+      externalId: ids[i],
       date: parseDate(dateStr, dateFormat),
       amountCents,
       description,

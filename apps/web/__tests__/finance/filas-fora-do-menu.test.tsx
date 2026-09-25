@@ -21,7 +21,7 @@ import React from 'react'
  */
 
 const usePathnameMock = vi.fn(() => '/dashboard')
-vi.mock('next/navigation', () => ({ usePathname: () => usePathnameMock() }))
+vi.mock('next/navigation', () => ({ usePathname: () => usePathnameMock(), useSearchParams: () => new URLSearchParams() }))
 vi.mock('@/components/layout/sidebar-context', () => ({
   useSidebar: () => ({ pinned: true, togglePin: () => {} }),
 }))

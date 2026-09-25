@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Send, Loader2 } from 'lucide-react'
+import { Send, Square } from 'lucide-react'
 import { useChat } from '@/hooks/use-chat'
 import { ChatMessage } from './chat-message'
 import type { ToolCall } from '@floow/core-finance'
@@ -14,7 +14,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ insightId, className }: ChatPanelProps) {
-  const { messages, isStreaming, error, sendMessage, confirmAction } = useChat({ insightId })
+  const { messages, isStreaming, error, sendMessage, confirmAction, stop } = useChat({ insightId })
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -64,9 +64,15 @@ export function ChatPanel({ insightId, className }: ChatPanelProps) {
           disabled={isStreaming}
           className="flex-1"
         />
-        <Button type="submit" size="icon" disabled={isStreaming || !input.trim()} title="Enviar" aria-label="Enviar">
-          {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
+        {isStreaming ? (
+          <Button type="button" size="icon" variant="outline" onClick={stop} title="Parar resposta" aria-label="Parar resposta">
+            <Square className="h-3.5 w-3.5 fill-current" />
+          </Button>
+        ) : (
+          <Button type="submit" size="icon" disabled={!input.trim()} title="Enviar" aria-label="Enviar">
+            <Send className="h-4 w-4" />
+          </Button>
+        )}
       </form>
     </div>
   )

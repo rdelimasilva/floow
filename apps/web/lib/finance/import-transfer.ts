@@ -23,11 +23,11 @@ export async function inserirTransferenciaImportada(
     importedAt: Date
     categoryId: string | null
   },
-): Promise<{ destinoPrevisto: string | null }> {
+): Promise<{ inserida: boolean; destinoPrevisto: string | null }> {
   const absAmount = Math.abs(args.amountCents)
   const transferGroupId = crypto.randomUUID()
 
-  await tx.insert(transactions).values({
+  const origem = await tx.insert(transactions).values({
     orgId: args.orgId,
     accountId: args.accountId,
     type: 'transfer',
@@ -39,7 +39,11 @@ export async function inserirTransferenciaImportada(
     transferGroupId,
     categoryId: args.categoryId,
     isAutoCategorized: false,
-  }).onConflictDoNothing()
+  }).onConflictDoNothing().returning({ id: transactions.id })
+
+  // FITID repetido (duas transferências idênticas no mesmo CSV, ou reimportação):
+  // a perna não entrou, então nada de saldo nem de perna de destino órfã.
+  if (origem.length === 0) return { inserida: false, destinoPrevisto: null }
 
   await tx.update(accounts)
     .set({ balanceCents: sql`balance_cents + ${-absAmount}` })
@@ -58,7 +62,7 @@ export async function inserirTransferenciaImportada(
         transferGroupId,
       ),
     ).onConflictDoNothing()
-    return { destinoPrevisto: args.destAccountId }
+    return { inserida: true, destinoPrevisto: args.destAccountId }
   }
 
   await tx.insert(transactions).values({
@@ -77,5 +81,5 @@ export async function inserirTransferenciaImportada(
     .set({ balanceCents: sql`balance_cents + ${absAmount}` })
     .where(eq(accounts.id, args.destAccountId))
 
-  return { destinoPrevisto: null }
+  return { inserida: true, destinoPrevisto: null }
 }

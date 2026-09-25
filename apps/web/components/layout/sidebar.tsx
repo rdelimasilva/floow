@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import {
   LayoutDashboard,
   Wallet,
@@ -112,8 +112,10 @@ function NavLink({
   pinned,
   onClick,
   cfoBadgeCount,
+  href = item.href,
 }: {
   item: NavItem
+  href?: string
   isActive: boolean
   pinned: boolean
   onClick?: () => void
@@ -121,7 +123,7 @@ function NavLink({
 }) {
   return (
     <Link
-      href={item.href}
+      href={href}
       onClick={onClick}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
@@ -162,7 +164,15 @@ interface SidebarProps {
 
 export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { pinned, togglePin } = useSidebar()
+
+  // As três telas de orçamento navegam por `?month=`: trocar de uma para outra
+  // pelo menu mantém o mês que o usuário estava vendo.
+  const mesDoOrcamento = pathname.startsWith('/budgets/') ? searchParams.get('month') : null
+  function hrefDoItem(href: string) {
+    return mesDoOrcamento && href.startsWith('/budgets/') ? `${href}?month=${mesDoOrcamento}` : href
+  }
 
   useEffect(() => { onMobileClose() }, [pathname, onMobileClose])
 
@@ -289,6 +299,7 @@ export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarPro
                   <NavLink
                     key={item.href}
                     item={item}
+                    href={hrefDoItem(item.href)}
                     isActive={isActive(item.href)}
                     pinned={pinned}
                     onClick={onMobileClose}

@@ -446,7 +446,7 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
 
     // Transferências: perna da conta importada + a da outra conta própria.
     for (const item of transferItems) {
-      const { destinoPrevisto } = await inserirTransferenciaImportada(tx as unknown as Db, {
+      const { inserida, destinoPrevisto } = await inserirTransferenciaImportada(tx as unknown as Db, {
         orgId,
         accountId,
         destAccountId: item.destAccountId,
@@ -457,6 +457,10 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
         importedAt,
         categoryId: overrideMap.get(item.idx)?.categoryId ?? null,
       })
+      if (!inserida) {
+        skippedCount++
+        continue
+      }
       if (destinoPrevisto) destinosPrevistos.add(destinoPrevisto)
       importedCount++
     }

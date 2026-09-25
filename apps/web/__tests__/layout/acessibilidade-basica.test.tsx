@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import React from 'react'
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/debts', useRouter: () => ({ push: vi.fn() }) }))
+vi.mock('next/navigation', () => ({ usePathname: () => '/debts', useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push: vi.fn() }) }))
 
 import { Sidebar } from '@/components/layout/sidebar'
 import { SidebarProvider } from '@/components/layout/sidebar-context'

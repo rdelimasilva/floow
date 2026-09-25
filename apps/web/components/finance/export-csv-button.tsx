@@ -4,10 +4,12 @@ import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Download } from 'lucide-react'
 import { useState } from 'react'
+import { useToast } from '@/components/ui/toast'
 
 export function ExportCsvButton() {
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
   async function handleExport() {
     setLoading(true)
@@ -24,7 +26,7 @@ export function ExportCsvButton() {
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      // silent — download simply won't happen
+      toast('Não foi possível exportar as transações. Tente de novo.', 'error')
     } finally {
       setLoading(false)
     }
@@ -33,7 +35,7 @@ export function ExportCsvButton() {
   return (
     <Button variant="outline" size="sm" onClick={handleExport} disabled={loading}>
       <Download className="h-4 w-4" />
-      {loading ? 'Exportando...' : 'CSV'}
+      {loading ? 'Exportando...' : 'Exportar CSV'}
     </Button>
   )
 }
