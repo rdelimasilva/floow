@@ -11,7 +11,9 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { formatBRL } from '@floow/core-finance'
 import { ACCOUNT_TYPE_CONFIG } from '@/lib/finance/account-types'
-import { getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
+import { getAtivosDaContaDeInvestimento, getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
+import { getPositions } from '@/lib/investments/queries'
+import { PositionTable } from '@/components/investments/position-table'
 
 const PAGE_SIZE = 30
 
@@ -38,11 +40,13 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   // coisa.
   const allAccountsP = getAccounts(orgId)
   const valorDasPosicoesP = getValorDasContasDeInvestimento(orgId)
+  const ativosDaContaP = getAtivosDaContaDeInvestimento(orgId, accountId)
   // Falha enquanto outra espera não vira "unhandled rejection"; o erro sobe
   // no await de cada uma.
   categoriesP.catch(() => {})
   allAccountsP.catch(() => {})
   valorDasPosicoesP.catch(() => {})
+  ativosDaContaP.catch(() => {})
 
   const filters = {
     accountId,
@@ -98,6 +102,12 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   const valorDasPosicoesCents = (await valorDasPosicoesP).get(account.id)
   const saldoExibidoCents = valorDasPosicoesCents ?? account.balanceCents
   const isNegative = saldoExibidoCents < 0
+  // Conta de investimentos abre nos ativos: o extrato dela costuma estar vazio.
+  const ativosDaConta = new Set(await ativosDaContaP)
+  const posicoes = ativosDaConta.size > 0
+    ? (await getPositions(orgId)).filter((p) => ativosDaConta.has(p.assetId))
+    : []
+  const ehContaDeAtivos = ativosDaConta.size > 0
 
   return (
     <div className="space-y-4">
@@ -126,6 +136,17 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
           )}
         </div>
       </div>
+
+      {ehContaDeAtivos && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-gray-500">Ativos ({posicoes.length})</h2>
+          <PositionTable positions={posicoes} orgId={orgId} />
+        </section>
+      )}
+
+      {/* Extrato: na conta de ativos, só quando há lançamento (aplicação ligada pelo extrato). */}
+      {(!ehContaDeAtivos || totalCount > 0) && (<>
+      {ehContaDeAtivos && <h2 className="text-sm font-medium text-gray-500">Movimentações na conta</h2>}
 
       {/* Filters (without account selector) */}
       <TransactionFilters
@@ -158,6 +179,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
         baseUrl={`/accounts/${accountId}`}
         searchParams={paginationParams}
       />
+      </>)}
     </div>
   )
 }

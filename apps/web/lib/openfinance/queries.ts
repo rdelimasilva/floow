@@ -160,3 +160,23 @@ export async function getValorDasContasDeInvestimento(orgId: string): Promise<Ma
     return new Map(rows.map((r) => [r.accountId!, Number(r.valorCents)]))
   })
 }
+
+/**
+ * Ativos de uma conta "Investimentos · <banco>": os da conexão que a criou.
+ * Vazio para qualquer outra conta — a página da conta usa isto para decidir
+ * se abre a carteira ou o extrato.
+ */
+export async function getAtivosDaContaDeInvestimento(orgId: string, accountId: string): Promise<string[]> {
+  return withUserDb(async (db) => {
+    const rows = await db
+      .select({ assetId: openfinanceResources.assetId })
+      .from(openfinanceResources)
+      .innerJoin(openfinanceConnections, eq(openfinanceConnections.id, openfinanceResources.connectionId))
+      .where(and(
+        eq(openfinanceConnections.orgId, orgId),
+        eq(openfinanceConnections.investmentAccountId, accountId),
+        isNotNull(openfinanceResources.assetId),
+      ))
+    return rows.map((r) => r.assetId!)
+  })
+}
