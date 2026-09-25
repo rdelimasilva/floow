@@ -82,7 +82,7 @@ describe('ciclo do botão', () => {
 const { TransactionDesktopRow } = await import('@/components/finance/transaction-display-row')
 
 const ACOES = {
-  onToggleSelect: vi.fn(), onEdit: vi.fn(), onDelete: vi.fn(), onIgnore: vi.fn(),
+  onToggleSelect: vi.fn(), onUnreconcile: vi.fn(), onEdit: vi.fn(), onDelete: vi.fn(), onIgnore: vi.fn(),
   onToggleCashFlow: vi.fn(), onCancelRecurring: vi.fn(), onCreateRule: vi.fn(),
 } as never
 

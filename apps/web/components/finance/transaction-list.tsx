@@ -8,6 +8,8 @@ import { setTransactionAffectsCashFlow } from '@/lib/finance/cash-flow-actions'
 import { nextAffectsCashFlow } from '@/lib/finance/affects-cash-flow-cycle'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { textoDeRemocao } from '@/lib/finance/delete-copy'
+import { desconciliarLancamento } from '@/lib/finance/desconciliar-actions'
+import { podeDesconciliar } from '@/lib/finance/desconciliar'
 import { CreateRuleDialog } from '@/components/finance/create-rule-dialog'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
@@ -53,6 +55,7 @@ export function TransactionList({
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TransactionRowData | null>(null)
+  const [unreconcileTarget, setUnreconcileTarget] = useState<TransactionRowData | null>(null)
   const [loading, setLoading] = useState(false)
   const [ruleShortcut, setRuleShortcut] = useState<{ matchValue: string; categoryId: string } | null>(null)
   const [cancelTarget, setCancelTarget] = useState<{ templateId: string; description: string } | null>(null)
@@ -141,6 +144,10 @@ export function TransactionList({
     }
   }, [])
 
+  const handleUnreconcile = useCallback((tx: TransactionRowData) => {
+    setUnreconcileTarget(tx)
+  }, [])
+
   const handleCancelRecurring = useCallback((templateId: string, description: string) => {
     setCancelTarget({ templateId, description })
   }, [])
@@ -161,7 +168,8 @@ export function TransactionList({
     onCancelRecurring: handleCancelRecurring,
     onCreateRule: handleCreateRule,
     onToggleSelect: toggleSelect,
-  }), [handleEdit, handleDelete, handleIgnore, handleToggleCashFlow, handleCancelRecurring, handleCreateRule, toggleSelect])
+    onUnreconcile: handleUnreconcile,
+  }), [handleEdit, handleDelete, handleIgnore, handleToggleCashFlow, handleCancelRecurring, handleCreateRule, toggleSelect, handleUnreconcile])
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 768px)')
@@ -173,6 +181,20 @@ export function TransactionList({
   }, [])
 
   // Confirm dialog handlers
+  async function confirmUnreconcile() {
+    if (!unreconcileTarget) return
+    setLoading(true)
+    try {
+      const { fila } = await desconciliarLancamento(unreconcileTarget.id)
+      setUnreconcileTarget(null)
+      toast(fila === 'previsoes' ? 'Devolvido para Confirmar previsões' : 'Devolvido para Classificar lançamentos')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Não foi possível desconciliar.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return
     setLoading(true)
@@ -367,6 +389,18 @@ export function TransactionList({
         title={textoDeRemocao(deleteTarget).title}
         description={textoDeRemocao(deleteTarget).description}
         confirmLabel="Excluir"
+        loading={loading}
+      />
+
+      <ConfirmDialog
+        open={!!unreconcileTarget}
+        onClose={() => setUnreconcileTarget(null)}
+        onConfirm={confirmUnreconcile}
+        title="Desconciliar lançamento"
+        description={unreconcileTarget && podeDesconciliar(unreconcileTarget) === 'previsoes'
+          ? 'O casamento com a previsão é desfeito e a proposta volta para Confirmar previsões.'
+          : 'O lançamento volta para Classificar lançamentos. Se era transferência, a perna criada na outra conta é apagada e o saldo dela, estornado. A regra da contraparte não muda.'}
+        confirmLabel="Desconciliar"
         loading={loading}
       />
 

@@ -14,7 +14,7 @@ import React from 'react'
 const { TransactionDesktopRow } = await import('@/components/finance/transaction-display-row')
 
 const ACOES = {
-  onToggleSelect: vi.fn(),
+  onToggleSelect: vi.fn(), onUnreconcile: vi.fn(),
   onEdit: vi.fn(),
   onDelete: vi.fn(),
   onIgnore: vi.fn(),
