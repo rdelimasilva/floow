@@ -19,12 +19,34 @@ function assertEnv(name: string): string {
   return value
 }
 
+type Sql = ReturnType<typeof postgres>
+type Envolver = (sql: Sql) => Sql
+
+// No globalThis, e não numa variável do módulo: o Next compila o
+// `instrumentation.ts` num bundle separado das rotas, e cada bundle pode ter a
+// sua cópia deste arquivo — o registro feito lá não chegaria aqui.
+const CHAVE = Symbol.for('floow.db.envolverSql')
+const registro = globalThis as { [CHAVE]?: Envolver }
+
+/**
+ * Registra quem envolve o cliente `postgres` antes do Drizzle — hoje, o
+ * Sentry, para cada consulta virar um span no trace da rota.
+ *
+ * Injetado de fora para este pacote não depender do Sentry. Tem que ser
+ * chamado antes da primeira conexão (o singleton é preguiçoso, e o
+ * `instrumentation.ts` do app roda antes de qualquer requisição).
+ */
+export function setSqlWrapper(fn: Envolver) {
+  registro[CHAVE] = fn
+}
+
 /**
  * Creates a Drizzle client connected to the given Postgres URL.
  * Disables prepared statements for PgBouncer compatibility (transaction mode).
  */
 export function createDb(connectionString: string) {
-  const client = postgres(connectionString, { prepare: false })
+  const cru = postgres(connectionString, { prepare: false })
+  const client = registro[CHAVE]?.(cru) ?? cru
   return drizzle(client, { schema: fullSchema })
 }
 
