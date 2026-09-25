@@ -3,8 +3,8 @@ import { getDb, transactions } from '@floow/db'
 import { gte, sql } from 'drizzle-orm'
 import { runCfoEngine } from '@/lib/cfo/engine'
 import { isAuthorizedService } from '@/lib/auth/service-auth'
-import { runPacingEmailForOrg } from '@/lib/notifications/pacing-email-job'
-import { defaultPacingEmailDeps } from '@/lib/notifications/pacing-email-deps'
+import { runPacingAlertsForOrg } from '@/lib/notifications/pacing-alerts-job'
+import { defaultPacingAlertsDeps } from '@/lib/notifications/pacing-alerts-deps'
 
 export async function POST(request: Request) {
   const authorized = isAuthorizedService(request.headers.get('authorization'), [
@@ -27,7 +27,8 @@ export async function POST(request: Request) {
 
     let totalInsights = 0
     let emailsSent = 0
-    const emailDeps = defaultPacingEmailDeps()
+    let whatsappSent = 0
+    const alertDeps = defaultPacingAlertsDeps()
     const batchSize = 10
 
     for (let i = 0; i < activeOrgs.length; i += batchSize) {
@@ -44,19 +45,20 @@ export async function POST(request: Request) {
       )
       totalInsights += results.reduce((s, n) => s + n, 0)
 
-      // E-mail de ritmo roda depois do engine e isolado dele: falha de envio
-      // não pode apagar os insights do dia, nem o contrário.
+      // Ritmo roda depois do engine e isolado dele: falha de envio não pode
+      // apagar os insights do dia, nem o contrário.
       const sent = await Promise.all(
         batch.map((row) =>
-          runPacingEmailForOrg(row.orgId, emailDeps)
+          runPacingAlertsForOrg(row.orgId, alertDeps)
             .then((r) => r.sent)
             .catch((err) => {
-              console.error(`[email-ritmo] falhou para org=${row.orgId}:`, err)
-              return 0
+              console.error(`[ritmo] falhou para org=${row.orgId}:`, err)
+              return { email: 0, whatsapp: 0 }
             })
         )
       )
-      emailsSent += sent.reduce((s, n) => s + n, 0)
+      emailsSent += sent.reduce((s, n) => s + n.email, 0)
+      whatsappSent += sent.reduce((s, n) => s + n.whatsapp, 0)
     }
 
     // Janelas vencidas nao servem mais para decidir nada; sem isto a tabela so
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
       sql`delete from public.rate_limits where window_start < now() - interval '2 days'`,
     )
 
-    return NextResponse.json({ ok: true, orgs: activeOrgs.length, insights: totalInsights, emailsSent })
+    return NextResponse.json({ ok: true, orgs: activeOrgs.length, insights: totalInsights, emailsSent, whatsappSent })
   } catch (err) {
     console.error('[CFO] Daily run failed:', err)
     return NextResponse.json({ error: 'Daily run failed' }, { status: 500 })

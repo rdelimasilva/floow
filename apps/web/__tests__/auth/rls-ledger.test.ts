@@ -28,8 +28,8 @@ const SERVICO: Record<string, string> = {
   'lib/audit/record.ts': 'audit_log não tem policy de INSERT por desenho — só o backend escreve',
   'lib/openfinance/importacao-agendada.ts':
     'cron 3x/dia: varre as conexões de todas as orgs, sem usuário na requisição',
-  'lib/notifications/pacing-email-deps.ts':
-    'só é chamado por run-daily: lê membros e preferências de todas as orgs para o e-mail de ritmo',
+  'lib/notifications/pacing-alerts-deps.ts':
+    'só é chamado por run-daily: lê membros e preferências de todas as orgs para o aviso de ritmo',
   'lib/finance/category-suggestions/deps.ts':
     'chamado pela rota semanal (sem usuário na requisição) e pelo botão da tela de metas',
 }

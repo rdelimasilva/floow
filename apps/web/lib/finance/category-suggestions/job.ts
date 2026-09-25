@@ -1,7 +1,7 @@
 /**
  * Sugestões de categoria, por org. Chamado pela rota semanal e pelo botão da
  * tela de metas. Deps injetadas para ser testável sem banco (mesmo molde de
- * notifications/pacing-email-job.ts).
+ * notifications/pacing-alerts-job.ts).
  */
 import {
   SUGGESTION_LIMITS,
