@@ -33,6 +33,7 @@ import { deriveResourceIdentity } from './resource-label'
 import { decideResourceRouting } from './resource-routing'
 import { type SyncSummary } from './sync'
 import { sincronizarConexao } from './sincronizar-conexao'
+import { produtosJaConectados } from './conexao-repetida'
 
 /** Os produtos que o floow sabe ingerir. */
 const SUPPORTED_PRODUCTS: PolpProduct[] = ['ACCOUNT', 'CREDIT_CARD_ACCOUNT', 'INVESTMENTS']
@@ -79,8 +80,8 @@ export async function startBankConnection(
   // CPF + instituição queima cota mensal. Barrar aqui é mais barato que
   // descobrir quando a Polp recusar. Renovar autorização de uma conexão que já
   // existe é `recreate`, não um consentimento novo.
-  const [existing] = await db
-    .select({ id: openfinanceConnections.id })
+  const existentes = await db
+    .select({ products: openfinanceConnections.products })
     .from(openfinanceConnections)
     .where(
       and(
@@ -90,9 +91,9 @@ export async function startBankConnection(
         isNull(openfinanceConnections.revokedAt),
       ),
     )
-    .limit(1)
 
-  if (existing) {
+  // Produto novo no mesmo banco (investimentos depois de conta) é outra conexão.
+  if (produtosJaConectados(existentes, products).length > 0) {
     throw new Error(
       'Este CPF já está conectado a esta instituição. Se a autorização no banco falhou, use "Reabrir autorização" na conexão existente.',
     )
@@ -111,6 +112,8 @@ export async function startBankConnection(
       // permite conferir o vínculo de forma independente em GET /consents/{id}.
       clienteUserId: orgId,
       products,
+      // Conexão paralela (outros produtos no mesmo banco): com `true` a Polp devolveria a antiga.
+      avoidDuplicates: existentes.length === 0,
     }),
   )
 
