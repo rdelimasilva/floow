@@ -115,6 +115,12 @@ describe('conta de investimento na coluna de saldo', () => {
     expect(contaNoSaldoProjetado(real({ accountType: 'brokerage' }), HOJE)).toBe(false)
   })
 
+  it('no extrato da própria corretora, conta', () => {
+    expect(
+      contaNoSaldoProjetado(real({ accountType: 'brokerage' }), HOJE, { incluirInvestimento: true }),
+    ).toBe(true)
+  })
+
   it('sem o tipo da conta, conta — não some saldo por dado ausente', () => {
     expect(contaNoSaldoProjetado(real(), HOJE)).toBe(true)
   })

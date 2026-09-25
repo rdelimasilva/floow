@@ -30,6 +30,19 @@ describe('regra de saldo no SQL', () => {
     expect(consulta.params).toContain('brokerage')
   })
 
+  /**
+   * No extrato de UMA conta nao ha segunda perna para anular: a corretora
+   * precisa do saldo corrido como qualquer outra. A exclusao so faz sentido
+   * quando corrente e corretora dividem a mesma coluna.
+   */
+  it('com incluirInvestimento, nao filtra pelo tipo da conta', () => {
+    const uma = dialect.sqlToQuery(
+      sqlContaNoSaldo('2026-09-19', undefined, { incluirInvestimento: true }),
+    )
+    expect(uma.sql.toLowerCase()).not.toContain('"type" not in')
+    expect(uma.params).not.toContain('brokerage')
+  })
+
   it('inclui o que ja foi aplicado no saldo', () => {
     expect(gerado).toContain('"balance_applied"')
   })

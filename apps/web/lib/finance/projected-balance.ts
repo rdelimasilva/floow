@@ -57,12 +57,17 @@ function diaDe(valor: Date | string): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
 }
 
-export function contaNoSaldoProjetado(linha: LinhaProjetavel, hoje: Date): boolean {
+export function contaNoSaldoProjetado(
+  linha: LinhaProjetavel,
+  hoje: Date,
+  { incluirInvestimento = false }: { incluirInvestimento?: boolean } = {},
+): boolean {
   // Conta de investimento não entra nesta coluna. A perna do aporte continua
   // na lista, porque registra o dinheiro saindo da corrente e entrando na
   // corretora — mas somar as duas anula o aporte, e ele passa a parecer que
-  // não custou nada.
-  if (ehContaDeInvestimento(linha.accountType)) return false
+  // não custou nada. No extrato da própria corretora não há a outra perna,
+  // e ela tem saldo corrido como qualquer conta.
+  if (!incluirInvestimento && ehContaDeInvestimento(linha.accountType)) return false
 
   // Ignorado não soma em saldo nenhum: `toggleIgnoreTransaction` já estornou
   // `accounts.balance_cents`. Vem ANTES do teste de realizado porque é

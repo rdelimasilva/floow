@@ -27,6 +27,14 @@ type Refs = {
 
 const PADRAO: Refs = { tx: transactions, acc: accounts }
 
+export type OpcoesDoSaldo = {
+  /**
+   * O escopo e uma conta so: nao ha perna de aporte para anular, entao a
+   * conta de investimento soma como qualquer outra.
+   */
+  incluirInvestimento?: boolean
+}
+
 /**
  * "Esta linha soma no saldo da listagem?", em SQL.
  *
@@ -44,7 +52,9 @@ const PADRAO: Refs = { tx: transactions, acc: accounts }
  *
  *  1. Conta de investimento nao soma. A perna do aporte fica na lista, porque
  *     registra o dinheiro saindo da corrente e entrando na corretora, mas
- *     somar as duas anula o aporte.
+ *     somar as duas anula o aporte. No extrato de UMA conta
+ *     (`incluirInvestimento`) nao ha segunda perna, e a corretora tem saldo
+ *     corrido como as outras.
  *  2. Lancamento ignorado nao soma. `is_ignored` significa "este lancamento e
  *     errado, nao existe", e `toggleIgnoreTransaction` ja estornou
  *     `accounts.balance_cents` quando o usuario marcou. Sem este criterio a
@@ -70,9 +80,16 @@ const PADRAO: Refs = { tx: transactions, acc: accounts }
  * `hoje` entra como parametro, e nao `CURRENT_DATE`, para o fuso ser o de Sao
  * Paulo e nao o do servidor do banco.
  */
-export function sqlContaNoSaldo(hoje: string, refs: Refs = PADRAO) {
+export function sqlContaNoSaldo(
+  hoje: string,
+  refs: Refs = PADRAO,
+  { incluirInvestimento = false }: OpcoesDoSaldo = {},
+) {
+  const tipo = incluirInvestimento
+    ? sql`true`
+    : sql`${refs.acc.type} NOT IN ${TIPOS_DE_INVESTIMENTO}`
   return sql`(
-    ${refs.acc.type} NOT IN ${TIPOS_DE_INVESTIMENTO}
+    ${tipo}
     AND NOT ${refs.tx.isIgnored}
     AND (
       ${refs.tx.balanceApplied}
@@ -88,6 +105,6 @@ export function sqlContaNoSaldo(hoje: string, refs: Refs = PADRAO) {
 }
 
 /** O valor da linha quando ela soma, zero quando nao. */
-export function sqlValorNoSaldo(hoje: string, refs: Refs = PADRAO) {
-  return sql`case when ${sqlContaNoSaldo(hoje, refs)} then ${refs.tx.amountCents} else 0 end`
+export function sqlValorNoSaldo(hoje: string, refs: Refs = PADRAO, opcoes?: OpcoesDoSaldo) {
+  return sql`case when ${sqlContaNoSaldo(hoje, refs, opcoes)} then ${refs.tx.amountCents} else 0 end`
 }
