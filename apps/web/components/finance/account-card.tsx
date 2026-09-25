@@ -29,9 +29,11 @@ interface AccountCardProps {
    * não o saldo de lançamentos — e por isso não há "Ajustar saldo".
    */
   valorDasPosicoesCents?: number
+  /** Logo do banco, só para conta vinda do Open Finance. */
+  logoUrl?: string
 }
 
-export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCents }: AccountCardProps) {
+export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCents, logoUrl }: AccountCardProps) {
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -51,6 +53,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
     return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
   })
   const [adjustLoading, setAdjustLoading] = useState(false)
+  const [logoQuebrado, setLogoQuebrado] = useState(false)
 
   const config = ACCOUNT_TYPE_CONFIG[account.type]
   const { Icon, label } = config
@@ -253,7 +256,13 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
     <>
       <Card className="hover:shadow-md transition-shadow">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle className="text-sm font-medium text-gray-600">{account.name}</CardTitle>
+          <div className="flex min-w-0 items-center gap-2">
+            {logoUrl && !logoQuebrado && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="" className="h-6 w-6 shrink-0 rounded object-contain" onError={() => setLogoQuebrado(true)} />
+            )}
+            <CardTitle className="truncate text-sm font-medium text-gray-600">{account.name}</CardTitle>
+          </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">
               <Icon className="h-3.5 w-3.5" />
