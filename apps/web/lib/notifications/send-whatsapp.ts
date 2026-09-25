@@ -30,11 +30,23 @@ async function post(payload: Record<string, unknown>, fetchImpl: typeof fetch): 
     return { ok: false, error: 'not_configured' }
   }
 
-  const res = await fetchImpl(`https://graph.facebook.com/${version}/${phoneId}/messages`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messaging_product: 'whatsapp', ...payload }),
-  })
+  let res: Response
+  try {
+    res = await fetchImpl(`https://graph.facebook.com/${version}/${phoneId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', ...payload }),
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch (err) {
+    // Chamada travada não pode parar o lote do cron — vira ok:false, não exceção.
+    // AbortSignal.timeout() rejeita com DOMException, que não é instanceof Error
+    // em toda runtime — por isso o .name é lido direto do objeto, não via Error.
+    const name = (err as { name?: unknown } | null)?.name
+    if (name === 'AbortError' || name === 'TimeoutError') return { ok: false, error: 'whatsapp_timeout' }
+    const msg = err instanceof Error ? err.message : String(err)
+    return { ok: false, error: `whatsapp_network: ${msg}` }
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     return { ok: false, error: `whatsapp_${res.status}: ${body.slice(0, 200)}` }

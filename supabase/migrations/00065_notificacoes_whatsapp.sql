@@ -124,7 +124,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS profiles_block_whatsapp_self_write ON public.profiles;
 CREATE TRIGGER profiles_block_whatsapp_self_write

@@ -70,7 +70,13 @@ export async function runPacingAlertsForOrg(
 
     // O resumo também mostra as categorias que pioraram, então conta como aviso.
     if (sent[channel] > 0 && alerts.length > 0) {
-      await deps.saveSent(orgId, input.month, channel, alerts)
+      try {
+        await deps.saveSent(orgId, input.month, channel, alerts)
+      } catch (err) {
+        // Falha ao gravar o estado de um canal não pode derrubar o outro canal
+        // desta mesma org — cada canal é independente.
+        console.error(`[ritmo:${channel}] falha ao gravar estado org=${orgId}:`, err)
+      }
     }
   }
 

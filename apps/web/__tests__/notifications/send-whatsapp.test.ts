@@ -57,6 +57,18 @@ describe('send-whatsapp', () => {
     expect(r).toEqual({ ok: false, error: expect.stringMatching(/^whatsapp_400: /) })
   })
 
+  it('timeout do fetch (AbortError) vira ok:false sem lançar', async () => {
+    const f = vi.fn(async () => { throw new DOMException('The operation was aborted', 'AbortError') })
+    const r = await sendWhatsAppText('+5511999998888', 'Oi', f)
+    expect(r).toEqual({ ok: false, error: 'whatsapp_timeout' })
+  })
+
+  it('erro de rede (TypeError) vira ok:false com a mensagem', async () => {
+    const f = vi.fn(async () => { throw new TypeError('fetch failed') })
+    const r = await sendWhatsAppText('+5511999998888', 'Oi', f)
+    expect(r).toEqual({ ok: false, error: 'whatsapp_network: fetch failed' })
+  })
+
   it('sem configuração é no-op', async () => {
     vi.stubEnv('WHATSAPP_TOKEN', '')
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

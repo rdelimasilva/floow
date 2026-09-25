@@ -113,6 +113,23 @@ describe('runPacingAlertsForOrg', () => {
     expect(r.sent).toEqual({ email: 0, whatsapp: 1 })
   })
 
+  it('saveSent lança para um canal: o outro canal ainda envia e grava seu próprio estado', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const saveSent = vi.fn(async (_orgId: string, _month: string, channel: string) => {
+      if (channel === 'email') throw new Error('boom')
+    })
+    const d = deps({
+      loadRecipients: vi.fn(async () => [rec('u1', 'alerts', 'alerts')]),
+      saveSent,
+    })
+    const r = await runPacingAlertsForOrg('org', d)
+    expect(r.sent).toEqual({ email: 1, whatsapp: 1 })
+    expect(saveSent).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(saveSent).mock.calls[1][2]).toBe('whatsapp')
+    expect(errSpy).toHaveBeenCalled()
+    errSpy.mockRestore()
+  })
+
   it('cada destinatário segue a própria frequência', async () => {
     const d = deps({ loadRecipients: vi.fn(async () => [rec('u1', 'alerts', 'off'), rec('u2', 'off', 'off')]) })
     const r = await runPacingAlertsForOrg('org', d)

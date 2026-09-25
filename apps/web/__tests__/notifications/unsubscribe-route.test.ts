@@ -40,4 +40,13 @@ describe('POST /api/email/unsubscribe', () => {
     expect(res.status).toBe(400)
     expect(upsertFrequency).not.toHaveBeenCalled()
   })
+
+  it('org que o usuário não pertence mais (RLS falha): ainda mostra a página "Pronto"', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    upsertFrequency.mockRejectedValueOnce(new Error('new row violates row-level security policy'))
+    const res = await POST(req(signUnsubscribeToken(USER, 's', ORG)))
+    expect(res.status).toBe(200)
+    expect(errSpy).toHaveBeenCalled()
+    errSpy.mockRestore()
+  })
 })

@@ -41,10 +41,17 @@ export async function POST(request: Request) {
   const { userId, orgId } = parsed
 
   // Sob o RLS do dono do token: mesmo com bug aqui, só as linhas dele mudam.
-  await withUserDbFor(userId, async (tx) => {
-    const orgIds = orgId ? [orgId] : await listUserOrgIds(tx, userId)
-    await upsertFrequency(tx, userId, orgIds, 'email', 'off')
-  })
+  try {
+    await withUserDbFor(userId, async (tx) => {
+      const orgIds = orgId ? [orgId] : await listUserOrgIds(tx, userId)
+      await upsertFrequency(tx, userId, orgIds, 'email', 'off')
+    })
+  } catch (err) {
+    // Token de org que o usuário não pertence mais: o WITH CHECK do RLS barra a
+    // escrita. Não há nada para desligar naquela org — segue para a página de
+    // confirmação em vez de 500. Sem dado pessoal no log.
+    console.error('[unsubscribe] falha ao gravar preferência de e-mail:', err instanceof Error ? err.message : err)
+  }
 
   return page(
     'Pronto',
