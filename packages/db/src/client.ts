@@ -45,7 +45,19 @@ export function setSqlWrapper(fn: Envolver) {
  * Disables prepared statements for PgBouncer compatibility (transaction mode).
  */
 export function createDb(connectionString: string) {
-  const cru = postgres(connectionString, { prepare: false })
+  const cru = postgres(connectionString, {
+    prepare: false,
+    // Na Vercel a instância congela entre requisições, e o pooler derruba a
+    // conexão ociosa nesse meio tempo. Sem prazo, a primeira consulta depois
+    // do congelamento pegava uma conexão morta e esperava segundos para
+    // reconectar — no Sentry, consulta de 0,3 s levando 4 s. Fechar a ociosa
+    // cedo troca esse susto por uma reconexão de ~100–200 ms.
+    idle_timeout: 10,
+    // Renova conexões longevas antes que o pooler as derrube por conta própria.
+    max_lifetime: 60 * 10,
+    // Conexão que não abre em 5 s não vai abrir; melhor falhar e tentar de novo.
+    connect_timeout: 5,
+  })
   const client = registro[CHAVE]?.(cru) ?? cru
   return drizzle(client, { schema: fullSchema })
 }

@@ -22,6 +22,25 @@ describe('envolver o cliente postgres', () => {
     expect(embrulho).toHaveBeenCalledTimes(1)
   })
 
+  /**
+   * Na Vercel a instância congela entre requisições e o pooler derruba a
+   * conexão ociosa nesse meio tempo. Sem prazo de ociosidade, a primeira
+   * consulta depois do congelamento caía numa conexão morta e esperava
+   * segundos para reconectar (visto no Sentry: consulta de 0,3 s levando 4 s).
+   */
+  it('o cliente fecha conexão ociosa, renova a antiga e desiste rápido de conectar', () => {
+    let opcoes: Record<string, unknown> = {}
+    setSqlWrapper((sql) => {
+      opcoes = sql.options as unknown as Record<string, unknown>
+      return sql
+    })
+    createDb(URL_FALSA)
+    expect(opcoes.prepare).toBe(false)
+    expect(opcoes.idle_timeout).toBe(10)
+    expect(opcoes.max_lifetime).toBe(60 * 10)
+    expect(opcoes.connect_timeout).toBe(5)
+  })
+
   it('o Drizzle monta consulta com o cliente envolvido pelo Sentry', () => {
     setSqlWrapper((sql) => instrumentPostgresJsSql(sql))
     const db = createDb(URL_FALSA)
