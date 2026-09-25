@@ -272,3 +272,51 @@ describe('RegrasConfirmadas', () => {
     expect(screen.queryByRole('combobox')).toBeNull()
   })
 })
+
+describe('RegrasConfirmadas — busca', () => {
+  const outra = { ...regra, id: 'r2', displayName: 'Padaria São João', nature: 'expense' as const, transferAccountId: null, transferAccountName: null }
+  const pix = { ...regra, id: 'r3', displayName: 'Pix recebido Fulano' }
+
+  function renderLista(regraAberta?: string) {
+    render(
+      React.createElement(RegrasConfirmadas, {
+        confirmed: [regra, outra, pix],
+        categoryOptions: [],
+        accountOptions: contas,
+        regraAberta,
+      }),
+    )
+  }
+
+  it('filtra pelo nome ignorando acento e mostra o contador', () => {
+    renderLista()
+    fireEvent.change(screen.getByLabelText('Buscar regra'), { target: { value: 'sao joao' } })
+
+    expect(screen.getByText('Padaria São João')).toBeTruthy()
+    expect(screen.queryByText('Resgate CDB DI')).toBeNull()
+    expect(screen.getByText('1 de 3 regras')).toBeTruthy()
+  })
+
+  it('filtra pela conta de destino', () => {
+    renderLista()
+    fireEvent.change(screen.getByLabelText('Buscar regra'), { target: { value: 'xp' } })
+
+    expect(screen.getByText('Resgate CDB DI')).toBeTruthy()
+    expect(screen.getByText('Pix recebido Fulano')).toBeTruthy()
+    expect(screen.queryByText('Padaria São João')).toBeNull()
+  })
+
+  it('sem resultado avisa', () => {
+    renderLista()
+    fireEvent.change(screen.getByLabelText('Buscar regra'), { target: { value: 'nubank' } })
+    expect(screen.getByText('Nenhuma regra encontrada.')).toBeTruthy()
+  })
+
+  it('a regra aberta pelo link continua visível mesmo fora do filtro', () => {
+    renderLista('r1')
+    fireEvent.change(screen.getByLabelText('Buscar regra'), { target: { value: 'padaria' } })
+
+    expect(screen.getByText('Resgate CDB DI')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Salvar correção' })).toBeTruthy()
+  })
+})
