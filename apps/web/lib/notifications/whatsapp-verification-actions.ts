@@ -3,17 +3,20 @@
  * Server actions da verificação do WhatsApp. O userId vem sempre da sessão.
  *
  * whatsapp_verifications e rate_limits não têm policy (só backend), então usam
- * getServiceDb. A escrita em profiles vai sob o RLS do próprio usuário.
+ * getServiceDb. Confirmar o código também grava profiles pelo serviço — uma
+ * trigger em profiles barra o papel authenticated nessas duas colunas de
+ * propósito, então withUserDb nunca conseguiria (ver migration 00065). Só
+ * remover o número (limpar as duas colunas) continua sob o RLS do usuário.
  */
 import { getServiceDb, profiles, whatsappVerifications } from '@floow/db'
-import { and, eq, isNotNull, ne, sql } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, lt, ne, sql } from 'drizzle-orm'
 import { requireUserId } from '@/lib/auth/session'
 import { withUserDb } from '@/lib/db/rls'
 import { consumeRateLimit } from '@/lib/rate-limit/consume'
 import { sendWhatsAppTemplate } from './send-whatsapp'
 import { WA_TEMPLATES } from './channels/whatsapp'
 import {
-  confirmCode, generateCode, requestCode, MAX_SENDS_PER_HOUR,
+  confirmCode, generateCode, requestCode, MAX_ATTEMPTS, MAX_SENDS_PER_HOUR,
   type ConfirmCodeResult, type RequestCodeResult, type VerificationDeps,
 } from './whatsapp-verification'
 
@@ -62,20 +65,38 @@ function realDeps(): VerificationDeps {
         .where(eq(whatsappVerifications.userId, userId))
       return row
     },
-    async bumpAttempts(userId) {
-      await db
+    async claimAttempt(userId) {
+      // UPDATE ... RETURNING é atômico no Postgres: duas confirmações
+      // concorrentes não conseguem as duas ler attempts=0 e ganhar uma
+      // tentativa cada — só uma linha sai daqui por vez, já com o incremento.
+      const [row] = await db
         .update(whatsappVerifications)
         .set({ attempts: sql`${whatsappVerifications.attempts} + 1` })
-        .where(eq(whatsappVerifications.userId, userId))
+        .where(and(
+          eq(whatsappVerifications.userId, userId),
+          lt(whatsappVerifications.attempts, MAX_ATTEMPTS),
+          gt(whatsappVerifications.expiresAt, sql`now()`),
+        ))
+        .returning({
+          phone: whatsappVerifications.phone,
+          codeHash: whatsappVerifications.codeHash,
+          expiresAt: whatsappVerifications.expiresAt,
+          attempts: whatsappVerifications.attempts,
+        })
+      return row
     },
     async markVerified(userId, phone) {
+      // Serviço, não withUserDb: a trigger de profiles bloqueia o papel
+      // authenticated escrevendo whatsapp_phone/whatsapp_verified_at de
+      // propósito (ver migration 00065) — só o backend grava aqui, e só
+      // depois de confirmar o código.
       try {
-        await withUserDb((tx) =>
-          tx
-            .update(profiles)
-            .set({ whatsappPhone: phone, whatsappVerifiedAt: new Date(), updatedAt: new Date() })
-            .where(eq(profiles.id, userId)),
-        )
+        const rows = await db
+          .update(profiles)
+          .set({ whatsappPhone: phone, whatsappVerifiedAt: new Date(), updatedAt: new Date() })
+          .where(eq(profiles.id, userId))
+          .returning({ id: profiles.id })
+        if (rows.length === 0) throw new Error(`profiles: usuário ${userId} não encontrado ao verificar WhatsApp`)
         return 'ok'
       } catch (err) {
         if (isUniqueViolation(err)) return 'in_use'

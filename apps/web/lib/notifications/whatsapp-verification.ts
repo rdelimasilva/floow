@@ -26,7 +26,15 @@ export interface VerificationDeps {
   consumeSendQuota(userId: string): Promise<boolean>
   savePending(p: { userId: string; phone: string; codeHash: string; expiresAt: Date }): Promise<void>
   loadPending(userId: string): Promise<PendingCode | undefined>
-  bumpAttempts(userId: string): Promise<void>
+  /**
+   * Incrementa `attempts` e devolve a linha atomicamente, só quando ainda cabe
+   * tentativa (attempts < MAX_ATTEMPTS) e o código não expirou. undefined
+   * quando nada foi reivindicado — chamador então usa loadPending só para
+   * classificar o motivo (sem pendente, expirado ou tentativas esgotadas).
+   * Isto fecha a corrida de duas tentativas simultâneas lendo attempts=0 e
+   * cada uma ganhando uma tentativa própria.
+   */
+  claimAttempt(userId: string): Promise<PendingCode | undefined>
   /** 'in_use' quando o índice único recusa (outro usuário verificou antes). */
   markVerified(userId: string, phone: string): Promise<'ok' | 'in_use'>
   deletePending(userId: string): Promise<void>
@@ -57,10 +65,12 @@ export async function requestCode(
 ): Promise<RequestCodeResult> {
   const phone = normalizePhone(rawPhone)
   if (!phone) return { ok: false, error: 'invalid_phone' }
-  if (await deps.isVerifiedByOther(userId, phone)) return { ok: false, error: 'in_use' }
-  // Cada código custa dinheiro e chega no celular de alguém: a trava vem
-  // antes de gravar e de enviar.
+  // A cota vem antes de checar "já verificado": na ordem inversa, alguém sem
+  // conta consegue descobrir de graça, número por número, quais já pertencem
+  // a um usuário do floow — a checagem de in_use não custa nada a quem
+  // pergunta. Aqui ela já sai cara depois de MAX_SENDS_PER_HOUR tentativas.
   if (!(await deps.consumeSendQuota(userId))) return { ok: false, error: 'rate_limited' }
+  if (await deps.isVerifiedByOther(userId, phone)) return { ok: false, error: 'in_use' }
 
   const code = deps.generateCode()
   await deps.savePending({
@@ -72,6 +82,9 @@ export async function requestCode(
   const res = await deps.sendCode(phone, code)
   if (!res.ok) {
     console.error(`[whatsapp-codigo] falha user=${userId}: ${res.error}`)
+    // Sem isto o pendente ficava com um código que nunca chegou, ocupando a
+    // linha (PK por userId) até expirar sozinho.
+    await deps.deletePending(userId)
     return { ok: false, error: 'send_failed' }
   }
   return { ok: true, phone }
@@ -82,19 +95,24 @@ export async function confirmCode(
   code: string,
   deps: VerificationDeps,
 ): Promise<ConfirmCodeResult> {
-  const pending = await deps.loadPending(userId)
-  if (!pending) return { ok: false, error: 'no_pending' }
-  if (pending.expiresAt.getTime() <= deps.now().getTime()) return { ok: false, error: 'expired' }
-  if (pending.attempts >= MAX_ATTEMPTS) return { ok: false, error: 'too_many_attempts' }
+  // O claim já soma a tentativa atomicamente (UPDATE ... RETURNING no banco):
+  // duas chamadas simultâneas não podem ambas ler attempts=0 e cada uma achar
+  // que tem tentativa de sobra.
+  const claimed = await deps.claimAttempt(userId)
+  if (!claimed) {
+    const pending = await deps.loadPending(userId)
+    if (!pending) return { ok: false, error: 'no_pending' }
+    if (pending.expiresAt.getTime() <= deps.now().getTime()) return { ok: false, error: 'expired' }
+    return { ok: false, error: 'too_many_attempts' }
+  }
 
-  const expected = Buffer.from(pending.codeHash, 'utf8')
-  const presented = Buffer.from(hashCode(userId, pending.phone, code.trim(), deps.secret), 'utf8')
+  const expected = Buffer.from(claimed.codeHash, 'utf8')
+  const presented = Buffer.from(hashCode(userId, claimed.phone, code.trim(), deps.secret), 'utf8')
   if (expected.length !== presented.length || !timingSafeEqual(expected, presented)) {
-    await deps.bumpAttempts(userId)
     return { ok: false, error: 'wrong_code' }
   }
 
-  if ((await deps.markVerified(userId, pending.phone)) === 'in_use') return { ok: false, error: 'in_use' }
+  if ((await deps.markVerified(userId, claimed.phone)) === 'in_use') return { ok: false, error: 'in_use' }
   await deps.deletePending(userId)
-  return { ok: true, phone: pending.phone }
+  return { ok: true, phone: claimed.phone }
 }

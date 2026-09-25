@@ -90,3 +90,32 @@ ALTER TABLE public.pacing_alert_state
 ALTER TABLE public.pacing_alert_state DROP CONSTRAINT IF EXISTS pacing_alert_state_pkey;
 ALTER TABLE public.pacing_alert_state
   ADD CONSTRAINT pacing_alert_state_pkey PRIMARY KEY (org_id, month, category_id, channel);
+
+-- 5 ---------------------------------------------------------------------------
+-- A policy de UPDATE em profiles (00001) deixa o dono escrever a linha
+-- inteira, sem filtro por coluna — inclusive whatsapp_phone e
+-- whatsapp_verified_at. Sem esta trava, qualquer usuário autenticado marca o
+-- próprio número como verificado direto pelo PostgREST, pulando o código de
+-- 6 dígitos inteiro. Só o backend (service role, fora do papel
+-- 'authenticated') grava essas duas colunas — e só depois de confirmar o
+-- código. A exceção fica por conta de limpar as duas para NULL: isso é a
+-- remoção do número, que o próprio usuário pode fazer a qualquer momento.
+CREATE OR REPLACE FUNCTION public.profiles_block_whatsapp_self_write()
+RETURNS trigger AS $$
+BEGIN
+  IF current_user = 'authenticated'
+     AND (NEW.whatsapp_phone IS DISTINCT FROM OLD.whatsapp_phone
+          OR NEW.whatsapp_verified_at IS DISTINCT FROM OLD.whatsapp_verified_at)
+     AND NOT (NEW.whatsapp_phone IS NULL AND NEW.whatsapp_verified_at IS NULL) THEN
+    RAISE EXCEPTION
+      'whatsapp_phone e whatsapp_verified_at só podem ser escritos pelo backend, após verificação por código';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS profiles_block_whatsapp_self_write ON public.profiles;
+CREATE TRIGGER profiles_block_whatsapp_self_write
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.profiles_block_whatsapp_self_write();

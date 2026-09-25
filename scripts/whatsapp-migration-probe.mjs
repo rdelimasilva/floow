@@ -91,6 +91,18 @@ try {
              where id = ${outros[1].id}`)
       }
 
+      // Trigger da seção 5: como dono (service role, ainda sem trocar de papel),
+      // gravar whatsapp_phone/whatsapp_verified_at do próprio membro funciona —
+      // a trigger só barra o papel 'authenticated'.
+      await tx`update profiles set whatsapp_phone = '+5511900000000', whatsapp_verified_at = now()
+               where id = ${membro.user_id}`
+      const [comoDonoGravou] = await tx`
+        select whatsapp_phone, whatsapp_verified_at from profiles where id = ${membro.user_id}`
+      checar(
+        'dono (service role) escreve whatsapp verificado',
+        comoDonoGravou.whatsapp_phone === '+5511900000000' && comoDonoGravou.whatsapp_verified_at !== null,
+      )
+
       // RLS: como o próprio usuário, grava na sua org; não enxerga linha de outro.
       const claims = JSON.stringify({ sub: membro.user_id, role: 'authenticated' })
       await tx`select set_config('role', 'authenticated', true), set_config('request.jwt.claims', ${claims}, true)`
@@ -98,6 +110,24 @@ try {
       const [ctx] = await tx`select current_user as usuario, auth.uid()::text as uid`
       checar('assume o papel authenticated', ctx.usuario === 'authenticated', ctx.usuario)
       checar('auth.uid() resolve para o usuário das claims', ctx.uid === membro.user_id)
+
+      // Trigger da seção 5: authenticated não reescreve o próprio whatsapp
+      // verificado (só o backend, depois de confirmar o código), mas pode
+      // limpar as duas colunas para remover o número. Troca o telefone, não
+      // usa now() de novo: now() é o horário de início da transação, fixo do
+      // início ao fim — repeti-lo não seria uma mudança de verdade e a
+      // trigger nem chegaria a disparar.
+      await deveFalhar(tx, 'authenticated não reescreve o próprio whatsapp verificado', () =>
+        tx`update profiles set whatsapp_phone = '+5511911111111' where id = ${membro.user_id}`)
+
+      await tx`update profiles set whatsapp_phone = null, whatsapp_verified_at = null
+               where id = ${membro.user_id}`
+      const [comoUsuarioLimpou] = await tx`
+        select whatsapp_phone, whatsapp_verified_at from profiles where id = ${membro.user_id}`
+      checar(
+        'authenticated limpa o próprio whatsapp (remoção)',
+        comoUsuarioLimpou.whatsapp_phone === null && comoUsuarioLimpou.whatsapp_verified_at === null,
+      )
 
       await tx`insert into notification_preferences (org_id, user_id, channel, frequency)
                values (${membro.org_id}, ${membro.user_id}, 'whatsapp', 'daily')
