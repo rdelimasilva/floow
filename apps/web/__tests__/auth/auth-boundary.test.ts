@@ -70,6 +70,8 @@ describe('toda route handler tem guarda de autenticação', () => {
       'autentica por assinatura HMAC do Stripe (constructEvent)',
     'app/api/email/unsubscribe/route.ts':
       'link do rodapé do e-mail, aberto sem login; autoriza por token HMAC e só desliga a própria preferência',
+    'app/api/webhooks/whatsapp/route.ts':
+      'autentica por assinatura HMAC da Meta (X-Hub-Signature-256); o GET só devolve o challenge com o verify token',
   }
 
   const AUTH_GUARDS = [
