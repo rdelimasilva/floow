@@ -2,7 +2,7 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { getDb, transactions, categories, categoryRules, hiddenSystemCategories } from '@floow/db'
 import { eq, and, or, isNull, notExists, desc, count, sql } from 'drizzle-orm'
-import { categoriesTag, transactionsTag } from '@/lib/cache-tags'
+import { categoriesTag } from '@/lib/cache-tags'
 
 /**
  * Returns category IDs ordered by usage frequency (most used first).
@@ -26,7 +26,10 @@ export async function getCategoryUsageOrder(orgId: string): Promise<string[]> {
       return rows.map((r) => r.categoryId!)
     },
     ['finance-category-usage-order', orgId],
-    { tags: [transactionsTag(orgId)], revalidate: 300 },
+    // Sem a tag de lançamentos de propósito: ela expira a cada edição, e a
+    // ordem do dropdown (só um palpite de "mais usadas") era recalculada com
+    // um GROUP BY sobre a org inteira a cada clique na lista.
+    { revalidate: 3600 },
   )()
 }
 
