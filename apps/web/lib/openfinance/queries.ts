@@ -16,6 +16,8 @@ export interface BankConnectionSummary {
   id: string
   institutionId: string
   institutionName: string | null
+  /** ID do consentimento na Polp — exibido para consulta no suporte dela. */
+  polpConsentId: string
   cpfMasked: string
   status: string
   executionStatus: string | null
@@ -67,6 +69,7 @@ export async function getBankConnections(orgId: string): Promise<BankConnectionS
       id: connection.id,
       institutionId: connection.institutionId,
       institutionName: connection.institutionName,
+      polpConsentId: connection.polpConsentId,
       cpfMasked: connection.cpfMasked,
       status: connection.status,
       executionStatus: connection.executionStatus,

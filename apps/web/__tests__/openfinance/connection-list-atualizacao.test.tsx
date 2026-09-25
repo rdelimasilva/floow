@@ -39,7 +39,7 @@ describe('avisoDaAtualizacao', () => {
 })
 
 const CONEXAO = {
-  id: 'c1', institutionId: 'itau', institutionName: 'Itaú', cpfMasked: '***', status: 'EXPIRED',
+  id: 'c1', institutionId: 'itau', institutionName: 'Itaú', polpConsentId: 'consent-1', cpfMasked: '***', status: 'EXPIRED',
   executionStatus: null, flags: [], products: ['ACCOUNT'], lastSyncedAt: null, createdAt: new Date(),
   autoVinculoPendente: false, resources: [],
 }

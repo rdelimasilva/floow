@@ -200,6 +200,9 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
                   {EXECUTION_LABEL[connection.executionStatus] ?? connection.executionStatus}
                 </p>
               )}
+              <p className="mt-1 text-xs text-gray-400">
+                Consentimento <span className="select-all font-mono">{connection.polpConsentId}</span>
+              </p>
             </div>
 
             <div className="flex gap-2">
