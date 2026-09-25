@@ -29,7 +29,8 @@ A fase 2 (fora deste escopo) é um agente com quem o usuário conversa pelo mesm
 - Índice único parcial em `whatsapp_phone WHERE whatsapp_verified_at IS NOT NULL`. Um número verificado pertence a um único usuário. É por esse índice que o webhook chega do número ao usuário.
 
 ### `whatsapp_verifications` (nova)
-- `user_id uuid PK`, `phone text`, `code_hash text`, `expires_at timestamptz` (agora + 10 min), `attempts int default 0`, `sent_count int`, `window_start timestamptz`
+- `user_id uuid PK`, `phone text`, `code_hash text`, `expires_at timestamptz` (agora + 10 min), `attempts int default 0`
+- O limite de 3 envios por hora usa a trava que já existe (`consumeRateLimit`, bucket `whatsapp.code`), sem colunas próprias.
 - RLS ligado e **sem policy**: só o backend acessa, no mesmo padrão de `pacing_alert_state`.
 - Guarda apenas o hash do código (HMAC com `CRON_SECRET`), nunca o código em si.
 
@@ -119,7 +120,7 @@ O e-mail também aceita as 4 frequências e usa o mesmo resumo (`pacing-email.ts
   - Número desconhecido: ignora e responde 200.
   - "SAIR", "PARAR" ou "STOP" (sem distinguir maiúsculas nem acento): grava `frequency = 'off'` no WhatsApp em todas as orgs do usuário e responde com `sendText` confirmando.
   - Qualquer outro texto: responde "Por enquanto eu só mando o ritmo de gastos. Ajuste em Configurações: <link>". **Ponto de encaixe da fase 2:** o agente entra aqui, numa função `handleInboundText(user, text)`.
-- Status de entrega com erro: `console.error` + Sentry, sem mudar nenhuma preferência.
+- Status de entrega com erro: `console.error` (mesmo tratamento dos erros do cron hoje), sem mudar nenhuma preferência.
 - Responde 200 rápido em todo POST válido, porque a Meta reenvia quando não recebe 200.
 - O middleware já libera `/api/webhooks` sem sessão (por prefixo, é o mesmo caso do Stripe); nada a mudar lá.
 
