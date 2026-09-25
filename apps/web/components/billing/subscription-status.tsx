@@ -18,7 +18,7 @@ interface SubscriptionStatusProps {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   active: { label: 'Ativo', color: 'text-green-700 bg-green-50 border-green-200', icon: CheckCircle },
-  trialing: { label: 'Trial', color: 'text-blue-700 bg-blue-50 border-blue-200', icon: Clock },
+  trialing: { label: 'Período de teste', color: 'text-blue-700 bg-blue-50 border-blue-200', icon: Clock },
   past_due: { label: 'Pagamento Pendente', color: 'text-yellow-700 bg-yellow-50 border-yellow-200', icon: AlertCircle },
   canceled: { label: 'Cancelado', color: 'text-red-700 bg-red-50 border-red-200', icon: AlertCircle },
   incomplete: { label: 'Incompleto', color: 'text-gray-700 bg-gray-50 border-gray-200', icon: AlertCircle },

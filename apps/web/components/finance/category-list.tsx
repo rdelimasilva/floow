@@ -156,7 +156,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                   {cat.affectsCashFlow === false && (
                     <span
                       className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500"
-                      title="Os lancamentos desta categoria nao contam como receita ou despesa no fluxo de caixa"
+                      title="Os lançamentos desta categoria não contam como receita ou despesa no fluxo de caixa"
                     >
                       fora do fluxo de caixa
                     </span>

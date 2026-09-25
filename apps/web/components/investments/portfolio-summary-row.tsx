@@ -33,7 +33,7 @@ export function PortfolioSummaryRow({
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-gray-500">P&amp;L Total</CardTitle>
+          <CardTitle className="text-sm font-medium text-gray-500">Resultado Total</CardTitle>
         </CardHeader>
         <CardContent>
           <p className={`text-xl font-bold ${totalPnLCents >= 0 ? 'text-green-700' : 'text-red-600'}`}>

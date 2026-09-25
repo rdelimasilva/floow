@@ -43,7 +43,7 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500 mb-4">
-            Nenhum snapshot disponível. Clique em &quot;Atualizar Snapshot&quot; para calcular seu patrimônio atual.
+            Patrimônio ainda não calculado. Clique em &quot;Atualizar valores&quot; para calcular.
           </p>
           <Button
             type="button"
@@ -51,7 +51,7 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
             onClick={handleRefresh}
             disabled={isPending}
           >
-            {isPending ? 'Calculando...' : 'Atualizar Snapshot'}
+            {isPending ? 'Calculando...' : 'Atualizar valores'}
           </Button>
         </CardContent>
       </Card>
@@ -139,7 +139,7 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
           onClick={handleRefresh}
           disabled={isPending}
         >
-          {isPending ? 'Calculando...' : 'Atualizar Snapshot'}
+          {isPending ? 'Calculando...' : 'Atualizar valores'}
         </Button>
       </CardContent>
     </Card>

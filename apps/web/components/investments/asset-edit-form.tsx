@@ -46,7 +46,7 @@ export function AssetEditForm({ asset }: AssetEditFormProps) {
   return (
     <form action={handleAction} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
       <div>
-        <Label htmlFor="ticker">Ticker</Label>
+        <Label htmlFor="ticker">Código (ticker)</Label>
         <Input id="ticker" name="ticker" defaultValue={assetDisplayName(asset)} required />
       </div>
 

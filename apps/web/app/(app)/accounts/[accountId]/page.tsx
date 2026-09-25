@@ -158,7 +158,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
       {/* Transaction count */}
       <p className="text-sm text-gray-500">
-        {totalCount > 0 ? `${totalCount} transação(ões)` : 'Nenhuma transação nesta conta'}
+        {totalCount > 0 ? `${totalCount} ${totalCount === 1 ? 'transação' : 'transações'}` : 'Nenhuma transação nesta conta'}
       </p>
 
       {/* Transaction list */}

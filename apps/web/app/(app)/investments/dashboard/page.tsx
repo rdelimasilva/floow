@@ -44,7 +44,7 @@ async function PortfolioContent({ orgId }: { orgId: string }) {
   return (
     <>
       <section>
-        <h2 className="text-base font-medium text-gray-700 mb-3">Resumo do Portfólio</h2>
+        <h2 className="text-base font-medium text-gray-700 mb-3">Resumo da Carteira</h2>
         <PortfolioSummaryRow
           totalValueCents={totalValueCents}
           totalPnLCents={totalPnLCents}
@@ -97,7 +97,7 @@ export default async function InvestmentDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Resumo da Carteira"
-        description="Resumo do seu portfólio e evolução patrimonial"
+        description="Resumo da sua carteira e evolução patrimonial"
       />
 
       <Suspense fallback={

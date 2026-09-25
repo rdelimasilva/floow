@@ -28,7 +28,7 @@ export default async function RecurringPage() {
     <div className="space-y-6">
       <PageHeader
         title="Transações Recorrentes"
-        description="Gerencie templates de transações recorrentes e gere lançamentos automaticamente"
+        description="Gerencie os modelos de transações recorrentes e gere lançamentos automaticamente"
       />
       <RecurringTemplateList
         templates={templates.map((t) => ({

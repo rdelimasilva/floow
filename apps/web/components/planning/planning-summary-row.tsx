@@ -44,7 +44,7 @@ export function PlanningSummaryRow({
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
               <Target className="h-4 w-4 text-blue-600" />
-              Progresso FI
+              Progresso até a IF
             </CardTitle>
           </CardHeader>
           <CardContent>

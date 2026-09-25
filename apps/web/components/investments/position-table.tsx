@@ -13,6 +13,7 @@ import { ASSET_CLASS_LABEL, type AssetClass } from '@/lib/investments/asset-labe
 import { positionBadges } from './position-badges'
 import type { EnrichedPosition } from '@/lib/investments/queries'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { formatarNumero } from '@/lib/formatar-numero'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -113,7 +114,7 @@ const PositionRow = memo(function PositionRow({
         </td>
         {/* P&L % */}
         <td className={`px-4 py-3 text-right text-sm tabular-nums font-medium ${pnlColor}`}>
-          {position.unrealizedPnLPercent > 0 ? '+' : ''}{position.unrealizedPnLPercent.toFixed(2)}%
+          {position.unrealizedPnLPercent > 0 ? '+' : ''}{formatarNumero(position.unrealizedPnLPercent, 2)}%
         </td>
         {/* P&L R$ */}
         <td className={`px-4 py-3 text-right text-sm tabular-nums font-medium ${pnlColor}`}>
@@ -266,7 +267,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-gray-900">{formatBRL(position.currentValueCents)}</p>
                   <p className={`text-xs font-medium ${pnlColor}`}>
-                    {position.unrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(position.unrealizedPnLCents)} ({position.unrealizedPnLPercent > 0 ? '+' : ''}{position.unrealizedPnLPercent.toFixed(2)}%)
+                    {position.unrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(position.unrealizedPnLCents)} ({position.unrealizedPnLPercent > 0 ? '+' : ''}{formatarNumero(position.unrealizedPnLPercent, 2)}%)
                   </p>
                 </div>
               </div>
@@ -276,7 +277,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
                   <p className="font-medium tabular-nums">{position.quantityHeld.toLocaleString('pt-BR')}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">PM</p>
+                  <p className="text-gray-400">Preço médio</p>
                   <p className="font-medium tabular-nums">{formatBRL(position.avgCostCents)}</p>
                 </div>
                 <div>
@@ -297,9 +298,9 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
             <p className="text-sm font-bold text-gray-900">{formatBRL(totalValueCents)}</p>
           </div>
           <div className="flex items-center justify-between mt-1">
-            <p className="text-xs text-gray-500">P&L</p>
+            <p className="text-xs text-gray-500">Resultado</p>
             <p className={`text-xs font-bold ${totalPnLColor}`}>
-              {totalUnrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(totalUnrealizedPnLCents)} ({totalUnrealizedPnLPercent > 0 ? '+' : ''}{totalUnrealizedPnLPercent.toFixed(2)}%)
+              {totalUnrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(totalUnrealizedPnLCents)} ({totalUnrealizedPnLPercent > 0 ? '+' : ''}{formatarNumero(totalUnrealizedPnLPercent, 2)}%)
             </p>
           </div>
         </div>
@@ -310,15 +311,15 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
       <table className="w-full min-w-[900px]">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ticker</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Código</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Nome</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Classe</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Qtd</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">PM</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500" title="Preço médio de compra">Preço médio</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Preço Atual</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Valor Atual</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">P&L (%)</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">P&L (R$)</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500" title="Ganho ou perda ainda não realizado">Resultado (%)</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500" title="Ganho ou perda ainda não realizado">Resultado (R$)</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Dividendos</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ações</th>
           </tr>
@@ -338,7 +339,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
               {formatBRL(totalValueCents)}
             </td>
             <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${totalPnLColor}`}>
-              {totalUnrealizedPnLPercent > 0 ? '+' : ''}{totalUnrealizedPnLPercent.toFixed(2)}%
+              {totalUnrealizedPnLPercent > 0 ? '+' : ''}{formatarNumero(totalUnrealizedPnLPercent, 2)}%
             </td>
             <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${totalPnLColor}`}>
               {totalUnrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(totalUnrealizedPnLCents)}

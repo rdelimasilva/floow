@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { formatarNumero } from '@/lib/formatar-numero'
 
 interface SuccessionPlanDefaults {
   brazilianState: string | null
@@ -368,7 +369,7 @@ export function SuccessionForm({
                     <span className="text-xs text-gray-500 capitalize">{heir.relationship || '—'}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">{heir.percentageShare.toFixed(2)}%</span>
+                    <span className="text-gray-500">{formatarNumero(heir.percentageShare, 2)}%</span>
                     <span className="font-medium text-gray-900">{formatBRL(heir.estimatedValueCents)}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
@@ -397,7 +398,7 @@ export function SuccessionForm({
                       <td className="py-2 pr-4 text-gray-900">{heir.name || '—'}</td>
                       <td className="py-2 pr-4 text-gray-600 capitalize">{heir.relationship || '—'}</td>
                       <td className="py-2 pr-4 text-right text-gray-900">
-                        {heir.percentageShare.toFixed(2)}%
+                        {formatarNumero(heir.percentageShare, 2)}%
                       </td>
                       <td className="py-2 pr-4 text-right text-gray-900">
                         {formatBRL(heir.estimatedValueCents)}

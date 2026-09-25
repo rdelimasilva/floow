@@ -10,6 +10,7 @@ import { UpdateValueForm } from './update-value-form'
 import { DeleteAssetButton } from './delete-asset-button'
 import dynamic from 'next/dynamic'
 import { formatarDia } from '@/lib/formatar-dia'
+import { formatarNumero } from '@/lib/formatar-numero'
 
 const AssetValueHistory = dynamic(() => import('@/components/fixed-assets/asset-value-history').then(m => ({ default: m.AssetValueHistory })), {
   loading: () => <div className="min-h-[200px] animate-pulse rounded-xl bg-gray-100" />,
@@ -72,7 +73,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Valor Atual Estimado</p>
           <p className="mt-2 text-xl font-bold text-foreground">{formatBRL(estimatedValue)}</p>
-          <p className="mt-1 text-xs text-gray-400">Baseado na taxa de {(Number(asset.annualRate) * 100).toFixed(1)}% a.a.</p>
+          <p className="mt-1 text-xs text-gray-400">Baseado na taxa de {formatarNumero(Number(asset.annualRate) * 100, 1)}% a.a.</p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Valorização</p>
@@ -80,7 +81,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
             {formatBRL(estimatedValue - asset.purchaseValueCents)}
           </p>
           <p className="mt-1 text-xs text-gray-400">
-            {((estimatedValue / asset.purchaseValueCents - 1) * 100).toFixed(1)}% desde a compra
+            {formatarNumero((estimatedValue / asset.purchaseValueCents - 1) * 100, 1)}% desde a compra
           </p>
         </Card>
       </div>

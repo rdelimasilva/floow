@@ -50,7 +50,7 @@ export default async function CfoPage() {
     <div className="space-y-6">
       <PageHeader
         title="Consultor Financeiro"
-        description="Insights diários sobre sua estratégia financeira"
+        description="Análises diárias sobre sua estratégia financeira"
       />
 
       <Suspense fallback={<CfoSkeleton />}>

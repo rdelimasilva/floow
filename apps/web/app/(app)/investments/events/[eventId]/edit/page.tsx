@@ -23,7 +23,7 @@ export default async function EditPortfolioEventPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Editar Evento de Portfolio"
+        title="Editar Evento da Carteira"
         description="Altere os dados do evento. O saldo da conta será recalculado automaticamente."
       />
 

@@ -148,13 +148,13 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de correspondencia</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de correspondência</label>
                 <select
                   value={matchType}
                   onChange={(e) => setMatchType(e.target.value as 'contains' | 'exact')}
                   className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm"
                 >
-                  <option value="contains">Contem</option>
+                  <option value="contains">Contém</option>
                   <option value="exact">Exato</option>
                 </select>
               </div>
@@ -219,7 +219,7 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
         onClose={() => setApplyPreview(null)}
         onConfirm={handleApplyConfirm}
         title="Aplicar regra retroativamente"
-        description={`${applyPreview?.count ?? 0} transação(ões) sem categoria serão categorizadas como '${categoryName}'. Deseja continuar?`}
+        description={`${applyPreview?.count ?? 0} ${applyPreview?.count === 1 ? 'transação' : 'transações'} sem categoria serão categorizadas como '${categoryName}'. Deseja continuar?`}
         confirmLabel="Aplicar"
         loading={isApplying}
       />

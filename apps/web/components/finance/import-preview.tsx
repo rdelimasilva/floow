@@ -23,7 +23,7 @@ function formatDate(iso: string): string {
 const STATUS_CONFIG: Record<MatchStatus, { label: string; color: string; defaultChecked: boolean }> = {
   new: { label: 'Nova', color: 'bg-green-100 text-green-800', defaultChecked: true },
   duplicate: { label: 'Duplicata', color: 'bg-gray-100 text-gray-600', defaultChecked: false },
-  possible_match: { label: 'Possível match', color: 'bg-yellow-100 text-yellow-800', defaultChecked: true },
+  possible_match: { label: 'Possível duplicata', color: 'bg-yellow-100 text-yellow-800', defaultChecked: true },
 }
 
 interface ImportPreviewProps {
@@ -101,7 +101,7 @@ export function ImportPreview({ items, onConfirm, onCancel, loading }: ImportPre
             onClick={() => toggleAllByStatus('possible_match')}
             className="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm font-medium text-yellow-800 hover:bg-yellow-100"
           >
-            <span>{counts.possible_match} possíveis matches</span>
+            <span>{counts.possible_match} possíveis duplicatas</span>
           </button>
         )}
       </div>
@@ -115,7 +115,7 @@ export function ImportPreview({ items, onConfirm, onCancel, loading }: ImportPre
               <TableHead>Data</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead className="text-right">Valor</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Situação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

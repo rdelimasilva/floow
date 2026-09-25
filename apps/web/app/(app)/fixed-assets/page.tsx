@@ -6,6 +6,7 @@ import { AssetTypeList } from '@/components/fixed-assets/asset-type-list'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { formatarNumero } from '@/lib/formatar-numero'
 
 export default async function FixedAssetsPage() {
   const orgId = await getOrgId()
@@ -66,7 +67,7 @@ export default async function FixedAssetsPage() {
                       <div className="text-right shrink-0">
                         <p className="text-sm font-semibold text-gray-900">{formatBRL(a.estimatedValueCents)}</p>
                         <span className={`text-xs font-medium ${Number(a.annualRate) >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                          {(Number(a.annualRate) * 100).toFixed(1)}%/ano
+                          {formatarNumero(Number(a.annualRate) * 100, 1)}%/ano
                         </span>
                       </div>
                     </div>
@@ -107,7 +108,7 @@ export default async function FixedAssetsPage() {
                         <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{formatBRL(a.estimatedValueCents)}</td>
                         <td className="px-4 py-3 text-right text-sm">
                           <span className={Number(a.annualRate) >= 0 ? 'text-green-700' : 'text-red-600'}>
-                            {(Number(a.annualRate) * 100).toFixed(1)}%
+                            {formatarNumero(Number(a.annualRate) * 100, 1)}%
                           </span>
                         </td>
                       </tr>

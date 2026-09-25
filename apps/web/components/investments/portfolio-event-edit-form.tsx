@@ -167,7 +167,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-4">Editar Evento de Portfolio</h2>
+      <h2 className="text-base font-semibold text-gray-900 mb-4">Editar Evento da Carteira</h2>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
         {/* Asset select */}

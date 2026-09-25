@@ -5,6 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { ASSET_CLASS_LABEL, type AssetClass } from '@/lib/investments/asset-labels'
 import type { EnrichedPosition } from '@/lib/investments/queries'
+import { formatarNumero } from '@/lib/formatar-numero'
 
 // Cor por classe — o Record tipado obriga cor para toda classe nova.
 export const ASSET_CLASS_COLORS: Record<AssetClass, string> = {
@@ -72,7 +73,7 @@ export function AllocationChart({ positions }: AllocationChartProps) {
           cy="50%"
           outerRadius={120}
           label={({ label, percent }) =>
-            `${label}: ${((percent ?? 0) * 100).toFixed(1)}%`
+            `${label}: ${formatarNumero((percent ?? 0) * 100, 1)}%`
           }
         >
           {data.map((entry) => (

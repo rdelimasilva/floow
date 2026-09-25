@@ -179,7 +179,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
       <PageHeader
         title="Transações"
         description={totalCount > 0
-          ? `${totalCount} transação(ões) encontrada(s)`
+          ? `${totalCount} ${totalCount === 1 ? 'transação encontrada' : 'transações encontradas'}`
           : 'Nenhuma transação registrada'}
       >
         <ExportCsvButton />

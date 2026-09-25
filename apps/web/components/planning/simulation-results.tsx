@@ -70,7 +70,7 @@ export function SimulationResults({
       <Card className="border-blue-200 bg-blue-50">
         <CardContent className="pt-6">
           <p className="text-sm text-blue-700 mb-2">
-            {mode === 'contribution' ? 'Renda passiva estimada na aposentadoria' : 'Aporte mensal necessario'}
+            {mode === 'contribution' ? 'Renda passiva estimada na aposentadoria' : 'Aporte mensal necessário'}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -97,7 +97,7 @@ export function SimulationResults({
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Número FI (cenário base)</span>
+              <span className="text-muted-foreground">Número da IF (cenário base)</span>
               <span className="font-medium">{formatBRL(fi.fiNumberCents)}</span>
             </div>
 

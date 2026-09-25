@@ -26,7 +26,7 @@ const ASSET_CLASS_VALUES = ASSET_CLASS_OPTIONS.map(([value]) => value) as [Asset
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
 const assetFormSchema = z.object({
-  ticker: z.string().min(1, 'Ticker é obrigatório').max(20),
+  ticker: z.string().min(1, 'Código é obrigatório').max(20),
   name: z.string().min(1, 'Nome é obrigatório').max(200),
   assetClass: z.enum(ASSET_CLASS_VALUES, {
     required_error: 'Selecione a classe do ativo',
@@ -73,7 +73,7 @@ export function AssetForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* Ticker */}
         <div className="space-y-1.5">
-          <Label htmlFor="ticker">Ticker</Label>
+          <Label htmlFor="ticker">Código (ticker)</Label>
           <Input
             id="ticker"
             placeholder="Ex: PETR4"

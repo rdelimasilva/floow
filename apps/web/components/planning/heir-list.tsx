@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { formatarNumero } from '@/lib/formatar-numero'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -154,7 +155,7 @@ export function HeirList({ heirs, onAdd, onRemove, onChange }: HeirListProps) {
               isValid ? 'text-green-700' : 'text-red-600'
             }`}
           >
-            {totalShare.toFixed(2)}%
+            {formatarNumero(totalShare, 2)}%
           </span>
         </div>
       )}
@@ -163,7 +164,7 @@ export function HeirList({ heirs, onAdd, onRemove, onChange }: HeirListProps) {
       {heirs.length > 0 && !isValid && (
         <p className="text-xs text-red-600">
           A soma das porcentagens deve ser exatamente 100%. Atual:{' '}
-          {totalShare.toFixed(2)}%
+          {formatarNumero(totalShare, 2)}%
         </p>
       )}
     </div>

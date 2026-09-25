@@ -108,7 +108,7 @@ export function RecurringTemplateList({
       if (result.generated === 0) {
         toast('Nenhuma transação a gerar — próxima data no futuro.', 'info')
       } else {
-        toast(`${result.generated} transação(ões) gerada(s)`)
+        toast(`${result.generated} ${result.generated === 1 ? 'transação gerada' : 'transações geradas'}`)
       }
     } catch (err) {
       toast(mensagemDeErro(err, 'Erro ao gerar transações'), 'error')

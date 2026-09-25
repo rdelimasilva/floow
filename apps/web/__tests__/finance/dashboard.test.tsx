@@ -6,7 +6,7 @@
  * that the dashboard renders:
  *   - AccountSummaryRow (renders per-account cards with name and balance)
  *   - QuickStatsRow (renders Receitas do Mes, Despesas do Mes, Saldo do Mes)
- *   - PatrimonySummary (renders net worth and "Atualizar Snapshot" button)
+ *   - PatrimonySummary (renders net worth and "Atualizar valores" button)
  *   - CashFlowChart (renders with data-testid="cash-flow-chart")
  */
 import { describe, it, expect, vi } from 'vitest'
@@ -173,7 +173,7 @@ describe('PatrimonySummary', () => {
     render(<PatrimonySummary snapshot={null} onRefresh={onRefresh} />)
 
     // Null snapshot shows a message about needing to calculate patrimony
-    expect(screen.getAllByText(/Atualizar Snapshot/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Atualizar valores/i).length).toBeGreaterThan(0)
     expect(screen.getByRole('button')).toBeDefined()
   })
 })

@@ -279,12 +279,12 @@ export function SimulationForm({
       {/* Parameters */}
       <Card>
         <CardHeader>
-          <CardTitle>Parametros</CardTitle>
+          <CardTitle>Parâmetros</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Portfolio */}
           <div>
-            <Label htmlFor="portfolioBRL">Portfolio Inicial (R$)</Label>
+            <Label htmlFor="portfolioBRL">Carteira inicial (R$)</Label>
             <Input
               id="portfolioBRL"
               type="number"
@@ -353,7 +353,7 @@ export function SimulationForm({
           <div>
             <Label htmlFor="inflationPct" className="flex items-center gap-1">
               Inflacao Anual (% ao ano)
-              <HelpTooltip text="Taxa anual de perda de poder de compra. O IPCA medio no Brasil e de 4-5% ao ano." />
+              <HelpTooltip text="Taxa anual de perda de poder de compra. O IPCA médio no Brasil é de 4% a 5% ao ano." />
             </Label>
             <Input id="inflationPct" type="number" step="0.1" value={inflationPct} onChange={(e) => setInflationPct(Number(e.target.value) || 4)} />
           </div>

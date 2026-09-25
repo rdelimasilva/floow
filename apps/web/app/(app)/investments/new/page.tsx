@@ -16,7 +16,7 @@ export default async function InvestmentsNewPage() {
     <div className="space-y-8">
       <PageHeader
         title="Novo Ativo / Evento"
-        description="Cadastre um novo ativo na sua carteira ou registre um evento de portfolio."
+        description="Cadastre um novo ativo na sua carteira ou registre um evento (compra, venda, dividendo)."
       />
 
       <div className="grid gap-8 lg:grid-cols-2">

@@ -38,7 +38,7 @@ interface DebtsClientProps {
 
 const TYPE_LABELS: Record<string, string> = {
   financing: 'Financiamento',
-  loan: 'Emprestimo',
+  loan: 'Empréstimo',
   installment: 'Parcelamento',
   consortium: 'Consorcio',
 }
@@ -171,7 +171,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
             )
           )
         }
-        toast('Divida atualizada')
+        toast('Dívida atualizada')
       } else {
         const created = await createDebt(fd)
         if (created) {
@@ -221,7 +221,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Controle de Dividas">
+      <PageHeader title="Controle de Dívidas">
         <Button variant="primary" size="sm" onClick={openAdd}>
           <Plus className="h-4 w-4" /> Nova dívida
         </Button>
@@ -231,7 +231,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              {editingDebt ? 'Editar Divida' : 'Nova Divida'}
+              {editingDebt ? 'Editar Dívida' : 'Nova Dívida'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -239,7 +239,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Nome</label>
-                  <Input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} required placeholder="Ex: Financiamento Imovel" />
+                  <Input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} required placeholder="Ex: Financiamento Imóvel" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-gray-600">Tipo</label>
@@ -266,7 +266,7 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                   <Input type="text" inputMode="decimal" value={formInterestRate} onChange={(e) => setFormInterestRate(e.target.value)} placeholder="Ex: 0,99" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Data inicio</label>
+                  <label className="text-xs font-medium text-gray-600">Data de início</label>
                   <Input type="date" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} required />
                 </div>
                 <div className="space-y-1">

@@ -93,7 +93,7 @@ export default async function AssetDetailPage({ params }: Props) {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">IR</p>
+                <p className="text-xs text-gray-500">Imposto de renda</p>
                 <p className="text-sm font-medium text-gray-900">
                   {bankPosition.incomeTaxCents != null ? formatBRL(bankPosition.incomeTaxCents) : '—'}
                 </p>

@@ -169,7 +169,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
               {rules.map((rule, idx) => (
                 <TableRow key={rule.id}>
                   <TableCell className="text-sm text-gray-700">
-                    {rule.matchType === 'contains' ? 'Contem' : 'Exato'}
+                    {rule.matchType === 'contains' ? 'Contém' : 'Exato'}
                   </TableCell>
                   <TableCell>
                     <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono text-gray-800">
@@ -287,7 +287,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
         onClose={() => setApplyPreview(null)}
         onConfirm={handleApplyConfirm}
         title="Aplicar regra retroativamente"
-        description={`${applyPreview?.count ?? 0} transação(ões) sem categoria serão categorizadas como '${categoryMap.get(applyPreview?.rule.categoryId ?? '') ?? ''}'. Deseja continuar?`}
+        description={`${applyPreview?.count ?? 0} ${applyPreview?.count === 1 ? 'transação' : 'transações'} sem categoria serão categorizadas como '${categoryMap.get(applyPreview?.rule.categoryId ?? '') ?? ''}'. Deseja continuar?`}
         confirmLabel="Aplicar"
         loading={loading}
       />
