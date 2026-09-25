@@ -9,7 +9,7 @@ import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
 import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
-import { aplicarDecisaoAosPendentes, contaQueARegraGrava, ehRegraDoTitular } from './aplicar-regra'
+import { aplicarDecisaoAosPendentes, camposDaRegra, contaQueARegraGrava, ehRegraDoTitular } from './aplicar-regra'
 import { analisarPar, desfazerParDaRegra } from './desfazer-par'
 import { selecionarLancamentosDaRegra, somarPrevia, type PreviaCorrecao } from './previa-correcao'
 import { contarNaContaNova, mensagemNaContaNova, MSG_CONTA_DA_REGRA } from './mesma-conta'
@@ -123,14 +123,7 @@ export async function corrigirRegra(
 
     await tx
       .update(counterparties)
-      .set({
-        nature: input.nature,
-        categoryId: input.categoryId,
-        transferAccountId: conta,
-        confirmedAt: new Date(),
-        confirmedBy: userId,
-        updatedAt: new Date(),
-      })
+      .set(camposDaRegra({ nature: input.nature, categoryId: input.categoryId, transferAccountId: conta, cpfProprio }, userId))
       .where(and(eq(counterparties.id, input.counterpartyId), eq(counterparties.orgId, orgId)))
 
     if (aplicarAoHistorico) {

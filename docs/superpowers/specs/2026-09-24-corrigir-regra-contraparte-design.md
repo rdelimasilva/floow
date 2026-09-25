@@ -136,8 +136,10 @@ confirmar/corrigir uma regra e ao montar a fila de Classificar.
 ### 6.2 Comportamento
 
 - `confirmCounterparty`/`corrigirRegra` numa contraparte de CPF próprio aplicam
-  a decisão aos lançamentos escolhidos, mas gravam na contraparte
-  `nature = 'transfer'` com `transfer_account_id = null`.
+  a decisão aos lançamentos escolhidos e desfazem a regra: `nature`,
+  `category_id`, `transfer_account_id`, `confirmed_at` e `confirmed_by` ficam
+  nulos. *Revisado em 24/09:* a versão anterior gravava `nature = 'transfer'`
+  sem conta, que o `counterparties_nature_check` (00037) recusa.
 - `resolveCounterparty` já devolve `pending` para transferência confirmada sem
   conta (`resolve-counterparty.ts:193`). Cada novo Pix/TED para o próprio CPF
   cai em Classificar como Transferência, sem mudança no sync.
@@ -150,7 +152,7 @@ confirmar/corrigir uma regra e ao montar a fila de Classificar.
 
 ### 6.3 Migração
 
-Migration que zera `transfer_account_id` das contrapartes `tax_id` de CPF
+Script que desfaz (como acima) as contrapartes `tax_id` de CPF
 próprio. Como o hash depende do salt da aplicação, a migração é um script
 (`scripts/`), não SQL puro: lê as contrapartes `tax_id` com
 `nature = 'transfer'`, calcula o hash e atualiza as que batem. Lançamentos

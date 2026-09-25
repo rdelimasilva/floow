@@ -179,7 +179,7 @@ describe('corrigirRegra', () => {
     const r = await corrigirRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: null, aplicarAoHistorico: true })
 
     expect(r.reprocessados).toBe(1)
-    expect(ops.find((o) => o.op === 'update' && o.table === 'counterparties')!.set).toMatchObject({ transferAccountId: null })
+    expect(ops.find((o) => o.op === 'update' && o.table === 'counterparties')!.set).toMatchObject({ nature: null, categoryId: null, transferAccountId: null, confirmedAt: null, confirmedBy: null })
     expect(ops.some((o) => o.op === 'insert')).toBe(false)
   })
 
