@@ -133,6 +133,9 @@ export interface PendingGroup {
   items: PendingGroupItem[]
   /** Pix para o próprio CPF: a conta é escolhida por lançamento, nunca pelo grupo. */
   ehCpfProprio: boolean
+  /** Categoria que a fila abre pré-selecionada (histórico ou Claude, 00061). */
+  suggestedCategoryId?: string | null
+  suggestionSource?: 'historico' | 'claude' | null
 }
 
 /**
@@ -178,6 +181,8 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
         displayName: counterparties.displayName,
         keyType: counterparties.keyType,
         keyValue: counterparties.keyValue,
+        suggestedCategoryId: counterparties.suggestedCategoryId,
+        suggestionSource: counterparties.suggestionSource,
         id: transactions.id,
         date: transactions.date,
         description: transactions.description,
@@ -200,7 +205,17 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
       if (!row.counterpartyId) continue
       let group = groups.get(row.counterpartyId)
       if (!group) {
-        group = { counterpartyId: row.counterpartyId, displayName: row.displayName, keyType: row.keyType, count: 0, totalCents: 0, items: [], ehCpfProprio: false }
+        group = {
+          counterpartyId: row.counterpartyId,
+          displayName: row.displayName,
+          keyType: row.keyType,
+          count: 0,
+          totalCents: 0,
+          items: [],
+          ehCpfProprio: false,
+          suggestedCategoryId: row.suggestedCategoryId,
+          suggestionSource: row.suggestionSource,
+        }
         groups.set(row.counterpartyId, group)
       }
       group.count++

@@ -20,6 +20,19 @@ describe('migration 00058 category_suggestions', () => {
   })
 })
 
+describe('migration 00062 llm_usage', () => {
+  const sql62 = readFileSync(
+    resolve(__dirname, '../../../../supabase/migrations/00062_gasto_com_claude_por_org.sql'),
+    'utf8',
+  )
+  it('um registro por org e mês, com RLS e só leitura para membros', () => {
+    expect(sql62).toMatch(/PRIMARY KEY \(org_id, month\)/)
+    expect(sql62).toMatch(/ENABLE ROW LEVEL SECURITY/)
+    expect(sql62).toMatch(/FOR SELECT TO authenticated/)
+    expect(sql62).not.toMatch(/FOR (INSERT|UPDATE|DELETE) TO authenticated/)
+  })
+})
+
 describe('migration 00060 budget_goal_suggestion_dismissals', () => {
   const sql60 = readFileSync(
     resolve(__dirname, '../../../../supabase/migrations/00060_meta_sugerida_descartada.sql'),

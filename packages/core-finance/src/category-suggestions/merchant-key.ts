@@ -34,6 +34,15 @@ function tokens(description: string): string[] {
   return todos.filter((t) => t.length >= 2 && !PREFIXOS.has(t) && !GENERICAS.has(t))
 }
 
+/**
+ * Chave de pessoa: os dois primeiros nomes. O primeiro nome sozinho junta
+ * pessoas diferentes ("Mauricio" do cabeleireiro e "Mauricio" do advogado).
+ */
+export function personKey(description: string): string {
+  const t = tokens(description)
+  return t.length >= 2 ? `${t[0]} ${t[1]}` : ''
+}
+
 export function normalizeMerchant(description: string): string {
   const t = tokens(description)
   if (t.length === 0) return ''
