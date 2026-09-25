@@ -188,21 +188,45 @@ export async function getTransactionCount(orgId: string, opts?: TransactionFilte
 }
 
 /**
- * Returns transactions + total count in a SINGLE query using COUNT(*) OVER().
- * Eliminates the extra round-trip that getTransactionCount required.
- * Joined with category data (name, color, icon).
+ * A consulta das linhas de uma pagina, montada sem executar.
+ *
+ * Em dois andares. Dentro, a subconsulta `pagina` filtra, ordena, conta e
+ * corta — so colunas baratas. Fora, as subconsultas por linha (saldo corrido,
+ * bem vinculado, proposta de conciliacao) rodam para as linhas que sobraram.
+ *
+ * Era um andar so, e o `count(*) over ()` obriga o Postgres a montar o
+ * resultado inteiro antes do LIMIT: as subconsultas rodavam para TODOS os
+ * lancamentos da org, e o saldo corrido soma todos os anteriores a cada linha
+ * — custo quadratico no historico. Em producao: 150–470ms de media, pico de
+ * 1,2s, crescendo a cada importacao.
  */
-export async function getTransactionsWithCount(
+export function consultaDaPagina(
+  db: Pick<ReturnType<typeof getDb>, 'select'>,
   orgId: string,
   opts?: TransactionQueryOpts
 ) {
-  const db = getDb()
   const limit = opts?.limit ?? 50
   const offset = opts?.offset ?? 0
 
   const conditions = buildTransactionConditions(orgId, opts)
   const orderBy = buildTransactionOrder(opts)
   const hoje = hojeSP()
+
+  // A ordem pode ser pela categoria, entao a pagina tambem junta categories.
+  // Many-to-one: nao duplica linha, entao o `count(*) over ()` continua valido.
+  const pagina = db
+    .select({
+      id: transactions.id,
+      totalCount: sql<number>`count(*) over ()`.as('total_count'),
+    })
+    .from(transactions)
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(and(...conditions))
+    .orderBy(...orderBy)
+    .limit(limit)
+    .offset(offset)
+    .as('pagina')
+
   // Alias proprio: a subquery do saldo le a MESMA tabela da consulta externa,
   // e sem ele o `sum` interno leria as colunas da linha de fora.
   const txSaldo = alias(transactions, 'tx_saldo')
@@ -211,7 +235,7 @@ export async function getTransactionsWithCount(
   // entao o aporte nao se anula e ela precisa do proprio saldo corrido.
   const incluirInvestimento = contasDoFiltro(opts).length === 1
 
-  const rows = await db
+  return db
     .select({
       id: transactions.id,
       accountId: transactions.accountId,
@@ -270,7 +294,7 @@ export async function getTransactionsWithCount(
          where ${forecastMatchProposals.forecastTransactionId} = ${transactions.id}
            and ${forecastMatchProposals.orgId} = ${orgId}
            and ${forecastMatchProposals.status} = 'pending')`,
-      totalCount: sql<number>`count(*) over ()`,
+      totalCount: pagina.totalCount,
       /**
        * O saldo APOS esta linha, em ordem cronologica.
        *
@@ -285,8 +309,8 @@ export async function getTransactionsWithCount(
        * O desempate por `id` da uma ordem total no tempo: sem ele, linhas do
        * mesmo dia receberiam todas o acumulado do dia inteiro.
        *
-       * Medido contra a consulta anterior: 129ms de trabalho contra 127ms, a
-       * mesma coisa depois de descontar a latencia.
+       * Correlacionada soma todos os anteriores, entao so pode rodar para as
+       * linhas da pagina — ver `consultaDaPagina`.
        */
       balanceAfter: sql<number>`(
         select coalesce(sum(${sqlValorNoSaldo(hoje, { tx: txSaldo, acc: contaSaldo }, { incluirInvestimento })}), 0)
@@ -296,14 +320,23 @@ export async function getTransactionsWithCount(
            and (${txSaldo.date}, ${txSaldo.id}) <= (${transactions.date}, ${transactions.id}))`,
     })
     .from(transactions)
+    .innerJoin(pagina, eq(pagina.id, transactions.id))
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
-    // Many-to-one: nao duplica linha, entao o `count(*) over ()` e as somas
-    // de janela continuam validos.
     .leftJoin(accounts, eq(transactions.accountId, accounts.id))
-    .where(and(...conditions))
+    // A mesma ordem de dentro: o join nao garante ordem nenhuma.
     .orderBy(...orderBy)
-    .limit(limit)
-    .offset(offset)
+}
+
+/**
+ * Returns transactions + total count in a SINGLE query using COUNT(*) OVER().
+ * Eliminates the extra round-trip that getTransactionCount required.
+ * Joined with category data (name, color, icon).
+ */
+export async function getTransactionsWithCount(
+  orgId: string,
+  opts?: TransactionQueryOpts
+) {
+  const rows = await consultaDaPagina(getDb(), orgId, opts)
 
   const totalCount = rows[0]?.totalCount ?? 0
 
