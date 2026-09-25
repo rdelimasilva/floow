@@ -39,7 +39,7 @@ export const PERGUNTAS: Pergunta[] = [
     id: 'categorizacao-automatica',
     pergunta: 'Como funciona a categorização automática?',
     resposta:
-      'Regras dizem que descrições parecidas levam a mesma categoria. Na lista de transações, o raio ⚡ de uma transação já categorizada cria a regra "categorizar todas como esta"; em Categorias você cria e gerencia regras e pode aplicá-las às transações antigas sem categoria.',
+      'Regras dizem que descrições parecidas levam a mesma categoria. Na lista de transações, o raio ⚡ cria uma regra a partir do lançamento — se ele ainda não tem categoria, você escolhe no diálogo. Em Categorias você cria e gerencia regras e pode aplicá-las às transações antigas sem categoria.',
   },
   {
     id: 'cartao',

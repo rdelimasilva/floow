@@ -334,7 +334,7 @@ export function TransactionList({
             <thead className="bg-gray-50">
               <tr>
                 <th className="w-10 px-4 py-3">
-                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-gray-300" />
+                  <input type="checkbox" aria-label="Selecionar todas desta página" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-gray-300" />
                 </th>
                 <SortableHeader label="Data" sortKey="date" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort} />
                 <SortableHeader label="Descrição" sortKey="description" currentSortBy={sortBy} currentSortDir={sortDir} onSort={onSort} />

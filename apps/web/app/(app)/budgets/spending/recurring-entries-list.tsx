@@ -99,10 +99,10 @@ export function RecurringEntriesList({
                     onChange={(e) => onChangeEditEndMonth(e.target.value)}
                     className="h-7 w-36 text-sm"
                   />
-                  <button type="button" onClick={onSaveEdit} disabled={saving} className="rounded p-1 text-green-600 hover:bg-green-50">
+                  <button type="button" onClick={onSaveEdit} disabled={saving} className="rounded p-1 text-green-600 hover:bg-green-50" title="Salvar" aria-label="Salvar">
                     <Check className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={onCancelEdit} className="rounded p-1 text-gray-400 hover:bg-gray-100">
+                  <button type="button" onClick={onCancelEdit} className="rounded p-1 text-gray-400 hover:bg-gray-100" title="Cancelar" aria-label="Cancelar">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -127,6 +127,8 @@ export function RecurringEntriesList({
                     type="button"
                     onClick={() => onStartEdit(entry)}
                     className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                    title="Editar"
+                    aria-label="Editar"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -134,6 +136,8 @@ export function RecurringEntriesList({
                     type="button"
                     onClick={() => onDelete(entry.id)}
                     className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                    title="Excluir"
+                    aria-label="Excluir"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

@@ -273,6 +273,8 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
               type="button"
               onClick={() => setEditing(true)}
               className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              title="Editar"
+              aria-label="Editar"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
@@ -280,6 +282,8 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
               type="button"
               onClick={() => setConfirmDelete(true)}
               className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+              title="Excluir"
+              aria-label="Excluir"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

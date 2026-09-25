@@ -195,7 +195,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
                       {/* Toggle enable/disable */}
                       <button
                         type="button"
-                        title={rule.isEnabled ? 'Desativar regra' : 'Ativar regra'}
+                        title={rule.isEnabled ? 'Desativar regra' : 'Ativar regra'} aria-label={rule.isEnabled ? 'Desativar regra' : 'Ativar regra'}
                         disabled={loading}
                         onClick={() => handleToggle(rule)}
                         className={`rounded p-1 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed ${
@@ -208,7 +208,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
                       {/* Edit */}
                       <button
                         type="button"
-                        title="Editar regra"
+                        title="Editar regra" aria-label="Editar regra"
                         disabled={loading}
                         onClick={() => setEditingRule(rule)}
                         className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -230,7 +230,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
                       {/* Delete */}
                       <button
                         type="button"
-                        title="Remover regra"
+                        title="Remover regra" aria-label="Remover regra"
                         disabled={loading}
                         onClick={() => setDeleteTarget(rule)}
                         className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"

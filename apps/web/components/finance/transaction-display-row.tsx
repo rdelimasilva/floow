@@ -223,7 +223,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
       className={`rounded-lg border bg-white p-3 ${isSelected ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'} ${tx.isIgnored ? 'opacity-40' : ''} ${classeDeOpacidade(tx)}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <input type="checkbox" checked={isSelected} onChange={() => actions.onToggleSelect(tx.id)} className="mt-1 h-4 w-4 rounded border-gray-300 shrink-0" />
+        <input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => actions.onToggleSelect(tx.id)} className="mt-1 h-4 w-4 rounded border-gray-300 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
             {tx.recurringTemplateId && <Repeat className="h-3 w-3 text-blue-400 shrink-0" />}
@@ -278,6 +278,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
             </Link>
           )}
           <UnreconcileButton tx={tx} onClick={actions.onUnreconcile} size="h-4 w-4" />
+          <BotaoDeRegra tx={tx} onCreateRule={actions.onCreateRule} size="h-4 w-4" />
           {!tx.transferGroupId && (
             <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-1 text-gray-400 hover:text-gray-700">
               <Pencil className="h-4 w-4" />
@@ -307,12 +308,37 @@ interface DesktopRowProps {
   actions: RowActions
 }
 
+/**
+ * Atalho para criar regra a partir do lançamento. Sem categoria o diálogo abre
+ * com a categoria em branco para escolher — é o caso que mais precisa de regra.
+ * Transferência não tem categoria, então não oferece.
+ */
+function BotaoDeRegra({ tx, onCreateRule, size }: {
+  tx: TransactionRowData
+  onCreateRule: (matchValue: string, categoryId: string) => void
+  size: string
+}) {
+  if (tx.type === 'transfer') return null
+  const rotulo = tx.categoryId ? 'Categorizar todas como esta' : 'Criar regra para lançamentos como este'
+  return (
+    <button
+      type="button"
+      title={rotulo}
+      aria-label={rotulo}
+      onClick={() => onCreateRule(tx.description, tx.categoryId ?? '')}
+      className="rounded p-1 text-gray-400 hover:bg-yellow-50 hover:text-yellow-600"
+    >
+      <Zap className={size} />
+    </button>
+  )
+}
+
 export const TransactionDesktopRow = memo(function TransactionDesktopRow({
   tx, balance, isSelected, loading, actions,
 }: DesktopRowProps) {
   return (
     <tr className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50/50' : ''} ${tx.isIgnored ? 'opacity-40 line-through' : ''} ${classeDeOpacidade(tx)}`}>
-      <td className="px-4 py-3"><input type="checkbox" checked={isSelected} onChange={() => actions.onToggleSelect(tx.id)} className="h-4 w-4 rounded border-gray-300" /></td>
+      <td className="px-4 py-3"><input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => actions.onToggleSelect(tx.id)} className="h-4 w-4 rounded border-gray-300" /></td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{formatDate(tx.date)}</td>
       <td className="px-4 py-3 text-sm font-medium text-gray-900">
         <span className="flex items-center gap-1.5">
@@ -368,17 +394,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
               <XCircle className="h-3.5 w-3.5" />
             </button>
           )}
-          {tx.categoryId && (
-            <button
-              type="button"
-              title="Categorizar todas como esta"
-              aria-label="Categorizar todas como esta"
-              onClick={() => actions.onCreateRule(tx.description, tx.categoryId!)}
-              className="rounded p-1 text-gray-400 hover:bg-yellow-50 hover:text-yellow-600"
-            >
-              <Zap className="h-3.5 w-3.5" />
-            </button>
-          )}
+          <BotaoDeRegra tx={tx} onCreateRule={actions.onCreateRule} size="h-3.5 w-3.5" />
           {tx.counterpartyId && (
             <Link
               href={`/transactions/review?regra=${tx.counterpartyId}`}

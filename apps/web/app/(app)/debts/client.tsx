@@ -333,10 +333,10 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                 </div>
                 <BudgetProgressBar label="" currentCents={debt.paidCents} limitCents={debt.totalCents} invertColors />
                 <div className="flex items-center justify-end gap-1 pt-1 border-t border-gray-100">
-                  <button type="button" onClick={() => openEdit(debt)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                  <button type="button" onClick={() => openEdit(debt)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
                     <Pencil className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600">
+                  <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -384,10 +384,10 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex justify-end gap-1">
-                          <button type="button" onClick={() => openEdit(debt)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                          <button type="button" onClick={() => openEdit(debt)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600">
+                          <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>

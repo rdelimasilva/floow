@@ -6,6 +6,7 @@ import { Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useSidebar } from './sidebar-context'
 import { UserMenu } from './user-menu'
+import { BotaoDeBusca } from './botao-de-busca'
 
 interface TopbarProps {
   userEmail: string
@@ -45,7 +46,8 @@ export function Topbar({ userEmail, userName, avatarUrl, onMobileMenuOpen }: Top
 
       {/* Right: version + user */}
       <div className="flex items-center gap-3">
-        <span className="text-[10px] text-muted-foreground/50">
+        <BotaoDeBusca />
+        <span className="hidden text-[10px] text-muted-foreground/50 sm:inline">
           v{process.env.NEXT_PUBLIC_APP_VERSION}
         </span>
         <UserMenu

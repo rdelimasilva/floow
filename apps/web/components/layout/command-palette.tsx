@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Wallet, ArrowLeftRight, TrendingUp, Tags, BarChart3,
   PiggyBank, Target, Building2, Landmark, HelpCircle, Search,
-  Bot, Gauge, RefreshCw, Settings, Coins,
+  Bot, Gauge, RefreshCw, Settings, Coins, Plus,
 } from 'lucide-react'
+import { EVENTO_ABRIR_PALETA } from '@/lib/paleta'
 
 interface CommandItem {
   label: string
@@ -16,6 +17,7 @@ interface CommandItem {
 }
 
 export const COMMANDS: CommandItem[] = [
+  { label: 'Nova transação', href: '/transactions?nova=1', icon: Plus, keywords: ['lancar', 'registrar', 'despesa', 'receita', 'adicionar'] },
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, keywords: ['inicio', 'home', 'visao geral'] },
   { label: 'Consultor Financeiro', href: '/cfo', icon: Bot, keywords: ['cfo', 'assistente', 'chat', 'insights'] },
   { label: 'Fluxo de Caixa', href: '/cash-flow', icon: BarChart3, keywords: ['fluxo', 'caixa', 'grafico'] },
@@ -68,17 +70,29 @@ export function CommandPalette() {
     router.push(href)
   }, [router])
 
-  // Keyboard shortcut to open
+  // Ctrl+K abre; o botão de busca do topo abre pelo evento. N, fora de campo
+  // de texto, vai direto para uma nova transação.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         setOpen((prev) => !prev)
+        return
       }
+      if (e.key.toLowerCase() !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return
+      const alvo = e.target as HTMLElement | null
+      if (alvo?.closest('input, textarea, select, [contenteditable="true"]')) return
+      e.preventDefault()
+      router.push('/transactions?nova=1')
     }
+    const abrir = () => setOpen(true)
     document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [])
+    window.addEventListener(EVENTO_ABRIR_PALETA, abrir)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener(EVENTO_ABRIR_PALETA, abrir)
+    }
+  }, [router])
 
   // Focus input when opened
   useEffect(() => {
@@ -133,7 +147,12 @@ export function CommandPalette() {
       />
 
       {/* Palette */}
-      <div className="fixed inset-x-0 top-[15%] z-[101] mx-auto w-full max-w-lg px-4 animate-in fade-in slide-in-from-top-2 duration-150">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buscar página ou ação"
+        className="fixed inset-x-0 top-[15%] z-[101] mx-auto w-full max-w-lg px-4 animate-in fade-in slide-in-from-top-2 duration-150"
+      >
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
           {/* Search input */}
           <div className="flex items-center gap-3 border-b px-4 py-3">
@@ -143,6 +162,7 @@ export function CommandPalette() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar página ou ação..."
+              aria-label="Buscar página ou ação"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
             />
             <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500">

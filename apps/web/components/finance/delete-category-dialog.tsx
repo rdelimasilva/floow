@@ -128,7 +128,7 @@ export function DeleteCategoryDialog({
       onClick={handleBackdropClick}
       className="rounded-xl border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-black/40"
     >
-      <div className="w-[480px] p-6">
+      <div className="w-[480px] max-w-full p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">
           Remover &ldquo;{target.name}&rdquo;
         </h2>

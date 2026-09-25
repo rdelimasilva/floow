@@ -11,7 +11,7 @@ import { NAV_SECTIONS } from '@/components/layout/sidebar'
  * Ritmo de Gastos.
  */
 function existeAPagina(href: string) {
-  return fs.existsSync(path.join(__dirname, '../../app/(app)', href, 'page.tsx'))
+  return fs.existsSync(path.join(__dirname, '../../app/(app)', href.split('?')[0], 'page.tsx'))
 }
 
 describe('paleta de comandos', () => {

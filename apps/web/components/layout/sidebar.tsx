@@ -123,6 +123,7 @@ function NavLink({
     <Link
       href={item.href}
       onClick={onClick}
+      aria-current={isActive ? 'page' : undefined}
       className={cn(
         'relative flex items-center gap-3 rounded-lg py-2.5 pl-4 pr-3 text-sm font-medium transition-colors',
         isActive

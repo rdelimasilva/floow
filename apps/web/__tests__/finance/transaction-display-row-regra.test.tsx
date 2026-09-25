@@ -115,3 +115,26 @@ describe('botão desconciliar no lançamento', () => {
     expect(screen.queryByRole('button', { name: 'Desconciliar' })).toBeNull()
   })
 })
+
+/**
+ * O raio "categorizar todas como esta" só aparecia em transação já
+ * categorizada — justo a sem categoria, que é quem precisa de regra, ficava
+ * sem ele. E o card do celular não tinha o botão.
+ */
+describe('atalho de regra (raio)', () => {
+  it('sem categoria também oferece, e a categoria é escolhida no diálogo', () => {
+    renderDesktop({ categoryId: null })
+    screen.getByRole('button', { name: 'Criar regra para lançamentos como este' }).click()
+    expect((ACOES as unknown as { onCreateRule: ReturnType<typeof vi.fn> }).onCreateRule).toHaveBeenCalledWith('Compra do carro', '')
+  })
+
+  it('transferência não oferece', () => {
+    renderDesktop({ type: 'transfer', categoryId: null })
+    expect(screen.queryByRole('button', { name: /Criar regra|Categorizar todas/ })).toBeNull()
+  })
+
+  it('o card do celular também oferece', () => {
+    renderMobile({ categoryId: 'cat-1' })
+    expect(screen.getByRole('button', { name: 'Categorizar todas como esta' })).toBeTruthy()
+  })
+})

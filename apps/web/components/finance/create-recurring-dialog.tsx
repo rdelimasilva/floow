@@ -243,7 +243,7 @@ export function CreateRecurringDialog({
       className="rounded-xl border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-black/40"
     >
       <form onSubmit={handleSubmit}>
-        <div className="w-[520px] p-6">
+        <div className="w-[520px] max-w-full p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             {isEdit ? 'Editar Recorrência' : 'Nova Recorrência'}
           </h2>

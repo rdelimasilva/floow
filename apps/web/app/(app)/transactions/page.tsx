@@ -48,6 +48,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
     const destino = restaurarFiltros(filtrosDoCookie)
     if (destino.toString()) {
       if (params.pageSize) destino.set('pageSize', params.pageSize)
+      if (params.nova) destino.set('nova', params.nova)
       redirect(`/transactions?${destino.toString()}`)
     }
   }

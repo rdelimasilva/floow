@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { TransactionForm } from './transaction-form'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -49,6 +50,21 @@ interface InlineTransactionFormProviderProps {
 export function InlineTransactionFormProvider({ children }: InlineTransactionFormProviderProps) {
   const [open, setOpen] = useState(false)
   const [createdTransactions, setCreatedTransactions] = useState<InlineCreatedTransaction[]>([])
+
+  // `?nova=1` vem da paleta e do atalho N: abre o formulário e tira o
+  // parâmetro, para que recarregar não reabra e o próximo N funcione.
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const pediuNova = searchParams.get('nova') === '1'
+  useEffect(() => {
+    if (!pediuNova) return
+    setOpen(true)
+    const resto = new URLSearchParams(searchParams.toString())
+    resto.delete('nova')
+    const qs = resto.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [pediuNova, searchParams, router, pathname])
 
   return (
     <InlineFormContext.Provider
