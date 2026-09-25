@@ -7,7 +7,7 @@ vi.mock('@/lib/openfinance/transfer-leg', async () => {
   return { ...actual, isOpenFinanceLinkedAccount: vi.fn(async () => false) }
 })
 
-import { applyTransferSingle, contaQueARegraGrava } from '@/lib/openfinance/aplicar-regra'
+import { applyTransferSingle, camposDaRegra, contaQueARegraGrava } from '@/lib/openfinance/aplicar-regra'
 
 describe('contaQueARegraGrava', () => {
   it('transferência comum grava a conta escolhida', () => {
@@ -44,5 +44,27 @@ describe('applyTransferSingle — origem ignorada (achado 3)', () => {
     const insert = ops.find((o) => o.op === 'insert')!
     expect((insert.values as Record<string, unknown>).isIgnored).toBeUndefined()
     expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['transactions', 'accounts'])
+  })
+})
+
+describe('camposDaRegra — o que vai para counterparties (CHECK counterparties_nature_check)', () => {
+  const agora = new Date('2026-09-25T00:00:00Z')
+
+  it('regra comum: grava natureza, conta e confirmação', () => {
+    expect(camposDaRegra({ nature: 'transfer', categoryId: null, transferAccountId: 'c1', cpfProprio: false }, 'u1', agora)).toEqual({
+      nature: 'transfer', categoryId: null, transferAccountId: 'c1', confirmedAt: agora, confirmedBy: 'u1', updatedAt: agora,
+    })
+  })
+
+  it('CPF próprio como transferência: desfaz a regra em vez de gravar transferência sem conta (o banco recusa)', () => {
+    expect(camposDaRegra({ nature: 'transfer', categoryId: null, transferAccountId: null, cpfProprio: true }, 'u1', agora)).toEqual({
+      nature: null, categoryId: null, transferAccountId: null, confirmedAt: null, confirmedBy: null, updatedAt: agora,
+    })
+  })
+
+  it('CPF próprio como receita continua sendo regra normal', () => {
+    expect(camposDaRegra({ nature: 'income', categoryId: 'cat', transferAccountId: null, cpfProprio: true }, 'u1', agora)).toMatchObject({
+      nature: 'income', categoryId: 'cat', confirmedAt: agora,
+    })
   })
 })
