@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
-import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getLatestSnapshot, getTransactionsWithCount } from '@/lib/finance/queries'
+import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getLatestSnapshot, hasAnyTransaction } from '@/lib/finance/queries'
 import { refreshSnapshot } from '@/lib/finance/account-actions'
 import { AccountSummaryRow } from '@/components/finance/account-summary-row'
 import { QuickStatsRow } from '@/components/finance/quick-stats-row'
@@ -20,14 +20,14 @@ import { WelcomeCard } from '@/components/finance/welcome-card'
 // -- Async sub-components for Suspense streaming ----------------------------
 
 async function OnboardingSection({ orgId }: { orgId: string }) {
-  const [userAccounts, { totalCount }] = await Promise.all([
+  const [userAccounts, hasTransactions] = await Promise.all([
     getAccounts(orgId),
-    getTransactionsWithCount(orgId, { limit: 1 }),
+    hasAnyTransaction(orgId),
   ])
   return (
     <WelcomeCard
       hasAccounts={userAccounts.length > 0}
-      hasTransactions={totalCount > 0}
+      hasTransactions={hasTransactions}
     />
   )
 }

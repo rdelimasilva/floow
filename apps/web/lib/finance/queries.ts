@@ -28,6 +28,7 @@ export {
   contasDoFiltro,
   getTransactionsWithCount,
   getTransactionCount,
+  hasAnyTransaction,
   getRecentTransactions,
   getFutureTransactions,
 } from './queries-transactions'

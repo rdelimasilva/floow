@@ -188,6 +188,22 @@ export async function getTransactionCount(orgId: string, opts?: TransactionFilte
 }
 
 /**
+ * Se a org tem algum lançamento até hoje — o que o card de boas-vindas pergunta.
+ *
+ * Era `getTransactionsWithCount(orgId, { limit: 1 })`, que conta a org inteira
+ * e monta o saldo corrido só para devolver um booleano. Aqui para na primeira
+ * linha.
+ */
+export async function hasAnyTransaction(orgId: string): Promise<boolean> {
+  const rows = await getDb()
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(and(...buildTransactionConditions(orgId)))
+    .limit(1)
+  return rows.length > 0
+}
+
+/**
  * A consulta das linhas de uma pagina, montada sem executar.
  *
  * Em dois andares. Dentro, a subconsulta `pagina` filtra, ordena, conta e
