@@ -85,7 +85,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
       await createFixedAsset(formData)
       router.push('/fixed-assets')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao cadastrar ativo')
+      setError(err instanceof Error ? err.message : 'Erro ao cadastrar bem')
     } finally {
       setLoading(false)
     }
@@ -98,13 +98,13 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
           href="/fixed-assets"
           className="text-sm text-gray-500 hover:text-gray-700"
         >
-          &larr; Ativos Imobilizados
+          &larr; Bens Imóveis
         </Link>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Novo Ativo Imobilizado</CardTitle>
+          <CardTitle>Novo Bem Imóvel</CardTitle>
         </CardHeader>
         <CardContent>
           {error && (
@@ -237,7 +237,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
                   loading || !name || !typeId || !purchaseValue || !annualRate
                 }
               >
-                {loading ? 'Cadastrando...' : 'Cadastrar Ativo'}
+                {loading ? 'Cadastrando...' : 'Cadastrar Bem'}
               </Button>
             </div>
           </form>

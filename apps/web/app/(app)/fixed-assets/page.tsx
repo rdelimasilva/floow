@@ -28,27 +28,27 @@ export default async function FixedAssetsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Ativos Imobilizados"
+        title="Bens Imóveis"
         description="Gerencie seus imóveis, veículos e outros bens"
       >
         <Button asChild variant="primary">
-          <Link href="/fixed-assets/new">Novo Ativo</Link>
+          <Link href="/fixed-assets/new">Novo Bem</Link>
         </Button>
       </PageHeader>
 
       <Tabs defaultValue="assets">
         <TabsList>
-          <TabsTrigger value="assets">Ativos</TabsTrigger>
+          <TabsTrigger value="assets">Bens</TabsTrigger>
           <TabsTrigger value="types">Tipos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="assets">
           {assets.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
-              <p className="text-gray-600 font-medium">Nenhum ativo cadastrado.</p>
+              <p className="text-gray-600 font-medium">Nenhum bem cadastrado.</p>
               <p className="mt-1 text-sm text-gray-400">Cadastre imóveis, veículos e outros bens.</p>
               <Button variant="primary" className="mt-4" asChild>
-                <Link href="/fixed-assets/new">Cadastrar Ativo</Link>
+                <Link href="/fixed-assets/new">Cadastrar Bem</Link>
               </Button>
             </div>
           ) : (

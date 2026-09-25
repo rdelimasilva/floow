@@ -90,7 +90,7 @@ export function EditAssetForm({ asset, types, candidates }: { asset: AssetData; 
       await updateFixedAsset(formData)
       router.push(`/fixed-assets/${asset.id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao atualizar ativo')
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar bem')
     } finally {
       setLoading(false)
     }
@@ -106,7 +106,7 @@ export function EditAssetForm({ asset, types, candidates }: { asset: AssetData; 
 
       <Card>
         <CardHeader>
-          <CardTitle>Editar Ativo</CardTitle>
+          <CardTitle>Editar Bem</CardTitle>
         </CardHeader>
         <CardContent>
           {error && (
