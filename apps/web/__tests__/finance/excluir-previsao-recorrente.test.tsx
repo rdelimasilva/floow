@@ -86,13 +86,14 @@ function renderDesktop(extra: Record<string, unknown> = {}) {
       ),
     ),
   )
+  fireEvent.click(screen.getAllByRole('button', { name: 'Mais ações' })[0])
 }
 
 describe('linha de previsão recorrente não conciliada', () => {
   it('oferece excluir a previsão, com rótulo', () => {
     renderDesktop()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Excluir previsão' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Excluir previsão' }))
 
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'tx-1' }))
   })
@@ -100,7 +101,7 @@ describe('linha de previsão recorrente não conciliada', () => {
   it('cancelar recorrência é outro botão, e não se confunde com excluir', () => {
     renderDesktop()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar recorrência' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Cancelar recorrência' }))
 
     expect(onCancelRecurring).toHaveBeenCalledWith('tpl-1', 'Aluguel')
     expect(onDelete).not.toHaveBeenCalled()
@@ -119,7 +120,7 @@ describe('linha de previsão recorrente não conciliada', () => {
   it('no lançamento realizado, a lixeira fala de lançamento', () => {
     renderDesktop({ balanceApplied: true, recurringTemplateId: null })
 
-    expect(screen.getByRole('button', { name: 'Excluir lançamento' })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: 'Excluir lançamento' })).toBeTruthy()
   })
 
   it('no cartão do celular também, e com rótulo', () => {
@@ -132,8 +133,9 @@ describe('linha de previsão recorrente não conciliada', () => {
         actions: ACOES,
       }),
     )
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mais ações' })[0])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Excluir previsão' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Excluir previsão' }))
 
     expect(onDelete).toHaveBeenCalled()
   })

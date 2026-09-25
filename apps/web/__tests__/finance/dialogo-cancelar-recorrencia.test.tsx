@@ -68,7 +68,8 @@ function abrirDialogo() {
         categories: [],
       })),
   )
-  fireEvent.click(screen.getByRole('button', { name: 'Cancelar recorrência' }))
+  fireEvent.click(screen.getAllByRole('button', { name: 'Mais ações' })[0])
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Cancelar recorrência' }))
 }
 
 /** Dentro do diálogo: fora dele existe o ✕ da linha, com o mesmo nome. */

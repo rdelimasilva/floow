@@ -2,13 +2,12 @@
 
 import { memo } from 'react'
 import Link from 'next/link'
-import { Pencil, Trash2, Zap, EyeOff, Eye, Repeat, XCircle, Package, SlidersHorizontal, Unlink } from 'lucide-react'
+import { Pencil, Repeat, Package } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
+import { MenuDeAcoes, itensDaLinha } from './menu-de-acoes-da-linha'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
 import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
-import { rotuloDeRemocao } from '@/lib/finance/delete-copy'
-import { podeDesconciliar } from '@/lib/finance/desconciliar'
 
 interface RowActions {
   onEdit: (tx: TransactionRowData) => void
@@ -19,22 +18,6 @@ interface RowActions {
   onCreateRule: (matchValue: string, categoryId: string) => void
   onToggleSelect: (id: string) => void
   onUnreconcile: (tx: TransactionRowData) => void
-}
-
-/** Devolve o lançamento à fila onde foi conciliado. Ver `lib/finance/desconciliar.ts`. */
-function UnreconcileButton({ tx, onClick, size }: { tx: TransactionRowData; onClick: (tx: TransactionRowData) => void; size: string }) {
-  if (!podeDesconciliar(tx)) return null
-  return (
-    <button
-      type="button"
-      title="Desconciliar: devolver à fila"
-      aria-label="Desconciliar"
-      onClick={() => onClick(tx)}
-      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-    >
-      <Unlink className={size} />
-    </button>
-  )
 }
 
 interface MobileCardProps {
@@ -261,39 +244,14 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
       </div>
       <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
         <span className="text-[10px] text-gray-400 uppercase">{TYPE_LABELS[tx.type]}</span>
-        <div className="flex gap-1">
-          {tx.recurringTemplateId && (
-            <button type="button" title="Cancelar recorrência" aria-label="Cancelar recorrência" onClick={() => actions.onCancelRecurring(tx.recurringTemplateId!, tx.description)} className="rounded p-1 text-gray-400 hover:text-orange-600">
-              <XCircle className="h-4 w-4" />
-            </button>
-          )}
-          {tx.counterpartyId && (
-            <Link
-              href={`/transactions/review?regra=${tx.counterpartyId}`}
-              title="Corrigir a regra que classificou este lançamento"
-              aria-label="Corrigir regra"
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-            </Link>
-          )}
-          <UnreconcileButton tx={tx} onClick={actions.onUnreconcile} size="h-4 w-4" />
-          <BotaoDeRegra tx={tx} onCreateRule={actions.onCreateRule} size="h-4 w-4" />
+        <div className="flex items-center gap-1">
+          <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
           {!tx.transferGroupId && (
             <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-1 text-gray-400 hover:text-gray-700">
               <Pencil className="h-4 w-4" />
             </button>
           )}
-          <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
-          {tx.externalId ? (
-            <button type="button" title={tx.isIgnored ? 'Restaurar transação' : 'Ignorar transação'} aria-label={tx.isIgnored ? 'Restaurar transação' : 'Ignorar transação'} onClick={() => actions.onIgnore(tx)} disabled={loading} className={`rounded p-1 ${tx.isIgnored ? 'text-blue-500' : 'text-gray-400'}`}>
-              {tx.isIgnored ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-            </button>
-          ) : (
-            <button type="button" title={rotuloDeRemocao(tx)} aria-label={rotuloDeRemocao(tx)} onClick={() => actions.onDelete(tx)} className="rounded p-1 text-gray-400 hover:text-red-600">
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
+          <MenuDeAcoes itens={itensDaLinha(tx, actions, loading)} tamanho="h-4 w-4" />
         </div>
       </div>
     </div>
@@ -306,31 +264,6 @@ interface DesktopRowProps {
   isSelected: boolean
   loading: boolean
   actions: RowActions
-}
-
-/**
- * Atalho para criar regra a partir do lançamento. Sem categoria o diálogo abre
- * com a categoria em branco para escolher — é o caso que mais precisa de regra.
- * Transferência não tem categoria, então não oferece.
- */
-function BotaoDeRegra({ tx, onCreateRule, size }: {
-  tx: TransactionRowData
-  onCreateRule: (matchValue: string, categoryId: string) => void
-  size: string
-}) {
-  if (tx.type === 'transfer') return null
-  const rotulo = tx.categoryId ? 'Categorizar todas como esta' : 'Criar regra para lançamentos como este'
-  return (
-    <button
-      type="button"
-      title={rotulo}
-      aria-label={rotulo}
-      onClick={() => onCreateRule(tx.description, tx.categoryId ?? '')}
-      className="rounded p-1 text-gray-400 hover:bg-yellow-50 hover:text-yellow-600"
-    >
-      <Zap className={size} />
-    </button>
-  )
 }
 
 export const TransactionDesktopRow = memo(function TransactionDesktopRow({
@@ -382,30 +315,8 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
         {formatBRL(balance)}
       </td>
       <td className="px-4 py-3">
-        <div className="flex justify-end gap-1">
-          {tx.recurringTemplateId && (
-            <button
-              type="button"
-              title="Cancelar recorrência"
-              aria-label="Cancelar recorrência"
-              onClick={() => actions.onCancelRecurring(tx.recurringTemplateId!, tx.description)}
-              className="rounded p-1 text-gray-400 hover:bg-orange-50 hover:text-orange-600"
-            >
-              <XCircle className="h-3.5 w-3.5" />
-            </button>
-          )}
-          <BotaoDeRegra tx={tx} onCreateRule={actions.onCreateRule} size="h-3.5 w-3.5" />
-          {tx.counterpartyId && (
-            <Link
-              href={`/transactions/review?regra=${tx.counterpartyId}`}
-              title="Corrigir a regra que classificou este lançamento"
-              aria-label="Corrigir regra"
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-            </Link>
-          )}
-          <UnreconcileButton tx={tx} onClick={actions.onUnreconcile} size="h-3.5 w-3.5" />
+        <div className="flex items-center justify-end gap-1">
+          <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
           {!tx.transferGroupId && (
             <button
               type="button"
@@ -417,28 +328,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
               <Pencil className="h-3.5 w-3.5" />
             </button>
           )}
-          <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
-          {tx.externalId ? (
-            <button
-              type="button"
-              title={tx.isIgnored ? 'Restaurar transação' : 'Ignorar transação'}
-              onClick={() => actions.onIgnore(tx)}
-              disabled={loading}
-              className={`rounded p-1 ${tx.isIgnored ? 'text-blue-500 hover:bg-blue-50 hover:text-blue-700' : 'text-gray-400 hover:bg-yellow-50 hover:text-yellow-600'}`}
-            >
-              {tx.isIgnored ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-            </button>
-          ) : (
-            <button
-              type="button"
-              title={rotuloDeRemocao(tx)}
-              aria-label={rotuloDeRemocao(tx)}
-              onClick={() => actions.onDelete(tx)}
-              className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
+          <MenuDeAcoes itens={itensDaLinha(tx, actions, loading)} tamanho="h-3.5 w-3.5" />
         </div>
       </td>
     </tr>
