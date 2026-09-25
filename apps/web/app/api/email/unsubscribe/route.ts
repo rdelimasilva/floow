@@ -1,6 +1,5 @@
-import { profiles } from '@floow/db'
-import { eq } from 'drizzle-orm'
 import { verifyUnsubscribeToken } from '@/lib/notifications/unsubscribe-token'
+import { listUserOrgIds, upsertFrequency } from '@/lib/notifications/preferences-store'
 import { withUserDbFor } from '@/lib/db/rls'
 
 /**
@@ -30,23 +29,25 @@ export async function GET(request: Request) {
 
   return page(
     'Parar de receber o alerta de ritmo?',
-    `<p style="color:#475467">Você não vai mais receber e-mails quando uma categoria entrar em risco ou estourar o teto. Dá para religar em Configurações.</p>
+    `<p style="color:#475467">Você não vai mais receber por e-mail o ritmo de gastos desta conta. Dá para religar em Configurações.</p>
 <form method="post"><button type="submit" style="background:#101828;color:#fff;border:0;border-radius:6px;padding:10px 16px;font-size:14px;cursor:pointer">Parar de receber</button></form>`,
   )
 }
 
 export async function POST(request: Request) {
   const token = new URL(request.url).searchParams.get('token') ?? ''
-  const userId = verifyUnsubscribeToken(token, process.env.CRON_SECRET)
-  if (!userId) return invalid()
+  const parsed = verifyUnsubscribeToken(token, process.env.CRON_SECRET)
+  if (!parsed) return invalid()
+  const { userId, orgId } = parsed
 
-  // Sob o RLS do dono do token: mesmo com bug aqui, só a própria linha muda.
-  await withUserDbFor(userId, (tx) =>
-    tx.update(profiles).set({ emailPacingAlerts: false }).where(eq(profiles.id, userId)),
-  )
+  // Sob o RLS do dono do token: mesmo com bug aqui, só as linhas dele mudam.
+  await withUserDbFor(userId, async (tx) => {
+    const orgIds = orgId ? [orgId] : await listUserOrgIds(tx, userId)
+    await upsertFrequency(tx, userId, orgIds, 'email', 'off')
+  })
 
   return page(
     'Pronto',
-    '<p style="color:#475467">Você não vai mais receber o alerta de ritmo de gastos. Para religar, vá em Configurações no app.</p>',
+    '<p style="color:#475467">Você não vai mais receber o ritmo de gastos por e-mail. Para religar, vá em Configurações no app.</p>',
   )
 }
