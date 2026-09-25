@@ -25,6 +25,22 @@ describe('atalhos de período', () => {
     expect(getPeriodDates('year', '2026-09-23')).toEqual({ startDate: '2026-01-01', endDate: '2026-12-31' })
   })
 
+  it('os futuros são blocos de calendário a partir do mês seguinte', () => {
+    expect(getPeriodDates('nextMonth', '2026-09-23')).toEqual({ startDate: '2026-10-01', endDate: '2026-10-31' })
+    expect(getPeriodDates('nextMonth', '2026-12-05')).toEqual({ startDate: '2027-01-01', endDate: '2027-01-31' })
+    expect(getPeriodDates('next3Months', '2026-09-23')).toEqual({ startDate: '2026-10-01', endDate: '2026-12-31' })
+    expect(getPeriodDates('next3Months', '2026-11-30')).toEqual({ startDate: '2026-12-01', endDate: '2027-02-28' })
+    expect(getPeriodDates('nextSemester', '2026-03-10')).toEqual({ startDate: '2026-07-01', endDate: '2026-12-31' })
+    expect(getPeriodDates('nextSemester', '2026-09-23')).toEqual({ startDate: '2027-01-01', endDate: '2027-06-30' })
+    expect(getPeriodDates('nextYear', '2026-09-23')).toEqual({ startDate: '2027-01-01', endDate: '2027-12-31' })
+  })
+
+  it('período futuro lembrado volta relativo ao dia da volta', () => {
+    const cookie = serializarFiltros(new URLSearchParams('startDate=2026-10-01&endDate=2026-12-31'), '2026-09-23')
+    expect(cookie).toBe('period=next3Months')
+    expect(restaurarFiltros(cookie, '2026-10-15').toString()).toBe('startDate=2026-11-01&endDate=2027-01-31')
+  })
+
   it('reconhece a pílula ativa pelas datas', () => {
     expect(detectActivePeriod('2026-09-01', '2026-09-30', '2026-09-23')).toBe('month')
     expect(detectActivePeriod('2026-09-02', '2026-09-30', '2026-09-23')).toBeNull()

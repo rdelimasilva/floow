@@ -11,7 +11,9 @@
 
 export const FILTERS_COOKIE = 'tx-filters'
 
-export type PeriodKey = 'today' | 'month' | 'quarter' | 'semester' | 'year'
+export type PeriodKey =
+  | 'today' | 'month' | 'quarter' | 'semester' | 'year'
+  | 'nextMonth' | 'next3Months' | 'nextSemester' | 'nextYear'
 
 export const PERIOD_LABELS: Record<PeriodKey, string> = {
   today: 'Hoje',
@@ -19,7 +21,22 @@ export const PERIOD_LABELS: Record<PeriodKey, string> = {
   quarter: 'Este trimestre',
   semester: 'Este semestre',
   year: 'Este ano',
+  nextMonth: 'Próximo mês',
+  next3Months: 'Próximos 3 meses',
+  nextSemester: 'Próximo semestre',
+  nextYear: 'Próximo ano',
 }
+
+/**
+ * A tela mostra os atalhos em dois grupos: o calendário corrente e o que vem
+ * pela frente. Os futuros são blocos de calendário inteiros, a começar no mês
+ * seguinte — "Próximo semestre" em setembro é jan–jun, não os 6 meses a partir
+ * de hoje —, do mesmo jeito que os atuais.
+ */
+export const PERIOD_GROUPS: { label: string; keys: PeriodKey[] }[] = [
+  { label: 'Período', keys: ['today', 'month', 'quarter', 'semester', 'year'] },
+  { label: 'Próximos', keys: ['nextMonth', 'next3Months', 'nextSemester', 'nextYear'] },
+]
 
 const PERIOD_KEYS = Object.keys(PERIOD_LABELS) as PeriodKey[]
 
@@ -57,6 +74,16 @@ export function getPeriodDates(key: PeriodKey, hoje: string = hojeEmSaoPaulo()):
     }
     case 'year':
       return { startDate: dia(y, 0, 1), endDate: dia(y, 11, 31) }
+    case 'nextMonth':
+      return { startDate: dia(y, m + 1, 1), endDate: dia(y, m + 2, 0) }
+    case 'next3Months':
+      return { startDate: dia(y, m + 1, 1), endDate: dia(y, m + 4, 0) }
+    case 'nextSemester': {
+      const s = m < 6 ? 1 : 2
+      return { startDate: dia(y, s * 6, 1), endDate: dia(y, s * 6 + 6, 0) }
+    }
+    case 'nextYear':
+      return { startDate: dia(y + 1, 0, 1), endDate: dia(y + 1, 11, 31) }
   }
 }
 

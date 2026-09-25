@@ -8,6 +8,7 @@ import { CardDigitsFilter } from './card-digits-filter'
 import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
 import {
   PERIOD_LABELS,
+  PERIOD_GROUPS,
   type PeriodKey,
   getPeriodDates,
   detectActivePeriod,
@@ -151,21 +152,26 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
 
   return (
     <div className="space-y-2">
-      {/* Period shortcuts — o clique na pílula ativa desmarca */}
-      <div className="flex flex-wrap gap-1.5">
-        {(Object.keys(PERIOD_LABELS) as PeriodKey[]).map((key) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={activePeriod === key}
-            onClick={() => togglePeriod(key)}
-            title={activePeriod === key ? 'Clique para remover este período' : undefined}
-            className={`${PILL_BASE} ${
-              activePeriod === key ? 'bg-gray-900 text-white' : PILL_OFF
-            }`}
-          >
-            {PERIOD_LABELS[key]}
-          </button>
+      {/* Atalhos de período em grupos — o clique na pílula ativa desmarca */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {PERIOD_GROUPS.map((group) => (
+          <div key={group.label} role="group" aria-label={group.label} className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">{group.label}</span>
+            {group.keys.map((key) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={activePeriod === key}
+                onClick={() => togglePeriod(key)}
+                title={activePeriod === key ? 'Clique para remover este período' : undefined}
+                className={`${PILL_BASE} ${
+                  activePeriod === key ? 'bg-gray-900 text-white' : PILL_OFF
+                }`}
+              >
+                {PERIOD_LABELS[key]}
+              </button>
+            ))}
+          </div>
         ))}
         <button
           type="button"
@@ -176,7 +182,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
               ? 'Clique para ocultar o que ainda não aconteceu'
               : 'Incluir os lançamentos previstos com data futura'
           }
-          className={`${PILL_BASE} ${
+          className={`${PILL_BASE} md:ml-auto ${
             includeFuture ? 'bg-amber-100 border border-amber-300 text-amber-800' : PILL_OFF
           }`}
         >
