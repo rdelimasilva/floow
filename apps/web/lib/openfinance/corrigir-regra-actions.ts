@@ -69,7 +69,7 @@ export async function previaCorrecaoDeRegra(raw: DecisaoNova): Promise<PreviaCor
   const regra = await lerRegra(db, orgId, input.counterpartyId)
   const cpfProprio = await ehRegraDoTitular(db, orgId, regra)
   const conta = contaQueARegraGrava({ nature: input.nature, transferAccountId: input.transferAccountId, cpfProprio })
-  const linhas = await selecionarLancamentosDaRegra(db, orgId, regra)
+  const linhas = await selecionarLancamentosDaRegra(db, orgId, regra, { ...input, transferAccountId: conta })
   const analises = []
   for (const l of linhas) {
     const a = await analisarPar(db, orgId, l)
@@ -98,7 +98,7 @@ export async function corrigirRegra(
     // faria todo lançamento novo cair pendente no sync.
     if (conta && regra.accountId === conta) throw new Error(MSG_CONTA_DA_REGRA)
 
-    const linhas = aplicarAoHistorico ? await selecionarLancamentosDaRegra(tx, orgId, regra) : []
+    const linhas = aplicarAoHistorico ? await selecionarLancamentosDaRegra(tx, orgId, regra, { ...input, transferAccountId: conta }) : []
     // Recusa antes de gravar: `applyTransferSingle` estouraria no meio do
     // lote, com a mensagem escondida pelo Next em produção.
     const naContaNova = contarNaContaNova(linhas, conta)
