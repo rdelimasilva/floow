@@ -6,7 +6,7 @@
  * existe o SAIR e um aviso.
  */
 import { phoneCandidatesFromWaId } from './phone'
-import { isStopWord, type InboundText } from './whatsapp-webhook'
+import { isStopWord, maskPhone, type InboundText } from './whatsapp-webhook'
 import type { SendResult } from './send-whatsapp'
 
 export interface InboundDeps {
@@ -30,13 +30,15 @@ export async function handleInboundText(msg: InboundText, deps: InboundDeps): Pr
 
   if (isStopWord(msg.text)) {
     await deps.turnOffWhatsApp(user.userId)
-    await deps.reply(
+    const r = await deps.reply(
       to,
       `Pronto: você não vai mais receber o ritmo de gastos por aqui, em nenhuma conta. Para religar, vá em Configurações: ${settingsUrl}`,
     )
+    if (!r.ok) console.error(`[whatsapp] resposta falhou para ${maskPhone(msg.from)}: ${r.error}`)
     return 'stopped'
   }
 
-  await deps.reply(to, `Por enquanto eu só mando o ritmo de gastos. Ajuste em Configurações: ${settingsUrl}`)
+  const r = await deps.reply(to, `Por enquanto eu só mando o ritmo de gastos. Ajuste em Configurações: ${settingsUrl}`)
+  if (!r.ok) console.error(`[whatsapp] resposta falhou para ${maskPhone(msg.from)}: ${r.error}`)
   return 'default_reply'
 }

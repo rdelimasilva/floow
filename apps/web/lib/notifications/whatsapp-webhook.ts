@@ -60,9 +60,16 @@ export function parseWebhook(body: unknown): { texts: InboundText[]; errors: Del
 
 const STOP_WORDS = new Set(['sair', 'parar', 'stop'])
 
-/** "SAIR", "sair!", " Parar. " — a mensagem inteira, não uma palavra dentro dela. */
+/**
+ * "SAIR", "sair!", " Parar. " — a mensagem inteira, não uma palavra dentro dela.
+ * Mantém dígitos ao limpar pontuação para que "sair2"/"sa1r" não colem em "sair".
+ */
 export function isStopWord(text: string): boolean {
-  const t = text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
+  const t = text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
   return STOP_WORDS.has(t) && text.trim().split(/\s+/).length === 1
 }
 

@@ -46,9 +46,9 @@ describe('parseWebhook', () => {
 })
 
 describe('isStopWord', () => {
-  it.each(['SAIR', 'sair', ' Sair! ', 'PARAR', 'parar.', 'STOP'])('%s é saída', (t) =>
+  it.each(['SAIR', 'sair', ' Sair! ', 'PARAR', 'parar.', 'STOP', 'Párar'])('%s é saída', (t) =>
     expect(isStopWord(t)).toBe(true))
-  it.each(['sair daqui', 'quanto gastei?', ''])('%s não é saída', (t) =>
+  it.each(['sair daqui', 'quanto gastei?', '', 'sair2', 'sa1r'])('%s não é saída', (t) =>
     expect(isStopWord(t)).toBe(false))
 })
 

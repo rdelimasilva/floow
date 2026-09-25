@@ -39,4 +39,17 @@ describe('handleInboundText', () => {
     await handleInboundText({ from: '551199998888', text: 'oi' }, d)
     expect(d.findUserByPhone).toHaveBeenCalledWith(['+551199998888', '+5511999998888'])
   })
+
+  it('resposta que falha é logada, mas o resultado (SAIR) não muda', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const d = deps({ reply: vi.fn(async () => ({ ok: false as const, error: 'whatsapp_401: token expirado' })) })
+      expect(await handleInboundText({ from: '5511999998888', text: 'sair' }, d)).toBe('stopped')
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[whatsapp] resposta falhou para •••8888: whatsapp_401: token expirado'),
+      )
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
 })
