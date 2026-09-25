@@ -76,7 +76,10 @@ try {
       await tx`insert into pacing_alert_state (org_id, month, category_id, status, channel)
                values (${membro.org_id}, '2099-01', ${cat}, 'risco', 'email'),
                       (${membro.org_id}, '2099-01', ${cat}, 'risco', 'whatsapp')`
-      checar('PK por canal aceita os dois canais', true)
+      const [{ n: doisCanais }] = await tx`
+        select count(*)::int as n from pacing_alert_state
+        where org_id = ${membro.org_id} and month = '2099-01' and category_id = ${cat}`
+      checar('PK por canal aceita os dois canais', doisCanais === 2, `${doisCanais}/2`)
 
       // Índice único: dois usuários não verificam o mesmo número.
       const outros = await tx`select id from profiles order by created_at limit 2`
@@ -91,10 +94,18 @@ try {
       // RLS: como o próprio usuário, grava na sua org; não enxerga linha de outro.
       const claims = JSON.stringify({ sub: membro.user_id, role: 'authenticated' })
       await tx`select set_config('role', 'authenticated', true), set_config('request.jwt.claims', ${claims}, true)`
+
+      const [ctx] = await tx`select current_user as usuario, auth.uid()::text as uid`
+      checar('assume o papel authenticated', ctx.usuario === 'authenticated', ctx.usuario)
+      checar('auth.uid() resolve para o usuário das claims', ctx.uid === membro.user_id)
+
       await tx`insert into notification_preferences (org_id, user_id, channel, frequency)
                values (${membro.org_id}, ${membro.user_id}, 'whatsapp', 'daily')
                on conflict (org_id, user_id, channel) do update set frequency = excluded.frequency`
-      checar('RLS: usuário grava a própria preferência', true)
+      const [gravada] = await tx`
+        select frequency from notification_preferences
+        where org_id = ${membro.org_id} and user_id = ${membro.user_id} and channel = 'whatsapp'`
+      checar('RLS: usuário grava a própria preferência', gravada?.frequency === 'daily')
       const [{ n: alheias }] = await tx`
         select count(*)::int as n from notification_preferences where user_id <> ${membro.user_id}`
       checar('RLS: não enxerga preferência de outro', alheias === 0, `${alheias}`)
