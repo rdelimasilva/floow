@@ -20,6 +20,7 @@ import { useToast } from '@/components/ui/toast'
 import type { Asset, Account } from '@floow/db'
 import { ativosManuais } from '@/lib/investments/ativos-manuais'
 import type { PortfolioEventDetail } from '@/lib/investments/queries'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
@@ -160,7 +161,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
       toast('Evento atualizado com sucesso')
       router.push('/investments/income')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao atualizar evento', 'error')
+      toast(mensagemDeErro(e, 'Erro ao atualizar evento'), 'error')
     }
   }
 

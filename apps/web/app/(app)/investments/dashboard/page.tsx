@@ -96,7 +96,7 @@ export default async function InvestmentDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Dashboard de Investimentos"
+        title="Resumo da Carteira"
         description="Resumo do seu portfólio e evolução patrimonial"
       />
 

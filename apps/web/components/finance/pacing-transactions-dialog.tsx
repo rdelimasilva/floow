@@ -11,6 +11,7 @@ import {
 } from '@/lib/finance/budget-pacing-actions'
 import { bulkCategorizeTransactions } from '@/lib/finance/transaction-actions'
 import { useToast } from '@/components/ui/toast'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface Props {
   /** Categoria orçada selecionada; null fecha o popup. */
@@ -56,7 +57,7 @@ export function PacingTransactionsDialog({ category, month, categoryOptions = []
       toast(`Lançamento movido para "${nome ?? 'outra categoria'}"`)
       router.refresh()
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao trocar categoria', 'error')
+      toast(mensagemDeErro(err, 'Erro ao trocar categoria'), 'error')
     } finally {
       setSalvando(false)
     }

@@ -45,7 +45,7 @@ export function ConfirmDialog({
       onClose={onClose}
       className="rounded-xl border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-black/40"
     >
-      <div className="w-[400px] p-6">
+      <div className="w-[400px] max-w-full p-6">
         <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
         <p className="mt-2 text-sm text-gray-600">{description}</p>
         {children && <div className="mt-4">{children}</div>}

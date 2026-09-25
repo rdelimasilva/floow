@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toCategoryOptions } from '@/lib/finance/category-options'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface CategoryOption {
   id: string
@@ -87,7 +88,7 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
       }
       onClose()
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao salvar regra', 'error')
+      toast(mensagemDeErro(e, 'Erro ao salvar regra'), 'error')
     } finally {
       setLoading(false)
     }
@@ -106,7 +107,7 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
       }
       setApplyPreview({ count })
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao calcular preview', 'error')
+      toast(mensagemDeErro(e, 'Erro ao calcular preview'), 'error')
     } finally {
       setIsApplying(false)
     }
@@ -122,7 +123,7 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
       toast(`${result.updated} transações categorizadas`)
       setApplyPreview(null)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao aplicar regra', 'error')
+      toast(mensagemDeErro(e, 'Erro ao aplicar regra'), 'error')
       setApplyPreview(null)
     } finally {
       setIsApplying(false)

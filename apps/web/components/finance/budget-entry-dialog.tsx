@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { currencyToCents, formatBRL } from '@floow/core-finance/src/balance'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 import { ACCOUNT_TYPE_LABEL } from '@/lib/finance/account-types'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 export interface BudgetCategoryOption {
   id: string
@@ -120,7 +121,7 @@ export function BudgetEntryDialog({
       setNewCategoryName('')
       setShowNewCategory(false)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao criar categoria. Tente novamente.', 'error')
+      toast(mensagemDeErro(e, 'Erro ao criar categoria. Tente novamente.'), 'error')
     } finally {
       setCreatingCategory(false)
     }

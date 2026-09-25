@@ -6,6 +6,7 @@ import { aprovarProposta, recusarProposta } from '@/lib/finance/forecast-match-a
 import type { PropostaPendente } from '@/lib/finance/forecast-match-queries'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 /**
  * A fila mostra os dois lados e o porquê do par.
@@ -54,7 +55,7 @@ export function MatchProposalQueue({ propostas: iniciais }: { propostas: Propost
         toast('Esta previsão não está mais válida. A fila foi atualizada.', 'info')
       }
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Não foi possível decidir', 'error')
+      toast(mensagemDeErro(error, 'Não foi possível decidir'), 'error')
     } finally {
       setDecidindo(null)
     }

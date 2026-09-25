@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ASSET_CLASS_LABEL, assetDisplayName, type AssetClass } from '@/lib/investments/asset-labels'
 import type { Asset } from '@floow/db'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 const ASSET_CLASSES = (Object.entries(ASSET_CLASS_LABEL) as [AssetClass, string][]).map(
   ([value, label]) => ({ value, label })
@@ -36,7 +37,7 @@ export function AssetEditForm({ asset }: AssetEditFormProps) {
       toast('Ativo atualizado com sucesso')
       router.push('/investments')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao atualizar ativo', 'error')
+      toast(mensagemDeErro(e, 'Erro ao atualizar ativo'), 'error')
     } finally {
       setSubmitting(false)
     }

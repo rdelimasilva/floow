@@ -41,7 +41,7 @@ interface NavSection {
   items: NavItem[]
 }
 
-const NAV_SECTIONS: NavSection[] = [
+export const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Principal',
     items: [

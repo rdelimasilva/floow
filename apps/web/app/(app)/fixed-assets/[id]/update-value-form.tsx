@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 export function UpdateValueForm({ assetId }: { assetId: string }) {
   const { toast } = useToast()
@@ -29,7 +30,7 @@ export function UpdateValueForm({ assetId }: { assetId: string }) {
       setValue('')
       toast('Valor atualizado com sucesso')
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao atualizar valor', 'error')
+      toast(mensagemDeErro(err, 'Erro ao atualizar valor'), 'error')
     } finally {
       setLoading(false)
     }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { formatPhoneDisplay } from '@/lib/notifications/phone'
 import {
   requestWhatsAppCode, confirmWhatsAppCode, removeWhatsApp,
@@ -32,6 +33,7 @@ export function WhatsAppPhoneForm({ phone }: { phone: string | null }) {
   const [codigo, setCodigo] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
+  const [confirmandoRemocao, setConfirmandoRemocao] = useState(false)
 
   async function enviar() {
     setOcupado(true)
@@ -69,6 +71,7 @@ export function WhatsAppPhoneForm({ phone }: { phone: string | null }) {
     setOcupado(true)
     try {
       await removeWhatsApp()
+      setConfirmandoRemocao(false)
       toast('WhatsApp removido')
       setEditando(true)
       router.refresh()
@@ -87,9 +90,18 @@ export function WhatsAppPhoneForm({ phone }: { phone: string | null }) {
         <Button variant="ghost" size="sm" onClick={() => setEditando(true)} disabled={ocupado}>
           Trocar
         </Button>
-        <Button variant="ghost" size="sm" onClick={remover} disabled={ocupado}>
+        <Button variant="ghost" size="sm" onClick={() => setConfirmandoRemocao(true)} disabled={ocupado}>
           Remover
         </Button>
+        <ConfirmDialog
+          open={confirmandoRemocao}
+          onClose={() => setConfirmandoRemocao(false)}
+          onConfirm={remover}
+          title="Remover WhatsApp"
+          description="Você deixa de receber os avisos por WhatsApp. Para voltar, será preciso verificar o número de novo com um código."
+          confirmLabel="Remover número"
+          loading={ocupado}
+        />
       </div>
     )
   }

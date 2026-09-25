@@ -9,13 +9,7 @@ import { ImportPreview } from './import-preview'
 import { ImportReview } from './import-review'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -24,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -189,7 +184,7 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
       setPreviewItems(items)
       setStep('reconciliation')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao analisar transações')
+      setError(mensagemDeErro(err, 'Erro ao analisar transações'))
     }
   }
 
@@ -223,7 +218,7 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
       setResult(importResult)
       setStep('done')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao importar transações')
+      setError(mensagemDeErro(err, 'Erro ao importar transações'))
       setStep('review')
     } finally {
       setReconciling(false)

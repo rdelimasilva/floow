@@ -19,6 +19,7 @@ import {
 
 import { AcquisitionTransactionField } from '@/components/fixed-assets/acquisition-transaction-field'
 import type { AcquisitionCandidate } from '@/lib/fixed-assets/queries'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface AssetData {
   id: string
@@ -90,7 +91,7 @@ export function EditAssetForm({ asset, types, candidates }: { asset: AssetData; 
       await updateFixedAsset(formData)
       router.push(`/fixed-assets/${asset.id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao atualizar bem')
+      setError(mensagemDeErro(err, 'Erro ao atualizar bem'))
     } finally {
       setLoading(false)
     }

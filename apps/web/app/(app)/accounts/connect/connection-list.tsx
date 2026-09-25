@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   recreateBankAuthorization,
   revokeBankConnection,
@@ -16,6 +17,7 @@ import { AvisoDeAutorizacao, useAtualizarAoVoltar } from './aguardando-autorizac
 import { resumoDaConclusao } from './wizard-passos'
 import { avisoDaAtualizacao } from './lista-conexoes'
 import { useConcluirAoAbrir } from './concluir-ao-abrir'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 /**
  * Rótulos dos status que o usuário vê.
@@ -54,6 +56,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
   const { toast } = useToast()
   const [pending, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [paraEncerrar, setParaEncerrar] = useState<BankConnectionSummary | null>(null)
   // Conexão cuja autorização está aberta na aba do banco.
   const [aguardando, setAguardando] = useState<string | null>(null)
 
@@ -104,7 +107,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
         const aviso = avisoDaAtualizacao(antes, result, automatico)
         if (aviso) toast(aviso)
       } catch (error) {
-        toast(error instanceof Error ? error.message : 'Não foi possível buscar as contas', 'error')
+        toast(mensagemDeErro(error, 'Não foi possível buscar as contas'), 'error')
       } finally {
         setBusyId(null)
       }
@@ -136,7 +139,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
           summary.rejected === 0 ? undefined : 'error',
         )
       } catch (error) {
-        toast(error instanceof Error ? error.message : 'Não foi possível importar os lançamentos', 'error')
+        toast(mensagemDeErro(error, 'Não foi possível importar os lançamentos'), 'error')
       } finally {
         setBusyId(null)
       }
@@ -161,7 +164,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
           setBusyId(null)
         }
       } catch (error) {
-        toast(error instanceof Error ? error.message : 'Não foi possível reabrir a autorização', 'error')
+        toast(mensagemDeErro(error, 'Não foi possível reabrir a autorização'), 'error')
         setBusyId(null)
       }
     })
@@ -172,9 +175,10 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
     startTransition(async () => {
       try {
         await revokeBankConnection(id)
+        setParaEncerrar(null)
         toast('Conexão encerrada. As transações já importadas continuam no floow.')
       } catch (error) {
-        toast(error instanceof Error ? error.message : 'Não foi possível encerrar', 'error')
+        toast(mensagemDeErro(error, 'Não foi possível encerrar'), 'error')
       } finally {
         setBusyId(null)
       }
@@ -184,6 +188,16 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-medium text-gray-500">Conexões</h2>
+
+      <ConfirmDialog
+        open={paraEncerrar !== null}
+        onClose={() => setParaEncerrar(null)}
+        onConfirm={() => paraEncerrar && handleRevoke(paraEncerrar.id)}
+        title="Encerrar conexão"
+        description={`O floow deixa de receber dados de ${paraEncerrar?.institutionName ?? 'este banco'}. As transações já importadas continuam aqui. Para reconectar, será preciso autorizar de novo no app do banco.`}
+        confirmLabel="Encerrar conexão"
+        loading={pending && busyId === paraEncerrar?.id}
+      />
 
       {connections.map((connection) => (
         <article key={connection.id} className="rounded-xl border border-gray-200 bg-white p-4">
@@ -236,7 +250,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleRevoke(connection.id)}
+                onClick={() => setParaEncerrar(connection)}
                 disabled={pending && busyId === connection.id}
               >
                 Encerrar

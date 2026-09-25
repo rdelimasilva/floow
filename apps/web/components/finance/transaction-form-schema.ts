@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { currencyToCents } from '@floow/core-finance/src/balance'
 
 export type TransactionType = 'income' | 'expense' | 'transfer'
 
@@ -8,7 +9,13 @@ export const transactionFormSchema = z
     accountId: z.string().uuid('Selecione uma conta'),
     transferToAccountId: z.string().uuid().optional(),
     categoryId: z.string().uuid().optional(),
-    amountRaw: z.string().min(1, 'Valor é obrigatório'),
+    amountRaw: z
+      .string()
+      .min(1, 'Valor é obrigatório')
+      .refine((v) => {
+        const cents = currencyToCents(v)
+        return Number.isFinite(cents) && cents > 0
+      }, 'Informe um valor maior que zero, como 150,75'),
     description: z.string().min(1, 'Descrição é obrigatória').max(500),
     date: z.string().min(1, 'Data é obrigatória'),
   })
@@ -17,6 +24,13 @@ export const transactionFormSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Selecione a conta de destino',
+        path: ['transferToAccountId'],
+      })
+    }
+    if (data.type === 'transfer' && data.transferToAccountId === data.accountId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Escolha uma conta diferente da conta de origem',
         path: ['transferToAccountId'],
       })
     }

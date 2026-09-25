@@ -11,6 +11,7 @@ import { filtrarRegras } from '@/lib/openfinance/filtrar-regras'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 type Nature = 'income' | 'expense' | 'transfer'
 type CategoryOption = { id: string; label: string; type: Nature }
@@ -82,7 +83,7 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
       .then((p) => {
         if (vivo) setPrevia(p)
       })
-      .catch((e) => toast(e instanceof Error ? e.message : 'Não foi possível calcular a prévia', 'error'))
+      .catch((e) => toast(mensagemDeErro(e, 'Não foi possível calcular a prévia'), 'error'))
     return () => {
       vivo = false
     }
@@ -105,7 +106,7 @@ export function RegrasConfirmadas({ confirmed, categoryOptions, accountOptions, 
       setAberta(null)
       router.refresh()
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Não foi possível salvar', 'error')
+      toast(mensagemDeErro(e, 'Não foi possível salvar'), 'error')
     } finally {
       setSalvando(false)
     }

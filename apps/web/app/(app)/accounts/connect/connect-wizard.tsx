@@ -24,6 +24,7 @@ import {
   type ContaDoFloow,
   type EstadoDoWizard,
 } from './wizard-passos'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface ConnectWizardProps {
   institutions: Institution[]
@@ -174,7 +175,7 @@ export function ConnectWizard({ institutions, loadError, contas }: ConnectWizard
       // 'mesma-aba': esta tela já está indo para o banco; a lista de conexões
       // conclui o vínculo quando o usuário voltar (Buscar contas).
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Não foi possível iniciar a conexão', 'error')
+      toast(mensagemDeErro(error, 'Não foi possível iniciar a conexão'), 'error')
       setSubmitting(false)
     }
   }

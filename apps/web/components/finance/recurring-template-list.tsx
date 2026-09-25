@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/table'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { dataDeCalendario, formatarDataDeCalendario } from '@/lib/finance/recurring-dates'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface AccountOption {
   id: string
@@ -110,7 +111,7 @@ export function RecurringTemplateList({
         toast(`${result.generated} transação(ões) gerada(s)`)
       }
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao gerar transações', 'error')
+      toast(mensagemDeErro(err, 'Erro ao gerar transações'), 'error')
     } finally {
       setGenerating(null)
     }
@@ -123,7 +124,7 @@ export function RecurringTemplateList({
       formData.append('id', template.id)
       await toggleRecurringActive(formData)
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao alterar status', 'error')
+      toast(mensagemDeErro(err, 'Erro ao alterar status'), 'error')
     } finally {
       setLoadingToggle(null)
     }
@@ -139,7 +140,7 @@ export function RecurringTemplateList({
       setDeleteTarget(null)
       toast('Recorrência removida')
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao remover recorrência', 'error')
+      toast(mensagemDeErro(err, 'Erro ao remover recorrência'), 'error')
     } finally {
       setDeleting(false)
     }

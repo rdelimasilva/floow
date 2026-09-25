@@ -20,6 +20,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface CategoryOption {
   id: string
@@ -63,7 +64,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
       formData.append('id', rule.id)
       await toggleEnabled(formData)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao alterar status da regra', 'error')
+      toast(mensagemDeErro(e, 'Erro ao alterar status da regra'), 'error')
     } finally {
       setLoading(false)
     }
@@ -79,7 +80,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
       setDeleteTarget(null)
       toast('Regra removida')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao remover regra', 'error')
+      toast(mensagemDeErro(e, 'Erro ao remover regra'), 'error')
     } finally {
       setLoading(false)
     }
@@ -97,7 +98,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
       }
       setApplyPreview({ rule, count })
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao calcular preview', 'error')
+      toast(mensagemDeErro(e, 'Erro ao calcular preview'), 'error')
     } finally {
       setLoading(false)
     }
@@ -113,7 +114,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
       toast(`${result.updated} transações categorizadas`)
       setApplyPreview(null)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao aplicar regra', 'error')
+      toast(mensagemDeErro(e, 'Erro ao aplicar regra'), 'error')
       setApplyPreview(null)
     } finally {
       setLoading(false)

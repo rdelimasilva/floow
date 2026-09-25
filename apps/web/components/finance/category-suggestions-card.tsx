@@ -13,6 +13,7 @@ import {
 import type { PendingSuggestion } from '@/lib/finance/category-suggestion-queries'
 import type { AcceptResult } from '@/lib/finance/category-suggestions/accept'
 import { AcceptSuggestionDialog } from './accept-suggestion-dialog'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface Props {
   suggestions: PendingSuggestion[]
@@ -33,7 +34,7 @@ export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted
       const r = await analyzeCategorySuggestions()
       toast(r.pending > 0 ? `${r.pending} sugestão(ões) encontrada(s)` : 'Nenhuma sugestão nova')
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao analisar', 'error')
+      toast(mensagemDeErro(err, 'Erro ao analisar'), 'error')
     } finally {
       setBusy(false)
     }
@@ -44,7 +45,7 @@ export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted
     try {
       await dismissCategorySuggestion(id)
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao recusar', 'error')
+      toast(mensagemDeErro(err, 'Erro ao recusar'), 'error')
     } finally {
       setBusy(false)
     }
@@ -62,7 +63,7 @@ export function CategorySuggestionsCard({ suggestions, parentOptions, onAccepted
       setAccepting(null)
       onAccepted(r)
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao aceitar sugestão', 'error')
+      toast(mensagemDeErro(err, 'Erro ao aceitar sugestão'), 'error')
     } finally {
       setBusy(false)
     }

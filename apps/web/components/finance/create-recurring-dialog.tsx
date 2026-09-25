@@ -10,6 +10,7 @@ import { currencyToCents } from '@floow/core-finance/src/balance'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 import { dataDeCalendario } from '@/lib/finance/recurring-dates'
 import { RecurringDurationFields, type EndMode } from '@/components/finance/recurring-duration-fields'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface AccountOption {
   id: string
@@ -182,7 +183,7 @@ export function CreateRecurringDialog({
       setNewCategoryName('')
       setShowNewCategory(false)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao criar categoria. Tente novamente.', 'error')
+      toast(mensagemDeErro(e, 'Erro ao criar categoria. Tente novamente.'), 'error')
     } finally {
       setCreatingCategory(false)
     }
@@ -225,7 +226,7 @@ export function CreateRecurringDialog({
       }
       onClose()
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao salvar recorrência', 'error')
+      toast(mensagemDeErro(err, 'Erro ao salvar recorrência'), 'error')
     } finally {
       setLoading(false)
     }

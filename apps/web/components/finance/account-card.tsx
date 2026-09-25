@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/toast'
 import type { Account } from '@floow/db'
 import { ACCOUNT_TYPE_CONFIG, ACCOUNT_TYPE_OPTIONS } from '@/lib/finance/account-types'
 import { DiasDoCartaoFields } from './dias-do-cartao-fields'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 const ACCOUNT_TYPES = ACCOUNT_TYPE_OPTIONS
 
@@ -75,7 +76,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
       setEditing(false)
       toast('Conta atualizada com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao atualizar conta', 'error')
+      toast(mensagemDeErro(e, 'Erro ao atualizar conta'), 'error')
     } finally {
       setLoading(false)
     }
@@ -105,7 +106,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
       setAdjustNewBalance('')
       setAdjustNote('')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao ajustar saldo', 'error')
+      toast(mensagemDeErro(e, 'Erro ao ajustar saldo'), 'error')
     } finally {
       setAdjustLoading(false)
     }
@@ -120,7 +121,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
       setConfirmDelete(false)
       toast('Conta removida com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao remover conta', 'error')
+      toast(mensagemDeErro(e, 'Erro ao remover conta'), 'error')
     } finally {
       setLoading(false)
     }

@@ -14,6 +14,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { formatBRL, currencyToCents } from '@floow/core-finance/src/balance'
 import { BudgetEntryDialog } from '@/components/finance/budget-entry-dialog'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface EntryForMonth {
   id: string
@@ -90,7 +91,7 @@ export function InvestingClient({
       toast('Lançamento atualizado')
       setEditingId(null)
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao atualizar', 'error')
+      toast(mensagemDeErro(err, 'Erro ao atualizar'), 'error')
     } finally {
       setSaving(false)
     }

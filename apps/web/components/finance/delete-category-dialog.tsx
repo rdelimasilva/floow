@@ -5,6 +5,7 @@ import { getCategoryUsage, reassignAndDeleteCategory, deleteCategory } from '@/l
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { toCategoryOptions } from '@/lib/finance/category-options'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface CategoryOption {
   id: string
@@ -69,7 +70,7 @@ export function DeleteCategoryDialog({
     getCategoryUsage(target.id)
       .then((u) => setUsage(u as Usage))
       .catch((e) => {
-        toast(e instanceof Error ? e.message : 'Erro ao carregar uso da categoria', 'error')
+        toast(mensagemDeErro(e, 'Erro ao carregar uso da categoria'), 'error')
         onClose()
       })
       .finally(() => setLoadingUsage(false))
@@ -114,7 +115,7 @@ export function DeleteCategoryDialog({
       }
       onDeleted()
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao remover categoria', 'error')
+      toast(mensagemDeErro(e, 'Erro ao remover categoria'), 'error')
     } finally {
       setSubmitting(false)
     }

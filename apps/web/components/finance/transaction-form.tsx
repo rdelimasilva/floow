@@ -33,6 +33,7 @@ import { useToast } from '@/components/ui/toast'
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 import { AccountSelect } from './account-select'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
@@ -123,59 +124,39 @@ export function TransactionForm({
   })()
 
   async function onSubmit(data: TransactionFormData) {
-    const amountCents = currencyToCents(data.amountRaw)
-    if (amountCents <= 0) return
+    // O schema já garante valor > 0; aqui só converte.
+    const formData = new FormData()
+    formData.append('type', data.type)
+    formData.append('accountId', data.accountId)
+    formData.append('amountCents', String(currencyToCents(data.amountRaw)))
+    formData.append('description', data.description)
+    if (data.categoryId) formData.append('categoryId', data.categoryId)
+    const destino = data.type === 'transfer' ? data.transferToAccountId : undefined
 
-    if (isRecurring) {
-      const formData = new FormData()
-      formData.append('type', data.type)
-      formData.append('accountId', data.accountId)
-      formData.append('amountCents', String(amountCents))
-      formData.append('description', data.description)
-      formData.append('startDate', data.date)
-      formData.append('frequency', frequency)
-      formData.append('endMode', endMode)
+    try {
+      if (isRecurring) {
+        formData.append('startDate', data.date)
+        formData.append('frequency', frequency)
+        formData.append('endMode', endMode)
+        if (destino) formData.append('destinationAccountId', destino)
+        if (endMode === 'count') formData.append('installmentCount', installmentCount)
+        if (endMode === 'end_date' && recurringEndDate) formData.append('endDate', recurringEndDate)
 
-      if (data.categoryId) formData.append('categoryId', data.categoryId)
-      if (data.type === 'transfer' && data.transferToAccountId) {
-        formData.append('destinationAccountId', data.transferToAccountId)
-      }
+        await createRecurringTransactions(formData)
+        if (onSuccess) return onSuccess()
+      } else {
+        formData.append('date', data.date)
+        if (destino) formData.append('transferToAccountId', destino)
 
-      if (endMode === 'count') {
-        formData.append('installmentCount', installmentCount)
+        const created = await createTransaction(formData)
+        if (onSuccess) return onSuccess(Array.isArray(created) ? created : [created])
       }
-      if (endMode === 'end_date' && recurringEndDate) {
-        formData.append('endDate', recurringEndDate)
-      }
-
-      await createRecurringTransactions(formData)
-      if (onSuccess) {
-        onSuccess()
-        return
-      }
-    } else {
-      const formData = new FormData()
-      formData.append('type', data.type)
-      formData.append('accountId', data.accountId)
-      formData.append('amountCents', String(amountCents))
-      formData.append('description', data.description)
-      formData.append('date', data.date)
-
-      if (data.categoryId) formData.append('categoryId', data.categoryId)
-      if (data.type === 'transfer' && data.transferToAccountId) {
-        formData.append('transferToAccountId', data.transferToAccountId)
-      }
-
-      const created = await createTransaction(formData)
-      if (onSuccess) {
-        onSuccess(Array.isArray(created) ? created : [created])
-        return
-      }
+    } catch (e) {
+      toast(mensagemDeErro(e, 'Não foi possível registrar a transação. Tente de novo.'), 'error')
+      return
     }
 
-    if (!onSuccess) {
-      router.push('/transactions')
-    }
+    router.push('/transactions')
   }
 
   function handleTypeChange(type: TransactionType) {
@@ -203,7 +184,7 @@ export function TransactionForm({
       setNewCategoryName('')
       setShowNewCategory(false)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao criar categoria. Tente novamente.', 'error')
+      toast(mensagemDeErro(e, 'Erro ao criar categoria. Tente novamente.'), 'error')
     } finally {
       setCreatingCategory(false)
     }
@@ -266,7 +247,7 @@ export function TransactionForm({
             render={({ field }) => (
               <AccountSelect
                 id="transferToAccountId"
-                accounts={transferAccounts}
+                accounts={transferAccounts.filter((a) => a.id !== watch('accountId'))}
                 placeholder="Selecione a conta de destino"
                 value={field.value}
                 onChange={field.onChange}

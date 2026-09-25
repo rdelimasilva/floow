@@ -20,6 +20,7 @@ import { livreDaCategoria, type ParcelasDaCategoria } from '@/lib/finance/parcel
 import { ParcelasNaLinha } from './parcelas-na-linha'
 import { BudgetGoalSuggestionsCard } from '@/components/finance/budget-goal-suggestions-card'
 import type { BudgetGoalSuggestionRow } from '@/lib/finance/budget-goal-suggestion-queries'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface CategoryOption {
   id: string
@@ -138,7 +139,7 @@ export function SpendingClient({
       toast('Lançamento atualizado')
       setEditingId(null)
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao atualizar', 'error')
+      toast(mensagemDeErro(err, 'Erro ao atualizar'), 'error')
     } finally {
       setSaving(false)
     }

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface SuccessionPlanDefaults {
   brazilianState: string | null
@@ -204,7 +205,7 @@ export function SuccessionForm({
         })
         setSaveSuccess(true)
       } catch (err) {
-        setSaveError(err instanceof Error ? err.message : 'Erro ao salvar plano')
+        setSaveError(mensagemDeErro(err, 'Erro ao salvar plano'))
       }
     })
   }

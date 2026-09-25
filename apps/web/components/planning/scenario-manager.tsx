@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { saveSimulationScenario, deleteSimulationScenario } from '@/lib/planning/actions'
 import type { SimulationScenario } from '@floow/db'
@@ -23,6 +24,8 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
   const [scenarioName, setScenarioName] = useState('')
   const [showSaveInput, setShowSaveInput] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [paraExcluir, setParaExcluir] = useState<SimulationScenario | null>(null)
+  const [excluindo, setExcluindo] = useState(false)
 
   async function handleSave() {
     if (!scenarioName.trim()) return
@@ -43,14 +46,19 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
     }
   }
 
-  async function handleDelete(e: React.MouseEvent, id: string) {
-    e.stopPropagation()
+  async function handleDelete() {
+    if (!paraExcluir) return
+    const id = paraExcluir.id
+    setExcluindo(true)
     try {
       await deleteSimulationScenario(id)
       setScenarios((prev) => prev.filter((s) => s.id !== id))
       toast('Cenário excluído')
+      setParaExcluir(null)
     } catch {
       toast('Erro ao excluir cenário', 'error')
+    } finally {
+      setExcluindo(false)
     }
   }
 
@@ -118,7 +126,7 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
                 </div>
                 <button
                   type="button"
-                  onClick={(e) => handleDelete(e, s.id)}
+                  onClick={(e) => { e.stopPropagation(); setParaExcluir(s) }}
                   className="ml-3 shrink-0 rounded p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                   title="Excluir cenário"
                 >
@@ -133,6 +141,15 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
           </p>
         ) : null}
       </CardContent>
+      <ConfirmDialog
+        open={paraExcluir !== null}
+        onClose={() => setParaExcluir(null)}
+        onConfirm={handleDelete}
+        title="Excluir cenário"
+        description={`O cenário "${paraExcluir?.name ?? ''}" será excluído. Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        loading={excluindo}
+      />
     </Card>
   )
 }

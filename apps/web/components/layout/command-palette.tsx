@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Wallet, ArrowLeftRight, TrendingUp, Tags, BarChart3,
   PiggyBank, Target, Building2, Landmark, HelpCircle, Search,
+  Bot, Gauge, RefreshCw, Settings, Coins,
 } from 'lucide-react'
 
 interface CommandItem {
@@ -14,26 +15,42 @@ interface CommandItem {
   keywords: string[]
 }
 
-const COMMANDS: CommandItem[] = [
+export const COMMANDS: CommandItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, keywords: ['inicio', 'home', 'visao geral'] },
+  { label: 'Consultor Financeiro', href: '/cfo', icon: Bot, keywords: ['cfo', 'assistente', 'chat', 'insights'] },
   { label: 'Fluxo de Caixa', href: '/cash-flow', icon: BarChart3, keywords: ['fluxo', 'caixa', 'grafico'] },
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight, keywords: ['extrato', 'lancamentos'] },
   { label: 'Importar Extrato', href: '/transactions/import', icon: ArrowLeftRight, keywords: ['importar', 'ofx', 'csv', 'banco'] },
+  { label: 'Recorrentes', href: '/transactions/recurring', icon: RefreshCw, keywords: ['recorrencia', 'parcelas', 'fixas', 'mensal'] },
   { label: 'Classificar lançamentos', href: '/transactions/review', icon: ArrowLeftRight, keywords: ['revisar', 'contraparte', 'fila', 'pendente', 'classificar'] },
+  { label: 'Ritmo de Gastos', href: '/budgets/pacing', icon: Gauge, keywords: ['ritmo', 'pacing', 'gastos do mes'] },
   { label: 'Plano de Gastos', href: '/budgets/spending', icon: PiggyBank, keywords: ['orcamento', 'gastos', 'limite', 'meta'] },
   { label: 'Meta de Investimentos', href: '/budgets/investing', icon: Target, keywords: ['aporte', 'investir', 'meta'] },
   { label: 'Investimentos', href: '/investments', icon: TrendingUp, keywords: ['carteira', 'portfolio', 'acoes', 'fundos'] },
+  { label: 'Resumo da Carteira', href: '/investments/dashboard', icon: TrendingUp, keywords: ['alocacao', 'patrimonio', 'evolucao'] },
+  { label: 'Renda passiva', href: '/investments/income', icon: Coins, keywords: ['dividendos', 'proventos', 'juros'] },
   { label: 'Bens Imóveis', href: '/fixed-assets', icon: Building2, keywords: ['imovel', 'carro', 'bens'] },
   { label: 'Controle de Dívidas', href: '/debts', icon: Landmark, keywords: ['divida', 'emprestimo', 'financiamento'] },
   { label: 'Planejamento', href: '/planning', icon: Target, keywords: ['aposentadoria', 'fi', 'simulacao'] },
   { label: 'Simulação', href: '/planning/simulation', icon: BarChart3, keywords: ['cenario', 'projecao'] },
-  { label: 'Calculadora FI', href: '/planning/fi-calculator', icon: Target, keywords: ['independencia', 'financeira', 'numero fi'] },
-  { label: 'Estratégia de Retirada', href: '/planning/withdrawal', icon: Wallet, keywords: ['retirada', '4%', 'aposentadoria'] },
   { label: 'Plano Sucessório', href: '/planning/succession', icon: HelpCircle, keywords: ['heranca', 'itcmd', 'herdeiros'] },
   { label: 'Contas', href: '/accounts', icon: Wallet, keywords: ['conta corrente', 'poupanca', 'cartao'] },
   { label: 'Categorias', href: '/categories', icon: Tags, keywords: ['tags', 'classificacao'] },
+  { label: 'Configurações', href: '/settings', icon: Settings, keywords: ['perfil', 'senha', 'notificacoes', 'whatsapp'] },
   { label: 'Ajuda', href: '/help', icon: HelpCircle, keywords: ['faq', 'duvida', 'glossario'] },
 ]
+
+function semAcento(texto: string) {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+export function filtrarComandos(query: string): CommandItem[] {
+  const q = semAcento(query.trim())
+  if (!q) return COMMANDS
+  return COMMANDS.filter(
+    (cmd) => semAcento(cmd.label).includes(q) || cmd.keywords.some((k) => semAcento(k).includes(q)),
+  )
+}
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
@@ -43,15 +60,7 @@ export function CommandPalette() {
   const listRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
-  const filtered = query.trim()
-    ? COMMANDS.filter((cmd) => {
-        const q = query.toLowerCase()
-        return (
-          cmd.label.toLowerCase().includes(q) ||
-          cmd.keywords.some((k) => k.includes(q))
-        )
-      })
-    : COMMANDS
+  const filtered = filtrarComandos(query)
 
   const navigate = useCallback((href: string) => {
     setOpen(false)

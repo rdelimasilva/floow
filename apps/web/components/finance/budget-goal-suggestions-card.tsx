@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { dismissBudgetGoalSuggestion } from '@/lib/finance/budget-goal-suggestion-actions'
 import type { BudgetGoalSuggestionRow } from '@/lib/finance/budget-goal-suggestion-queries'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface Props {
   suggestions: BudgetGoalSuggestionRow[]
@@ -45,7 +46,7 @@ export function BudgetGoalSuggestionsCard({ suggestions, onCreate }: Props) {
     try {
       await dismissBudgetGoalSuggestion(categoryId)
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao descartar', 'error')
+      toast(mensagemDeErro(err, 'Erro ao descartar'), 'error')
     } finally {
       setDescartando(null)
     }

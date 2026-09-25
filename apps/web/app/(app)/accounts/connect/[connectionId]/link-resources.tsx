@@ -12,6 +12,7 @@ import {
 import { linkResourceToAccount } from '@/lib/openfinance/resource-actions'
 import { concluirConexaoGuiada } from '@/lib/openfinance/conexao-guiada-actions'
 import { useConcluirAoAbrir } from '../concluir-ao-abrir'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface Resource {
   id: string
@@ -87,7 +88,7 @@ export function LinkResources({
         )
         router.refresh()
       } catch (error) {
-        toast(error instanceof Error ? error.message : 'Não foi possível atualizar', 'error')
+        toast(mensagemDeErro(error, 'Não foi possível atualizar'), 'error')
       }
     })
   }
@@ -117,7 +118,7 @@ export function LinkResources({
         window.location.href = authUrl
       } catch (error) {
         toast(
-          error instanceof Error ? error.message : 'Não foi possível reabrir a autorização',
+          mensagemDeErro(error, 'Não foi possível reabrir a autorização'),
           'error',
         )
       }
@@ -139,7 +140,7 @@ export function LinkResources({
         toast('Conta vinculada.')
         router.refresh()
       } catch (error) {
-        toast(error instanceof Error ? error.message : 'Não foi possível vincular', 'error')
+        toast(mensagemDeErro(error, 'Não foi possível vincular'), 'error')
       }
     })
   }

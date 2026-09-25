@@ -17,6 +17,7 @@ import {
 import type { PreviewItem, TransactionOverride } from '@/lib/finance/import-actions'
 import type { Account } from '@floow/db'
 import { toCategoryOptions } from '@/lib/finance/category-options'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 function formatCents(cents: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
@@ -145,7 +146,7 @@ export function ImportReview({
       toast('Categoria criada com sucesso')
       closeCreateCategory()
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao criar categoria', 'error')
+      toast(mensagemDeErro(e, 'Erro ao criar categoria'), 'error')
     } finally {
       setCreatingCategory(false)
     }

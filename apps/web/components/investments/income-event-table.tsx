@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast'
 import { EVENT_TYPE_LABEL } from '@/lib/investments/asset-labels'
 import type { IncomeEventWithAsset } from '@/lib/investments/queries'
 import { formatarDia } from '@/lib/formatar-dia'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 type SerializedIncomeEvent = Omit<IncomeEventWithAsset, 'eventDate'> & {
   eventDate: string | Date
@@ -32,7 +33,7 @@ export function IncomeEventTable({ events }: IncomeEventTableProps) {
       setConfirmDeleteId(null)
       toast('Evento removido com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao remover evento', 'error')
+      toast(mensagemDeErro(e, 'Erro ao remover evento'), 'error')
     } finally {
       setDeleting(false)
     }

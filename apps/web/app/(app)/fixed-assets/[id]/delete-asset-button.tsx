@@ -6,6 +6,7 @@ import { deleteFixedAsset } from '@/lib/fixed-assets/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 export function DeleteAssetButton({ assetId, assetName }: { assetId: string; assetName: string }) {
   const router = useRouter()
@@ -22,7 +23,7 @@ export function DeleteAssetButton({ assetId, assetName }: { assetId: string; ass
       toast('Bem removido')
       router.push('/fixed-assets')
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao remover', 'error')
+      toast(mensagemDeErro(err, 'Erro ao remover'), 'error')
     } finally {
       setLoading(false)
     }

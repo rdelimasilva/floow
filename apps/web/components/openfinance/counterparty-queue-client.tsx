@@ -12,6 +12,7 @@ import { transferAccountLabel } from '@/lib/openfinance/transfer-direction'
 import { avisoDeContaDeDestino } from '@/lib/openfinance/transfer-conflict'
 import { ItemRow } from './counterparty-item-row'
 import { RegrasConfirmadas } from './regras-confirmadas'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 type CategoryOption = { id: string; label: string; type: 'income' | 'expense' | 'transfer' }
 type AccountOption = { id: string; name: string }
@@ -187,7 +188,7 @@ function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryO
       })
       toast(`${reclassified} lançamentos classificados.`)
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Não foi possível salvar', 'error')
+      toast(mensagemDeErro(error, 'Não foi possível salvar'), 'error')
     } finally {
       setSavingId(null)
     }

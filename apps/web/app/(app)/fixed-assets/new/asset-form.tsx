@@ -20,6 +20,7 @@ import {
 
 import { AcquisitionTransactionField } from '@/components/fixed-assets/acquisition-transaction-field'
 import type { AcquisitionCandidate } from '@/lib/fixed-assets/queries'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface TypeOption {
   id: string
@@ -85,7 +86,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
       await createFixedAsset(formData)
       router.push('/fixed-assets')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao cadastrar bem')
+      setError(mensagemDeErro(err, 'Erro ao cadastrar bem'))
     } finally {
       setLoading(false)
     }

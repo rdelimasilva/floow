@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/toast'
 import { ASSET_CLASS_LABEL, type AssetClass } from '@/lib/investments/asset-labels'
 import { positionBadges } from './position-badges'
 import type { EnrichedPosition } from '@/lib/investments/queries'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -50,7 +51,7 @@ const PositionRow = memo(function PositionRow({
       setConfirmDelete(false)
       toast('Ativo removido com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao remover ativo', 'error')
+      toast(mensagemDeErro(e, 'Erro ao remover ativo'), 'error')
     } finally {
       setDeleting(false)
     }

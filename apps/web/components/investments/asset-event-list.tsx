@@ -7,6 +7,7 @@ import { deletePortfolioEvent } from '@/lib/investments/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { formatarDia } from '@/lib/formatar-dia'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface EventRow {
   id: string
@@ -40,7 +41,7 @@ export function AssetEventList({ events, readOnly = false }: AssetEventListProps
       setConfirmDeleteId(null)
       toast('Evento removido com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao remover evento', 'error')
+      toast(mensagemDeErro(e, 'Erro ao remover evento'), 'error')
     } finally {
       setDeleting(false)
     }

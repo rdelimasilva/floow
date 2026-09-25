@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toDateInputValue, type TransactionRowData, type AccountOption, type CategoryOption } from './transaction-list-types'
 import { toCategoryOptions } from '@/lib/finance/category-options'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface TransactionEditRowProps {
   tx: TransactionRowData
@@ -106,7 +107,7 @@ export function TransactionEditRow({
       return true
     } catch (e) {
       toastRef.current(
-        e instanceof Error ? e.message : 'Não foi possível salvar a edição. Tente novamente.',
+        mensagemDeErro(e, 'Não foi possível salvar a edição. Tente novamente.'),
         'error',
       )
       return false
@@ -151,7 +152,7 @@ export function TransactionEditRow({
       setShowNewCat(false)
       toast('Categoria criada')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Não foi possível criar a categoria. Tente novamente.', 'error')
+      toast(mensagemDeErro(e, 'Não foi possível criar a categoria. Tente novamente.'), 'error')
     } finally {
       setCreatingCat(false)
     }

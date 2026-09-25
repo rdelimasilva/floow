@@ -63,7 +63,10 @@ export async function createTransaction(formData: FormData) {
 
   if (input.type === 'transfer') {
     if (!input.transferToAccountId) {
-      throw new Error('transferToAccountId is required for transfer transactions')
+      throw new Error('Transferência exige a conta de destino.')
+    }
+    if (input.transferToAccountId === input.accountId) {
+      throw new Error('A conta de destino não pode ser a mesma conta de origem.')
     }
 
     const transferToAccountId = input.transferToAccountId

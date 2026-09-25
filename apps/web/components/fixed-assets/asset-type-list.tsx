@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface AssetType {
   id: string
@@ -42,7 +43,7 @@ export function AssetTypeList({ types }: AssetTypeListProps) {
       setName('')
       toast('Tipo criado com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao criar tipo', 'error')
+      toast(mensagemDeErro(e, 'Erro ao criar tipo'), 'error')
     } finally {
       setLoading(false)
     }
@@ -59,7 +60,7 @@ export function AssetTypeList({ types }: AssetTypeListProps) {
       setName('')
       toast('Tipo atualizado com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao atualizar tipo', 'error')
+      toast(mensagemDeErro(e, 'Erro ao atualizar tipo'), 'error')
     } finally {
       setLoading(false)
     }
@@ -75,7 +76,7 @@ export function AssetTypeList({ types }: AssetTypeListProps) {
       setDeleteTarget(null)
       toast('Tipo removido com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao remover tipo', 'error')
+      toast(mensagemDeErro(e, 'Erro ao remover tipo'), 'error')
     } finally {
       setLoading(false)
     }

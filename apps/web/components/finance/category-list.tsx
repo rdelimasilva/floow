@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DeleteCategoryDialog } from './delete-category-dialog'
 import { sortCategoryTree } from '@/lib/finance/category-options'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface Category {
   id: string
@@ -92,7 +93,7 @@ export function CategoryList({ categories }: CategoryListProps) {
       resetForm()
       toast('Categoria criada com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao criar categoria', 'error')
+      toast(mensagemDeErro(e, 'Erro ao criar categoria'), 'error')
     } finally {
       setLoading(false)
     }
@@ -113,7 +114,7 @@ export function CategoryList({ categories }: CategoryListProps) {
       resetForm()
       toast('Categoria atualizada com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao atualizar categoria', 'error')
+      toast(mensagemDeErro(e, 'Erro ao atualizar categoria'), 'error')
     } finally {
       setLoading(false)
     }

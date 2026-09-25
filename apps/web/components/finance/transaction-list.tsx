@@ -22,6 +22,7 @@ import { toCategoryOptions } from '@/lib/finance/category-options'
 import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
 import { intercalarFaturas, type FaturaNoExtrato } from '@/lib/finance/intercalar-faturas'
 import { FaturaDesktopRow, FaturaMobileCard, chaveDaFatura } from './fatura-row'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface TransactionListProps {
   transactions: TransactionRowData[]
@@ -116,7 +117,7 @@ export function TransactionList({
       await toggleIgnoreTransaction(formData)
       toastRef.current(tx.isIgnored ? 'Transação restaurada' : 'Transação ignorada')
     } catch (e) {
-      toastRef.current(e instanceof Error ? e.message : 'Não foi possível alterar a transação.', 'error')
+      toastRef.current(mensagemDeErro(e, 'Não foi possível alterar a transação.'), 'error')
     } finally {
       setLoading(false)
     }
@@ -138,7 +139,7 @@ export function TransactionList({
             : 'Fora do fluxo de caixa, só este lançamento',
       )
     } catch (e) {
-      toastRef.current(e instanceof Error ? e.message : 'Não foi possível alterar o lançamento.', 'error')
+      toastRef.current(mensagemDeErro(e, 'Não foi possível alterar o lançamento.'), 'error')
     } finally {
       setLoading(false)
     }
@@ -189,7 +190,7 @@ export function TransactionList({
       setUnreconcileTarget(null)
       toast(fila === 'previsoes' ? 'Devolvido para Confirmar previsões' : 'Devolvido para Classificar lançamentos')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Não foi possível desconciliar.', 'error')
+      toast(mensagemDeErro(e, 'Não foi possível desconciliar.'), 'error')
     } finally {
       setLoading(false)
     }
@@ -205,7 +206,7 @@ export function TransactionList({
       setDeleteTarget(null)
       toast('Transação removida com sucesso')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Não foi possível remover a transação.', 'error')
+      toast(mensagemDeErro(e, 'Não foi possível remover a transação.'), 'error')
     } finally {
       setLoading(false)
     }
@@ -229,7 +230,7 @@ export function TransactionList({
           : `Recorrência cancelada — ${futurasRemovidas} parcela(s) futura(s) removida(s)`,
       )
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Não foi possível cancelar a recorrência.', 'error')
+      toast(mensagemDeErro(e, 'Não foi possível cancelar a recorrência.'), 'error')
     } finally {
       setLoading(false)
     }
@@ -243,7 +244,7 @@ export function TransactionList({
       setSelected(new Set())
       setBulkDeleteOpen(false)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Não foi possível remover as transações.', 'error')
+      toast(mensagemDeErro(e, 'Não foi possível remover as transações.'), 'error')
     } finally {
       setBulkLoading(false)
     }
@@ -259,7 +260,7 @@ export function TransactionList({
       setShowBulkCat(false)
       setBulkCatId('')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Não foi possível categorizar as transações.', 'error')
+      toast(mensagemDeErro(e, 'Não foi possível categorizar as transações.'), 'error')
     } finally {
       setBulkLoading(false)
     }

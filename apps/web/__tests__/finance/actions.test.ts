@@ -190,6 +190,24 @@ describe('createTransaction', () => {
     expect(transactionInserts).toHaveLength(2)
   })
 
+  // Só a edição recusava origem = destino; a criação gravava o par na mesma
+  // conta, um débito e um crédito que se anulam e poluem o extrato.
+  it('transfer: recusa destino igual à origem sem gravar nada', async () => {
+    const formData = buildFormData({
+      accountId: TEST_SOURCE_ACCOUNT_ID,
+      type: 'transfer',
+      amountCents: '5000',
+      description: 'Transfer test',
+      date: '2026-01-01',
+      transferToAccountId: TEST_SOURCE_ACCOUNT_ID,
+    })
+
+    await expect(createTransaction(formData)).rejects.toThrow(
+      'A conta de destino não pode ser a mesma conta de origem.',
+    )
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
   it('transfer: both rows share the same non-null transferGroupId', async () => {
     // Capture the values passed to insert
     const capturedValues: Array<Record<string, unknown>> = []
