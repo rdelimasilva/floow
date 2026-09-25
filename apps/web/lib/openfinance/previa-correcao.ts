@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, ne, or } from 'drizzle-orm'
 import { getDb, transactions } from '@floow/db'
 import type { FormaDoPar, LancamentoDaRegra } from './desfazer-par'
 import { contarNaContaNova } from './mesma-conta'
@@ -25,30 +25,52 @@ export interface PreviaCorrecao {
   naContaNova: number
 }
 
+/** A decisão que a correção vai gravar (a conta já passou por `contaQueARegraGrava`). */
+export interface DecisaoAlvo {
+  nature: 'income' | 'expense' | 'transfer'
+  categoryId: string | null
+  transferAccountId: string | null
+}
+
 /**
- * Os lançamentos que ainda seguem a decisão antiga da regra. O que diverge
- * foi exceção decidida à mão e fica como está (spec §4.2). Regra de
- * transferência sem conta (CPF próprio legado) leva todas as transferências
- * confirmadas da contraparte: cada uma foi decidida por lançamento.
+ * Os lançamentos confirmados da regra que estão diferentes da decisão nova.
+ *
+ * Não dá para selecionar pelo que a regra diz hoje: se ela já foi salva uma
+ * vez sem o histórico, aponta para a conta nova e os lançamentos antigos
+ * ficaram na conta velha, e a busca não achava nenhum. O custo: uma exceção
+ * decidida à mão também entra, e aparece na contagem da prévia.
+ *
+ * CPF próprio (transferência sem conta) é a exceção: "diferente da decisão"
+ * seria tudo, inclusive o que foi decidido lançamento a lançamento. Ali vale
+ * o que segue a regra atual.
  */
 export async function selecionarLancamentosDaRegra(
   tx: Pick<Db, 'select'>,
   orgId: string,
   regra: RegraAtual,
+  nova: DecisaoAlvo,
 ): Promise<LancamentoDaRegra[]> {
   const conds = [
     eq(transactions.orgId, orgId),
     eq(transactions.counterpartyId, regra.id),
     eq(transactions.reviewState, 'confirmed'),
   ]
-  if (regra.nature === 'transfer') {
+  if (nova.nature === 'transfer' && !nova.transferAccountId) {
+    if (regra.nature !== 'transfer') return []
     conds.push(eq(transactions.type, 'transfer'))
     if (regra.transferAccountId) conds.push(eq(transactions.transferAccountId, regra.transferAccountId))
-  } else if (regra.nature) {
-    conds.push(eq(transactions.type, regra.nature))
-    conds.push(regra.categoryId ? eq(transactions.categoryId, regra.categoryId) : isNull(transactions.categoryId))
+  } else if (nova.nature === 'transfer') {
+    conds.push(or(
+      ne(transactions.type, 'transfer'),
+      isNull(transactions.transferAccountId),
+      ne(transactions.transferAccountId, nova.transferAccountId!),
+    )!)
   } else {
-    return []
+    conds.push(or(
+      ne(transactions.type, nova.nature),
+      isNull(transactions.categoryId),
+      ne(transactions.categoryId, nova.categoryId!),
+    )!)
   }
 
   return tx

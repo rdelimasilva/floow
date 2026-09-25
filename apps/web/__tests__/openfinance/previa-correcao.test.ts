@@ -40,26 +40,37 @@ describe('somarPrevia', () => {
   })
 })
 
-describe('selecionarLancamentosDaRegra — exceção decidida à mão fica de fora (spec §4.2)', () => {
-  it('regra de transferência: só confirmados da contraparte com type transfer e a conta antiga', async () => {
+describe('selecionarLancamentosDaRegra — o que está diferente da decisão nova', () => {
+  const regra = { id: 'cp', nature: 'transfer' as const, categoryId: null, transferAccountId: 'corretora' }
+
+  it('transferência para a conta nova: pega o que não é transferência para ela, inclusive o que ficou na conta antiga', async () => {
+    // Caso real: a regra já foi salva sem histórico apontando para a
+    // Corretora, e os lançamentos antigos continuam na XP. Selecionar pela
+    // regra atual não achava nenhum.
     const { tx, ops } = fakeTx([[]])
-    await selecionarLancamentosDaRegra(tx, 'org-1', { id: 'cp', nature: 'transfer', categoryId: null, transferAccountId: 'xp' })
+    await selecionarLancamentosDaRegra(tx, 'org-1', regra, { nature: 'transfer', categoryId: null, transferAccountId: 'corretora' })
     const q = dialect.sqlToQuery(ops[0].where as SQL)
     expect(q.sql).toContain('"transactions"."org_id" = $1')
     expect(q.sql).toContain('"transactions"."counterparty_id" = $2')
     expect(q.sql).toContain('"transactions"."review_state" = $3')
-    expect(q.sql).toContain('"transactions"."type" = $4')
-    expect(q.sql).toContain('"transactions"."transfer_account_id" = $5')
-    // Lançamento da contraparte confirmado como despesa, ou para outra conta,
-    // não bate nessas condições: não é selecionado, não é desfeito.
-    expect(q.params).toEqual(['org-1', 'cp', 'confirmed', 'transfer', 'xp'])
+    expect(q.sql).toContain('("transactions"."type" <> $4 or "transactions"."transfer_account_id" is null or "transactions"."transfer_account_id" <> $5)')
+    expect(q.params).toEqual(['org-1', 'cp', 'confirmed', 'transfer', 'corretora'])
   })
 
-  it('regra de despesa: só os com o mesmo type e a mesma categoria', async () => {
+  it('despesa: pega o que não é despesa nessa categoria', async () => {
     const { tx, ops } = fakeTx([[]])
-    await selecionarLancamentosDaRegra(tx, 'org-1', { id: 'cp', nature: 'expense', categoryId: 'cat', transferAccountId: null })
+    await selecionarLancamentosDaRegra(tx, 'org-1', regra, { nature: 'expense', categoryId: 'cat', transferAccountId: null })
     const q = dialect.sqlToQuery(ops[0].where as SQL)
-    expect(q.sql).toContain('"transactions"."category_id" = $5')
+    expect(q.sql).toContain('("transactions"."type" <> $4 or "transactions"."category_id" is null or "transactions"."category_id" <> $5)')
     expect(q.params).toEqual(['org-1', 'cp', 'confirmed', 'expense', 'cat'])
+  })
+
+  it('CPF próprio (transferência sem conta): segue a regra atual, para não desfazer o que foi decidido lançamento a lançamento', async () => {
+    const { tx, ops } = fakeTx([[]])
+    await selecionarLancamentosDaRegra(tx, 'org-1', { ...regra, transferAccountId: 'xp' }, { nature: 'transfer', categoryId: null, transferAccountId: null })
+    const q = dialect.sqlToQuery(ops[0].where as SQL)
+    expect(q.sql).toContain('"transactions"."type" = $4')
+    expect(q.sql).toContain('"transactions"."transfer_account_id" = $5')
+    expect(q.params).toEqual(['org-1', 'cp', 'confirmed', 'transfer', 'xp'])
   })
 })

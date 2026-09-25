@@ -76,14 +76,20 @@ lançamento muda. É o padrão da caixa no editor.
 
 Numa única transação de banco:
 
-1. **Seleciona** os lançamentos da regra que ainda seguem a decisão antiga:
-   `counterparty_id = X`, `review_state = 'confirmed'` e
-   - regra antiga transferência: `type = 'transfer'` e
-     `transfer_account_id = conta antiga`;
-   - regra antiga receita/despesa: `type` e `category_id` iguais aos da regra.
+1. **Seleciona** os lançamentos da regra que estão diferentes da decisão
+   nova: `counterparty_id = X`, `review_state = 'confirmed'` e
+   - decisão nova transferência para a conta A: não é `transfer` para A;
+   - decisão nova receita/despesa na categoria C: não é esse `type` com C.
 
-   Lançamento que diverge da regra antiga foi uma exceção decidida à mão e
-   fica como está. Não há coluna de "override": a divergência é o sinal.
+   *Revisado em 24/09, depois do uso real:* a versão anterior selecionava
+   pelo que a regra dizia no momento. Se ela tinha sido salva antes sem o
+   histórico, já apontava para a conta nova, e os lançamentos antigos, que
+   ficaram na conta velha, não eram achados. O custo da regra nova: uma
+   exceção decidida à mão também entra, e aparece na contagem da prévia.
+
+   Exceção: CPF próprio (transferência sem conta). "Diferente da decisão"
+   seria tudo, inclusive o que foi decidido lançamento a lançamento; ali
+   continua valendo o que segue a regra atual.
 2. **Desfaz** cada selecionado com `desfazerParDaRegra` (§5).
 3. **Atualiza** a contraparte com a decisão nova.
 4. **Reaplica** com o núcleo do `confirmCounterparty` atual, extraído para
