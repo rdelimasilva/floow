@@ -40,9 +40,19 @@ export default async function AccountsPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader title="Contas">
-        <Button asChild variant="outline">
-          <Link href="/accounts/connect">Conectar Banco</Link>
-        </Button>
+        <div className="group relative">
+          <Button asChild variant="outline">
+            <Link href="/accounts/connect" aria-describedby="dica-importar-banco">Importar do meu banco</Link>
+          </Button>
+          <div
+            id="dica-importar-banco"
+            role="tooltip"
+            className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground opacity-0 shadow-md transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+          >
+            Conecta sua conta pelo Open Finance: contas, cartões, investimentos e lançamentos entram sozinhos e
+            continuam atualizados, sem digitar nada.
+          </div>
+        </div>
         <Button asChild variant="primary">
           <Link href="/accounts/new">Nova Conta</Link>
         </Button>
