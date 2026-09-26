@@ -33,6 +33,7 @@ const BANCO_POR_RAIZ: Record<string, string> = {
   '60701190': 'Itaú',
   '60746948': 'Bradesco',
   '60889128': 'Sofisa',
+  '61024352': 'Banco Pleno',
   '61186680': 'BMG',
   '61348538': 'C6 Consignado',
   '62144175': 'Pine',

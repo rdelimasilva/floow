@@ -107,18 +107,20 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
           .insert(assetBankPositions)
           .values({ orgId: ctx.orgId, assetId, referenceDate, ...valores })
           .onConflictDoUpdate({ target: [assetBankPositions.assetId, assetBankPositions.referenceDate], set: valores })
-        // Voltou à listagem: a posição zerada por `zerarAusentes` com data
-        // mais nova que a do banco (que costuma vir D-1) esconderia a real.
-        await db
-          .delete(assetBankPositions)
-          .where(and(
-            eq(assetBankPositions.assetId, assetId),
-            gt(assetBankPositions.referenceDate, referenceDate),
-            sql`coalesce(${assetBankPositions.quantity}, 0) = 0`,
-            sql`coalesce(${assetBankPositions.grossCents}, 0) = 0`,
-            sql`coalesce(${assetBankPositions.netCents}, 0) = 0`,
-          ))
       }
+      // Voltou à listagem: a posição zerada por `zerarAusentes` com data mais
+      // nova que a do banco (que costuma vir D-1) esconderia a real. Sem saldo
+      // nenhum no retorno — CDB de banco em liquidação vem assim — o zero sai
+      // de todo jeito: papel listado não está encerrado.
+      await db
+        .delete(assetBankPositions)
+        .where(and(
+          eq(assetBankPositions.assetId, assetId),
+          inv.position ? gt(assetBankPositions.referenceDate, inv.position.referenceDate) : undefined,
+          sql`coalesce(${assetBankPositions.quantity}, 0) = 0`,
+          sql`coalesce(${assetBankPositions.grossCents}, 0) = 0`,
+          sql`coalesce(${assetBankPositions.netCents}, 0) = 0`,
+        ))
 
       await db
         .update(openfinanceResources)

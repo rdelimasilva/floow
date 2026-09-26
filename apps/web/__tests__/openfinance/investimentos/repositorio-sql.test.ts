@@ -61,4 +61,20 @@ describe('repositório de investimentos — SQL', () => {
     expect(consultas).toHaveLength(1)
     expect(consultas[0].sql).not.toContain('not in')
   })
+
+  it('papel que volta à listagem sem saldo perde o zero de ausência', async () => {
+    // CDB de banco em liquidação: listado, mas nunca com saldo. O zero gravado
+    // no dia em que sumiu o escondia como encerrado para sempre.
+    const { repo, consultas } = dbQueGrava((sql) =>
+      sql.startsWith('select') ? [['res-1', 'org-1', 'ativo-1']] : [],
+    )
+    await repo.salvarInvestimento({ orgId: 'org-1', connectionId: 'con-1' }, {
+      polpId: 'p1', kind: 'BANK_FIXED_INCOME', position: null,
+      asset: { name: 'CDB', assetClass: 'fixed_income' },
+    } as never)
+    const del = consultas.find((c) => c.sql.startsWith('delete from "asset_bank_positions"'))
+    expect(del).toBeDefined()
+    expect(del!.params).toContain('ativo-1')
+    expect(del!.sql).not.toContain('"reference_date" >')
+  })
 })
