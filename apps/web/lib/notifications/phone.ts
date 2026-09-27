@@ -25,14 +25,18 @@ export function normalizePhone(raw: string): string | null {
   return full.length >= 8 && full.length <= 15 ? `+${full}` : null
 }
 
+/** 55 + DDD + 8 dígitos começando em 6–9: celular que veio sem o nono dígito. */
+const BR_MOBILE_WITHOUT_NINE = /^55[1-9][1-9][6-9]\d{7}$/
+
 /**
  * Formas E.164 possíveis para o `from` (wa_id) de uma mensagem recebida. A Meta
  * manda alguns celulares brasileiros sem o nono dígito; o cadastro tem o 9.
+ * Fixo (8 dígitos começando em 2–5) nunca teve o nono dígito e fica como veio.
  */
 export function phoneCandidatesFromWaId(waId: string): string[] {
   const digits = waId.replace(/\D/g, '')
   const asIs = `+${digits}`
-  if (digits.startsWith('55') && digits.length === 12) {
+  if (BR_MOBILE_WITHOUT_NINE.test(digits)) {
     return [asIs, `+55${digits.slice(2, 4)}9${digits.slice(4)}`]
   }
   return [asIs]

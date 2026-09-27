@@ -36,6 +36,12 @@ describe('phoneCandidatesFromWaId', () => {
   it('estrangeiro fica como veio', () => {
     expect(phoneCandidatesFromWaId('14155550101')).toEqual(['+14155550101'])
   })
+  it.each(['6', '7', '8'])('celular sem o 9 começando com %s também ganha o 9', (d) => {
+    expect(phoneCandidatesFromWaId(`5511${d}9998888`)).toEqual([`+5511${d}9998888`, `+55119${d}9998888`])
+  })
+  it.each(['2', '3', '4', '5'])('fixo (começa com %s) fica como veio, sem o 9', (d) => {
+    expect(phoneCandidatesFromWaId(`5511${d}0001234`)).toEqual([`+5511${d}0001234`])
+  })
 })
 
 describe('formatPhoneDisplay', () => {

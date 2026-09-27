@@ -121,6 +121,9 @@ describe('canonicalPhoneFromWaId', () => {
   it('celular BR sem o nono dígito ganha o 9 depois do DDD', () => {
     expect(canonicalPhoneFromWaId('551199998888')).toBe('+5511999998888')
   })
+  it('fixo BR (12 dígitos começando com 2 a 5) fica como veio', () => {
+    expect(canonicalPhoneFromWaId('551132221234')).toBe('+551132221234')
+  })
   it('número estrangeiro só ganha o +', () => {
     expect(canonicalPhoneFromWaId('14155550123')).toBe('+14155550123')
   })
