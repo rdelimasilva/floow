@@ -21,25 +21,28 @@ Não há template de código: a verificação do número é invertida. A pessoa
 manda "floow XXXX-XXXX" do próprio WhatsApp para o número do floow, e a
 resposta sai como texto livre (a mensagem dela abre a janela de 24h).
 
-### floow_resumo_ritmo_v2 — categoria Utility
+### floow_resumo_ritmo_v2 — categoria Utility (criado em 27/09/2026, id 1389800659995864)
 Corpo (o `*` é negrito e o `_` itálico no WhatsApp):
 ```
-*📊 Ritmo de {{1}} · {{2}}*
-_dia {{3}} de {{4}}_
+*📊 Ritmo de gastos de {{1}}*
+_Situação no {{2}}_
 
-💰 Orçado: *{{5}}*
-🎯 Esperado até hoje: {{6}}
-🧾 Realizado: *{{7}}* ({{8}})
-📈 Projeção: {{9}}
-*{{10}}*
+💰 Orçado para o mês: *{{3}}*
+🎯 Esperado gastar até hoje: {{4}}
+🧾 Realizado até hoje: *{{5}}*
+📈 Projeção para o fim do mês: {{6}}
 
-{{11}}
+{{7}}
 
-Para parar, responda SAIR.
+Toque em Ver detalhes para abrir o ritmo completo no floow. Para parar de receber estes avisos, responda SAIR.
 ```
 Botão: URL fixa "Ver detalhes" → `https://www.floowapp.com.br/budgets/pacing`.
-Exemplos: setembro · Personal · 26 · 30 · R$ 25.529,00 · R$ 22.125,13 · R$ 20.308,20 · 92% ·
-R$ 23.432,54 · ✅ Sobra R$ 2.096,46 · ⚠️ Atenção: Alimentação, Viagens (estourados) · Limpeza (em risco)
+Exemplos: setembro · Personal · dia 26 de 30 · R$ 25.529,00 · R$ 22.125,13 ·
+R$ 20.308,20 (92% do esperado) · R$ 23.432,54 · ✅ sobra R$ 2.096,46 ·
+⚠️ Atenção: Alimentação, Viagens (estourados) · Limpeza (em risco)
+
+A primeira versão, com 11 variáveis, foi recusada pela Meta ("muitas variáveis
+para a extensão"). Mantenha poucas variáveis e bastante texto fixo.
 
 ### floow_alerta_ritmo_v2 — categoria Utility
 ```
@@ -52,7 +55,7 @@ Para parar, responda SAIR.
 Mesmo botão "Ver detalhes". Exemplos: Personal · ⚠️ Atenção: Alimentação (estourado)
 
 Os parâmetros saem de `summaryParams`/`alertParams` em
-`apps/web/lib/notifications/channels/whatsapp.ts` (11 e 2). As versões sem `_v2`
+`apps/web/lib/notifications/channels/whatsapp.ts` (7 e 2). As versões sem `_v2`
 foram substituídas e podem ser apagadas no Gerenciador do WhatsApp.
 
 ## 3. Variáveis na Vercel (Production)

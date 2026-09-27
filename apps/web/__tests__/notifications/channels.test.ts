@@ -61,7 +61,7 @@ describe('canal de WhatsApp', () => {
     return { sendTemplate, ch: createWhatsAppChannel({ sendTemplate }) }
   }
 
-  it('resumo manda o template v2 com 11 parâmetros de uma linha', async () => {
+  it('resumo manda o template v2 com 7 parâmetros de uma linha', async () => {
     const { sendTemplate, ch } = setup()
     await ch.send(rec, msg('summary'))
     const arg = sendTemplate.mock.calls[0][0]
@@ -69,8 +69,9 @@ describe('canal de WhatsApp', () => {
     expect(arg.template).toBe('floow_resumo_ritmo_v2')
     expect(arg.bodyParams).toEqual(summaryParams(summary))
     expect(arg.bodyParams).toEqual([
-      'setembro', 'Casa', '25', '30', 'R$ 8.000,00', 'R$ 6.666,67', 'R$ 7.120,00', '107%',
-      'R$ 8.540,00', '🔴 Estoura em R$ 540,00', '⚠️ Atenção: Alimentação (estourado)',
+      'setembro · Casa', 'dia 25 de 30', 'R$ 8.000,00', 'R$ 6.666,67',
+      'R$ 7.120,00 (107% do esperado)', 'R$ 8.540,00 · 🔴 estoura em R$ 540,00',
+      '⚠️ Atenção: Alimentação (estourado)',
     ])
     for (const p of arg.bodyParams) expect(p).not.toMatch(/[\n\t]| {5,}/)
   })
@@ -94,9 +95,9 @@ describe('canal de WhatsApp', () => {
 
 describe('formatação do WhatsApp', () => {
   it('projectionStatus', () => {
-    expect(projectionStatus(54000)).toBe('🔴 Estoura em R$ 540,00')
-    expect(projectionStatus(-209646)).toBe('✅ Sobra R$ 2.096,46')
-    expect(projectionStatus(0)).toBe('✅ Fecha no orçado')
+    expect(projectionStatus(54000)).toBe('🔴 estoura em R$ 540,00')
+    expect(projectionStatus(-209646)).toBe('✅ sobra R$ 2.096,46')
+    expect(projectionStatus(0)).toBe('✅ fecha no orçado')
   })
 
   it('attentionLine agrupa estourados e em risco', () => {

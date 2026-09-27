@@ -13,11 +13,11 @@ export const WA_TEMPLATES = {
   alert: 'floow_alerta_ritmo_v2',
 } as const
 
-/** Situação da projeção com o emoji do template ({{10}} do resumo, em negrito lá). */
+/** Situação da projeção com emoji; vai junto da projeção no {{6}} do resumo. */
 export function projectionStatus(diffCents: number): string {
-  if (diffCents > 0) return `🔴 Estoura em ${brl(diffCents)}`
-  if (diffCents < 0) return `✅ Sobra ${brl(-diffCents)}`
-  return '✅ Fecha no orçado'
+  if (diffCents > 0) return `🔴 estoura em ${brl(diffCents)}`
+  if (diffCents < 0) return `✅ sobra ${brl(-diffCents)}`
+  return '✅ fecha no orçado'
 }
 
 /** Categorias agrupadas por status: "⚠️ Atenção: A, B (estourados) · C (em risco)". */
@@ -30,19 +30,19 @@ export function attentionLine(estourados: string[], emRisco: string[]): string {
   return partes.length > 0 ? `⚠️ Atenção: ${partes.join(' · ')}` : '👍 Nenhuma categoria em risco'
 }
 
-/** {{1}}…{{11}} do floow_resumo_ritmo_v2 (o link vai no botão fixo do template). */
+/**
+ * {{1}}…{{7}} do floow_resumo_ritmo_v2 (o link vai no botão fixo do template).
+ * Campos agrupados de propósito: com 11 variáveis a Meta recusou o template
+ * ("muitas variáveis para a extensão do texto").
+ */
 export function summaryParams(s: PacingSummary): string[] {
   return [
-    s.monthName,
-    s.orgName,
-    String(s.day),
-    String(s.daysInMonth),
+    `${s.monthName} · ${s.orgName}`,
+    `dia ${s.day} de ${s.daysInMonth}`,
     brl(s.plannedCents),
     brl(s.expectedCents),
-    brl(s.spentCents),
-    `${s.pctOfExpected}%`,
-    brl(s.projectedCents),
-    projectionStatus(s.projectedDiffCents),
+    `${brl(s.spentCents)} (${s.pctOfExpected}% do esperado)`,
+    `${brl(s.projectedCents)} · ${projectionStatus(s.projectedDiffCents)}`,
     attentionLine(s.estourados, s.emRisco),
   ].map(oneLine)
 }
