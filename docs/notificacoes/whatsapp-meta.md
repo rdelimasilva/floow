@@ -17,11 +17,9 @@ no-op (aviso no log) e nada quebra.
 
 A Meta não aceita template que começa ou termina com variável.
 
-### floow_codigo — categoria Authentication
-- Tipo de entrega: **Copy code**. Validade do código: **10 minutos**.
-- O texto é o padrão da Meta ("{{1}} é seu código de verificação."). O
-  corpo tem 1 variável (o código) e o botão de copiar código tem outra
-  variável (o mesmo código).
+Não há template de código: a verificação do número é invertida. A pessoa
+manda "floow XXXX-XXXX" do próprio WhatsApp para o número do floow, e a
+resposta sai como texto livre (a mensagem dela abre a janela de 24h).
 
 ### floow_resumo_ritmo — categoria Utility
 ```
@@ -61,6 +59,7 @@ Se a Meta recusar o resumo por "muitas variáveis para o tamanho", junte
 | `WHATSAPP_APP_SECRET` | App secret (Configurações do app → Básico) |
 | `WHATSAPP_VERIFY_TOKEN` | um texto aleatório que você inventa (ex.: `openssl rand -hex 16`) |
 | `WHATSAPP_API_VERSION` | opcional; padrão `v21.0` |
+| `WHATSAPP_DISPLAY_NUMBER` | o telefone do floow no WhatsApp, só dígitos com DDI (ex.: `5511971773256`); monta o link wa.me da tela de conexão. Sem ele, a tela mostra "WhatsApp ainda não está disponível." |
 
 ## 4. Webhook
 
@@ -71,7 +70,9 @@ No app da Meta → WhatsApp → Configuração:
 
 ## 5. Teste
 
-1. Em Configurações → Notificações, cadastre seu número e confirme o código.
+1. Em Configurações → Notificações, clique em **Conectar WhatsApp** e envie a
+   mensagem pelo botão "Abrir no WhatsApp" (ou pelo QR code). Em alguns
+   segundos a tela mostra "Verificado ✓" e o WhatsApp responde "Pronto!".
 2. Mande "oi" para o número do floow: deve voltar a resposta padrão.
 3. Ponha o WhatsApp de uma org em **Diário**: o resumo chega às 7h do dia seguinte.
 4. Mande "SAIR": a coluna WhatsApp vai para "Desligado" em todas as orgs.
