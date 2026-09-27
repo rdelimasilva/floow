@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto'
 
 // vi.mock é içado para o topo; o que a fábrica usa precisa vir de vi.hoisted.
 const mocks = vi.hoisted(() => ({
+  completeLink: vi.fn(async () => 'invalid' as const),
   findUserByPhone: vi.fn(async () => undefined as { userId: string } | undefined),
   turnOffWhatsApp: vi.fn(async () => {}),
   reply: vi.fn(async () => ({ ok: true as const, id: 'w' })),
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/notifications/whatsapp-inbound-deps', () => ({
   defaultInboundDeps: () => ({
+    completeLink: mocks.completeLink,
     findUserByPhone: mocks.findUserByPhone,
     turnOffWhatsApp: mocks.turnOffWhatsApp,
     reply: mocks.reply,

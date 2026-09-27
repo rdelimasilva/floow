@@ -8,10 +8,15 @@ import { withUserDbFor } from '@/lib/db/rls'
 import { getAppUrl } from '@/lib/app-url'
 import { listUserOrgIds, upsertFrequency } from './preferences-store'
 import { sendWhatsAppText } from './send-whatsapp'
+import { completeLink } from './whatsapp-verification'
+import { completeLinkDeps } from './whatsapp-link-deps'
 import type { InboundDeps } from './whatsapp-inbound'
 
 export function defaultInboundDeps(): InboundDeps {
   return {
+    // Deps montadas a cada mensagem de vínculo: sem CRON_SECRET só essa
+    // mensagem falha (o route loga), não o webhook inteiro.
+    completeLink: (waId, code) => completeLink(waId, code, completeLinkDeps()),
     async findUserByPhone(candidates) {
       // Duas formas do mesmo wa_id podem bater com usuários diferentes; a forma
       // exata (com o nono dígito, quando presente) vem primeiro.

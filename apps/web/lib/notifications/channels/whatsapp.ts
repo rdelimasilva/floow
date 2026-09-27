@@ -9,7 +9,6 @@ import type { TemplateMessage } from '../send-whatsapp'
 import type { ChannelAdapter, ChannelMessage, SendResult } from './types'
 
 export const WA_TEMPLATES = {
-  code: 'floow_codigo',
   summary: 'floow_resumo_ritmo',
   alert: 'floow_alerta_ritmo',
 } as const
