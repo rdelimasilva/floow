@@ -25,7 +25,7 @@ export interface InboundDeps {
 }
 
 export type InboundOutcome =
-  | 'linked' | 'link_invalid' | 'link_in_use' | 'link_rate_limited'
+  | 'linked' | 'link_invalid' | 'link_already_linked' | 'link_in_use' | 'link_rate_limited'
   | 'unknown_sender' | 'stopped' | 'default_reply'
 
 const LINK_OUTCOME: Record<CompleteLinkResult, InboundOutcome> = {
@@ -51,6 +51,13 @@ export async function handleInboundText(msg: InboundText, deps: InboundDeps): Pr
     if (result === 'linked') {
       await reply(deps, msg.from, 'Pronto! Seu WhatsApp está ligado ao floow. Você vai receber o ritmo de gastos por aqui. Para parar, responda SAIR.')
     } else if (result === 'invalid') {
+      // A Meta às vezes entrega a mesma mensagem duas vezes: a segunda já não
+      // acha o código (uso único). Se o número já está ligado, não assusta a
+      // pessoa com "código inválido" logo depois do "Pronto!".
+      if (await deps.findUserByPhone(phoneCandidatesFromWaId(msg.from))) {
+        await reply(deps, msg.from, 'Seu WhatsApp já está ligado ao floow.')
+        return 'link_already_linked'
+      }
       await reply(deps, msg.from, `Código inválido ou expirado. Gere outro em Configurações: ${settingsUrl}`)
     } else if (result === 'in_use') {
       await reply(deps, msg.from, 'Este número já está ligado a outra conta do floow. Se não foi você, fale com o suporte.')

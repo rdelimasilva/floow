@@ -72,10 +72,19 @@ describe('handleInboundText', () => {
       const d = naoLigado()
       vi.mocked(d.completeLink).mockResolvedValueOnce('invalid')
       expect(await handleInboundText({ from: '5511999998888', text: 'floow ABCD2345' }, d)).toBe('link_invalid')
+      expect(d.findUserByPhone).toHaveBeenCalledWith(['+5511999998888'])
       expect(d.reply).toHaveBeenCalledWith(
         '+5511999998888',
         'Código inválido ou expirado. Gere outro em Configurações: https://app.test/settings',
       )
+    })
+
+    it('código já usado mas o número já está ligado (entrega repetida da Meta): avisa que já está ligado', async () => {
+      const d = deps()
+      vi.mocked(d.completeLink).mockResolvedValueOnce('invalid')
+      expect(await handleInboundText({ from: '551199998888', text: 'floow ABCD2345' }, d)).toBe('link_already_linked')
+      expect(d.findUserByPhone).toHaveBeenCalledWith(['+551199998888', '+5511999998888'])
+      expect(d.reply).toHaveBeenCalledWith('+551199998888', 'Seu WhatsApp já está ligado ao floow.')
     })
 
     it('número já ligado a outra conta: avisa e não liga', async () => {
