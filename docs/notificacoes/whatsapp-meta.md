@@ -59,14 +59,23 @@ Se a Meta recusar o resumo por "muitas variáveis para o tamanho", junte
 | `WHATSAPP_APP_SECRET` | App secret (Configurações do app → Básico) |
 | `WHATSAPP_VERIFY_TOKEN` | um texto aleatório que você inventa (ex.: `openssl rand -hex 16`) |
 | `WHATSAPP_API_VERSION` | opcional; padrão `v21.0` |
-| `WHATSAPP_DISPLAY_NUMBER` | o telefone do floow no WhatsApp, só dígitos com DDI (ex.: `5511971773256`); monta o link wa.me da tela de conexão. Sem ele, a tela mostra "WhatsApp ainda não está disponível." |
+| `WHATSAPP_DISPLAY_NUMBER` | o telefone do floow no WhatsApp, só dígitos com DDI; monta o link wa.me da tela de conexão. Em produção é `551171773256` — **sem o nono dígito**: com o 9 (`5511971773256`) o wa.me respondia "este número não está no WhatsApp". Teste o link no celular antes de fixar. Sem a variável, a tela mostra "WhatsApp ainda não está disponível." |
 
 ## 4. Webhook
 
-No app da Meta → WhatsApp → Configuração:
+No painel novo o caminho é: developers.facebook.com → app → **Casos de uso** →
+"Conectar-se com clientes pelo WhatsApp" → **Personalizar** → **Etapa 2.
+Configuração da produção** → **Configurar webhooks**.
 - Callback URL: `https://<domínio>/api/webhooks/whatsapp`
-- Verify token: o mesmo `WHATSAPP_VERIFY_TOKEN`
-- Assine o campo **messages**.
+- Verify token: o mesmo `WHATSAPP_VERIFY_TOKEN` (faça o deploy com a variável antes de clicar em "Verificar e salvar")
+- Em "Campos do webhook", assine **só** `messages`.
+
+Mais dois passos, sem os quais a Meta não entrega nenhuma mensagem real
+(o webhook fica verificado, mas mudo — nos logs da Vercel só aparece o GET da verificação):
+1. **Publicar o app** (menu Publicar). App não publicado só recebe webhooks de teste do painel.
+2. **Inscrever a conta do WhatsApp (WABA) no app**, uma vez, pelo Graph API Explorer
+   (developers.facebook.com/tools/explorer, token com `whatsapp_business_management`):
+   `POST <WABA_ID>/subscribed_apps` → `{"success": true}`. WABA do floow: `1805595557452259`.
 
 ## 5. Teste
 
