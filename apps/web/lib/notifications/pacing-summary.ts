@@ -19,6 +19,9 @@ export interface PacingSummary {
   projectedDiffCents: number
   /** Categorias em risco/estouradas, numa linha só. */
   flagged: string
+  /** Nomes das estouradas e das em risco, separados — o WhatsApp agrupa por status. */
+  estourados: string[]
+  emRisco: string[]
   pacingUrl: string
 }
 
@@ -55,6 +58,8 @@ export function buildPacingSummary(
     projectedCents: total.projectedCents,
     projectedDiffCents: total.projectedCents - total.plannedCents,
     flagged: partes.length > 0 ? partes.join(' · ') : 'Nenhuma categoria em risco',
+    estourados: estourados.map((c) => nameOf(c.categoryId)),
+    emRisco: emRisco.map((c) => nameOf(c.categoryId)),
     pacingUrl,
   }
 }

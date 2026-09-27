@@ -4,20 +4,37 @@
  * com a quantidade de parâmetros montada aqui.
  */
 import { brl, oneLine } from '../format'
-import { projectionPhrase, type PacingSummary } from '../pacing-summary'
+import type { PacingSummary } from '../pacing-summary'
 import type { TemplateMessage } from '../send-whatsapp'
 import type { ChannelAdapter, ChannelMessage, SendResult } from './types'
 
 export const WA_TEMPLATES = {
-  summary: 'floow_resumo_ritmo',
-  alert: 'floow_alerta_ritmo',
+  summary: 'floow_resumo_ritmo_v2',
+  alert: 'floow_alerta_ritmo_v2',
 } as const
 
-/** {{1}}…{{12}} do floow_resumo_ritmo. */
+/** Situação da projeção com o emoji do template ({{10}} do resumo, em negrito lá). */
+export function projectionStatus(diffCents: number): string {
+  if (diffCents > 0) return `🔴 Estoura em ${brl(diffCents)}`
+  if (diffCents < 0) return `✅ Sobra ${brl(-diffCents)}`
+  return '✅ Fecha no orçado'
+}
+
+/** Categorias agrupadas por status: "⚠️ Atenção: A, B (estourados) · C (em risco)". */
+export function attentionLine(estourados: string[], emRisco: string[]): string {
+  const partes: string[] = []
+  if (estourados.length > 0) {
+    partes.push(`${estourados.join(', ')} (${estourados.length === 1 ? 'estourado' : 'estourados'})`)
+  }
+  if (emRisco.length > 0) partes.push(`${emRisco.join(', ')} (em risco)`)
+  return partes.length > 0 ? `⚠️ Atenção: ${partes.join(' · ')}` : '👍 Nenhuma categoria em risco'
+}
+
+/** {{1}}…{{11}} do floow_resumo_ritmo_v2 (o link vai no botão fixo do template). */
 export function summaryParams(s: PacingSummary): string[] {
   return [
-    s.orgName,
     s.monthName,
+    s.orgName,
     String(s.day),
     String(s.daysInMonth),
     brl(s.plannedCents),
@@ -25,21 +42,17 @@ export function summaryParams(s: PacingSummary): string[] {
     brl(s.spentCents),
     `${s.pctOfExpected}%`,
     brl(s.projectedCents),
-    projectionPhrase(s.projectedDiffCents),
-    s.flagged,
-    s.pacingUrl,
+    projectionStatus(s.projectedDiffCents),
+    attentionLine(s.estourados, s.emRisco),
   ].map(oneLine)
 }
 
-/** {{1}}…{{3}} do floow_alerta_ritmo. */
+/** {{1}}…{{2}} do floow_alerta_ritmo_v2: só as categorias que pioraram. */
 export function alertParams(m: ChannelMessage): string[] {
-  const line = m.alerts
-    .map((a) => {
-      const name = m.categoryNames[a.categoryId] ?? 'Categoria sem nome'
-      return `${name} ${a.status === 'estourado' ? 'estourou o teto' : 'vai estourar no ritmo atual'}`
-    })
-    .join(' · ')
-  return [m.orgName, line, m.pacingUrl].map(oneLine)
+  const nameOf = (id: string) => m.categoryNames[id] ?? 'Categoria sem nome'
+  const estourados = m.alerts.filter((a) => a.status === 'estourado').map((a) => nameOf(a.categoryId))
+  const emRisco = m.alerts.filter((a) => a.status !== 'estourado').map((a) => nameOf(a.categoryId))
+  return [m.orgName, attentionLine(estourados, emRisco)].map(oneLine)
 }
 
 export function createWhatsAppChannel(deps: {

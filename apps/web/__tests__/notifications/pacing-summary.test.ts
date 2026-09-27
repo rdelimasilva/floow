@@ -39,11 +39,14 @@ describe('buildPacingSummary', () => {
       'Pessoal', 'u',
     )
     expect(s.flagged).toBe('Mercado estourado · Lazer em risco')
+    expect(s.estourados).toEqual(['Mercado'])
+    expect(s.emRisco).toEqual(['Lazer'])
   })
 
   it('risco com projeção pouco confiável não entra (mesma regra do alerta)', () => {
     const s = buildPacingSummary(input({ confidence: 'low' }, [cat('l', 'risco')]), 'P', 'u')
     expect(s.flagged).toBe('Nenhuma categoria em risco')
+    expect(s.emRisco).toEqual([])
   })
 
   it('nome de categoria com quebra de linha vira uma linha', () => {

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createEmailChannel } from '@/lib/notifications/channels/email'
-import { createWhatsAppChannel, summaryParams, WA_TEMPLATES } from '@/lib/notifications/channels/whatsapp'
+import {
+  attentionLine, createWhatsAppChannel, projectionStatus, summaryParams, WA_TEMPLATES,
+} from '@/lib/notifications/channels/whatsapp'
 import type { ChannelMessage, Recipient } from '@/lib/notifications/channels/types'
 import type { PacingSummary } from '@/lib/notifications/pacing-summary'
 import { verifyUnsubscribeToken } from '@/lib/notifications/unsubscribe-token'
@@ -14,6 +16,7 @@ const summary: PacingSummary = {
   orgName: 'Casa', monthName: 'setembro', day: 25, daysInMonth: 30,
   plannedCents: 800000, expectedCents: 666667, spentCents: 712000, pctOfExpected: 107,
   projectedCents: 854000, projectedDiffCents: 54000, flagged: 'Alimentação estourado',
+  estourados: ['Alimentação'], emRisco: [],
   pacingUrl: 'https://app.test/budgets/pacing',
 }
 const msg = (kind: 'summary' | 'alert'): ChannelMessage => ({
@@ -58,27 +61,26 @@ describe('canal de WhatsApp', () => {
     return { sendTemplate, ch: createWhatsAppChannel({ sendTemplate }) }
   }
 
-  it('resumo manda o template de resumo com 12 parâmetros de uma linha', async () => {
+  it('resumo manda o template v2 com 11 parâmetros de uma linha', async () => {
     const { sendTemplate, ch } = setup()
     await ch.send(rec, msg('summary'))
     const arg = sendTemplate.mock.calls[0][0]
     expect(arg.to).toBe('+5511999998888')
-    expect(arg.template).toBe(WA_TEMPLATES.summary)
+    expect(arg.template).toBe('floow_resumo_ritmo_v2')
     expect(arg.bodyParams).toEqual(summaryParams(summary))
-    expect(arg.bodyParams).toHaveLength(12)
     expect(arg.bodyParams).toEqual([
-      'Casa', 'setembro', '25', '30', 'R$ 8.000,00', 'R$ 6.666,67', 'R$ 7.120,00', '107%',
-      'R$ 8.540,00', 'estoura em R$ 540,00', 'Alimentação estourado', 'https://app.test/budgets/pacing',
+      'setembro', 'Casa', '25', '30', 'R$ 8.000,00', 'R$ 6.666,67', 'R$ 7.120,00', '107%',
+      'R$ 8.540,00', '🔴 Estoura em R$ 540,00', '⚠️ Atenção: Alimentação (estourado)',
     ])
     for (const p of arg.bodyParams) expect(p).not.toMatch(/[\n\t]| {5,}/)
   })
 
-  it('alerta manda o template de alerta', async () => {
+  it('alerta manda o template v2 com org e linha de atenção', async () => {
     const { sendTemplate, ch } = setup()
     await ch.send(rec, msg('alert'))
     expect(sendTemplate.mock.calls[0][0]).toMatchObject({
-      template: WA_TEMPLATES.alert,
-      bodyParams: ['Casa', 'Alimentação estourou o teto', 'https://app.test/budgets/pacing'],
+      template: 'floow_alerta_ritmo_v2',
+      bodyParams: ['Casa', '⚠️ Atenção: Alimentação (estourado)'],
     })
   })
 
@@ -87,5 +89,21 @@ describe('canal de WhatsApp', () => {
     const r = await ch.send({ ...rec, whatsappPhone: null }, msg('summary'))
     expect(r).toEqual({ ok: false, error: 'no_phone' })
     expect(sendTemplate).not.toHaveBeenCalled()
+  })
+})
+
+describe('formatação do WhatsApp', () => {
+  it('projectionStatus', () => {
+    expect(projectionStatus(54000)).toBe('🔴 Estoura em R$ 540,00')
+    expect(projectionStatus(-209646)).toBe('✅ Sobra R$ 2.096,46')
+    expect(projectionStatus(0)).toBe('✅ Fecha no orçado')
+  })
+
+  it('attentionLine agrupa estourados e em risco', () => {
+    expect(attentionLine(['Alimentação', 'Viagens'], ['Limpeza'])).toBe(
+      '⚠️ Atenção: Alimentação, Viagens (estourados) · Limpeza (em risco)',
+    )
+    expect(attentionLine([], ['Lazer'])).toBe('⚠️ Atenção: Lazer (em risco)')
+    expect(attentionLine([], [])).toBe('👍 Nenhuma categoria em risco')
   })
 })
