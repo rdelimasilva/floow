@@ -8,6 +8,7 @@ HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
 vi.mock('@/lib/notifications/whatsapp-verification-actions', () => ({
   startWhatsAppLink: vi.fn(),
   getWhatsAppStatus: vi.fn(),
+  cancelWhatsAppLink: vi.fn(async () => undefined),
   removeWhatsApp: vi.fn(async () => undefined),
 }))
 vi.mock('@/components/ui/toast', () => ({ useToast: () => ({ toast: vi.fn() }) }))

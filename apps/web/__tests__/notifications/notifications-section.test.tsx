@@ -4,14 +4,17 @@ import React from 'react'
 
 const m = vi.hoisted(() => ({
   setNotificationFrequency: vi.fn(async (..._a: unknown[]) => {}),
+  // Horário do servidor = relógio (falso, nos testes com fake timers) do teste.
   startWhatsAppLink: vi.fn(async () => ({
     ok: true,
     code: 'ABCD-2345',
     link: 'https://wa.me/5511971773256?text=floow%20ABCD-2345',
     qrSvg: '<svg data-testid="qr"></svg>',
-    expiresAt: '2026-09-26T12:10:00.000Z',
+    issuedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
   }) as unknown),
-  getWhatsAppStatus: vi.fn(async () => ({ verified: false, phone: null }) as unknown),
+  getWhatsAppStatus: vi.fn(async () => ({ verified: false, phone: null, verifiedAt: null }) as unknown),
+  cancelWhatsAppLink: vi.fn(async () => {}),
   removeWhatsApp: vi.fn(async () => {}),
   refresh: vi.fn(),
   toast: vi.fn(),
@@ -20,6 +23,7 @@ vi.mock('@/lib/notifications/preferences-actions', () => ({ setNotificationFrequ
 vi.mock('@/lib/notifications/whatsapp-verification-actions', () => ({
   startWhatsAppLink: m.startWhatsAppLink,
   getWhatsAppStatus: m.getWhatsAppStatus,
+  cancelWhatsAppLink: m.cancelWhatsAppLink,
   removeWhatsApp: m.removeWhatsApp,
 }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: m.refresh }) }))
@@ -27,6 +31,9 @@ vi.mock('@/components/ui/toast', () => ({ useToast: () => ({ toast: m.toast }) }
 
 import { NotificationsSection } from '@/app/(app)/settings/notifications-section'
 import type { NotificationSettings } from '@/lib/notifications/notification-settings'
+
+const T0 = new Date('2026-09-26T12:00:00.000Z')
+const depois = (ms: number) => new Date(T0.getTime() + ms).toISOString()
 
 const semNumero: NotificationSettings = {
   whatsappPhone: null,
@@ -38,7 +45,10 @@ const semNumero: NotificationSettings = {
 }
 
 describe('NotificationsSection', () => {
-  beforeEach(() => Object.values(m).forEach((f) => f.mockClear()))
+  beforeEach(() => {
+    Object.values(m).forEach((f) => f.mockClear())
+    m.getWhatsAppStatus.mockResolvedValue({ verified: false, phone: null, verifiedAt: null })
+  })
 
   it('mostra uma linha por org com a frequência atual', () => {
     render(<NotificationsSection settings={semNumero} />)
@@ -106,11 +116,14 @@ describe('NotificationsSection', () => {
   })
 
   describe('espera pela mensagem (fake timers)', () => {
-    beforeEach(() => vi.useFakeTimers())
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(T0)
+    })
     afterEach(() => vi.useRealTimers())
 
-    async function conectar() {
-      const r = render(<NotificationsSection settings={semNumero} />)
+    async function conectar(settings: NotificationSettings = semNumero) {
+      const r = render(<NotificationsSection settings={settings} />)
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'Conectar WhatsApp' }))
       })
@@ -124,7 +137,7 @@ describe('NotificationsSection', () => {
       expect(m.getWhatsAppStatus).toHaveBeenCalledTimes(1)
       expect(m.refresh).not.toHaveBeenCalled()
 
-      m.getWhatsAppStatus.mockResolvedValueOnce({ verified: true, phone: '+5511999998888' })
+      m.getWhatsAppStatus.mockResolvedValueOnce({ verified: true, phone: '+5511999998888', verifiedAt: depois(5000) })
       await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
       expect(m.refresh).toHaveBeenCalled()
       expect(m.toast).toHaveBeenCalledWith('WhatsApp conectado')
@@ -148,11 +161,85 @@ describe('NotificationsSection', () => {
       expect(screen.getByRole('button', { name: 'Gerar outro código' })).toBeDefined()
     })
 
-    it('desmontar para de consultar', async () => {
-      const { unmount } = await conectar()
-      unmount()
+    it('o prazo vem do expiresAt do servidor, não de 10 minutos contados no navegador', async () => {
+      m.startWhatsAppLink.mockResolvedValueOnce({
+        ok: true, code: 'ABCD-2345', link: 'https://wa.me/x', qrSvg: '<svg></svg>',
+        issuedAt: depois(0), expiresAt: depois(3 * 60 * 1000),
+      })
+      await conectar()
+      await act(async () => { await vi.advanceTimersByTimeAsync(3 * 60 * 1000 - 1000) })
+      expect(screen.getByText('ABCD-2345')).toBeDefined()
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+      expect(screen.getByText('O código expirou. Gere outro.')).toBeDefined()
+    })
+
+    it('trocar: o número antigo já verificado não conta como conexão nova', async () => {
+      const comNumero: NotificationSettings = {
+        ...semNumero, whatsappPhone: '+5511999998888', whatsappVerified: true,
+      }
+      render(<NotificationsSection settings={comNumero} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Trocar' }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Conectar WhatsApp' }))
+      })
+      expect(screen.getByText('ABCD-2345')).toBeDefined()
+
+      // Status ainda com o número antigo, verificado antes do código ser gerado.
+      m.getWhatsAppStatus.mockResolvedValue({
+        verified: true, phone: '+5511999998888', verifiedAt: '2026-09-01T10:00:00.000Z',
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(8000) })
+      expect(screen.getByText('ABCD-2345')).toBeDefined()
+      expect(m.toast).not.toHaveBeenCalled()
+      expect(m.refresh).not.toHaveBeenCalled()
+
+      m.getWhatsAppStatus.mockResolvedValue({ verified: true, phone: '+5521988887777', verifiedAt: depois(10_000) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
+      expect(m.toast).toHaveBeenCalledWith('WhatsApp conectado')
+      expect(m.refresh).toHaveBeenCalled()
+      expect(screen.getByText('+55 21 98888-7777')).toBeDefined()
+    })
+
+    it('cancelar o código tira ele da tela e o invalida no servidor', async () => {
+      await conectar()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+      expect(m.cancelWhatsAppLink).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText('ABCD-2345')).toBeNull()
       await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
       expect(m.getWhatsAppStatus).not.toHaveBeenCalled()
+    })
+
+    it('"Manter" o número atual também invalida o código', async () => {
+      render(<NotificationsSection settings={{ ...semNumero, whatsappPhone: '+5511999998888', whatsappVerified: true }} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Trocar' }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Conectar WhatsApp' }))
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Manter +55 11 99999-8888' }))
+      expect(m.cancelWhatsAppLink).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText('ABCD-2345')).toBeNull()
+    })
+
+    it('desmontar com o código na tela para de consultar e invalida o código', async () => {
+      const { unmount } = await conectar()
+      unmount()
+      expect(m.cancelWhatsAppLink).toHaveBeenCalledTimes(1)
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+      expect(m.getWhatsAppStatus).not.toHaveBeenCalled()
+    })
+
+    it('desmontar sem código na tela não chama o cancelamento', () => {
+      const { unmount } = render(<NotificationsSection settings={semNumero} />)
+      unmount()
+      expect(m.cancelWhatsAppLink).not.toHaveBeenCalled()
+    })
+
+    it('falha ao cancelar é ignorada', async () => {
+      m.cancelWhatsAppLink.mockRejectedValueOnce(new Error('rede'))
+      await conectar()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(screen.getByRole('button', { name: 'Conectar WhatsApp' })).toBeDefined()
     })
   })
 })

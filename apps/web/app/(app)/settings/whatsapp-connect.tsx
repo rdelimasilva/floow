@@ -1,17 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { formatPhoneDisplay } from '@/lib/notifications/phone'
 import {
-  startWhatsAppLink, getWhatsAppStatus, removeWhatsApp,
+  startWhatsAppLink, getWhatsAppStatus, cancelWhatsAppLink, removeWhatsApp,
 } from '@/lib/notifications/whatsapp-verification-actions'
 
 const POLL_MS = 4000
-const CODE_TTL_MS = 10 * 60 * 1000
 
 const ERROS: Record<string, string> = {
   rate_limited: 'Muitos códigos gerados. Tente de novo em uma hora.',
@@ -23,6 +22,23 @@ interface Codigo {
   code: string
   link: string
   qrSvg: string
+  /** Horário do servidor ao gerar o código. */
+  issuedAt: string
+  expiresAt: string
+}
+
+/** Melhor esforço: o código também expira sozinho em 10 minutos. */
+const cancelar = () => {
+  cancelWhatsAppLink().catch(() => {})
+}
+
+/**
+ * Até o expiresAt do servidor. O teto (expiresAt − issuedAt, só relógio do
+ * servidor) impede que um relógio local atrasado estique a espera.
+ */
+function prazoRestante(c: Codigo): number {
+  const expira = Date.parse(c.expiresAt)
+  return Math.max(0, Math.min(expira - Date.now(), expira - Date.parse(c.issuedAt)))
 }
 
 /**
@@ -40,6 +56,13 @@ export function WhatsAppConnect({ phone }: { phone: string | null }) {
   const [erro, setErro] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
   const [confirmandoRemocao, setConfirmandoRemocao] = useState(false)
+  const codigoNaTela = useRef(false)
+  codigoNaTela.current = codigo !== null
+
+  // Saiu da tela com o código aberto: invalida no servidor.
+  useEffect(() => () => {
+    if (codigoNaTela.current) cancelar()
+  }, [])
 
   useEffect(() => {
     if (!codigo) return
@@ -52,7 +75,9 @@ export function WhatsAppConnect({ phone }: { phone: string | null }) {
     const intervalo = setInterval(async () => {
       try {
         const s = await getWhatsAppStatus()
-        if (!ativo || !s.verified) return
+        // Só conta verificação posterior ao código: em "Trocar", o número
+        // antigo já vem verificado desde antes.
+        if (!ativo || !s.verified || !s.verifiedAt || Date.parse(s.verifiedAt) < Date.parse(codigo.issuedAt)) return
         parar()
         setVerificado(s.phone)
         setCodigo(null)
@@ -67,7 +92,7 @@ export function WhatsAppConnect({ phone }: { phone: string | null }) {
       parar()
       setCodigo(null)
       setExpirou(true)
-    }, CODE_TTL_MS)
+    }, prazoRestante(codigo))
     return parar
   }, [codigo, router, toast])
 
@@ -77,13 +102,19 @@ export function WhatsAppConnect({ phone }: { phone: string | null }) {
     setExpirou(false)
     try {
       const r = await startWhatsAppLink()
-      if (r.ok) setCodigo({ code: r.code, link: r.link, qrSvg: r.qrSvg })
+      if (r.ok) setCodigo({ code: r.code, link: r.link, qrSvg: r.qrSvg, issuedAt: r.issuedAt, expiresAt: r.expiresAt })
       else setErro(ERROS[r.error])
     } catch {
       setErro(ERROS.falha)
     } finally {
       setOcupado(false)
     }
+  }
+
+  function desistir() {
+    if (codigo) cancelar()
+    setCodigo(null)
+    setExpirou(false)
   }
 
   async function remover() {
@@ -142,6 +173,11 @@ export function WhatsAppConnect({ phone }: { phone: string | null }) {
               <Button variant="ghost" onClick={gerar} disabled={ocupado}>
                 Gerar outro código
               </Button>
+              {!atual && (
+                <Button variant="ghost" onClick={desistir} disabled={ocupado}>
+                  Cancelar
+                </Button>
+              )}
             </div>
             <p className="max-w-xs text-xs text-muted-foreground">
               Envie a mensagem pelo WhatsApp do número que vai receber os avisos. O código vale 10 minutos.
@@ -173,8 +209,7 @@ export function WhatsAppConnect({ phone }: { phone: string | null }) {
           variant="link"
           size="sm"
           onClick={() => {
-            setCodigo(null)
-            setExpirou(false)
+            desistir()
             setEditando(false)
           }}
         >

@@ -11,11 +11,11 @@ import { eq } from 'drizzle-orm'
 import QRCode from 'qrcode'
 import { requireUserId } from '@/lib/auth/session'
 import { withUserDb } from '@/lib/db/rls'
-import { startLink, formatLinkCode } from './whatsapp-verification'
+import { startLink, formatLinkCode, LINK_CODE_TTL_MS } from './whatsapp-verification'
 import { startLinkDeps } from './whatsapp-link-deps'
 
 export type StartWhatsAppLinkResult =
-  | { ok: true; code: string; link: string; qrSvg: string; expiresAt: string }
+  | { ok: true; code: string; link: string; qrSvg: string; issuedAt: string; expiresAt: string }
   | { ok: false; error: 'rate_limited' | 'not_configured' }
 
 /** Número do floow no WhatsApp, só dígitos com DDI (ex.: 5511971773256). */
@@ -35,10 +35,26 @@ export async function startWhatsAppLink(): Promise<StartWhatsAppLinkResult> {
   const code = formatLinkCode(r.code)
   const link = `https://wa.me/${number}?text=${encodeURIComponent(`floow ${code}`)}`
   const qrSvg = await QRCode.toString(link, { type: 'svg', margin: 1 })
-  return { ok: true, code, link, qrSvg, expiresAt: r.expiresAt.toISOString() }
+  // issuedAt: a tela só aceita como conexão nova um verifiedAt a partir daqui
+  // (quem clica em Trocar já tem um número verificado, mais antigo).
+  const issuedAt = new Date(r.expiresAt.getTime() - LINK_CODE_TTL_MS)
+  return { ok: true, code, link, qrSvg, issuedAt: issuedAt.toISOString(), expiresAt: r.expiresAt.toISOString() }
 }
 
-export async function getWhatsAppStatus(): Promise<{ verified: boolean; phone: string | null }> {
+/** Invalida o código pendente (a pessoa cancelou ou saiu da tela). */
+export async function cancelWhatsAppLink(): Promise<void> {
+  const userId = await requireUserId()
+  await getServiceDb().delete(whatsappVerifications).where(eq(whatsappVerifications.userId, userId))
+}
+
+export interface WhatsAppStatus {
+  verified: boolean
+  phone: string | null
+  /** ISO; null quando não verificado. */
+  verifiedAt: string | null
+}
+
+export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
   const userId = await requireUserId()
   const [row] = await withUserDb((tx) =>
     tx
@@ -46,8 +62,8 @@ export async function getWhatsAppStatus(): Promise<{ verified: boolean; phone: s
       .from(profiles)
       .where(eq(profiles.id, userId)),
   )
-  const verified = Boolean(row?.phone && row.verifiedAt)
-  return { verified, phone: verified ? row!.phone : null }
+  if (!row?.phone || !row.verifiedAt) return { verified: false, phone: null, verifiedAt: null }
+  return { verified: true, phone: row.phone, verifiedAt: row.verifiedAt.toISOString() }
 }
 
 export async function removeWhatsApp(): Promise<void> {
