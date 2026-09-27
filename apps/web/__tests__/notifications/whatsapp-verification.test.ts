@@ -1,124 +1,168 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
-  requestCode, confirmCode, hashCode, MAX_ATTEMPTS, type VerificationDeps, type PendingCode,
+  startLink, completeLink, parseLinkMessage, generateLinkCode, hashLinkCode, formatLinkCode,
+  canonicalPhoneFromWaId, LINK_CODE_ALPHABET, LINK_CODE_TTL_MS,
+  type StartLinkDeps, type CompleteLinkDeps,
 } from '@/lib/notifications/whatsapp-verification'
 
 const U = 'u1'
-const PHONE = '+5511999998888'
-const NOW = new Date('2026-09-25T12:00:00Z')
+const NOW = new Date('2026-09-26T12:00:00Z')
+const CODE = 'ABCD2345'
 
-afterEach(() => vi.restoreAllMocks())
-
-function deps(over: Partial<VerificationDeps> = {}): VerificationDeps {
+function startDeps(over: Partial<StartLinkDeps> = {}): StartLinkDeps {
   return {
-    isVerifiedByOther: vi.fn(async () => false),
-    consumeSendQuota: vi.fn(async () => true),
+    consumeStartQuota: vi.fn(async () => true),
     savePending: vi.fn(async () => {}),
-    loadPending: vi.fn(async () => undefined),
-    claimAttempt: vi.fn(async () => undefined),
-    markVerified: vi.fn(async () => 'ok' as const),
-    deletePending: vi.fn(async () => {}),
-    sendCode: vi.fn(async () => ({ ok: true as const, id: 'w' })),
     secret: 's',
     now: () => NOW,
-    generateCode: () => '123456',
+    generateCode: () => CODE,
     ...over,
   }
 }
-const pending = (over: Partial<PendingCode> = {}): PendingCode => ({
-  phone: PHONE, codeHash: hashCode(U, PHONE, '123456', 's'),
-  expiresAt: new Date(NOW.getTime() + 60_000), attempts: 0, ...over,
+
+function completeDeps(over: Partial<CompleteLinkDeps> = {}): CompleteLinkDeps {
+  return {
+    consumeSenderQuota: vi.fn(async () => true),
+    claimCode: vi.fn(async () => U as string | undefined),
+    markVerified: vi.fn(async () => 'ok' as const),
+    secret: 's',
+    ...over,
+  }
+}
+
+describe('generateLinkCode', () => {
+  it('8 símbolos do alfabeto sem caracteres ambíguos', () => {
+    expect(LINK_CODE_ALPHABET).toBe('23456789ABCDEFGHJKMNPQRSTUVWXYZ')
+    for (let i = 0; i < 200; i++) {
+      expect(generateLinkCode()).toMatch(/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/)
+    }
+  })
+
+  it('não repete (aleatório de verdade)', () => {
+    const codes = new Set(Array.from({ length: 500 }, generateLinkCode))
+    expect(codes.size).toBe(500)
+  })
 })
 
-describe('requestCode', () => {
-  it('normaliza, grava só o hash e manda o código', async () => {
-    const d = deps()
-    expect(await requestCode(U, '(11) 99999-8888', d)).toEqual({ ok: true, phone: PHONE })
+describe('hashLinkCode / formatLinkCode', () => {
+  it('HMAC hex que não depende de hífen nem de caixa e não contém o código', () => {
+    const h = hashLinkCode(CODE, 's')
+    expect(h).toMatch(/^[0-9a-f]{64}$/)
+    expect(h).not.toContain(CODE)
+    expect(hashLinkCode('abcd-2345', 's')).toBe(h)
+    expect(hashLinkCode(CODE, 'outro')).not.toBe(h)
+  })
+
+  it('formata com hífen no meio', () => {
+    expect(formatLinkCode(CODE)).toBe('ABCD-2345')
+  })
+})
+
+describe('startLink', () => {
+  it('grava só o hash com validade de 10 minutos e devolve o código', async () => {
+    const d = startDeps()
+    const r = await startLink(U, d)
+    expect(r).toEqual({ ok: true, code: CODE, expiresAt: new Date(NOW.getTime() + LINK_CODE_TTL_MS) })
+    expect(LINK_CODE_TTL_MS).toBe(10 * 60 * 1000)
     const saved = vi.mocked(d.savePending).mock.calls[0][0]
-    expect(saved).toMatchObject({ userId: U, phone: PHONE, codeHash: hashCode(U, PHONE, '123456', 's') })
-    expect(saved.expiresAt.getTime()).toBe(NOW.getTime() + 600_000)
-    expect(JSON.stringify(saved)).not.toContain('"123456"')
-    expect(d.sendCode).toHaveBeenCalledWith(PHONE, '123456')
+    expect(saved).toEqual({ userId: U, codeHash: hashLinkCode(CODE, 's'), expiresAt: new Date(NOW.getTime() + 600_000) })
+    expect(JSON.stringify(saved)).not.toContain(CODE)
+    expect(d.consumeStartQuota).toHaveBeenCalledWith(U)
   })
 
-  it('telefone inválido', async () => {
-    const d = deps()
-    expect(await requestCode(U, '123', d)).toEqual({ ok: false, error: 'invalid_phone' })
-    expect(d.consumeSendQuota).not.toHaveBeenCalled()
+  it('gerar de novo grava por cima (um pendente por usuário, o novo hash)', async () => {
+    const d = startDeps({ generateCode: vi.fn().mockReturnValueOnce(CODE).mockReturnValueOnce('WXYZ6789') })
+    await startLink(U, d)
+    await startLink(U, d)
+    const calls = vi.mocked(d.savePending).mock.calls
+    expect(calls[1][0]).toMatchObject({ userId: U, codeHash: hashLinkCode('WXYZ6789', 's') })
   })
 
-  it('número já verificado por outro usuário: mas só depois de consumir a cota', async () => {
-    const d = deps({ isVerifiedByOther: vi.fn(async () => true) })
-    expect(await requestCode(U, PHONE, d)).toEqual({ ok: false, error: 'in_use' })
-    expect(d.consumeSendQuota).toHaveBeenCalledWith(U)
-    expect(d.sendCode).not.toHaveBeenCalled()
-  })
-
-  it('passou do limite de envios: não grava, não manda, nem chega a checar in_use', async () => {
-    const d = deps({ consumeSendQuota: vi.fn(async () => false) })
-    expect(await requestCode(U, PHONE, d)).toEqual({ ok: false, error: 'rate_limited' })
-    expect(d.isVerifiedByOther).not.toHaveBeenCalled()
+  it('passou do limite por usuário: não gera nem grava', async () => {
+    const d = startDeps({ consumeStartQuota: vi.fn(async () => false) })
+    expect(await startLink(U, d)).toEqual({ ok: false, error: 'rate_limited' })
     expect(d.savePending).not.toHaveBeenCalled()
-    expect(d.sendCode).not.toHaveBeenCalled()
-  })
-
-  it('falha no envio vira send_failed e apaga o pendente', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    const d = deps({ sendCode: vi.fn(async () => ({ ok: false as const, error: 'x' })) })
-    expect(await requestCode(U, PHONE, d)).toEqual({ ok: false, error: 'send_failed' })
-    expect(d.deletePending).toHaveBeenCalledWith(U)
   })
 })
 
-describe('confirmCode', () => {
-  it('código certo verifica o número e apaga o pendente', async () => {
-    const d = deps({ claimAttempt: vi.fn(async () => pending()) })
-    expect(await confirmCode(U, ' 123456 ', d)).toEqual({ ok: true, phone: PHONE })
-    expect(d.markVerified).toHaveBeenCalledWith(U, PHONE)
-    expect(d.deletePending).toHaveBeenCalledWith(U)
+describe('parseLinkMessage', () => {
+  it.each([
+    ['floow ABCD-2345', 'ABCD2345'],
+    ['floow abcd-2345', 'ABCD2345'],
+    ['FLOOW ABCD2345', 'ABCD2345'],
+    ['  Floow   abcd2345  ', 'ABCD2345'],
+    ['floow ABCD-2345', 'ABCD2345'],
+  ])('%j → %s', (text, code) => {
+    expect(parseLinkMessage(text)).toBe(code)
   })
 
-  it('sem código pendente: claim não reivindica nada e não há linha nenhuma', async () => {
-    const d = deps({ loadPending: vi.fn(async () => undefined) })
-    expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'no_pending' })
+  it.each([
+    'floow',
+    'floow ',
+    'ABCD-2345',
+    'floow ABCD-234',
+    'floow ABCD-23456',
+    'floow ABCD--2345',
+    'oi, floow ABCD-2345',
+    'floow ABCD-2345 obrigado',
+    'meu código é floow ABCD-2345 ok',
+    'floowABCD-2345',
+    'sair',
+    '',
+  ])('%j não é mensagem de vínculo', (text) => {
+    expect(parseLinkMessage(text)).toBeNull()
+  })
+})
+
+describe('canonicalPhoneFromWaId', () => {
+  it('com o nono dígito fica como está', () => {
+    expect(canonicalPhoneFromWaId('5511999998888')).toBe('+5511999998888')
+  })
+  it('celular BR sem o nono dígito ganha o 9 depois do DDD', () => {
+    expect(canonicalPhoneFromWaId('551199998888')).toBe('+5511999998888')
+  })
+  it('número estrangeiro só ganha o +', () => {
+    expect(canonicalPhoneFromWaId('14155550123')).toBe('+14155550123')
+  })
+})
+
+describe('completeLink', () => {
+  it('código certo: reivindica pelo hash e liga o número canônico', async () => {
+    const d = completeDeps()
+    expect(await completeLink('5511999998888', 'ABCD2345', d)).toBe('linked')
+    expect(d.consumeSenderQuota).toHaveBeenCalledWith('5511999998888')
+    expect(d.claimCode).toHaveBeenCalledWith(hashLinkCode('ABCD2345', 's'))
+    expect(d.markVerified).toHaveBeenCalledWith(U, '+5511999998888')
   })
 
-  it('expirado: claim não reivindica (expires_at > now falha no banco) e attempts ainda cabia', async () => {
-    const d = deps({ loadPending: vi.fn(async () => pending({ expiresAt: new Date(NOW.getTime() - 1) })) })
-    expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'expired' })
+  it('wa_id sem o nono dígito liga o número com o 9', async () => {
+    const d = completeDeps()
+    expect(await completeLink('551199998888', 'ABCD2345', d)).toBe('linked')
+    expect(d.markVerified).toHaveBeenCalledWith(U, '+5511999998888')
+  })
+
+  it('inválido ou expirado (nada reivindicado): não liga', async () => {
+    const d = completeDeps({ claimCode: vi.fn(async () => undefined) })
+    expect(await completeLink('5511999998888', 'ABCD2345', d)).toBe('invalid')
     expect(d.markVerified).not.toHaveBeenCalled()
   })
 
-  it('código errado: o claim já contabilizou a tentativa, não há bump separado', async () => {
-    const d = deps({ claimAttempt: vi.fn(async () => pending()) })
-    expect(await confirmCode(U, '000000', d)).toEqual({ ok: false, error: 'wrong_code' })
-    expect(d.markVerified).not.toHaveBeenCalled()
-    expect(d.deletePending).not.toHaveBeenCalled()
-  })
-
-  it('esgotou as tentativas: claim não reivindica (attempts < MAX falha) e a linha confirma o motivo', async () => {
-    const d = deps({ loadPending: vi.fn(async () => pending({ attempts: MAX_ATTEMPTS })) })
-    expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'too_many_attempts' })
+  it('limite por remetente: nem tenta reivindicar', async () => {
+    const d = completeDeps({ consumeSenderQuota: vi.fn(async () => false) })
+    expect(await completeLink('5511999998888', 'ABCD2345', d)).toBe('rate_limited')
+    expect(d.claimCode).not.toHaveBeenCalled()
     expect(d.markVerified).not.toHaveBeenCalled()
   })
 
-  it('esgotou as tentativas prevalece mesmo se a linha também já expirou', async () => {
-    const d = deps({
-      loadPending: vi.fn(async () => pending({ attempts: MAX_ATTEMPTS, expiresAt: new Date(NOW.getTime() - 1) })),
-    })
-    expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'too_many_attempts' })
+  it('número já ligado a outra conta: in_use', async () => {
+    const d = completeDeps({ markVerified: vi.fn(async () => 'in_use' as const) })
+    expect(await completeLink('5511999998888', 'ABCD2345', d)).toBe('in_use')
   })
 
-  it('outro usuário verificou o número no meio do caminho', async () => {
-    const d = deps({
-      claimAttempt: vi.fn(async () => pending()),
-      markVerified: vi.fn(async () => 'in_use' as const),
-    })
-    expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'in_use' })
-  })
-
-  it('o hash amarra usuário e número: código de outro usuário não serve', async () => {
-    const d = deps({ claimAttempt: vi.fn(async () => pending({ codeHash: hashCode('u2', PHONE, '123456', 's') })) })
-    expect(await confirmCode(U, '123456', d)).toEqual({ ok: false, error: 'wrong_code' })
+  it('remetente que não é wa_id (só dígitos) é inválido sem tocar no banco', async () => {
+    const d = completeDeps()
+    expect(await completeLink('abc', 'ABCD2345', d)).toBe('invalid')
+    expect(d.consumeSenderQuota).not.toHaveBeenCalled()
+    expect(d.claimCode).not.toHaveBeenCalled()
   })
 })

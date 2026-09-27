@@ -1,122 +1,93 @@
 /**
- * Verificação do número de WhatsApp por código de 6 dígitos.
+ * Ligação do WhatsApp por verificação invertida: o app mostra um código e a
+ * pessoa o envia do próprio WhatsApp. O webhook liga à conta o número que
+ * mandou a mensagem — o `from` chega autenticado pela assinatura da Meta, então
+ * possuir o código prova a conta e mandar a mensagem prova o número.
  *
- * Regras aqui, I/O nas deps (mesmo padrão do job de ritmo), para testar sem
- * banco nem Meta. Guarda só o HMAC do código, amarrado a usuário + número:
- * vazamento da tabela não entrega códigos, e código de um não serve para outro.
+ * Regras aqui, I/O nas deps, para testar sem banco nem Meta. Guarda só o HMAC
+ * do código. O hash não inclui o usuário: o webhook precisa achar o código sem
+ * saber de quem é (code_hash é único no banco, ver 00066).
+ *
+ * Força bruta: 31^8 (~39,6 bits) combinações, cada código vale 10 minutos, e
+ * cada remetente tem 5 tentativas por hora antes mesmo de chegar ao banco.
  */
-import { createHmac, randomInt, timingSafeEqual } from 'node:crypto'
-import { normalizePhone } from './phone'
-import type { SendResult } from './send-whatsapp'
+import { createHmac, randomInt } from 'node:crypto'
+import { phoneCandidatesFromWaId } from './phone'
 
-export const CODE_TTL_MS = 10 * 60 * 1000
-export const MAX_ATTEMPTS = 5
-export const MAX_SENDS_PER_HOUR = 3
+/** Sem 0/O, 1/I/L: o código é lido na tela e digitado ou enviado pelo link. */
+export const LINK_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'
+export const LINK_CODE_LENGTH = 8
+export const LINK_CODE_TTL_MS = 10 * 60 * 1000
 
-export interface PendingCode {
-  phone: string
-  codeHash: string
-  expiresAt: Date
-  attempts: number
-}
-
-export interface VerificationDeps {
-  isVerifiedByOther(userId: string, phone: string): Promise<boolean>
-  /** true se ainda cabe um envio nesta hora. */
-  consumeSendQuota(userId: string): Promise<boolean>
-  savePending(p: { userId: string; phone: string; codeHash: string; expiresAt: Date }): Promise<void>
-  loadPending(userId: string): Promise<PendingCode | undefined>
-  /**
-   * Incrementa `attempts` e devolve a linha atomicamente, só quando ainda cabe
-   * tentativa (attempts < MAX_ATTEMPTS) e o código não expirou. undefined
-   * quando nada foi reivindicado — chamador então usa loadPending só para
-   * classificar o motivo (sem pendente, expirado ou tentativas esgotadas).
-   * Isto fecha a corrida de duas tentativas simultâneas lendo attempts=0 e
-   * cada uma ganhando uma tentativa própria.
-   */
-  claimAttempt(userId: string): Promise<PendingCode | undefined>
-  /** 'in_use' quando o índice único recusa (outro usuário verificou antes). */
-  markVerified(userId: string, phone: string): Promise<'ok' | 'in_use'>
-  deletePending(userId: string): Promise<void>
-  sendCode(phone: string, code: string): Promise<SendResult>
+export interface StartLinkDeps {
+  /** true se ainda cabe gerar código nesta hora (limite por usuário). */
+  consumeStartQuota(userId: string): Promise<boolean>
+  /** Grava por cima do pendente anterior do mesmo usuário (PK user_id). */
+  savePending(p: { userId: string; codeHash: string; expiresAt: Date }): Promise<void>
   secret: string
   now(): Date
   generateCode(): string
 }
 
-export type RequestCodeResult =
-  | { ok: true; phone: string }
-  | { ok: false; error: 'invalid_phone' | 'in_use' | 'rate_limited' | 'send_failed' }
-
-export type ConfirmCodeResult =
-  | { ok: true; phone: string }
-  | { ok: false; error: 'no_pending' | 'expired' | 'too_many_attempts' | 'wrong_code' | 'in_use' }
-
-export function hashCode(userId: string, phone: string, code: string, secret: string): string {
-  return createHmac('sha256', `whatsapp-code:${secret}`).update(`${userId}:${phone}:${code}`).digest('hex')
+export interface CompleteLinkDeps {
+  /** true se ainda cabe tentativa nesta hora (limite por quem envia). */
+  consumeSenderQuota(waId: string): Promise<boolean>
+  /**
+   * Apaga e devolve o dono do código numa operação só (DELETE ... RETURNING),
+   * só se ainda não expirou. undefined = inválido ou expirado. Uso único: duas
+   * mensagens com o mesmo código não conseguem as duas reivindicá-lo.
+   */
+  claimCode(codeHash: string): Promise<string | undefined>
+  /** 'in_use' quando o índice único recusa (número ligado a outra conta). */
+  markVerified(userId: string, phone: string): Promise<'ok' | 'in_use'>
+  secret: string
 }
 
-export const generateCode = () => String(randomInt(0, 1_000_000)).padStart(6, '0')
+export type StartLinkResult = { ok: true; code: string; expiresAt: Date } | { ok: false; error: 'rate_limited' }
+export type CompleteLinkResult = 'linked' | 'invalid' | 'in_use' | 'rate_limited'
 
-export async function requestCode(
-  userId: string,
-  rawPhone: string,
-  deps: VerificationDeps,
-): Promise<RequestCodeResult> {
-  const phone = normalizePhone(rawPhone)
-  if (!phone) return { ok: false, error: 'invalid_phone' }
-  // A cota vem antes de checar "já verificado": na ordem inversa, alguém sem
-  // conta consegue descobrir de graça, número por número, quais já pertencem
-  // a um usuário do floow — a checagem de in_use não custa nada a quem
-  // pergunta. Aqui ela já sai cara depois de MAX_SENDS_PER_HOUR tentativas.
-  if (!(await deps.consumeSendQuota(userId))) return { ok: false, error: 'rate_limited' }
-  if (await deps.isVerifiedByOther(userId, phone)) return { ok: false, error: 'in_use' }
+export function generateLinkCode(): string {
+  let code = ''
+  for (let i = 0; i < LINK_CODE_LENGTH; i++) code += LINK_CODE_ALPHABET[randomInt(LINK_CODE_ALPHABET.length)]
+  return code
+}
 
+const normalizeCode = (code: string) => code.replace(/-/g, '').toUpperCase()
+
+export function hashLinkCode(code: string, secret: string): string {
+  return createHmac('sha256', `whatsapp-link:${secret}`).update(normalizeCode(code)).digest('hex')
+}
+
+export const formatLinkCode = (code: string) => `${code.slice(0, 4)}-${code.slice(4)}`
+
+const LINK_MESSAGE = /^\s*floow\s+([a-z0-9]{4})-?([a-z0-9]{4})\s*$/i
+
+/** Código normalizado (maiúsculas, sem hífen), ou null se não é mensagem de vínculo. */
+export function parseLinkMessage(text: string): string | null {
+  const m = LINK_MESSAGE.exec(text)
+  return m ? `${m[1]}${m[2]}`.toUpperCase() : null
+}
+
+/** E.164 do wa_id; celular BR que chega sem o nono dígito ganha o 9. */
+export function canonicalPhoneFromWaId(waId: string): string {
+  const candidates = phoneCandidatesFromWaId(waId)
+  return candidates[candidates.length - 1]
+}
+
+export async function startLink(userId: string, deps: StartLinkDeps): Promise<StartLinkResult> {
+  if (!(await deps.consumeStartQuota(userId))) return { ok: false, error: 'rate_limited' }
   const code = deps.generateCode()
-  await deps.savePending({
-    userId,
-    phone,
-    codeHash: hashCode(userId, phone, code, deps.secret),
-    expiresAt: new Date(deps.now().getTime() + CODE_TTL_MS),
-  })
-  const res = await deps.sendCode(phone, code)
-  if (!res.ok) {
-    console.error(`[whatsapp-codigo] falha user=${userId}: ${res.error}`)
-    // Sem isto o pendente ficava com um código que nunca chegou, ocupando a
-    // linha (PK por userId) até expirar sozinho.
-    await deps.deletePending(userId)
-    return { ok: false, error: 'send_failed' }
-  }
-  return { ok: true, phone }
+  const expiresAt = new Date(deps.now().getTime() + LINK_CODE_TTL_MS)
+  await deps.savePending({ userId, codeHash: hashLinkCode(code, deps.secret), expiresAt })
+  return { ok: true, code, expiresAt }
 }
 
-export async function confirmCode(
-  userId: string,
-  code: string,
-  deps: VerificationDeps,
-): Promise<ConfirmCodeResult> {
-  // O claim já soma a tentativa atomicamente (UPDATE ... RETURNING no banco):
-  // duas chamadas simultâneas não podem ambas ler attempts=0 e cada uma achar
-  // que tem tentativa de sobra.
-  const claimed = await deps.claimAttempt(userId)
-  if (!claimed) {
-    // Classifica sem o relógio do app: o claim já decidiu contra o relógio do
-    // banco (o mesmo que grava expires_at). Comparar de novo aqui com
-    // deps.now() arriscava os dois relógios discordarem por alguns
-    // milissegundos e trocar o motivo mostrado.
-    const pending = await deps.loadPending(userId)
-    if (!pending) return { ok: false, error: 'no_pending' }
-    if (pending.attempts >= MAX_ATTEMPTS) return { ok: false, error: 'too_many_attempts' }
-    return { ok: false, error: 'expired' }
-  }
-
-  const expected = Buffer.from(claimed.codeHash, 'utf8')
-  const presented = Buffer.from(hashCode(userId, claimed.phone, code.trim(), deps.secret), 'utf8')
-  if (expected.length !== presented.length || !timingSafeEqual(expected, presented)) {
-    return { ok: false, error: 'wrong_code' }
-  }
-
-  if ((await deps.markVerified(userId, claimed.phone)) === 'in_use') return { ok: false, error: 'in_use' }
-  await deps.deletePending(userId)
-  return { ok: true, phone: claimed.phone }
+export async function completeLink(waId: string, code: string, deps: CompleteLinkDeps): Promise<CompleteLinkResult> {
+  if (!/^\d{8,15}$/.test(waId)) return 'invalid'
+  // O limite vem antes de reivindicar: estourado, a tentativa não chega a
+  // testar o código — é isto que torna a força bruta inviável.
+  if (!(await deps.consumeSenderQuota(waId))) return 'rate_limited'
+  const userId = await deps.claimCode(hashLinkCode(code, deps.secret))
+  if (!userId) return 'invalid'
+  return (await deps.markVerified(userId, canonicalPhoneFromWaId(waId))) === 'in_use' ? 'in_use' : 'linked'
 }
