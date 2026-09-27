@@ -50,12 +50,18 @@ export const notificationPreferences = pgTable(
   }),
 )
 
-/** Código pendente de verificação do WhatsApp. Sem policy de RLS: só o backend. */
+/**
+ * Código pendente para ligar o WhatsApp (o usuário manda o código do próprio
+ * WhatsApp; ver 00066). Um por usuário; code_hash é único porque o webhook
+ * procura por ele sem saber de quem é. Sem policy de RLS: só o backend.
+ */
 export const whatsappVerifications = pgTable('whatsapp_verifications', {
   userId: uuid('user_id').primaryKey(),
-  phone: text('phone').notNull(),
+  /** Obsoleta no fluxo invertido (00066): o número chega com a mensagem. */
+  phone: text('phone'),
   codeHash: text('code_hash').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  /** OBSOLETA desde 00066: o limite é por remetente, em rate_limits. */
   attempts: integer('attempts').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
