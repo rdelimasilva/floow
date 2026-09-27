@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/toast'
 import { setNotificationFrequency } from '@/lib/notifications/preferences-actions'
 import { CHANNELS, FREQUENCIES, type Channel, type Frequency } from '@/lib/notifications/schedule'
 import type { NotificationSettings } from '@/lib/notifications/notification-settings'
-import { WhatsAppPhoneForm } from './whatsapp-phone-form'
+import { WhatsAppConnect } from './whatsapp-connect'
 
 const CANAL: Record<Channel, string> = { email: 'E-mail', whatsapp: 'WhatsApp' }
 const FREQ: Record<Frequency, string> = {
@@ -55,11 +55,11 @@ export function NotificationsSection({ settings }: { settings: NotificationSetti
 
       <div className="space-y-2">
         <p className="text-sm font-medium">WhatsApp</p>
-        <WhatsAppPhoneForm phone={settings.whatsappPhone} />
+        <WhatsAppConnect phone={settings.whatsappPhone} />
         {!settings.whatsappVerified && (
           <p className="text-xs text-muted-foreground">
-            Enviamos um código para o número. Depois de confirmar, o resumo semanal chega em todas
-            as suas contas. Para parar, responda SAIR.
+            Você manda um código do seu WhatsApp para o do floow. Depois de conectar, o resumo
+            semanal chega em todas as suas contas. Para parar, responda SAIR.
           </p>
         )}
       </div>

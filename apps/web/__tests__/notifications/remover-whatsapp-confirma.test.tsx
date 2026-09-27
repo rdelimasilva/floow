@@ -6,22 +6,22 @@ HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', 
 HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
 
 vi.mock('@/lib/notifications/whatsapp-verification-actions', () => ({
-  requestWhatsAppCode: vi.fn(),
-  confirmWhatsAppCode: vi.fn(),
+  startWhatsAppLink: vi.fn(),
+  getWhatsAppStatus: vi.fn(),
   removeWhatsApp: vi.fn(async () => undefined),
 }))
 vi.mock('@/components/ui/toast', () => ({ useToast: () => ({ toast: vi.fn() }) }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
-import { WhatsAppPhoneForm } from '@/app/(app)/settings/whatsapp-phone-form'
+import { WhatsAppConnect } from '@/app/(app)/settings/whatsapp-connect'
 import { removeWhatsApp } from '@/lib/notifications/whatsapp-verification-actions'
 
-/** Remover o número desliga os avisos e exige nova verificação por código para voltar. */
-describe('WhatsAppPhoneForm — remover', () => {
+/** Remover o número desliga os avisos e exige conectar de novo para voltar. */
+describe('WhatsAppConnect — remover', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('pede confirmação antes de remover o número', async () => {
-    render(<WhatsAppPhoneForm phone="+5511999998888" />)
+    render(<WhatsAppConnect phone="+5511999998888" />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Remover' }))
     expect(removeWhatsApp).not.toHaveBeenCalled()

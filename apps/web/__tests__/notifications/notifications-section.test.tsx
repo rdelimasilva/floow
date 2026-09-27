@@ -1,19 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import React from 'react'
 
 const m = vi.hoisted(() => ({
   setNotificationFrequency: vi.fn(async (..._a: unknown[]) => {}),
-  requestWhatsAppCode: vi.fn(async (..._a: unknown[]) => ({ ok: true, phone: '+5511999998888' }) as unknown),
-  confirmWhatsAppCode: vi.fn(async (..._a: unknown[]) => ({ ok: true, phone: '+5511999998888' }) as unknown),
+  startWhatsAppLink: vi.fn(async () => ({
+    ok: true,
+    code: 'ABCD-2345',
+    link: 'https://wa.me/5511971773256?text=floow%20ABCD-2345',
+    qrSvg: '<svg data-testid="qr"></svg>',
+    expiresAt: '2026-09-26T12:10:00.000Z',
+  }) as unknown),
+  getWhatsAppStatus: vi.fn(async () => ({ verified: false, phone: null }) as unknown),
   removeWhatsApp: vi.fn(async () => {}),
   refresh: vi.fn(),
   toast: vi.fn(),
 }))
 vi.mock('@/lib/notifications/preferences-actions', () => ({ setNotificationFrequency: m.setNotificationFrequency }))
 vi.mock('@/lib/notifications/whatsapp-verification-actions', () => ({
-  requestWhatsAppCode: m.requestWhatsAppCode,
-  confirmWhatsAppCode: m.confirmWhatsAppCode,
+  startWhatsAppLink: m.startWhatsAppLink,
+  getWhatsAppStatus: m.getWhatsAppStatus,
   removeWhatsApp: m.removeWhatsApp,
 }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: m.refresh }) }))
@@ -74,23 +80,79 @@ describe('NotificationsSection', () => {
     await waitFor(() => expect(sel.value).toBe('alerts'))
   })
 
-  it('cadastro do número: envia código, confirma e recarrega', async () => {
+  it('conectar mostra o código, o link do WhatsApp e o QR', async () => {
     render(<NotificationsSection settings={semNumero} />)
-    fireEvent.change(screen.getByLabelText('Número de WhatsApp'), { target: { value: '(11) 99999-8888' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Enviar código' }))
-    await waitFor(() => expect(m.requestWhatsAppCode).toHaveBeenCalledWith('(11) 99999-8888'))
-
-    fireEvent.change(await screen.findByLabelText('Código recebido'), { target: { value: '123456' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
-    await waitFor(() => expect(m.confirmWhatsAppCode).toHaveBeenCalledWith('123456'))
-    await waitFor(() => expect(m.refresh).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'Conectar WhatsApp' }))
+    expect(await screen.findByText('ABCD-2345')).toBeDefined()
+    const abrir = screen.getByRole('link', { name: 'Abrir no WhatsApp' }) as HTMLAnchorElement
+    expect(abrir.href).toBe('https://wa.me/5511971773256?text=floow%20ABCD-2345')
+    expect(abrir.target).toBe('_blank')
+    expect(screen.getByTestId('qr')).toBeDefined()
+    expect(screen.getByText(/O código vale 10 minutos/)).toBeDefined()
   })
 
-  it('mostra o motivo quando o número já está em uso', async () => {
-    m.requestWhatsAppCode.mockResolvedValueOnce({ ok: false, error: 'in_use' })
+  it('WhatsApp não configurado no servidor', async () => {
+    m.startWhatsAppLink.mockResolvedValueOnce({ ok: false, error: 'not_configured' })
     render(<NotificationsSection settings={semNumero} />)
-    fireEvent.change(screen.getByLabelText('Número de WhatsApp'), { target: { value: '11999998888' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Enviar código' }))
-    expect(await screen.findByText('Este número já está em uso em outra conta do floow.')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Conectar WhatsApp' }))
+    expect(await screen.findByText('WhatsApp ainda não está disponível.')).toBeDefined()
+  })
+
+  it('limite de códigos por hora', async () => {
+    m.startWhatsAppLink.mockResolvedValueOnce({ ok: false, error: 'rate_limited' })
+    render(<NotificationsSection settings={semNumero} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Conectar WhatsApp' }))
+    expect(await screen.findByText('Muitos códigos gerados. Tente de novo em uma hora.')).toBeDefined()
+  })
+
+  describe('espera pela mensagem (fake timers)', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    async function conectar() {
+      const r = render(<NotificationsSection settings={semNumero} />)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Conectar WhatsApp' }))
+      })
+      expect(screen.getByText('ABCD-2345')).toBeDefined()
+      return r
+    }
+
+    it('consulta a cada 4 s e, ao verificar, mostra o número, avisa e recarrega', async () => {
+      await conectar()
+      await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
+      expect(m.getWhatsAppStatus).toHaveBeenCalledTimes(1)
+      expect(m.refresh).not.toHaveBeenCalled()
+
+      m.getWhatsAppStatus.mockResolvedValueOnce({ verified: true, phone: '+5511999998888' })
+      await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
+      expect(m.refresh).toHaveBeenCalled()
+      expect(m.toast).toHaveBeenCalledWith('WhatsApp conectado')
+      expect(screen.getByText('+55 11 99999-8888')).toBeDefined()
+      expect(screen.queryByText('ABCD-2345')).toBeNull()
+
+      // Parou de consultar.
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
+      expect(m.getWhatsAppStatus).toHaveBeenCalledTimes(2)
+    })
+
+    it('depois de 10 minutos para de consultar e pede outro código', async () => {
+      await conectar()
+      await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60 * 1000) })
+      expect(screen.getByText('O código expirou. Gere outro.')).toBeDefined()
+      expect(screen.queryByText('ABCD-2345')).toBeNull()
+      const chamadas = m.getWhatsAppStatus.mock.calls.length
+      expect(chamadas).toBeLessThanOrEqual(150)
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+      expect(m.getWhatsAppStatus.mock.calls.length).toBe(chamadas)
+      expect(screen.getByRole('button', { name: 'Gerar outro código' })).toBeDefined()
+    })
+
+    it('desmontar para de consultar', async () => {
+      const { unmount } = await conectar()
+      unmount()
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+      expect(m.getWhatsAppStatus).not.toHaveBeenCalled()
+    })
   })
 })
