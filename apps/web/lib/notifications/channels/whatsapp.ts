@@ -4,13 +4,16 @@
  * com a quantidade de parâmetros montada aqui.
  */
 import { brl, oneLine } from '../format'
+import type { PacingAlert } from '../pacing-alerts'
 import type { PacingSummary } from '../pacing-summary'
 import type { TemplateMessage } from '../send-whatsapp'
 import type { ChannelAdapter, ChannelMessage, SendResult } from './types'
 
 export const WA_TEMPLATES = {
-  summary: 'floow_resumo_ritmo_v2',
-  alert: 'floow_alerta_ritmo_v2',
+  summary: 'floow_resumo_ritmo_v3',
+  // A v1 é a que a Meta aceita como Utility: um dado concreto, sem botão.
+  // As tentativas "bonitas" (v2 e v3) foram reclassificadas como Marketing.
+  alert: 'floow_alerta_ritmo',
 } as const
 
 /** Situação da projeção com emoji; vai junto da projeção no {{6}} do resumo. */
@@ -31,7 +34,7 @@ export function attentionLine(estourados: string[], emRisco: string[]): string {
 }
 
 /**
- * {{1}}…{{7}} do floow_resumo_ritmo_v2 (o link vai no botão fixo do template).
+ * {{1}}…{{7}} do floow_resumo_ritmo_v3 (o link vai no botão fixo do template).
  * Campos agrupados de propósito: com 11 variáveis a Meta recusou o template
  * ("muitas variáveis para a extensão do texto").
  */
@@ -47,12 +50,24 @@ export function summaryParams(s: PacingSummary): string[] {
   ].map(oneLine)
 }
 
-/** {{1}}…{{2}} do floow_alerta_ritmo_v2: só as categorias que pioraram. */
+const pctOfPlanned = (a: PacingAlert) =>
+  a.plannedCents > 0 ? a.spentCents / a.plannedCents : Number.POSITIVE_INFINITY
+
+/**
+ * {{1}}…{{4}} do floow_alerta_ritmo: "Atenção, {{1}}: seus gastos em {{2}} já
+ * somam {{3}}, o que representa {{4}} do previsto para o mês."
+ * O template fala de uma categoria só; com várias, vai a de maior % do orçado
+ * (uma mensagem por categoria multiplicaria o custo).
+ */
 export function alertParams(m: ChannelMessage): string[] {
-  const nameOf = (id: string) => m.categoryNames[id] ?? 'Categoria sem nome'
-  const estourados = m.alerts.filter((a) => a.status === 'estourado').map((a) => nameOf(a.categoryId))
-  const emRisco = m.alerts.filter((a) => a.status !== 'estourado').map((a) => nameOf(a.categoryId))
-  return [m.orgName, attentionLine(estourados, emRisco)].map(oneLine)
+  const pior = m.alerts.reduce((a, b) => (pctOfPlanned(b) > pctOfPlanned(a) ? b : a))
+  const pct = pctOfPlanned(pior)
+  return [
+    m.orgName,
+    m.categoryNames[pior.categoryId] ?? 'Categoria sem nome',
+    brl(pior.spentCents),
+    Number.isFinite(pct) ? `${Math.round(pct * 100)}%` : 'mais de 100%',
+  ].map(oneLine)
 }
 
 export function createWhatsAppChannel(deps: {

@@ -61,12 +61,12 @@ describe('canal de WhatsApp', () => {
     return { sendTemplate, ch: createWhatsAppChannel({ sendTemplate }) }
   }
 
-  it('resumo manda o template v2 com 7 parâmetros de uma linha', async () => {
+  it('resumo manda o template v3 com 7 parâmetros de uma linha', async () => {
     const { sendTemplate, ch } = setup()
     await ch.send(rec, msg('summary'))
     const arg = sendTemplate.mock.calls[0][0]
     expect(arg.to).toBe('+5511999998888')
-    expect(arg.template).toBe('floow_resumo_ritmo_v2')
+    expect(arg.template).toBe('floow_resumo_ritmo_v3')
     expect(arg.bodyParams).toEqual(summaryParams(summary))
     expect(arg.bodyParams).toEqual([
       'setembro · Casa', 'dia 25 de 30', 'R$ 8.000,00', 'R$ 6.666,67',
@@ -76,13 +76,26 @@ describe('canal de WhatsApp', () => {
     for (const p of arg.bodyParams) expect(p).not.toMatch(/[\n\t]| {5,}/)
   })
 
-  it('alerta manda o template v2 com org e linha de atenção', async () => {
+  it('alerta manda o template v1 com a categoria, o gasto e o % do orçado', async () => {
     const { sendTemplate, ch } = setup()
     await ch.send(rec, msg('alert'))
     expect(sendTemplate.mock.calls[0][0]).toMatchObject({
-      template: 'floow_alerta_ritmo_v2',
-      bodyParams: ['Casa', '⚠️ Atenção: Alimentação (estourado)'],
+      template: 'floow_alerta_ritmo',
+      bodyParams: ['Casa', 'Alimentação', 'R$ 1.250,00', '125%'],
     })
+  })
+
+  it('alerta com várias categorias leva só a pior (maior % do orçado)', async () => {
+    const { sendTemplate, ch } = setup()
+    const m = msg('alert')
+    m.alerts = [
+      { categoryId: 'a', status: 'estourado', plannedCents: 100000, spentCents: 110000, projectedCents: 130000 },
+      { categoryId: 'b', status: 'risco', plannedCents: 20000, spentCents: 30000, projectedCents: 40000 },
+    ]
+    m.categoryNames = { a: 'Alimentação', b: 'Lazer' }
+    await ch.send(rec, m)
+    expect(sendTemplate).toHaveBeenCalledTimes(1)
+    expect(sendTemplate.mock.calls[0][0].bodyParams).toEqual(['Casa', 'Lazer', 'R$ 300,00', '150%'])
   })
 
   it('sem número verificado não tenta enviar', async () => {

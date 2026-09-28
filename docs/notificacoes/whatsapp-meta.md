@@ -21,42 +21,42 @@ Não há template de código: a verificação do número é invertida. A pessoa
 manda "floow XXXX-XXXX" do próprio WhatsApp para o número do floow, e a
 resposta sai como texto livre (a mensagem dela abre a janela de 24h).
 
-### floow_resumo_ritmo_v2 — categoria Utility (criado em 27/09/2026, id 1389800659995864)
-Corpo (o `*` é negrito e o `_` itálico no WhatsApp):
-```
-*📊 Ritmo de gastos de {{1}}*
-_Situação no {{2}}_
+**Categoria:** a Meta reclassifica como Marketing (bem mais caro) o que tiver
+linguagem de descadastro ("responda SAIR"), chamada para ação no corpo ou tom
+de campanha. Os `_v2` caíram nisso e foram apagados; o `floow_alerta_ritmo_v3`
+também. Depois de enviar um template, confira a categoria na lista.
 
-💰 Orçado para o mês: *{{3}}*
-🎯 Esperado gastar até hoje: {{4}}
-🧾 Realizado até hoje: *{{5}}*
-📈 Projeção para o fim do mês: {{6}}
+### floow_resumo_ritmo_v3 — Utility (criado em 28/09/2026)
+```
+*Ritmo de gastos de {{1}}*
+Situação no {{2}}
+
+Orçado para o mês: *{{3}}*
+Esperado gastar até hoje: {{4}}
+Realizado até hoje: *{{5}}*
+Projeção para o fim do mês: {{6}}
 
 {{7}}
 
-Toque em Ver detalhes para abrir o ritmo completo no floow. Para parar de receber estes avisos, responda SAIR.
+Você ativou este aviso em Configurações › Notificações no floow.
 ```
 Botão: URL fixa "Ver detalhes" → `https://www.floowapp.com.br/budgets/pacing`.
 Exemplos: setembro · Personal · dia 26 de 30 · R$ 25.529,00 · R$ 22.125,13 ·
 R$ 20.308,20 (92% do esperado) · R$ 23.432,54 · ✅ sobra R$ 2.096,46 ·
 ⚠️ Atenção: Alimentação, Viagens (estourados) · Limpeza (em risco)
 
-A primeira versão, com 11 variáveis, foi recusada pela Meta ("muitas variáveis
-para a extensão"). Mantenha poucas variáveis e bastante texto fixo.
+Com 11 variáveis a Meta recusou ("muitas variáveis para a extensão"). Mantenha
+poucas variáveis e bastante texto fixo.
 
-### floow_alerta_ritmo_v2 — categoria Utility
+### floow_alerta_ritmo — Utility (v1, criado em 26/09/2026)
 ```
-*🚨 Ritmo de gastos · {{1}}*
-
-{{2}}
-
-Para parar, responda SAIR.
+Atenção, {{1}}: seus gastos em {{2}} já somam {{3}}, o que representa {{4}} do previsto para o mês. Veja os detalhes no floow.
 ```
-Mesmo botão "Ver detalhes". Exemplos: Personal · ⚠️ Atenção: Alimentação (estourado)
+Sem botão. Uma categoria por mensagem: com várias, o código manda a de maior %
+do orçado. Exemplos: Personal · Alimentação · R$ 1.200,00 · 80%
 
 Os parâmetros saem de `summaryParams`/`alertParams` em
-`apps/web/lib/notifications/channels/whatsapp.ts` (7 e 2). As versões sem `_v2`
-foram substituídas e podem ser apagadas no Gerenciador do WhatsApp.
+`apps/web/lib/notifications/channels/whatsapp.ts` (7 e 4).
 
 ## 3. Variáveis na Vercel (Production)
 
