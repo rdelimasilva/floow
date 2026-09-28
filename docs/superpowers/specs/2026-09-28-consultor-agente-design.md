@@ -95,14 +95,15 @@ Nada muda no WhatsApp nesta fase.
 - Aplica o limite de uso (mesmos buckets de hoje, `cfo.chat.burst` e
   `cfo.chat.hour`, sujeito `orgId`) — sai do route e passa a valer para
   qualquer canal. Uma pergunta conta uma vez, não por rodada.
-- Monta histórico (últimas 20 mensagens da conversa), chama o Claude com as
-  ferramentas, executa as de leitura pedidas, devolve os resultados e repete até
-  o Claude responder sem pedir ferramenta ou até 5 rodadas.
+- Recebe o histórico já montado pelo canal (últimas 20 mensagens, só texto),
+  chama o Claude com as ferramentas, executa as de leitura pedidas, devolve os
+  resultados e repete até o Claude responder sem pedir ferramenta ou até 5
+  rodadas. Histórico e persistência ficam no adaptador de cada canal.
 - Estourou 5 rodadas: responde "Não consegui concluir essa análise. Tente
   perguntar de forma mais específica." e registra no log.
 - Saída: `{ texto, acoesSugeridas }` (ver "Ações da tela atual" abaixo).
-- `onTexto` recebe o texto em streaming na rodada final (a web usa; o WhatsApp
-  vai ignorar).
+- `onTexto` recebe o texto em streaming de todas as rodadas, separadas por
+  linha em branco (a web usa; o WhatsApp vai ignorar).
 
 **`lib/consultor/prompt.ts`** — instruções do agente.
 - Base do prompt atual (tom, pt-BR, respostas curtas), mais:
@@ -141,7 +142,6 @@ da tela.
 - `streamChat` passa a aceitar, no histórico, mensagens do assistente com blocos
   `tool_use` e mensagens `tool_result` com `tool_use_id` e `is_error`, no formato
   da API da Anthropic.
-- Devolve `stop_reason` junto com `toolCalls`.
 - Modelo vira configuração (`CFO_CHAT_MODEL`), padrão `claude-sonnet-5`.
 
 **`app/api/cfo/chat/route.ts`** — vira adaptador fino: autentica, resolve
