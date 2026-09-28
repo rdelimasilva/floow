@@ -21,6 +21,7 @@ import { ParcelasNaLinha } from './parcelas-na-linha'
 import { BudgetGoalSuggestionsCard } from '@/components/finance/budget-goal-suggestions-card'
 import type { BudgetGoalSuggestionRow } from '@/lib/finance/budget-goal-suggestion-queries'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { sumBudgetedSpending } from '@/lib/finance/budgeted-spending'
 
 interface CategoryOption {
   id: string
@@ -89,13 +90,8 @@ export function SpendingClient({
   const spendingMap = new Map(spending.map((s) => [s.categoryId, s.spent]))
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
 
-  // O total gasto conta apenas as categorias que TÊM teto neste mês, para
-  // comparar com totalPlanned no mesmo universo. Somar todas as despesas
-  // inflava o percentual com gasto que o usuário nunca se propôs a controlar.
   const budgetedCategoryIds = new Set(entriesForMonth.map((e) => e.categoryId))
-  const totalSpent = spending
-    .filter((s) => s.categoryId !== null && budgetedCategoryIds.has(s.categoryId))
-    .reduce((sum, s) => sum + s.spent, 0)
+  const totalSpent = sumBudgetedSpending(spending, entriesForMonth)
 
   // Parcelas do cartão que vencem neste mês e ainda não viraram gasto: já
   // não estão livres, mesmo sem aparecer em "Realizado" ainda.

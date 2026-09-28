@@ -14,6 +14,7 @@ import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBudgetGoals, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotalsForGoals, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
 import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
+import { sumBudgetedSpending } from '@/lib/finance/budgeted-spending'
 import { WelcomeCard } from '@/components/finance/welcome-card'
 // import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
 
@@ -107,7 +108,7 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
 
   // Spending alerts from budget entries
   const totalPlanned = budgetEntriesData.reduce((sum, e) => sum + e.plannedCents, 0)
-  const totalSpent = spendingData.reduce((sum, s) => sum + s.spent, 0)
+  const totalSpent = sumBudgetedSpending(spendingData, budgetEntriesData)
   if (totalPlanned > 0) {
     const pct = (totalSpent / totalPlanned) * 100
     if (pct >= 80) {
