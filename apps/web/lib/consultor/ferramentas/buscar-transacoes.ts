@@ -58,7 +58,7 @@ export const buscarTransacoes: Ferramenta = {
     }
 
     const { transactions: linhas } = await getTransactionsWithCount(ctx.orgId, {
-      startDate: p.inicio, endDate: p.fim, search: p.texto, categoryIds, accountId, limit: BUSCA_MAX,
+      startDate: p.inicio, endDate: p.fim, search: p.texto, categoryIds, accountId, limit: BUSCA_MAX, sortBy: 'date', sortDir: 'desc',
     })
     const validas = linhas.filter((t) => t.reviewState === 'confirmed' && !t.isIgnored)
     if (validas.length === 0) return 'Nenhum lançamento confirmado encontrado com esses filtros.'

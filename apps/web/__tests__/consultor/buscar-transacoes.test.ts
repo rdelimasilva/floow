@@ -23,7 +23,7 @@ describe('buscar_transacoes', () => {
     vi.mocked(getTransactionsWithCount).mockResolvedValue({ transactions: [tx(), tx({ amountCents: -5500 })], totalCount: 2 } as never)
     const r = await buscarTransacoes.executar!(ctx, { inicio: '2026-09-01', fim: '2026-09-30', texto: 'ifood' })
     expect(getTransactionsWithCount).toHaveBeenCalledWith('org-1', expect.objectContaining({
-      startDate: '2026-09-01', endDate: '2026-09-30', search: 'ifood', limit: BUSCA_MAX,
+      startDate: '2026-09-01', endDate: '2026-09-30', search: 'ifood', limit: BUSCA_MAX, sortBy: 'date', sortDir: 'desc',
     }))
     expect(r).toContain(`Total de despesas: ${reais(10000)}`)
     expect(r).toContain(`2026-09-10 | IFOOD *PEDIDO | ${reais(-4500)} | Delivery`)
