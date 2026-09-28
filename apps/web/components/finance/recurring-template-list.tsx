@@ -270,7 +270,7 @@ export function RecurringTemplateList({
                             onClick={() => handleToggleActive(t)}
                             disabled={loadingToggle === t.id}
                             title={t.isActive ? 'Pausar' : 'Reativar'} aria-label={t.isActive ? 'Pausar' : 'Reativar'}
-                            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            className="rounded p-2 sm:p-1 text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors disabled:opacity-50"
                           >
                             {t.isActive ? (
                               <Pause className="h-4 w-4" />
@@ -282,7 +282,7 @@ export function RecurringTemplateList({
                             type="button"
                             onClick={() => setEditingTemplate(t)}
                             title="Editar" aria-label="Editar"
-                            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors"
+                            className="rounded p-2 sm:p-1 text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors"
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
@@ -290,7 +290,7 @@ export function RecurringTemplateList({
                             type="button"
                             onClick={() => setCloningTemplate(t)}
                             title="Clonar" aria-label="Clonar"
-                            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors"
+                            className="rounded p-2 sm:p-1 text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors"
                           >
                             <Copy className="h-4 w-4" />
                           </button>
@@ -298,7 +298,7 @@ export function RecurringTemplateList({
                             type="button"
                             onClick={() => setDeleteTarget(t)}
                             title="Excluir" aria-label="Excluir"
-                            className="rounded p-1 text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                            className="rounded p-2 sm:p-1 text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>

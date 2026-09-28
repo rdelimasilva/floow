@@ -229,7 +229,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {connection.status === 'AUTHORISED' ? (
                 <Button
                   size="sm"

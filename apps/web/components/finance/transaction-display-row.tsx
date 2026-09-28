@@ -206,7 +206,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
       className={`rounded-lg border bg-white p-3 ${isSelected ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'} ${tx.isIgnored ? 'opacity-40' : ''} ${classeDeOpacidade(tx)}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => {}} onClick={(e) => actions.onToggleSelect(tx.id, e.shiftKey)} className="mt-1 h-4 w-4 rounded border-gray-300 shrink-0" />
+        <input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => {}} onClick={(e) => actions.onToggleSelect(tx.id, e.shiftKey)} className="mt-0.5 h-5 w-5 rounded border-gray-300 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
             {tx.recurringTemplateId && <Repeat className="h-3 w-3 text-blue-400 shrink-0" />}
@@ -247,7 +247,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
         <div className="flex items-center gap-1">
           <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
           {!tx.transferGroupId && (
-            <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-1 text-gray-400 hover:text-gray-700">
+            <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-2 text-gray-400 hover:text-gray-700">
               <Pencil className="h-4 w-4" />
             </button>
           )}

@@ -183,13 +183,13 @@ export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlow
           </div>
 
           {/* Grouping toggle */}
-          <div className="flex rounded-lg border border-gray-200 p-0.5 gap-0.5 w-fit">
+          <div className="flex max-w-full overflow-x-auto rounded-lg border border-gray-200 p-0.5 gap-0.5 w-fit">
             {(Object.keys(GROUPING_LABELS) as Grouping[]).map((g) => (
               <button
                 key={g}
                 type="button"
                 onClick={() => setGrouping(g)}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                className={`shrink-0 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   grouping === g ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >

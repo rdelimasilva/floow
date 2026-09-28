@@ -130,7 +130,7 @@ export function MenuDeAcoes({ itens, tamanho }: { itens: ItemDoMenu[]; tamanho: 
         aria-haspopup="menu"
         aria-expanded={aberto}
         onClick={alternar}
-        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+        className="rounded p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 sm:p-1"
       >
         <MoreHorizontal className={tamanho} />
       </button>

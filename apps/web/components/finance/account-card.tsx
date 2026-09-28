@@ -255,7 +255,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
 
   return (
     <>
-      <Card className="hover:shadow-md transition-shadow">
+      <Card className="min-w-0 hover:shadow-md transition-shadow">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <div className="flex min-w-0 items-center gap-2">
             {logoUrl && !logoQuebrado && (

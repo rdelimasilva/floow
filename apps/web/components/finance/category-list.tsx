@@ -163,10 +163,10 @@ export function CategoryList({ categories }: CategoryListProps) {
                   )}
                 </div>
                 <div className="flex gap-1">
-                  <button type="button" onClick={() => startEdit(cat)} className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                  <button type="button" onClick={() => startEdit(cat)} className="rounded-md border border-gray-200 px-3 py-2 text-xs sm:px-2 sm:py-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
                     Editar
                   </button>
-                  <button type="button" onClick={() => setDeleteTarget(cat)} className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">
+                  <button type="button" onClick={() => setDeleteTarget(cat)} className="rounded-md border border-gray-200 px-3 py-2 text-xs sm:px-2 sm:py-1 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">
                     Excluir
                   </button>
                 </div>
