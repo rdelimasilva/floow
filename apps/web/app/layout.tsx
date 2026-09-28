@@ -21,6 +21,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#ffffff',
+  // Libera env(safe-area-inset-*) no iPhone; sem isso a barra de gestos cobre
+  // o fim da sidebar no app instalado.
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({

@@ -27,7 +27,7 @@ export function Topbar({ userEmail, userName, avatarUrl, onMobileMenuOpen }: Top
 
   return (
     <header
-      className={`fixed top-0 right-0 z-30 flex h-14 items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm px-4 left-0 lg:transition-[left] lg:duration-150 lg:ease-out ${
+      className={`fixed top-0 right-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm px-4 left-0 lg:transition-[left] lg:duration-150 lg:ease-out ${
         pinned ? 'lg:left-56' : 'lg:left-[68px]'
       }`}
     >

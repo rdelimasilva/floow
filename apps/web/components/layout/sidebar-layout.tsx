@@ -7,11 +7,11 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <main
-      className={`pt-14 lg:transition-[padding-left] lg:duration-150 lg:ease-out ${
+      className={`pt-[calc(3.5rem+env(safe-area-inset-top))] lg:transition-[padding-left] lg:duration-150 lg:ease-out ${
         pinned ? 'lg:pl-56' : 'lg:pl-[68px]'
       }`}
     >
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 pt-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         {children}
       </div>
     </main>
