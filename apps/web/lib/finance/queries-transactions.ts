@@ -5,6 +5,7 @@ import { eq, and, desc, asc, count, gte, ilike, lte, inArray, sql } from 'drizzl
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { sqlPrevisaoAindaPorVencer, sqlValorNoSaldo } from './balance-sql'
 import { futureTransactionsTag, recentTransactionsTag } from '@/lib/cache-tags'
+import { effectiveAffectsCashFlow } from './affects-cash-flow'
 
 /** Filter options shared between getTransactions queries. */
 export interface TransactionFilterOpts {
@@ -412,7 +413,17 @@ export const getRecentTransactions = cache(async function getRecentTransactions(
           date: transactions.date,
         })
         .from(transactions)
-        .where(and(eq(transactions.orgId, orgId), gte(transactions.date, cutoff), eq(transactions.isIgnored, false), eq(transactions.balanceApplied, true)))
+        // Mesma regra do resumo mensal (`queries-cash-flow.ts`): sem ela o
+        // detalhamento soma o que o gráfico deixa de fora e os dois não batem.
+        .leftJoin(categories, eq(categories.id, transactions.categoryId))
+        .where(and(
+          eq(transactions.orgId, orgId),
+          gte(transactions.date, cutoff),
+          eq(transactions.isIgnored, false),
+          eq(transactions.balanceApplied, true),
+          eq(transactions.reviewState, 'confirmed'),
+          effectiveAffectsCashFlow,
+        ))
         .orderBy(desc(transactions.date))
     },
     ['finance-recent-transactions', orgId, String(months)],
@@ -446,10 +457,13 @@ export async function getFutureTransactions(orgId: string, months: number = 24) 
           date: transactions.date,
         })
         .from(transactions)
+        .leftJoin(categories, eq(categories.id, transactions.categoryId))
         .where(and(
           eq(transactions.orgId, orgId),
           eq(transactions.balanceApplied, false),
           eq(transactions.isIgnored, false),
+          eq(transactions.reviewState, 'confirmed'),
+          effectiveAffectsCashFlow,
           lte(transactions.date, endDate),
           sqlPrevisaoAindaPorVencer(hojeSP()),
         ))

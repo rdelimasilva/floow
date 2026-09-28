@@ -31,14 +31,13 @@ const mockDb = {
     capturar(query)
     return Promise.resolve([])
   },
-  select: () => ({
-    from: () => ({
-      where: (condicao: unknown) => {
-        capturar(condicao)
-        return { orderBy: () => Promise.resolve([]) }
-      },
-    }),
-  }),
+  select: () => {
+    const where = (condicao: unknown) => {
+      capturar(condicao)
+      return { orderBy: () => Promise.resolve([]) }
+    }
+    return { from: () => ({ where, leftJoin: () => ({ where }) }) }
+  },
 }
 
 vi.mock('@floow/db', async (importOriginal) => ({
@@ -53,7 +52,7 @@ vi.mock('next/cache', () => ({
   revalidateTag: vi.fn(),
 }))
 
-const { getFutureMonthlyCashFlowSummary, getMonthlyCashFlowSummary, getFutureTransactions } =
+const { getFutureMonthlyCashFlowSummary, getMonthlyCashFlowSummary, getFutureTransactions, getRecentTransactions } =
   await import('@/lib/finance/queries')
 
 function normalizado(texto: string): string {
@@ -101,5 +100,32 @@ describe('resumo mensal realizado', () => {
     const query = normalizado(sqlCapturado[0] ?? '')
     expect(query).not.toContain('"matched_transaction_id" is null')
     expect(query).not.toContain('forecast_match_proposals')
+  })
+})
+
+/**
+ * O detalhamento abaixo do gráfico somava lançamento bruto: o PIX recebido e
+ * devolvido, o ajuste de saldo e o que estava pendente de revisão entravam na
+ * tabela e ficavam fora do gráfico — os dois não batiam. As listas têm que
+ * seguir a mesma regra do resumo mensal.
+ */
+describe.each([
+  ['lançamentos realizados do detalhamento', () => getRecentTransactions('org-1', 24)],
+  ['lançamentos futuros do detalhamento', () => getFutureTransactions('org-1', 24)],
+])('%s', (_nome, carregar) => {
+  it('respeita o "afeta o fluxo de caixa" do lançamento, da categoria e o padrão', async () => {
+    await carregar()
+
+    expect(normalizado(sqlCapturado[0] ?? '')).toContain(
+      'coalesce("transactions"."affects_cash_flow", "categories"."affects_cash_flow", true)',
+    )
+  })
+
+  it('só conta lançamento confirmado', async () => {
+    await carregar()
+
+    const query = normalizado(sqlCapturado[0] ?? '')
+    expect(query).toMatch(/"transactions"\."review_state" = \$\d+/)
+    expect(paramsCapturados[0]).toContain('confirmed')
   })
 })
