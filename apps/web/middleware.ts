@@ -62,7 +62,9 @@ export const config = {
      *  - _next/static  (static assets)
      *  - _next/image   (image optimisation)
      *  - favicon.ico
+     *  - manifest, ícones e apple-icon do PWA: o navegador busca sem sessão, e
+     *    o redirect para /auth impediria a instalação
      */
-    '/((?!_next/static|_next/image|favicon\\.ico).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|icons/|apple-icon).*)',
   ],
 }

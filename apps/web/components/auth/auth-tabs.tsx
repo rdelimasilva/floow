@@ -70,7 +70,7 @@ export function AuthTabs() {
                 onClick={() => setShowMagicLink(true)}
                 className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
               >
-                Usar link mágico
+                Entrar com código por e-mail
               </button>
             </div>
           </>
