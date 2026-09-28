@@ -90,7 +90,8 @@ describe('filtros de transações', () => {
   it('o toggle do futuro se chama "Lançamentos futuros"', () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
 
-    expect(screen.getByRole('button', { name: 'Lançamentos futuros' })).toBeTruthy()
+    // Um no painel do celular, outro na linha de pílulas do desktop; o CSS mostra um só.
+    expect(screen.getAllByRole('button', { name: 'Lançamentos futuros' }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /previs/i })).toBeNull()
   })
 })

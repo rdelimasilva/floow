@@ -152,8 +152,43 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
 
   return (
     <div className="space-y-2">
+      {/* Celular: onze pílulas ocupavam meia tela antes do primeiro lançamento.
+          O seletor nativo abre a roleta do iPhone e cabe numa linha. */}
+      <div className="flex items-center gap-2 md:hidden">
+        <select
+          aria-label="Período"
+          value={activePeriod ?? (startDate || endDate ? 'custom' : '')}
+          onChange={(e) => {
+            const key = e.target.value as PeriodKey | ''
+            const { startDate: s, endDate: en } = key ? getPeriodDates(key) : { startDate: '', endDate: '' }
+            setStartDate(s)
+            setEndDate(en)
+            navigate({ startDate: s, endDate: en })
+          }}
+          className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-base text-gray-700"
+        >
+          <option value="">Todo o período</option>
+          {!activePeriod && (startDate || endDate) && <option value="custom" disabled>Datas personalizadas</option>}
+          {PERIOD_GROUPS.map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.keys.map((key) => <option key={key} value={key}>{PERIOD_LABELS[key]}</option>)}
+            </optgroup>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((v) => !v)}
+          aria-expanded={filtersOpen}
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          Filtros
+          {(hasFilters && !activePeriod) || includeFuture ? <span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> : null}
+        </button>
+      </div>
+
       {/* Atalhos de período em grupos — o clique na pílula ativa desmarca */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="hidden flex-wrap items-center gap-x-4 gap-y-2 md:flex">
         {PERIOD_GROUPS.map((group) => (
           <div key={group.label} role="group" aria-label={group.label} className="flex flex-wrap items-center gap-1.5">
             <span className="mr-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">{group.label}</span>
@@ -190,22 +225,22 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
         </button>
       </div>
 
-      {/* Mobile: toggle button for filters */}
-      <button
-        type="button"
-        onClick={() => setFiltersOpen((v) => !v)}
-        className="md:hidden flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600"
-      >
-        <SlidersHorizontal className="h-3.5 w-3.5" />
-        Filtros
-        {hasFilters && <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />}
-      </button>
-
       {/* Filters row — always visible on desktop, collapsible on mobile */}
       <div className={`flex-wrap items-center gap-2 ${filtersOpen ? 'flex' : 'hidden md:flex'}`}>
+        <button
+          type="button"
+          aria-pressed={includeFuture}
+          onClick={() => navigate({ future: includeFuture ? '' : '1' })}
+          className={`${PILL_BASE} md:hidden ${
+            includeFuture ? 'bg-amber-100 border border-amber-300 text-amber-800' : PILL_OFF
+          }`}
+        >
+          Lançamentos futuros
+        </button>
+
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-2 h-4 w-4 text-gray-400" />
+        <div className="relative w-full md:w-auto md:flex-1 md:min-w-[200px]">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 md:top-2" />
           <input
             placeholder="Buscar descrição..."
             value={search}
@@ -221,7 +256,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
                 navigate({ search: e.currentTarget.value })
               }
             }}
-            className={`h-8 w-full rounded-lg border border-gray-200 bg-white pl-9 text-xs text-gray-600 placeholder:text-gray-400 ${
+            className={`h-9 w-full rounded-lg border border-gray-200 bg-white pl-9 text-base text-gray-600 md:h-8 md:text-xs placeholder:text-gray-400 ${
               search ? 'pr-8' : 'pr-3'
             }`}
           />
@@ -231,7 +266,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
               aria-label="Limpar busca"
               title="Limpar busca"
               onClick={clearSearch}
-              className="absolute right-1.5 top-1.5 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="absolute right-1.5 top-2 rounded p-0.5 md:top-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -253,13 +288,14 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
         )}
 
         {/* Date range — cada ponta se solta pelo × ao lado dela */}
-        <div className="flex items-center gap-1">
+        <div className="flex w-full items-center gap-2 md:contents">
+        <div className="flex min-w-0 flex-1 items-center gap-1 md:flex-none">
           <input
             type="date" min="1900-01-01" max="2100-12-31"
             aria-label="Data inicial"
             value={startDate}
             onChange={(e) => { setStartDate(e.target.value); navigate({ startDate: e.target.value }) }}
-            className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 text-base text-gray-600 md:h-8 md:flex-none md:px-3 md:text-xs"
           />
           {startDate && (
             <button
@@ -274,13 +310,13 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
           )}
         </div>
         <span className="text-xs text-gray-400">até</span>
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 flex-1 items-center gap-1 md:flex-none">
           <input
             type="date" min="1900-01-01" max="2100-12-31"
             aria-label="Data final"
             value={endDate}
             onChange={(e) => { setEndDate(e.target.value); navigate({ endDate: e.target.value }) }}
-            className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 text-base text-gray-600 md:h-8 md:flex-none md:px-3 md:text-xs"
           />
           {endDate && (
             <button
@@ -293,6 +329,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
               <X className="h-3.5 w-3.5" />
             </button>
           )}
+        </div>
         </div>
       </div>
     </div>
