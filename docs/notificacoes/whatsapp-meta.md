@@ -50,10 +50,11 @@ poucas variáveis e bastante texto fixo.
 
 ### floow_alerta_ritmo — Utility (v1, criado em 26/09/2026)
 ```
-Atenção, {{1}}: seus gastos em {{2}} já somam {{3}}, o que representa {{4}} do previsto para o mês. Veja os detalhes no floow.
+Atenção, {{1}}: seus gastos em {{2}} já somam R$ {{3}}, o que representa {{4}}% do previsto para o mês. Veja os detalhes no floow.
 ```
 Sem botão. Uma categoria por mensagem: com várias, o código manda a de maior %
-do orçado. Exemplos: Personal · Alimentação · R$ 1.200,00 · 80%
+do orçado. O "R$" e o "%" são texto fixo: os parâmetros vão só com o número.
+Exemplos: Personal · Alimentação · 1.200,00 · 80
 
 Os parâmetros saem de `summaryParams`/`alertParams` em
 `apps/web/lib/notifications/channels/whatsapp.ts` (7 e 4).

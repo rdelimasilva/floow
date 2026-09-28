@@ -55,7 +55,8 @@ const pctOfPlanned = (a: PacingAlert) =>
 
 /**
  * {{1}}…{{4}} do floow_alerta_ritmo: "Atenção, {{1}}: seus gastos em {{2}} já
- * somam {{3}}, o que representa {{4}} do previsto para o mês."
+ * somam R$ {{3}}, o que representa {{4}}% do previsto para o mês." — o "R$" e o
+ * "%" são texto fixo do template, então os parâmetros vão sem eles.
  * O template fala de uma categoria só; com várias, vai a de maior % do orçado
  * (uma mensagem por categoria multiplicaria o custo).
  */
@@ -65,8 +66,8 @@ export function alertParams(m: ChannelMessage): string[] {
   return [
     m.orgName,
     m.categoryNames[pior.categoryId] ?? 'Categoria sem nome',
-    brl(pior.spentCents),
-    Number.isFinite(pct) ? `${Math.round(pct * 100)}%` : 'mais de 100%',
+    brl(pior.spentCents).replace(/^R\$\s*/, ''),
+    Number.isFinite(pct) ? String(Math.round(pct * 100)) : 'mais de 100',
   ].map(oneLine)
 }
 

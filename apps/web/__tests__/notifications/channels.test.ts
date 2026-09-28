@@ -81,7 +81,7 @@ describe('canal de WhatsApp', () => {
     await ch.send(rec, msg('alert'))
     expect(sendTemplate.mock.calls[0][0]).toMatchObject({
       template: 'floow_alerta_ritmo',
-      bodyParams: ['Casa', 'Alimentação', 'R$ 1.250,00', '125%'],
+      bodyParams: ['Casa', 'Alimentação', '1.250,00', '125'],
     })
   })
 
@@ -95,7 +95,7 @@ describe('canal de WhatsApp', () => {
     m.categoryNames = { a: 'Alimentação', b: 'Lazer' }
     await ch.send(rec, m)
     expect(sendTemplate).toHaveBeenCalledTimes(1)
-    expect(sendTemplate.mock.calls[0][0].bodyParams).toEqual(['Casa', 'Lazer', 'R$ 300,00', '150%'])
+    expect(sendTemplate.mock.calls[0][0].bodyParams).toEqual(['Casa', 'Lazer', '300,00', '150'])
   })
 
   it('sem número verificado não tenta enviar', async () => {
