@@ -264,15 +264,15 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             )}
             <CardTitle className="truncate text-sm font-medium text-gray-600">{account.name}</CardTitle>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600" title={label}>
               <Icon className="h-3.5 w-3.5" />
-              <span>{label}</span>
+              <span className="hidden sm:inline">{label}</span>
             </div>
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              className="rounded p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 sm:p-1"
               title="Editar"
               aria-label="Editar"
             >
@@ -281,7 +281,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+              className="rounded p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 sm:p-1"
               title="Excluir"
               aria-label="Excluir"
             >

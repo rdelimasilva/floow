@@ -47,7 +47,7 @@ export default async function AccountsPage() {
           <div
             id="dica-importar-banco"
             role="tooltip"
-            className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground opacity-0 shadow-md transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+            className="pointer-events-none absolute left-0 top-full sm:left-auto sm:right-0 z-50 mt-2 w-72 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground opacity-0 shadow-md transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
           >
             Conecta sua conta pelo Open Finance: contas, cartões, investimentos e lançamentos entram sozinhos e
             continuam atualizados, sem digitar nada.

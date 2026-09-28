@@ -167,14 +167,20 @@ export default async function TransactionsPage({ searchParams }: Props) {
           ? `${totalCount} ${totalCount === 1 ? 'transação encontrada' : 'transações encontradas'}`
           : 'Nenhuma transação registrada'}
       >
-        <ExportCsvButton />
+        {/* No celular a ação principal vem primeiro e o CSV sai: baixar planilha
+            no telefone é raro, e o espaço do cabeçalho é pouco. */}
+        <div className="hidden sm:contents">
+          <ExportCsvButton />
+        </div>
         <Button asChild variant="outline">
           <Link href="/transactions/import">Importar</Link>
         </Button>
         <Button asChild variant="outline">
           <Link href="/transactions/review">Classificar lançamentos</Link>
         </Button>
-        <InlineTransactionFormButton />
+        <div className="order-first sm:order-none">
+          <InlineTransactionFormButton />
+        </div>
       </PageHeader>
 
       <InlineTransactionFormPanel
