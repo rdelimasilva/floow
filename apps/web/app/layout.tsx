@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: 'Organize suas finanças pessoais com o floow',
   icons: {
     icon: 'https://ak8t3l6j6j.ufs.sh/f/CwfRtcqQB4vVBQBMqgGTkLbIyjwphG5CfF2KE4ru9eNaDWMP',
+    // Declarado aqui porque `icons` sobrepõe o app/apple-icon.png.
+    apple: '/apple-icon.png',
   },
   appleWebApp: {
     capable: true,
