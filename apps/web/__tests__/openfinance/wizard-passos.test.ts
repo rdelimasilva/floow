@@ -7,6 +7,7 @@ import {
   escolhaInicial,
   montarDestinos,
   continuaEsperando,
+  destinoDepoisDaConclusao,
   resumoDaConclusao,
   type EstadoDoWizard,
 } from '@/app/(app)/accounts/connect/wizard-passos'
@@ -154,5 +155,33 @@ describe('contasDisponiveis', () => {
   })
   it('sem conexões, todas', () => {
     expect(contasDisponiveis(CONTAS, [])).toHaveLength(5)
+  })
+})
+
+describe('destinoDepoisDaConclusao', () => {
+  const concluida = {
+    etapa: 'concluida' as const, vinculados: 1, ambiguos: [], faltando: [], importadas: 12, erro: null,
+    atualizacao: { status: 'AUTHORISED' },
+  }
+
+  it('primeiro import com itens para conciliar vai para Conciliar', () => {
+    expect(destinoDepoisDaConclusao(concluida, 3)).toBe('/transactions/conciliar')
+  })
+
+  it('sem nada para conciliar, fica', () => {
+    expect(destinoDepoisDaConclusao(concluida, 0)).toBeNull()
+  })
+
+  it('ainda esperando o banco, fica', () => {
+    expect(destinoDepoisDaConclusao({ ...concluida, etapa: 'aguardando-contas' }, 3)).toBeNull()
+  })
+
+  it('importação com erro precisa ser vista nesta tela: fica', () => {
+    expect(destinoDepoisDaConclusao({ ...concluida, erro: 'x', importadas: null }, 3)).toBeNull()
+  })
+
+  it('conta ambígua ou faltando pede decisão nesta tela: fica', () => {
+    expect(destinoDepoisDaConclusao({ ...concluida, ambiguos: ['ACCOUNT'] as never }, 3)).toBeNull()
+    expect(destinoDepoisDaConclusao({ ...concluida, faltando: ['CREDIT_CARD_ACCOUNT'] as never }, 3)).toBeNull()
   })
 })

@@ -1,14 +1,13 @@
 'use server'
 
 import { z } from 'zod'
-import { and, eq, isNotNull, sql } from 'drizzle-orm'
-import { getDb, orgs, counterparties, transactions } from '@floow/db'
+import { and, eq } from 'drizzle-orm'
+import { getDb, counterparties } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { assertAccountOwnership } from '@/lib/finance/account-actions'
 import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
-import { accountsTag, invalidateTag, reviewGateTag } from '@/lib/cache-tags'
-import { condicaoForaDeParDeTransferenciaPendente } from '@/lib/finance/forecast-match-db'
+import { accountsTag, invalidateTag } from '@/lib/cache-tags'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarDecisaoAosPendentes, camposDaRegra, contaQueARegraGrava, ehRegraDoTitular, exceptionSchema } from './aplicar-regra'
 export type { ConfirmCounterpartyException } from './aplicar-regra'
@@ -108,40 +107,11 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
       contasParaConciliar,
     )
 
-    // Se esta foi a última pendência resolvível da org, destrava o portão
-    // para sempre. Movido de getReviewGateStatus (achado da revisão final):
-    // gravar como efeito de leitura destravava orgs sem fila nenhuma antes
-    // do bootstrap sequer existir — agora só grava quando uma confirmação
-    // de verdade zera a fila.
-    const [stillPending] = await tx
-      .select({ one: sql`1` })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.orgId, orgId),
-          eq(transactions.reviewState, 'pending'),
-          isNotNull(transactions.counterpartyId),
-          // Ponta com par de transferência pendente decide-se em Confirmar previsões.
-          condicaoForaDeParDeTransferenciaPendente(),
-        ),
-      )
-      .limit(1)
-
-    if (!stillPending) {
-      await tx
-        .update(orgs)
-        .set({ reviewGateClearedAt: sql`coalesce(${orgs.reviewGateClearedAt}, now())` })
-        .where(eq(orgs.id, orgId))
-    }
-
     return reclassifiedCount
   })
 
   invalidateTag(accountsTag(orgId))
   revalidateSnapshotData(orgId)
-  // O layout guarda em cache se o portão já destravou; esta action é o único
-  // lugar que o destrava.
-  invalidateTag(reviewGateTag(orgId))
 
   // A ponta real pode já estar na outra conta: concilia agora, sem esperar o
   // próximo sync dela. Falha aqui não desfaz a confirmação — o motor não

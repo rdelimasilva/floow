@@ -66,7 +66,7 @@ describe('link para corrigir regra no lançamento', () => {
   it('lançamento de regra mostra o link para corrigir (desktop)', () => {
     renderDesktop({ counterpartyId: 'cp-1' })
     expect(screen.getAllByRole('menuitem', { name: 'Corrigir regra' })[0].getAttribute('href')).toBe(
-      '/transactions/review?regra=cp-1',
+      '/transactions/conciliar?regra=cp-1#classificar',
     )
   })
 
@@ -78,7 +78,7 @@ describe('link para corrigir regra no lançamento', () => {
   it('lançamento de regra mostra o link para corrigir (mobile)', () => {
     renderMobile({ counterpartyId: 'cp-1' })
     expect(screen.getAllByRole('menuitem', { name: 'Corrigir regra' })[0].getAttribute('href')).toBe(
-      '/transactions/review?regra=cp-1',
+      '/transactions/conciliar?regra=cp-1#classificar',
     )
   })
 

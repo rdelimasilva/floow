@@ -25,9 +25,9 @@ export const PERGUNTAS: Pergunta[] = [
   },
   {
     id: 'filas',
-    pergunta: 'O que são "Classificar lançamentos", "Confirmar previsões" e "Remover repetidos"?',
+    pergunta: 'O que é "Conciliar"?',
     resposta:
-      'São filas que aparecem em Transações quando há algo para você decidir. Classificar: lançamentos do banco que o floow ainda não sabe classificar — você decide uma vez e vale para os próximos. Confirmar previsões: previsões suas que parecem já ter acontecido. Remover repetidos: lançamentos que o banco mandou duas vezes. Nada muda sem você aprovar.',
+      'É a tela, dentro de Transações, com tudo o que veio do banco e pede uma decisão sua: remover lançamentos que o banco mandou duas vezes, classificar os que o floow ainda não sabe classificar (você decide uma vez e vale para os próximos) e confirmar previsões que parecem já ter acontecido. Nada trava o app, e nada muda sem você aprovar.',
   },
   {
     id: 'recorrentes',

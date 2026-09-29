@@ -46,7 +46,6 @@ const grupo = (id: string, nome: string) => ({
 })
 
 const props = (pending: ReturnType<typeof grupo>[]) => ({
-  mode: 'page' as const,
   pending,
   confirmed: [],
   categoryOptions: [],

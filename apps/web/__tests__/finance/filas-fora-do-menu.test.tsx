@@ -59,6 +59,15 @@ describe('filas ficam fora do menu lateral', () => {
     expect(screen.getByText('Transações').closest('a')?.className).toContain(ATIVO)
   })
 
+  it('em /transactions/conciliar, "Transações" fica ativo (sem item próprio)', () => {
+    usePathnameMock.mockReturnValue('/transactions/conciliar')
+
+    render(React.createElement(Sidebar, { mobileOpen: false, onMobileClose: () => {} }))
+
+    expect(screen.getByText('Transações').closest('a')?.className).toContain(ATIVO)
+    expect(screen.queryByText('Conciliar')).toBeNull()
+  })
+
   it('"Recorrentes" continua com item próprio e destaque próprio', () => {
     // A excecao que sobrou: ela tem item no menu, entao nao empresta destaque
     // para "Transacoes".

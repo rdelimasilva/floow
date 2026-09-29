@@ -139,9 +139,9 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
   if (tx.hasPendingMatchProposal) {
     return (
       <Link
-        href="/transactions/matches"
+        href="/transactions/conciliar#confirmar"
         className="inline-flex shrink-0 items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-100"
-        title="O floow encontrou um lançamento do banco que pode ser este. Decida em Confirmar previsões."
+        title="O floow encontrou um lançamento do banco que pode ser este. Decida em Conciliar."
       >
         confirmar?
       </Link>

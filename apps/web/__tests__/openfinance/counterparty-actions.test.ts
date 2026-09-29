@@ -126,7 +126,6 @@ describe('confirmCounterparty', () => {
     selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
     updateQueue.push([]) // update de counterparties não retorna nada relevante
     updateQueue.push([{ id: 'tx-1' }, { id: 'tx-2' }]) // 2 transações reclassificadas
-    selectQueue.push([{ one: 1 }]) // ainda sobra pendência resolvível na org — não destrava o portão
 
     const result = await confirmCounterparty({
       counterpartyId: COUNTERPARTY_ID,
@@ -152,28 +151,13 @@ describe('confirmCounterparty', () => {
     ).rejects.toThrow(/não encontrada/)
   })
 
-  it('zera a última pendência resolvível da org: grava reviewGateClearedAt em orgs', async () => {
+  it('zerar a fila não grava nada em orgs: não há mais portão para destravar', async () => {
     selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
     updateQueue.push([]) // update de counterparties
     updateQueue.push([{ id: 'tx-1' }]) // 1 transação reclassificada
-    selectQueue.push([]) // nenhuma pendência resolvível restante na org
-    updateQueue.push([]) // update de orgs.reviewGateClearedAt
-
-    await confirmCounterparty({
-      counterpartyId: COUNTERPARTY_ID,
-      nature: 'expense',
-      categoryId: CATEGORY_ID,
-      transferAccountId: null,
-    })
-
-    expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions', 'orgs'])
-  })
-
-  it('ainda sobra pendência resolvível na org: não grava reviewGateClearedAt', async () => {
-    selectQueue.push([{ id: COUNTERPARTY_ID }]) // contraparte pertence à org
-    updateQueue.push([]) // update de counterparties
-    updateQueue.push([{ id: 'tx-1' }]) // 1 transação reclassificada
-    selectQueue.push([{ one: 1 }]) // ainda sobra pendência resolvível na org
+    // Se a checagem do portão ainda existisse, este "nada pendente" a faria
+    // gravar em orgs.
+    selectQueue.push([])
 
     await confirmCounterparty({
       counterpartyId: COUNTERPARTY_ID,
@@ -183,6 +167,7 @@ describe('confirmCounterparty', () => {
     })
 
     expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions'])
+    expect(ops.some((o) => o.table === 'orgs')).toBe(false)
   })
 
   it('aplica exceção a um lançamento específico, sem virar regra da contraparte', async () => {
@@ -190,7 +175,6 @@ describe('confirmCounterparty', () => {
     updateQueue.push([]) // update de counterparties (regra do grupo)
     updateQueue.push([{ id: 'tx-1' }]) // lote, excluindo a exceção
     updateQueue.push([{ id: 'tx-2' }]) // update da exceção (tx-2)
-    selectQueue.push([{ one: 1 }]) // ainda sobra pendência resolvível na org
 
     const result = await confirmCounterparty({
       counterpartyId: COUNTERPARTY_ID,
@@ -219,7 +203,6 @@ describe('confirmCounterparty', () => {
     updateQueue.push([])
     updateQueue.push([{ id: 'tx-1' }])
     updateQueue.push([{ id: 'tx-2' }])
-    selectQueue.push([{ one: 1 }])
 
     await expect(
       confirmCounterparty({
@@ -271,7 +254,6 @@ describe('confirmCounterparty', () => {
       updateQueue.push([]) // update da linha de origem (transferAccountId, transferGroupId)
       insertQueue.push([{ id: 'tx-1-dest' }]) // insert da segunda perna
       updateQueue.push([]) // update do saldo da conta de destino
-      selectQueue.push([{ one: 1 }]) // ainda sobra pendência resolvível na org
 
       const result = await confirmCounterparty({
         counterpartyId: COUNTERPARTY_ID,
@@ -308,7 +290,6 @@ describe('confirmCounterparty', () => {
       selectQueue.push([]) // isOpenFinanceLinkedAccount: sem recurso -> conta manual
       updateQueue.push([]) // update da linha de origem (transferAccountId, transferGroupId)
       insertQueue.push([{ id: 'tx-1-dest' }]) // insert da segunda perna: entrou de fato
-      selectQueue.push([{ one: 1 }]) // ainda sobra pendência resolvível na org
 
       const result = await confirmCounterparty({
         counterpartyId: COUNTERPARTY_ID,
@@ -342,7 +323,6 @@ describe('confirmCounterparty', () => {
       selectQueue.push([]) // acharPernaPrevistaAberta: o outro lado ainda não criou perna aqui
       updateQueue.push([]) // update da origem
       insertQueue.push([{ id: 'tx-1-par' }]) // perna prevista entrou
-      selectQueue.push([{ one: 1 }])
 
       const result = await confirmCounterparty({
         counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,

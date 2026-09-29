@@ -24,7 +24,7 @@ export const COMMANDS: CommandItem[] = [
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight, keywords: ['extrato', 'lancamentos'] },
   { label: 'Importar Extrato', href: '/transactions/import', icon: ArrowLeftRight, keywords: ['importar', 'ofx', 'csv', 'banco'] },
   { label: 'Recorrentes', href: '/transactions/recurring', icon: RefreshCw, keywords: ['recorrencia', 'parcelas', 'fixas', 'mensal'] },
-  { label: 'Classificar lançamentos', href: '/transactions/review', icon: ArrowLeftRight, keywords: ['revisar', 'contraparte', 'fila', 'pendente', 'classificar'] },
+  { label: 'Conciliar', href: '/transactions/conciliar', icon: ArrowLeftRight, keywords: ['classificar', 'revisar', 'contraparte', 'fila', 'pendente', 'repetidos', 'duplicata', 'previsao', 'confirmar'] },
   { label: 'Ritmo de Gastos', href: '/budgets/pacing', icon: Gauge, keywords: ['ritmo', 'pacing', 'gastos do mes'] },
   { label: 'Plano de Gastos', href: '/budgets/spending', icon: PiggyBank, keywords: ['orcamento', 'gastos', 'limite', 'meta'] },
   { label: 'Meta de Investimentos', href: '/budgets/investing', icon: Target, keywords: ['aporte', 'investir', 'meta'] },

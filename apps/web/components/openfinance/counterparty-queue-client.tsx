@@ -18,7 +18,6 @@ type CategoryOption = { id: string; label: string; type: 'income' | 'expense' | 
 type AccountOption = { id: string; name: string }
 
 interface Props {
-  mode: 'blocking' | 'page'
   pending: PendingGroup[]
   confirmed: ConfirmedCounterparty[]
   categoryOptions: CategoryOption[]
@@ -39,7 +38,7 @@ export function CounterpartyQueueClient(props: Props) {
   return <FilaDeClassificar key={chave} {...props} />
 }
 
-function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryOptions, accountOptions, regraAberta }: Props) {
+function FilaDeClassificar({ pending: initialPending, confirmed, categoryOptions, accountOptions, regraAberta }: Props) {
   const { toast } = useToast()
   const [pending, setPending] = useState(initialPending)
   // Todo grupo nasce expandido: classificar sem ver de que conta e com que
@@ -192,12 +191,6 @@ function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryO
     } finally {
       setSavingId(null)
     }
-  }
-
-  if (pending.length === 0 && mode === 'blocking') {
-    // O layout re-renderiza no próximo request e o portão já vai estar
-    // destravado (getReviewGateStatus grava o timestamp na hora que zera).
-    return <p className="text-sm text-gray-600">Tudo revisado — atualizando…</p>
   }
 
   /**
@@ -404,7 +397,7 @@ function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryO
         </>
       )}
 
-      {mode === 'page' && confirmed.length > 0 && (
+      {confirmed.length > 0 && (
         <RegrasConfirmadas confirmed={confirmed} categoryOptions={categoryOptions} accountOptions={accountOptions} regraAberta={regraAberta} />
       )}
     </div>

@@ -10,6 +10,7 @@ import {
   type ResultadoDaConexaoGuiada,
 } from '@/lib/openfinance/conexao-guiada-actions'
 import { abrirAutorizacao } from '@/lib/openfinance/abrir-autorizacao'
+import { totalParaConciliar } from '@/lib/finance/itens-para-conciliar-actions'
 import { useAtualizarAoVoltar } from './aguardando-autorizacao'
 import { PassoAtivar } from './passo-ativar'
 import { PassoBanco, type Institution } from './passo-banco'
@@ -18,6 +19,7 @@ import {
   NOVA,
   contasCompativeis,
   continuaEsperando,
+  destinoDepoisDaConclusao,
   erroDoPasso,
   escolhaInicial,
   montarDestinos,
@@ -95,11 +97,17 @@ export function ConnectWizard({ institutions, loadError, contas }: ConnectWizard
     // Relê o status e, se as contas chegaram, vincula e importa sozinho.
     // Falha aqui não merece alarme: a próxima volta para a aba tenta de novo.
     concluirConexaoGuiada(aguardando)
-      .then(setResultado)
-      .catch(() => {})
-      .finally(() => {
+      .then(async (r) => {
+        setResultado(r)
+        // Só pergunta o total depois de importar: antes disso não há o que
+        // conciliar vindo desta conexão.
+        return r.etapa === 'concluida' ? destinoDepoisDaConclusao(r, await totalParaConciliar()) : null
+      })
+      .catch(() => null)
+      .then((destino) => {
         emAndamento.current = false
-        router.refresh()
+        if (destino) router.push(destino)
+        else router.refresh()
       })
   }
 

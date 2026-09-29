@@ -31,4 +31,10 @@ describe('paleta de comandos', () => {
     expect(achados).toContain('Transações')
     expect(achados).not.toContain('Contas')
   })
+
+  it('"Conciliar" substitui "Classificar lançamentos" e é achada pelo nome antigo', () => {
+    expect(COMMANDS.map((c) => c.label)).not.toContain('Classificar lançamentos')
+    expect(filtrarComandos('classificar').map((c) => c.href)).toContain('/transactions/conciliar')
+    expect(filtrarComandos('repetidos').map((c) => c.href)).toContain('/transactions/conciliar')
+  })
 })

@@ -7,6 +7,7 @@ vi.mock('@/lib/openfinance/conexao-guiada-actions', () => ({
   iniciarConexaoGuiada: vi.fn(),
   concluirConexaoGuiada: vi.fn(),
 }))
+vi.mock('@/lib/finance/itens-para-conciliar-actions', () => ({ totalParaConciliar: vi.fn(async () => 0) }))
 
 const { ConnectWizard } = await import('@/app/(app)/accounts/connect/connect-wizard')
 const { ToastProvider } = await import('@/components/ui/toast')

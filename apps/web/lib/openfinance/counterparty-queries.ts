@@ -1,104 +1,9 @@
 import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm'
-import { orgs, transactions, counterparties, accounts } from '@floow/db'
-import { getOrgId } from '@/lib/finance/queries'
-import { unstable_cache } from 'next/cache'
-import { unstable_rethrow } from 'next/navigation'
-import { withUserDb, withUserDbFor } from '@/lib/db/rls'
-import { requireIdentity } from '@/lib/auth/session'
-import { reviewGateTag } from '@/lib/cache-tags'
+import { transactions, counterparties, accounts } from '@floow/db'
+import { withUserDb } from '@/lib/db/rls'
 import { condicaoForaDeParDeTransferenciaPendente } from '@/lib/finance/forecast-match-db'
 import { carregarHashesDoTitular, ehCpfProprio } from '@/lib/openfinance/cpf-proprio'
 import { carregarCandidatosDePar, sugerirContaDoPar } from '@/lib/openfinance/sugestao-par'
-
-/**
- * O portão bloqueia o app inteiro no lugar do dashboard, só até a org zerar a
- * fila pela primeira vez. Ligado à ORG, não à conexão: uma vez destravada,
- * conectar um segundo banco depois só empilha no balde não-bloqueante do
- * regime permanente — não reabre o portão.
- *
- * Leitura pura — não grava nada. Quem grava `reviewGateClearedAt` é
- * `confirmCounterparty`, no momento em que uma confirmação de verdade zera a
- * fila (ver achado da revisão final do branch: gravar aqui, como efeito de
- * uma leitura que roda em todo request, destravava orgs que nunca tiveram
- * fila nenhuma, antes do bootstrap sequer existir).
- *
- * Ver docs/superpowers/specs/2026-09-04-openfinance-counterparty-review-design.md
- */
-export async function getReviewGateStatus(orgId: string, userId: string): Promise<{ blocked: boolean }> {
-  if (await isReviewGateCleared(orgId, userId)) return { blocked: false }
-
-  // Portão ainda fechado: a pendência vem fresca, sem cache. É o caso raro
-  // (org recém-conectada) e o que decide se o app inteiro fica bloqueado.
-  return withUserDbFor(userId, async (db) => {
-    const [pending] = await db
-      .select({ one: sql`1` })
-      .from(transactions)
-      .where(and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.reviewState, 'pending'),
-        isNotNull(transactions.counterpartyId),
-        // Ponta com par de transferência pendente decide-se em Confirmar previsões.
-        condicaoForaDeParDeTransferenciaPendente(),
-      ))
-      .limit(1)
-
-    return { blocked: Boolean(pending) }
-  })
-}
-
-/**
- * A org já destravou o portão? Em cache, porque o layout pergunta isso em toda
- * navegação e a resposta, uma vez "sim", é para sempre (`coalesce` no
- * `confirmCounterparty`). O "não" também fica em cache: só vira "sim" dentro
- * de `confirmCounterparty`, que invalida a tag no mesmo passo.
- */
-function isReviewGateCleared(orgId: string, userId: string): Promise<boolean> {
-  return unstable_cache(
-    () =>
-      withUserDbFor(userId, async (db) => {
-        const [org] = await db
-          .select({ reviewGateClearedAt: orgs.reviewGateClearedAt })
-          .from(orgs)
-          .where(eq(orgs.id, orgId))
-          .limit(1)
-        return Boolean(org?.reviewGateClearedAt)
-      }),
-    ['review-gate-cleared', orgId, userId],
-    { tags: [reviewGateTag(orgId)] },
-  )()
-}
-
-type ReviewGateSafeResult = { ok: true; orgId: string; blocked: boolean } | { ok: false }
-
-/**
- * Versão "fail open" de `getReviewGateStatus`, para uso no layout raiz de
- * `(app)`. O layout não tem error boundary próprio — um erro lançado ali
- * (ex.: "No organization found for user") não é pego pelo `(app)/error.tsx`
- * do segmento (o Next.js não deixa um layout ser coberto pelo error boundary
- * do próprio nível dele) e vaza direto para o `global-error.tsx`, uma tela
- * genérica sem "tentar de novo" que substitui o `<html>` inteiro.
- *
- * Por isso qualquer falha aqui — em `getOrgId()` ou em `getReviewGateStatus`
- * — é tratada como "não bloqueado": nunca mais fechado do que o
- * comportamento anterior a esta task, quando `getOrgId()` só era chamado
- * dentro de páginas filhas (cobertas pelo boundary do segmento). Se uma
- * página filha chamar `getOrgId()` de novo e falhar, o boundary de
- * `(app)/error.tsx` continua pegando normalmente — esta função não muda
- * nada desse caminho.
- */
-export async function getReviewGateStatusSafe(): Promise<ReviewGateSafeResult> {
-  try {
-    const [orgId, { userId }] = await Promise.all([getOrgId(), requireIdentity()])
-    const { blocked } = await getReviewGateStatus(orgId, userId)
-    return { ok: true, orgId, blocked }
-  } catch (error) {
-    // Erros de controle do Next (render dinâmico, redirect) não são falha do
-    // portão: engoli-los aqui esconderia do Next que a rota lê cookies.
-    unstable_rethrow(error)
-    console.error('[review-gate] falha ao checar o portao, seguindo sem bloquear:', error)
-    return { ok: false }
-  }
-}
 
 export interface PendingGroupItem {
   id: string
@@ -147,21 +52,15 @@ export interface PendingGroup {
 }
 
 /**
- * Contrapartes pendentes da org, com os lançamentos por trás de cada uma.
- * Ordenada por dinheiro — o mesmo princípio que o detector antigo já validou:
- * "R$ 92 mil" move o usuário, "12 lançamentos" não.
- */
-/**
- * Quantos lancamentos esperam classificacao.
+ * Quantos lançamentos esperam classificação.
  *
- * Mesma condicao do gate (`getReviewGateStatus`): `review_state = 'pending'`
- * com contraparte ja identificada. Contador que anuncia o que a tela nao
- * mostra manda o usuario procurar decisao que nao existe.
+ * Mesma condição da fila (`getPendingCounterpartyGroups`): `review_state =
+ * 'pending'` com contraparte já identificada. Contador que anuncia o que a
+ * tela não mostra manda o usuário procurar decisão que não existe.
  *
- * Conta LANCAMENTOS, nao contrapartes: e o numero que a faixa mostra, e
- * "5 lancamentos para classificar" e o que o usuario ve na lista. A fila
- * agrupa por contraparte para decidir de uma vez, mas isso e detalhe da tela
- * de la.
+ * Conta LANÇAMENTOS, não contrapartes: é o número que o usuário vê na lista.
+ * A fila agrupa por contraparte para decidir de uma vez, mas isso é detalhe
+ * da tela de lá.
  */
 export async function contarLancamentosAClassificar(orgId: string): Promise<number> {
   return withUserDb(async (db) => {
@@ -180,6 +79,11 @@ export async function contarLancamentosAClassificar(orgId: string): Promise<numb
   })
 }
 
+/**
+ * Contrapartes pendentes da org, com os lançamentos por trás de cada uma.
+ * Ordenada por dinheiro — o mesmo princípio que o detector antigo já validou:
+ * "R$ 92 mil" move o usuário, "12 lançamentos" não.
+ */
 export async function getPendingCounterpartyGroups(orgId: string): Promise<PendingGroup[]> {
   return withUserDb(async (db) => {
 
