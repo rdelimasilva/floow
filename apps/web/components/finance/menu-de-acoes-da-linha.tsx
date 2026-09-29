@@ -44,7 +44,7 @@ export function itensDaLinha(tx: TransactionRowData, acoes: AcoesDaLinha, loadin
     })
   }
   if (tx.counterpartyId) {
-    itens.push({ rotulo: 'Corrigir regra', icone: SlidersHorizontal, href: `/transactions/review?regra=${tx.counterpartyId}` })
+    itens.push({ rotulo: 'Corrigir regra', icone: SlidersHorizontal, href: `/transactions/conciliar?regra=${tx.counterpartyId}#classificar` })
   }
   if (podeDesconciliar(tx)) {
     itens.push({ rotulo: 'Desconciliar', icone: Unlink, onSelect: () => acoes.onUnreconcile(tx) })
