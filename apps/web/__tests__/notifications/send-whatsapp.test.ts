@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { sendWhatsAppTemplate, sendWhatsAppText } from '@/lib/notifications/send-whatsapp'
+import { sendWhatsAppTemplate, sendWhatsAppText, marcarComoLidaDigitando } from '@/lib/notifications/send-whatsapp'
 
 const ok = () =>
   vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: 'wamid.1' }] }), { status: 200 }))
@@ -67,6 +67,18 @@ describe('send-whatsapp', () => {
     const f = vi.fn(async () => { throw new TypeError('fetch failed') })
     const r = await sendWhatsAppText('+5511999998888', 'Oi', f)
     expect(r).toEqual({ ok: false, error: 'whatsapp_network: fetch failed' })
+  })
+
+  it('marcarComoLidaDigitando marca como lida com indicador de digitação', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ success: true }), { status: 200 }))
+    await marcarComoLidaDigitando('wamid.ABC', fetchImpl as unknown as typeof fetch)
+    const corpo = JSON.parse((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)
+    expect(corpo).toEqual({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: 'wamid.ABC',
+      typing_indicator: { type: 'text' },
+    })
   })
 
   it('sem configuração é no-op', async () => {

@@ -20,6 +20,8 @@ export interface InboundText {
   /** wa_id: só dígitos, com DDI. */
   from: string
   text: string
+  /** wamid; a Meta pode reenviar a mesma mensagem. */
+  id?: string
 }
 
 export interface DeliveryError {
@@ -41,7 +43,7 @@ export function parseWebhook(body: unknown): { texts: InboundText[]; errors: Del
       for (const m of arr(value.messages)) {
         const text = obj(m.text).body
         if (m.type === 'text' && typeof m.from === 'string' && typeof text === 'string') {
-          texts.push({ from: m.from, text })
+          texts.push({ from: m.from, text, ...(typeof m.id === 'string' ? { id: m.id } : {}) })
         }
       }
       for (const s of arr(value.statuses)) {

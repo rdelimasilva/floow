@@ -43,6 +43,20 @@ describe('parseWebhook', () => {
     expect(parseWebhook(null)).toEqual({ texts: [], errors: [] })
     expect(parseWebhook({ entry: 'x' })).toEqual({ texts: [], errors: [] })
   })
+
+  it('devolve o id (wamid) da mensagem de texto', () => {
+    const body = { entry: [{ changes: [{ value: { messages: [
+      { id: 'wamid.ABC', from: '5511999998888', type: 'text', text: { body: 'oi' } },
+    ] } }] }] }
+    expect(parseWebhook(body).texts).toEqual([{ from: '5511999998888', text: 'oi', id: 'wamid.ABC' }])
+  })
+
+  it('mensagem sem id segue sem id', () => {
+    const body = { entry: [{ changes: [{ value: { messages: [
+      { from: '5511999998888', type: 'text', text: { body: 'oi' } },
+    ] } }] }] }
+    expect(parseWebhook(body).texts).toEqual([{ from: '5511999998888', text: 'oi' }])
+  })
 })
 
 describe('isStopWord', () => {
