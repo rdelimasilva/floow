@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { getDb } from '@floow/db'
+import { withUserDbFor } from '@/lib/db/rls'
 import { getBudgetEntriesForMonth, getInvestmentContributions, getSpendingByCategory } from '@/lib/finance/budget-queries'
 import { buscarOcorrenciasDeRecorrentes } from '@/lib/finance/recurring-budget-queries'
 import { combinarMetasDoMes, somarRecorrentesPorCategoria } from '@/lib/finance/recurring-budget'
@@ -27,14 +27,15 @@ async function planoDeInvestimentos(ctx: ContextoFerramenta, mes: string): Promi
 }
 
 /**
- * Metas + recorrentes-meta, pelo mesmo caminho do motor CFO
- * (`lib/cfo/budget-pacing-input.ts`): conexão de serviço, sem sessão.
+ * Metas + recorrentes-meta, pelo mesmo caminho da tela
+ * (`getSpendingPlanForMonth` em `lib/finance/recurring-budget-queries.ts`):
+ * sob o RLS do usuário do contexto.
  */
 async function planoDeGastos(ctx: ContextoFerramenta, mes: string): Promise<string> {
   const { inicio, fim } = intervaloDoMes(mes)
   const [manuais, ocorrencias, gastos, categorias] = await Promise.all([
     getBudgetEntriesForMonth(ctx.orgId, inicio, 'spending'),
-    buscarOcorrenciasDeRecorrentes(getDb(), ctx.orgId, inicio, fim),
+    withUserDbFor(ctx.userId, (tx) => buscarOcorrenciasDeRecorrentes(tx, ctx.orgId, inicio, fim)),
     getSpendingByCategory(ctx.orgId, inicio, fim),
     getCategories(ctx.orgId),
   ])

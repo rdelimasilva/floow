@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@floow/db', () => ({ getDb: vi.fn(() => 'db') }))
+vi.mock('@/lib/db/rls', () => ({ withUserDbFor: vi.fn((_u, fn) => fn('db')) }))
 vi.mock('@/lib/finance/budget-queries', () => ({
   getBudgetEntriesForMonth: vi.fn(), getSpendingByCategory: vi.fn(), getInvestmentContributions: vi.fn(),
 }))
@@ -12,6 +12,7 @@ vi.mock('@/lib/finance/recurring-budget', () => ({
 vi.mock('@/lib/finance/queries-categories', () => ({ getCategories: vi.fn() }))
 
 import * as bq from '@/lib/finance/budget-queries'
+import { withUserDbFor } from '@/lib/db/rls'
 import { buscarOcorrenciasDeRecorrentes } from '@/lib/finance/recurring-budget-queries'
 import { combinarMetasDoMes } from '@/lib/finance/recurring-budget'
 import { getCategories } from '@/lib/finance/queries-categories'
@@ -45,6 +46,7 @@ describe('plano_do_mes — gastos', () => {
   it('usa o mesmo caminho da tela (metas + recorrentes) para a org do contexto', async () => {
     await planoDoMes.executar!(ctx, { mes: '2026-10', tipo: 'spending' })
     expect(bq.getBudgetEntriesForMonth).toHaveBeenCalledWith('org-1', inicio, 'spending')
+    expect(withUserDbFor).toHaveBeenCalledWith('u1', expect.any(Function))
     expect(buscarOcorrenciasDeRecorrentes).toHaveBeenCalledWith('db', 'org-1', inicio, fim)
     expect(bq.getSpendingByCategory).toHaveBeenCalledWith('org-1', inicio, fim)
   })

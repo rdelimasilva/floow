@@ -4,7 +4,8 @@ import { createAnthropicProvider } from '@floow/core-finance'
 import type { ChatMessage, ChatStreamChunk } from '@floow/core-finance'
 import { getConversationMessages, getConversation } from '@/lib/cfo/chat-queries'
 import { createConversation, saveMessage } from '@/lib/cfo/chat-actions'
-import { getServiceDb, cfoInsights } from '@floow/db'
+import { cfoInsights } from '@floow/db'
+import { withUserDb } from '@/lib/db/rls'
 import { eq, and } from 'drizzle-orm'
 import { responder } from '@/lib/consultor/agente'
 import { FERRAMENTAS } from '@/lib/consultor/ferramentas'
@@ -33,6 +34,20 @@ export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return NextResponse.json({ error: 'Chat not configured' }, { status: 503 })
 
+  // Trava de custo, antes de gravar qualquer coisa: ler depois decidir não é
+  // atômico, então N requisições simultâneas passariam todas. O agente não
+  // consome de novo — ver `consumirLimite` abaixo.
+  const limite = await consumirLimiteDoConsultor(orgId)
+  if (!limite.allowed) {
+    return NextResponse.json(
+      {
+        error: 'rate_limited',
+        message: `Limite de uso do consultor atingido. Tente de novo em ${limite.retryAfterSeconds}s.`,
+      },
+      { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } },
+    )
+  }
+
   const body = await request.json()
   const { conversationId, insightId, message, history } = body as {
     conversationId?: string
@@ -58,6 +73,9 @@ export async function POST(request: Request) {
     )
   } else if (insightId) {
     historico = historicoParaOAgente(history ?? [])
+    // O cliente já manda a pergunta atual como último item do histórico.
+    const ultima = historico[historico.length - 1]
+    if (ultima && ultima.role === 'user' && ultima.content === message) historico = historico.slice(0, -1)
   } else {
     const conv = await createConversation(orgId, userId, message.slice(0, 60))
     convId = conv.id
@@ -67,17 +85,19 @@ export async function POST(request: Request) {
 
   let insightContext = undefined
   if (insightId) {
-    const [insight] = await getServiceDb()
-      .select()
-      .from(cfoInsights)
-      .where(and(eq(cfoInsights.id, insightId), eq(cfoInsights.orgId, orgId)))
-      .limit(1)
+    const [insight] = await withUserDb((tx) =>
+      tx
+        .select()
+        .from(cfoInsights)
+        .where(and(eq(cfoInsights.id, insightId), eq(cfoInsights.orgId, orgId)))
+        .limit(1),
+    )
     insightContext = insight
   }
 
   let system: string
   try {
-    system = montarPrompt(await carregarDadosDoPrompt(orgId, 'web', insightContext))
+    system = montarPrompt(await carregarDadosDoPrompt(orgId, userId, 'web', insightContext))
   } catch (err) {
     console.error('[consultor] falha ao montar o prompt:', err)
     return NextResponse.json({ error: 'Failed to build context' }, { status: 500 })
@@ -105,7 +125,8 @@ export async function POST(request: Request) {
           {
             provider,
             ferramentas: FERRAMENTAS,
-            consumirLimite: consumirLimiteDoConsultor,
+            // o route já consumiu o limite antes de gravar a conversa
+            consumirLimite: async () => ({ allowed: true as const }),
             log: (msg, err) => console.error(msg, err ?? ''),
           },
         )
