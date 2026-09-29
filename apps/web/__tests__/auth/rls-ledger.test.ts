@@ -36,13 +36,15 @@ const SERVICO: Record<string, string> = {
 
 /** Ainda não convertidos. Esta lista só pode encolher. */
 const PENDENTES = [
-  'app/api/cfo/chat/route.ts',
   'lib/auth/session.ts',
   'lib/cfo/actions.ts',
   'lib/cfo/budget-pacing-input.ts',
   'lib/cfo/chat-actions.ts',
-  'lib/cfo/chat-context.ts',
   'lib/cfo/queries.ts',
+  // getDb() de dentro do laço de ferramentas do consultor (Task 6): sem
+  // usuário HTTP no meio — o agente já resolveu orgId antes de chamar.
+  'lib/consultor/ferramentas/plano-do-mes.ts',
+  'lib/consultor/limite.ts',
   'lib/finance/account-actions.ts',
   'lib/finance/transaction-actions.ts',
   'lib/finance/transaction-create-actions.ts',

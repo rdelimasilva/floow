@@ -1,26 +1,26 @@
 import { NextResponse } from 'next/server'
 import { getVerifiedIdentity, getOrgId } from '@/lib/auth/session'
 import { createAnthropicProvider } from '@floow/core-finance'
-import type { ChatMessage } from '@floow/core-finance'
-import { buildChatSystemPrompt } from '@/lib/cfo/chat-context'
-import { CHAT_TOOLS } from '@/lib/cfo/chat-tools'
+import type { ChatMessage, ChatStreamChunk } from '@floow/core-finance'
 import { getConversationMessages, getConversation } from '@/lib/cfo/chat-queries'
 import { createConversation, saveMessage } from '@/lib/cfo/chat-actions'
-import { getDb, cfoInsights } from '@floow/db'
+import { getServiceDb, cfoInsights } from '@floow/db'
 import { eq, and } from 'drizzle-orm'
-import { consumeRateLimit } from '@/lib/rate-limit/consume'
+import { responder } from '@/lib/consultor/agente'
+import { FERRAMENTAS } from '@/lib/consultor/ferramentas'
+import { consumirLimiteDoConsultor } from '@/lib/consultor/limite'
+import { montarPrompt } from '@/lib/consultor/prompt'
+import { carregarDadosDoPrompt } from '@/lib/consultor/prompt-dados'
+import { historicoParaOAgente } from '@/lib/consultor/historico'
 
-/** Rajada: segura o laço. Teto horário: segura o uso sustentado. */
-const CHAT_BURST_LIMIT = Number(process.env.CFO_CHAT_BURST_LIMIT ?? 8)
-const CHAT_HOURLY_LIMIT = Number(process.env.CFO_CHAT_HOURLY_LIMIT ?? 30)
+/** Até 5 rodadas de ferramenta, cada chamada ao Claude com até 30 s. */
+export const maxDuration = 60
+
+const INDISPONIVEL = 'O consultor está indisponível agora. Tente de novo em instantes.'
 
 export async function POST(request: Request) {
   const identity = await getVerifiedIdentity()
-
-  if (!identity) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+  if (!identity) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const userId = identity.userId
 
   let orgId: string
@@ -31,30 +31,7 @@ export async function POST(request: Request) {
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ error: 'Chat not configured' }, { status: 503 })
-  }
-
-  // Trava de custo. A versão anterior contava cfo_messages e decidia — ler
-  // depois decidir não é atômico, então N requisições simultâneas liam a mesma
-  // contagem e passavam todas. O contador agora é um UPSERT atômico, e a janela
-  // curta cobre a rajada que o teto horário sozinho deixava passar.
-  const db = getDb()
-  for (const janela of [
-    { bucket: 'cfo.chat.burst', limit: CHAT_BURST_LIMIT, windowSeconds: 60 },
-    { bucket: 'cfo.chat.hour', limit: CHAT_HOURLY_LIMIT, windowSeconds: 3600 },
-  ]) {
-    const limite = await consumeRateLimit(db, { ...janela, subject: orgId })
-    if (!limite.allowed) {
-      return NextResponse.json(
-        {
-          error: 'rate_limited',
-          message: `Limite de uso do consultor atingido. Tente de novo em ${limite.retryAfterSeconds}s.`,
-        },
-        { status: 429, headers: { 'Retry-After': String(limite.retryAfterSeconds) } },
-      )
-    }
-  }
+  if (!apiKey) return NextResponse.json({ error: 'Chat not configured' }, { status: 503 })
 
   const body = await request.json()
   const { conversationId, insightId, message, history } = body as {
@@ -64,44 +41,33 @@ export async function POST(request: Request) {
     history?: ChatMessage[]
   }
 
-  // Build message history
-  let messages: ChatMessage[] = []
+  let historico: ChatMessage[] = []
   let convId = conversationId
 
   if (convId) {
     const conv = await getConversation(convId, orgId)
     if (!conv) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
     const dbMessages = await getConversationMessages(convId, 20)
-    messages = dbMessages.map((m) => ({
-      id: m.id,
-      role: m.role as ChatMessage['role'],
-      content: m.content,
-      toolCall: m.toolCall as ChatMessage['toolCall'],
-      toolResult: m.toolResult as ChatMessage['toolResult'],
-      createdAt: m.createdAt.toISOString(),
-    }))
+    historico = historicoParaOAgente(
+      dbMessages.map((m) => ({
+        id: m.id,
+        role: m.role as ChatMessage['role'],
+        content: m.content,
+        createdAt: m.createdAt.toISOString(),
+      })),
+    )
   } else if (insightId) {
-    messages = history ?? []
+    historico = historicoParaOAgente(history ?? [])
   } else {
     const conv = await createConversation(orgId, userId, message.slice(0, 60))
     convId = conv.id
   }
 
-  const userMsg: ChatMessage = {
-    id: crypto.randomUUID(),
-    role: 'user',
-    content: message,
-    createdAt: new Date().toISOString(),
-  }
-  messages.push(userMsg)
-
-  if (convId && !insightId) {
-    await saveMessage(convId, 'user', message)
-  }
+  if (convId && !insightId) await saveMessage(convId, 'user', message)
 
   let insightContext = undefined
   if (insightId) {
-    const [insight] = await db
+    const [insight] = await getServiceDb()
       .select()
       .from(cfoInsights)
       .where(and(eq(cfoInsights.id, insightId), eq(cfoInsights.orgId, orgId)))
@@ -109,49 +75,53 @@ export async function POST(request: Request) {
     insightContext = insight
   }
 
-  let systemPrompt: string
+  let system: string
   try {
-    systemPrompt = await buildChatSystemPrompt(orgId, insightContext)
+    system = montarPrompt(await carregarDadosDoPrompt(orgId, 'web', insightContext))
   } catch (err) {
-    console.error('[CFO Chat] Context build error:', err)
-    return NextResponse.json({ error: 'Failed to build context', detail: String(err) }, { status: 500 })
+    console.error('[consultor] falha ao montar o prompt:', err)
+    return NextResponse.json({ error: 'Failed to build context' }, { status: 500 })
   }
 
-  const provider = createAnthropicProvider({ apiKey })
-
-  let fullContent = ''
+  const provider = createAnthropicProvider({ apiKey, model: process.env.CFO_CHAT_MODEL ?? 'claude-sonnet-5' })
 
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder()
+      const enviar = (chunk: ChatStreamChunk) =>
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
 
       try {
-        const response = await provider.streamChat(messages, {
-          system: systemPrompt,
-          tools: CHAT_TOOLS,
-          onChunk(chunk) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
-            if (chunk.type === 'text' && chunk.text) {
-              fullContent += chunk.text
-            }
+        const r = await responder(
+          {
+            orgId,
+            userId,
+            historico,
+            mensagem: message,
+            system,
+            onTexto: (text) => enviar({ type: 'text', text }),
+            onSugestao: (toolCall) => enviar({ type: 'tool_call', toolCall }),
           },
-        })
-
-        if (convId && !insightId) {
-          await saveMessage(
-            convId,
-            'assistant',
-            fullContent,
-            response.toolCalls.length > 0 ? response.toolCalls : null,
-          )
+          {
+            provider,
+            ferramentas: FERRAMENTAS,
+            consumirLimite: consumirLimiteDoConsultor,
+            log: (msg, err) => console.error(msg, err ?? ''),
+          },
+        )
+        if (r.tipo === 'limite') {
+          enviar({ type: 'error', text: r.texto })
+        } else {
+          if (convId && !insightId) {
+            await saveMessage(convId, 'assistant', r.texto, r.sugestoes.length > 0 ? r.sugestoes : null)
+          }
+          enviar({ type: 'done' })
         }
-
-        controller.close()
       } catch (err) {
-        console.error('[CFO Chat] Stream error:', err)
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', text: String(err) })}\n\n`))
-        controller.close()
+        console.error('[consultor] erro no laço:', err)
+        enviar({ type: 'error', text: INDISPONIVEL })
       }
+      controller.close()
     },
   })
 
