@@ -14,7 +14,7 @@ import { transactions, ORIGENS_DE_TRANSACAO } from '@floow/db'
  * código antigo em produção; 00071 (SET NOT NULL) só entra depois do deploy.
  */
 const repoRoot = resolve(__dirname, '../../../..')
-const ler = (nome: string) => readFileSync(resolve(repoRoot, 'supabase/migrations', nome), 'utf8')
+const ler = (nome: string) => readFileSync(resolve(repoRoot, 'supabase/migrations', nome), 'utf8').replace(/\r\n/g, '\n')
 const migration = ler('00070_origem_e_aguarda_extrato.sql')
 const notNull = ler('00071_origem_not_null.sql')
 const coluna = (nome: string) => getTableConfig(transactions).columns.find((c) => c.name === nome)!
