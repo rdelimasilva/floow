@@ -15,7 +15,8 @@
  * Não imprime descrição de lançamento nem nome de conta completo.
  */
 import { inArray, sql } from 'drizzle-orm'
-import { createDb, transactions } from '../packages/db/src/index'
+import { createDb } from '../packages/db/src/client'
+import { transactions } from '../packages/db/src/schema/finance'
 import { conciliarConta } from '../apps/web/lib/finance/conciliacao/conciliar-conta'
 import { brl, databaseUrl, Rollback, sigla } from './conciliacao-comum.mts'
 
