@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm'
 import { fakeTx, type FakeOp } from '../openfinance/_fake-tx'
+import { TIPO_PELO_SINAL } from '@/lib/finance/conciliacao/desfazer-absorcao'
 
 /**
  * Excluir a provisória que o extrato absorveu desfaz o efeito da absorção:
@@ -30,6 +31,7 @@ const { deleteTransaction } = await import('@/lib/finance/transaction-actions')
 
 const dialect = new PgDialect()
 const paramsDo = (o: FakeOp) => dialect.sqlToQuery(o.where as SQL).params
+const DEVOLUCAO_DA_PERNA = { type: TIPO_PELO_SINAL, reviewState: 'pending', transferAccountId: null }
 const form = (id: string) => { const fd = new FormData(); fd.append('id', id); return fd }
 
 const ORIGEM_ITAU = {
@@ -48,7 +50,7 @@ describe('deleteTransaction — provisória absorvida', () => {
     atual = fakeTx([[ORIGEM_ITAU], [ORIGEM_ITAU, PERNA_ABSORVIDA]])
     await deleteTransaction(form('itau-1'))
     const devolucao = atual.ops.find((o) => o.op === 'update' && o.table === 'transactions')
-    expect(devolucao?.set).toEqual({ reviewState: 'pending', transferAccountId: null })
+    expect(devolucao?.set).toEqual(DEVOLUCAO_DA_PERNA)
     expect(paramsDo(devolucao!)).toContain('ext-18')
     // Só a origem estava no saldo; a perna aguardando nunca esteve.
     expect(atual.ops.filter((o) => o.table === 'accounts')).toHaveLength(1)

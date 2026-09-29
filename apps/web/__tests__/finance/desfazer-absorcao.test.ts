@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm'
-import { devolucaoDoExtrato } from '@/lib/finance/conciliacao/desfazer-absorcao'
+import { devolucaoDoExtrato, TIPO_PELO_SINAL } from '@/lib/finance/conciliacao/desfazer-absorcao'
 import { desconciliarNoBanco } from '@/lib/finance/desconciliar-db'
 import { desfazerParDaRegra, type LancamentoDaRegra } from '@/lib/openfinance/desfazer-par'
 import { fakeTx, type FakeOp } from '../openfinance/_fake-tx'
@@ -18,16 +18,22 @@ const ORG = 'org-1'
 const dialect = new PgDialect()
 const paramsDo = (o: FakeOp) => dialect.sqlToQuery(o.where as SQL).params
 const escritas = (ops: FakeOp[]) => ops.filter((o) => o.op !== 'select')
+const DEVOLUCAO_DA_PERNA = { type: TIPO_PELO_SINAL, reviewState: 'pending', transferAccountId: null }
 
 describe('devolucaoDoExtrato', () => {
+  it('perna devolvida deixa de ser transferência: receita ou despesa pelo sinal do próprio extrato', () => {
+    const s = dialect.sqlToQuery(TIPO_PELO_SINAL).sql.toLowerCase()
+    expect(s).toBe(`case when "transactions"."amount_cents" < 0 then 'expense' else 'income' end`)
+  })
+
   it('perna :transfer-dest absorvida: transferência sem conta, pendente', () => {
     expect(devolucaoDoExtrato({ origem: 'perna', aguardaExtrato: true, externalId: 'itau-1:transfer-dest', matchedTransactionId: 'ext' }))
-      .toEqual({ reviewState: 'pending', transferAccountId: null })
+      .toEqual(DEVOLUCAO_DA_PERNA)
   })
 
   it('perna :transfer-par antiga, mesmo sem origem lida: igual', () => {
     expect(devolucaoDoExtrato({ externalId: 'itau-1:transfer-par', matchedTransactionId: 'ext' }))
-      .toEqual({ reviewState: 'pending', transferAccountId: null })
+      .toEqual(DEVOLUCAO_DA_PERNA)
   })
 
   it('manual ou arquivo absorvido: só volta a pendente, categoria fica', () => {
@@ -60,7 +66,7 @@ describe('desconciliarNoBanco — absorção', () => {
     expect(e.map((o) => `${o.op}:${o.table}`)).toEqual(['update:transactions', 'insert:forecast_match_proposals', 'update:transactions'])
     expect(e[0].set).toEqual({ matchedTransactionId: null })
     expect(paramsDo(e[0])).toContain('perna-18')
-    expect(e[2].set).toEqual({ reviewState: 'pending', transferAccountId: null })
+    expect(e[2].set).toEqual(DEVOLUCAO_DA_PERNA)
     expect(paramsDo(e[2])).toContain('ext-18')
   })
 
@@ -103,7 +109,7 @@ describe('desfazerParDaRegra — perna absorvida por R1', () => {
     expect(r.realizadoDevolvidoId).toBe('ext-18')
     expect(ops.some((o) => o.table === 'accounts')).toBe(false)
     const devolucao = escritas(ops).find((o) => o.op === 'update' && paramsDo(o).includes('ext-18'))
-    expect(devolucao?.set).toEqual({ reviewState: 'pending', transferAccountId: null })
+    expect(devolucao?.set).toEqual(DEVOLUCAO_DA_PERNA)
     expect(ops.some((o) => o.op === 'delete')).toBe(true)
   })
 

@@ -76,6 +76,12 @@ describe('aplicarR1', () => {
     expect(extrato).toContain('realized_transaction_id')
   })
 
+  it('extrato que já é ponta de um par (com grupo) fica de fora — sem absorção cruzada OF↔OF (P11)', async () => {
+    selectQueue.push([{ id: 'a', amountCents: 500, date: d('2026-09-18'), counterpartyTaxId: null }], [])
+    await aplicarR1(db, 'org-1', 'nubank')
+    expect(dialect.sqlToQuery(wheres[1]).sql.toLowerCase()).toContain('"transfer_group_id" is null')
+  })
+
   it('nada aguardando: não consulta o extrato', async () => {
     selectQueue.push([])
     const r = await aplicarR1(db, 'org-1', 'nubank')

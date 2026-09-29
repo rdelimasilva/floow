@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { transactions, type getDb, type OrigemDaTransacao } from '@floow/db'
 import { ehPernaPrevista } from '@/lib/openfinance/perna-prevista'
 
@@ -12,16 +12,26 @@ export interface ProvisoriaVinculada {
   matchedTransactionId: string | null
 }
 
-export type DevolucaoDoExtrato = { reviewState: 'pending'; transferAccountId: null } | { reviewState: 'pending' }
+/**
+ * Natureza do extrato pelo sinal do PRÓPRIO valor (não o da provisória, que na
+ * `:transfer-par` antiga pode ter sido casada com tolerância). Débito é
+ * despesa, crédito é receita — o ponto de partida de Classificar.
+ */
+export const TIPO_PELO_SINAL: SQL = sql`case when ${transactions.amountCents} < 0 then 'expense' else 'income' end`
+
+export type DevolucaoDoExtrato =
+  | { type: SQL; reviewState: 'pending'; transferAccountId: null }
+  | { reviewState: 'pending' }
 
 /**
  * O que o extrato perde quando o vínculo com a provisória que ele absorveu se
  * desfaz (desconciliar, desfazer o par da regra, excluir a provisória). O
  * inverso de `aplicarEfeitoDaAbsorcao`.
  *
- * Perna: o extrato volta a Classificar como transferência sem conta — o que o
- * desfazer da `:transfer-par` já fazia. `:transfer-par` antiga é reconhecida
- * pelo sufixo mesmo sem `origem` na leitura.
+ * Perna: o extrato deixa de ser transferência — volta a receita ou despesa
+ * pelo sinal (`TIPO_PELO_SINAL`), sem conta de destino, pendente em
+ * Classificar. `:transfer-par` antiga é reconhecida pelo sufixo mesmo sem
+ * `origem` na leitura, e recebe a mesma devolução.
  *
  * Manual ou arquivo: volta a pendente de revisão mantendo a categoria. A
  * categoria e a descrição de antes da absorção não são guardadas (sem coluna
@@ -31,7 +41,7 @@ export type DevolucaoDoExtrato = { reviewState: 'pending'; transferAccountId: nu
  */
 export function devolucaoDoExtrato(p: ProvisoriaVinculada): DevolucaoDoExtrato | null {
   if (!p.matchedTransactionId) return null
-  if (p.origem === 'perna' || ehPernaPrevista(p.externalId)) return { reviewState: 'pending', transferAccountId: null }
+  if (p.origem === 'perna' || ehPernaPrevista(p.externalId)) return { type: TIPO_PELO_SINAL, reviewState: 'pending', transferAccountId: null }
   if (p.aguardaExtrato) return { reviewState: 'pending' }
   return null
 }

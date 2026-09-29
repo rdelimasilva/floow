@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { desfazerParDaRegra, type LancamentoDaRegra } from '@/lib/openfinance/desfazer-par'
 import { fakeTx } from './_fake-tx'
+import { TIPO_PELO_SINAL } from '@/lib/finance/conciliacao/desfazer-absorcao'
 
 const ORG = 'org-1'
 const base: LancamentoDaRegra = { id: 'l1', accountId: 'itau', amountCents: 400100, description: 'Resgate CDB DI', transferGroupId: 'g1', balanceApplied: true, isIgnored: false }
@@ -34,7 +35,7 @@ describe('desfazerParDaRegra', () => {
     expect(r.forma).toBe('perna-prevista')
     expect(r.realizadoDevolvidoId).toBe('r1')
     expect(ops.some((o) => o.table === 'accounts')).toBe(false)
-    expect(ops.find((o) => o.op === 'update' && (o.set as any)?.transferAccountId === null && (o.set as any)?.reviewState === 'pending' && !('transferGroupId' in (o.set as any)))).toBeTruthy()
+    expect(ops.find((o) => o.op === 'update' && (o.set as any)?.transferAccountId === null && (o.set as any)?.reviewState === 'pending' && !('transferGroupId' in (o.set as any)))?.set).toEqual({ type: TIPO_PELO_SINAL, reviewState: 'pending', transferAccountId: null })
   })
 
   it('ponta esperada pelo outro lado: não toca em nada', async () => {

@@ -79,6 +79,11 @@ export async function aplicarR1(
         eq(transactions.accountId, accountId),
         eq(transactions.origem, 'extrato'),
         eq(transactions.aguardaExtrato, false),
+        // Linha com grupo já é ponta de um par (origem de transferência). Em
+        // OF↔OF com as duas contrapartes classificadas, absorver a perna do
+        // grupo do outro lado cruzaria os pares, e desfazer um corromperia o
+        // outro (Ruling P11) — mesmo filtro de `criarPropostasDeConciliacao`.
+        isNull(transactions.transferGroupId),
         eq(transactions.isIgnored, false),
         gte(transactions.date, inicio),
         lte(transactions.date, fim),

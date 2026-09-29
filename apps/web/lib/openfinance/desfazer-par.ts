@@ -141,7 +141,7 @@ export async function desfazerParDaRegra(
     // Perna absorvida pelo extrato da outra conta (R1 ou `aprovarProposta`),
     // `:transfer-par` ou `:transfer-dest` aguardando: o extrato virou
     // transferência para cá. Sem a perna, esse par não existe mais: ele
-    // volta para Classificar, como transferência sem conta.
+    // volta para Classificar como receita ou despesa, pelo sinal.
     const devolvido = await devolverExtratoAbsorvido(tx, orgId, p)
     if (devolvido) realizadoDevolvidoId = devolvido
   }
