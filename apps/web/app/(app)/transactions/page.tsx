@@ -18,6 +18,7 @@ import { PageSizeSelector } from '@/components/ui/page-size-selector'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { PendingQueuesSlot } from '@/components/finance/pending-queues-slot'
+import { BotaoConciliar, BotaoConciliarSlot } from '@/components/finance/botao-conciliar'
 import { getVerifiedIdentity } from '@/lib/auth/session'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { FILTERS_COOKIE, restaurarFiltros, temFiltroNaUrl, hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
@@ -175,9 +176,9 @@ export default async function TransactionsPage({ searchParams }: Props) {
         <Button asChild variant="outline">
           <Link href="/transactions/import">Importar</Link>
         </Button>
-        <Button asChild variant="outline">
-          <Link href="/transactions/review">Classificar lançamentos</Link>
-        </Button>
+        <Suspense fallback={<BotaoConciliar total={0} />}>
+          <BotaoConciliarSlot orgId={orgId} userId={userId} />
+        </Suspense>
         <div className="order-first sm:order-none">
           <InlineTransactionFormButton />
         </div>
@@ -189,10 +190,10 @@ export default async function TransactionsPage({ searchParams }: Props) {
         categories={categoryOptions}
       />
 
-      {/* As filas moram aqui, e nao no menu: item fixo ocupa lugar permanente
-          para uma decisao que aparece poucas vezes por mes, e some do campo de
-          visao de quem esta olhando os lancamentos — que e onde o assunto
-          surge. Fila vazia nao renderiza nada. */}
+      {/* Uma linha com o total para conciliar, e nao item no menu: item fixo
+          ocupa lugar permanente para uma decisao que aparece poucas vezes por
+          mes, e some do campo de visao de quem esta olhando os lancamentos.
+          Sem nada para conciliar, nao renderiza nada. */}
       <Suspense fallback={null}>
         <PendingQueuesSlot orgId={orgId} userId={userId} />
       </Suspense>

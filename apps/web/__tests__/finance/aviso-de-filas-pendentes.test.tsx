@@ -2,80 +2,58 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import React from 'react'
 import { PendingQueuesNotice } from '@/components/finance/pending-queues-notice'
+import { BotaoConciliar } from '@/components/finance/botao-conciliar'
 
 /**
- * As tres filas moram DENTRO de Transacoes, nao no menu lateral.
+ * Sem o portão, nada obriga o usuário a conciliar: o caminho tem de estar
+ * onde o assunto aparece, no topo da lista de lançamentos.
  *
- * Item de menu fixo ocupa lugar permanente para uma decisao que existe poucas
- * vezes por mes, e some do campo de visao justamente de quem esta olhando os
- * lancamentos — que e onde o assunto aparece. Fila vazia nao ocupa espaco.
- *
- * Os nomes dizem a acao, nao o jargao: "contraparte" e vocabulario de Open
- * Finance e nao significa nada para quem usa o app.
- *
- * A ORDEM na tela e a ordem correta de decidir: repetido primeiro (nao adianta
- * classificar o que vai sair), classificar depois (define o que o lancamento
- * e), confirmar previsao por ultimo (so faz sentido contra um lancamento real
- * e ja classificado).
+ * Uma linha só, com o total das três filas, levando à tela Conciliar. O
+ * âmbar fica só quando há repetido, porque é o repetido que distorce o saldo;
+ * classificar só rotula.
  */
-describe('PendingQueuesNotice', () => {
-  it('não renderiza nada com as três filas vazias', () => {
-    const { container } = render(
-      <PendingQueuesNotice repetidos={0} classificar={0} previsoes={0} />,
-    )
+describe('faixa de itens para conciliar', () => {
+  it('não renderiza nada sem item para conciliar', () => {
+    const { container } = render(<PendingQueuesNotice total={0} repetidos={0} />)
 
     expect(container.innerHTML).toBe('')
   })
 
-  it('anuncia repetidos com link para a fila', () => {
-    render(<PendingQueuesNotice repetidos={2} classificar={0} previsoes={0} />)
+  it('uma linha só, com o total e link para Conciliar', () => {
+    render(<PendingQueuesNotice total={8} repetidos={0} />)
 
-    const link = screen.getByRole('link', { name: /repetidos/i })
-    expect(link.getAttribute('href')).toBe('/transactions/duplicates')
-    expect(screen.getByText(/2 lançamentos repetidos/i)).toBeDefined()
-  })
-
-  it('anuncia lançamentos a classificar com link para a fila', () => {
-    render(<PendingQueuesNotice repetidos={0} classificar={5} previsoes={0} />)
-
-    // Pelo nome acessivel do link, e nao por `getByText`: o texto e quebrado
-    // entre <strong> e o resto, e o que importa e a frase que o usuario le.
-    const link = screen.getByRole('link', { name: /5 lançamentos para classificar/i })
-    expect(link.getAttribute('href')).toBe('/transactions/review')
-  })
-
-  it('anuncia previsões a confirmar com link para a fila', () => {
-    render(<PendingQueuesNotice repetidos={0} classificar={0} previsoes={3} />)
-
-    const link = screen.getByRole('link', { name: /previs/i })
-    expect(link.getAttribute('href')).toBe('/transactions/matches')
-    expect(screen.getByText(/3 previsões/i)).toBeDefined()
-  })
-
-  it('mostra as três quando as três têm fila', () => {
-    render(<PendingQueuesNotice repetidos={1} classificar={1} previsoes={1} />)
-
-    expect(screen.getAllByRole('link')).toHaveLength(3)
-  })
-
-  it('põe os repetidos na frente, que é a ordem de decidir', () => {
-    // Classificar ou confirmar um lancamento que vai ser descartado como
-    // repetido e trabalho jogado fora.
-    render(<PendingQueuesNotice repetidos={1} classificar={1} previsoes={1} />)
-
-    const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'))
-    expect(hrefs).toEqual([
-      '/transactions/duplicates',
-      '/transactions/review',
-      '/transactions/matches',
-    ])
+    const links = screen.getAllByRole('link')
+    expect(links).toHaveLength(1)
+    expect(links[0].getAttribute('href')).toBe('/transactions/conciliar')
+    screen.getByRole('link', { name: /8 itens para conciliar/i })
   })
 
   it('fala no singular quando é um só', () => {
-    render(<PendingQueuesNotice repetidos={1} classificar={1} previsoes={1} />)
+    render(<PendingQueuesNotice total={1} repetidos={0} />)
 
-    expect(screen.getByRole('link', { name: /1 lançamento repetido para revisar/i })).toBeDefined()
-    expect(screen.getByRole('link', { name: /1 lançamento para classificar/i })).toBeDefined()
-    expect(screen.getByRole('link', { name: /1 previsão esperando confirmação/i })).toBeDefined()
+    screen.getByRole('link', { name: /1 item para conciliar/i })
+  })
+
+  it('âmbar só com repetido', () => {
+    const { rerender } = render(<PendingQueuesNotice total={3} repetidos={1} />)
+    expect(screen.getByRole('link').className).toContain('amber')
+
+    rerender(<PendingQueuesNotice total={3} repetidos={0} />)
+    expect(screen.getByRole('link').className).not.toContain('amber')
+  })
+})
+
+describe('botão Conciliar do cabeçalho', () => {
+  it('mostra o total entre parênteses quando há o que conciliar', () => {
+    render(<BotaoConciliar total={4} />)
+
+    const link = screen.getByRole('link', { name: 'Conciliar (4)' })
+    expect(link.getAttribute('href')).toBe('/transactions/conciliar')
+  })
+
+  it('sem nada, só "Conciliar"', () => {
+    render(<BotaoConciliar total={0} />)
+
+    screen.getByRole('link', { name: 'Conciliar' })
   })
 })
