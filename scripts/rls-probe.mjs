@@ -70,8 +70,8 @@ try {
       let negou = false
       try {
         await tx`savepoint s1`
-        await tx`insert into transactions (org_id, account_id, date, description, amount_cents, type)
-                 values (gen_random_uuid(), gen_random_uuid(), current_date, 'probe', 1, 'expense')`
+        await tx`insert into transactions (org_id, account_id, date, description, amount_cents, type, origem)
+                 values (gen_random_uuid(), gen_random_uuid(), current_date, 'probe', 1, 'expense', 'manual')`
         await tx`rollback to savepoint s1`
       } catch {
         negou = true
