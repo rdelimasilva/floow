@@ -1,5 +1,6 @@
 import type { ChatProvider, ChatMessage, ChatTool, ChatStreamChunk, ChatResponse, SynthesisInput, SynthesisOutput } from '../types'
 import { CFO_SYSTEM_PROMPT, buildSynthesisPrompt } from './prompts'
+import { toAnthropicMessages } from './anthropic-messages'
 
 interface AnthropicConfig {
   apiKey: string
@@ -71,24 +72,7 @@ export function createAnthropicProvider(config: AnthropicConfig): ChatProvider {
 
       try {
         // Convert ChatMessage[] to Anthropic format
-        const anthropicMessages = messages.map((m) => {
-          if (m.role === 'tool_result') {
-            return {
-              role: 'user' as const,
-              content: [
-                {
-                  type: 'tool_result' as const,
-                  tool_use_id: m.toolCall!.id,
-                  content: m.content,
-                },
-              ],
-            }
-          }
-          return {
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          }
-        })
+        const anthropicMessages = toAnthropicMessages(messages)
 
         // Convert ChatTool[] to Anthropic format
         const anthropicTools = options.tools?.map((t) => ({

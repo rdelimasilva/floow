@@ -110,12 +110,22 @@ export interface LLMProvider {
 
 // -- Chat Types --
 
+export interface ToolResultBlock {
+  toolUseId: string
+  content: string
+  isError?: boolean
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool_result'
   content: string
   toolCall?: ToolCall
   toolResult?: { success: boolean; message: string }
+  /** Assistente: blocos tool_use desta rodada (laço de ferramentas no servidor). */
+  toolCalls?: ToolCall[]
+  /** tool_result com um bloco por tool_use da rodada anterior. */
+  toolResults?: ToolResultBlock[]
   createdAt: string
 }
 

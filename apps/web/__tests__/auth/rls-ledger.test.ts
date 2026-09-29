@@ -32,16 +32,15 @@ const SERVICO: Record<string, string> = {
     'só é chamado por run-daily: lê membros e preferências de todas as orgs para o aviso de ritmo',
   'lib/finance/category-suggestions/deps.ts':
     'chamado pela rota semanal (sem usuário na requisição) e pelo botão da tela de metas',
+  'lib/consultor/limite.ts': 'rate_limits é contador interno por org; só o backend escreve (00045_rate_limits.sql)',
 }
 
 /** Ainda não convertidos. Esta lista só pode encolher. */
 const PENDENTES = [
-  'app/api/cfo/chat/route.ts',
   'lib/auth/session.ts',
   'lib/cfo/actions.ts',
   'lib/cfo/budget-pacing-input.ts',
   'lib/cfo/chat-actions.ts',
-  'lib/cfo/chat-context.ts',
   'lib/cfo/queries.ts',
   'lib/finance/account-actions.ts',
   'lib/finance/transaction-actions.ts',
