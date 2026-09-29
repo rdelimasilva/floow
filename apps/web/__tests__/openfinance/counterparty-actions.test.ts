@@ -58,14 +58,12 @@ vi.mock('@/lib/supabase/server', () => ({
 const insertQueue: unknown[][] = []
 const insertedValues: any[] = []
 
-const criarPropostas = vi.fn(async (..._args: unknown[]) => 0)
-vi.mock('@/lib/finance/forecast-match-db', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/finance/forecast-match-db')>('@/lib/finance/forecast-match-db')
-  return {
-    ...actual,
-    criarPropostasDeConciliacao: (...args: Parameters<typeof actual.criarPropostasDeConciliacao>) => criarPropostas(...args),
-  }
-})
+const criarPropostas = vi.fn(async (..._args: unknown[]) => ({
+  reclassificadas: 0, estornoCents: 0, absorvidas: [], propostasDeConciliacao: 0, propostasDeDuplicata: 0,
+}))
+vi.mock('@/lib/finance/conciliacao/conciliar-conta', () => ({
+  conciliarContas: (...args: unknown[]) => criarPropostas(...args),
+}))
 
 vi.mock('@floow/db', async () => {
   const actual = await vi.importActual<typeof import('@floow/db')>('@floow/db')
@@ -287,7 +285,8 @@ describe('confirmCounterparty', () => {
       expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual([
         'counterparties', 'transactions', 'accounts',
       ])
-      expect(criarPropostas).not.toHaveBeenCalled()
+      // O motor roda sempre; sem perna prevista, não há conta para conciliar.
+      expect([...(criarPropostas.mock.calls[0][2] as Iterable<string>)]).toEqual([])
     })
 
     it('origem com balanceApplied: false — cria a segunda perna mas NÃO move o saldo da conta de destino', async () => {
@@ -325,7 +324,8 @@ describe('confirmCounterparty', () => {
       // próprio saldo aplicado.
       expect(ops.filter((o) => o.op === 'update' && o.table === 'accounts')).toEqual([])
       expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions'])
-      expect(criarPropostas).not.toHaveBeenCalled()
+      // O motor roda sempre; sem perna prevista, não há conta para conciliar.
+      expect([...(criarPropostas.mock.calls[0][2] as Iterable<string>)]).toEqual([])
     })
 
     it('destino é conta Open Finance: cria a perna como previsão, sem mexer no saldo, e propõe a conciliação lá', async () => {
@@ -356,7 +356,9 @@ describe('confirmCounterparty', () => {
         transferAccountId: 'conta-origem',
       })
       expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions'])
-      expect(criarPropostas).toHaveBeenCalledWith(expect.anything(), ORG, TRANSFER_ACCOUNT_ID)
+      expect(criarPropostas).toHaveBeenCalledTimes(1)
+      expect(criarPropostas.mock.calls[0][1]).toBe(ORG)
+      expect([...(criarPropostas.mock.calls[0][2] as Iterable<string>)]).toEqual([TRANSFER_ACCOUNT_ID])
     })
 
     it('transferência pra si mesma (conta de destino igual à do lançamento) rejeita', async () => {

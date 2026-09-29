@@ -59,14 +59,12 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 
-const criarPropostas = vi.fn(async (..._args: unknown[]) => 0)
-vi.mock('@/lib/finance/forecast-match-db', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/finance/forecast-match-db')>('@/lib/finance/forecast-match-db')
-  return {
-    ...actual,
-    criarPropostasDeConciliacao: (...args: Parameters<typeof actual.criarPropostasDeConciliacao>) => criarPropostas(...args),
-  }
-})
+const criarPropostas = vi.fn(async (..._args: unknown[]) => ({
+  reclassificadas: 0, estornoCents: 0, absorvidas: [], propostasDeConciliacao: 0, propostasDeDuplicata: 0,
+}))
+vi.mock('@/lib/finance/conciliacao/conciliar-conta', () => ({
+  conciliarContas: (...args: unknown[]) => criarPropostas(...args),
+}))
 
 vi.mock('@/lib/openfinance/cpf-proprio', () => ({
   carregarHashesDoTitular: vi.fn(async () => new Set(['h'])),

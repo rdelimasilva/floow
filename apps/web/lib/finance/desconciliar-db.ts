@@ -6,6 +6,7 @@
 import { and, eq, ne, isNotNull } from 'drizzle-orm'
 import { forecastMatchProposals, transactions, type getDb } from '@floow/db'
 import { desfazerParDaRegra } from '@/lib/openfinance/desfazer-par'
+import { devolverExtratoAbsorvido } from './conciliacao/desfazer-absorcao'
 import { ehPernaCriadaPelaRegra, podeDesconciliar, type FilaDeOrigem } from './desconciliar'
 
 type Db = ReturnType<typeof getDb>
@@ -22,6 +23,8 @@ const colunas = {
   counterpartyId: transactions.counterpartyId,
   reviewState: transactions.reviewState,
   matchedTransactionId: transactions.matchedTransactionId,
+  origem: transactions.origem,
+  aguardaExtrato: transactions.aguardaExtrato,
 }
 
 export async function desconciliarNoBanco(tx: Db, orgId: string, transactionId: string): Promise<FilaDeOrigem> {
@@ -31,7 +34,8 @@ export async function desconciliarNoBanco(tx: Db, orgId: string, transactionId: 
 
   // A previsão que este realizado cumpre, se houver.
   const [previsaoCumprida] = linha.matchedTransactionId ? [] : await tx
-    .select({ id: transactions.id }).from(transactions)
+    .select({ id: transactions.id, origem: transactions.origem, aguardaExtrato: transactions.aguardaExtrato, externalId: transactions.externalId, transferGroupId: transactions.transferGroupId })
+    .from(transactions)
     .where(and(eq(transactions.orgId, orgId), eq(transactions.matchedTransactionId, linha.id))).limit(1)
 
   const fila = podeDesconciliar({ ...linha, cumprePrevisao: Boolean(previsaoCumprida) })
@@ -41,7 +45,8 @@ export async function desconciliarNoBanco(tx: Db, orgId: string, transactionId: 
   }
 
   if (fila === 'previsoes') {
-    const previsaoId = linha.matchedTransactionId ? linha.id : previsaoCumprida!.id
+    const previsao = linha.matchedTransactionId ? linha : previsaoCumprida!
+    const previsaoId = previsao.id
     const realizadoId = linha.matchedTransactionId ?? linha.id
     // O inverso de `aprovarProposta`: solta o vínculo e reabre a MESMA
     // proposta — o índice único (previsão, realizado) da 00047 guarda a
@@ -55,6 +60,10 @@ export async function desconciliarNoBanco(tx: Db, orgId: string, transactionId: 
         target: [forecastMatchProposals.forecastTransactionId, forecastMatchProposals.realizedTransactionId],
         set: { status: 'pending', decidedAt: null },
       })
+    // Absorção (R1 ou aprovação de linha que aguardava o extrato): o extrato
+    // perde o efeito que ganhou. Com a proposta reaberta o motor não absorve
+    // de novo; aprovar a reaplica, recusar deixa o extrato pendente.
+    await devolverExtratoAbsorvido(tx, orgId, { ...previsao, matchedTransactionId: realizadoId })
     return fila
   }
 

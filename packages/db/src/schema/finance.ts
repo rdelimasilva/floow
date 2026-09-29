@@ -119,6 +119,24 @@ export const categories = pgTable(
   })
 )
 
+/**
+ * De onde a linha veio. Declarada por quem grava — nunca deduzida do formato
+ * do `external_id` (FITID de arquivo e id da Polp moram na mesma coluna).
+ * Ver migration 00070 e `lib/finance/conciliacao/`.
+ */
+export const ORIGENS_DE_TRANSACAO = [
+  'extrato',
+  'manual',
+  'arquivo',
+  'perna',
+  'recorrencia',
+  'ajuste',
+  'investimento',
+  'parcela_prevista',
+] as const
+
+export type OrigemDaTransacao = (typeof ORIGENS_DE_TRANSACAO)[number]
+
 export const transactions = pgTable(
   'transactions',
   {
@@ -228,6 +246,18 @@ export const transactions = pgTable(
      * confirmar.
      */
     reviewState: reviewStateEnum('review_state').notNull().default('confirmed'),
+    /**
+     * NOT NULL sem default de propósito: todo `insert(transactions)` tem de
+     * dizer de onde a linha vem, senão não compila. (No banco a coluna só vira
+     * NOT NULL na 00071, depois do deploy.)
+     */
+    origem: text('origem').$type<OrigemDaTransacao>().notNull(),
+    /**
+     * Linha provisória numa conta Open Finance: fora do saldo
+     * (`balance_applied = false`) até o extrato daquela conta absorvê-la
+     * (`matched_transaction_id`). Ver `lib/finance/conciliacao/`.
+     */
+    aguardaExtrato: boolean('aguarda_extrato').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
@@ -245,6 +275,9 @@ export const transactions = pgTable(
     idxTransactionsOrgDate: index('idx_transactions_org_date').on(table.orgId, table.date),
     idxTransactionsOrgCategory: index('idx_transactions_org_category').on(table.orgId, table.categoryId),
     idxTransactionsOrgBalanceDate: index('idx_transactions_org_balance_date').on(table.orgId, table.balanceApplied, table.date),
+    idxTransactionsAguardaExtrato: index('idx_transactions_aguarda_extrato')
+      .on(table.accountId, table.date)
+      .where(sql`aguarda_extrato AND matched_transaction_id IS NULL`),
     idxTransactionsOrgReviewState: index('idx_transactions_org_review_state').on(table.orgId, table.reviewState),
     idxTransactionsCounterpartyId: index('idx_transactions_counterparty_id').on(table.counterpartyId),
     // 00063: filtros por grupo de transferência e agrupamento por template.

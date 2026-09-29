@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb, accounts, transactions } from '@floow/db'
 import { buildForecastTransferLegRow, isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
+import { aguardaNaData, diaDaLinha, extratoDaConta } from './conciliacao/aguarda-extrato'
 
 type Db = ReturnType<typeof getDb>
 
@@ -22,6 +23,7 @@ export async function inserirTransferenciaImportada(
     externalId: string | null
     importedAt: Date
     categoryId: string | null
+    contaImportadaAguarda: boolean
   },
 ): Promise<{ inserida: boolean; destinoPrevisto: string | null }> {
   const absAmount = Math.abs(args.amountCents)
@@ -39,21 +41,38 @@ export async function inserirTransferenciaImportada(
     transferGroupId,
     categoryId: args.categoryId,
     isAutoCategorized: false,
+    origem: 'arquivo',
+    // Conta importada Open Finance: a linha do arquivo aguarda o extrato.
+    aguardaExtrato: args.contaImportadaAguarda,
+    balanceApplied: !args.contaImportadaAguarda,
   }).onConflictDoNothing().returning({ id: transactions.id })
 
   // FITID repetido (duas transferências idênticas no mesmo CSV, ou reimportação):
   // a perna não entrou, então nada de saldo nem de perna de destino órfã.
   if (origem.length === 0) return { inserida: false, destinoPrevisto: null }
 
-  await tx.update(accounts)
-    .set({ balanceCents: sql`balance_cents + ${-absAmount}` })
-    .where(eq(accounts.id, args.accountId))
+  if (!args.contaImportadaAguarda) {
+    await tx.update(accounts)
+      .set({ balanceCents: sql`balance_cents + ${-absAmount}` })
+      .where(eq(accounts.id, args.accountId))
+  }
 
-  // Sem FITID não há chave de dedupe para a perna prevista: segue o caminho
-  // antigo, perna real.
-  const destinoOpenFinance = args.externalId !== null && (await isOpenFinanceLinkedAccount(tx, args.orgId, args.destAccountId))
+  // Destino Open Finance, na data que o extrato de lá cobre: a perna aguarda.
+  // Antes do início do extrato, nenhum extrato cobre: perna real no saldo.
+  const extratoDestino = await extratoDaConta(tx, args.orgId, args.destAccountId)
+  const destinoAguarda = aguardaNaData(extratoDestino, 'perna', diaDaLinha(args.date))
 
-  if (destinoOpenFinance) {
+  // Com FITID, a perna que aguarda tem chave de dedupe (`:transfer-par`).
+  // Cartão Open Finance não é conciliável (Ruling P12), mas fica como antes:
+  // o pagamento chega pelo extrato do cartão, então a perna daqui é prevista,
+  // fora do saldo, e R3 a casa com o extrato de lá. Perna real creditaria o
+  // cartão duas vezes.
+  const destinoPrevisto = args.externalId !== null && (
+    destinoAguarda ||
+    (!extratoDestino.conciliavel && (await isOpenFinanceLinkedAccount(tx, args.orgId, args.destAccountId)))
+  )
+
+  if (destinoPrevisto) {
     await tx.insert(transactions).values(
       buildForecastTransferLegRow(
         { orgId: args.orgId, amountCents: -absAmount, date: args.date, externalId: args.externalId!, balanceApplied: false },
@@ -65,6 +84,8 @@ export async function inserirTransferenciaImportada(
     return { inserida: true, destinoPrevisto: args.destAccountId }
   }
 
+  // Destino manual: perna real no saldo. Destino Open Finance sem FITID: a
+  // perna aguarda o extrato de lá, fora do saldo, e o motor a absorve.
   await tx.insert(transactions).values({
     orgId: args.orgId,
     accountId: args.destAccountId,
@@ -75,11 +96,16 @@ export async function inserirTransferenciaImportada(
     transferGroupId,
     categoryId: args.categoryId,
     isAutoCategorized: false,
+    origem: 'perna',
+    aguardaExtrato: destinoAguarda,
+    balanceApplied: !destinoAguarda,
   })
 
-  await tx.update(accounts)
-    .set({ balanceCents: sql`balance_cents + ${absAmount}` })
-    .where(eq(accounts.id, args.destAccountId))
+  if (!destinoAguarda) {
+    await tx.update(accounts)
+      .set({ balanceCents: sql`balance_cents + ${absAmount}` })
+      .where(eq(accounts.id, args.destAccountId))
+  }
 
-  return { inserida: true, destinoPrevisto: null }
+  return { inserida: true, destinoPrevisto: destinoAguarda ? args.destAccountId : null }
 }

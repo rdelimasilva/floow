@@ -6,6 +6,9 @@ import { eq, sql, and, inArray } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { assertAccountOwnership } from './account-actions'
 import { deveAplicarSaldoNaEdicao } from './saldo-na-edicao'
+import { aguardaExtratoNaConta } from './conciliacao/aguarda-extrato'
+import { conciliarContas } from './conciliacao/conciliar-conta'
+import { devolverExtratoAbsorvido } from './conciliacao/desfazer-absorcao'
 import {
   revalidateAccountData,
   revalidateSnapshotData,
@@ -42,6 +45,9 @@ export async function deleteTransaction(formData: FormData) {
         .where(and(eq(transactions.transferGroupId, tx.transferGroupId), eq(transactions.orgId, orgId)))
 
       for (const leg of legs) {
+        // Perna que o extrato da outra conta absorveu: sem o par, o extrato
+        // não pode seguir como transferência para cá.
+        await devolverExtratoAbsorvido(dbTx as unknown as Db, orgId, leg)
         // Only reverse balance if it was already applied
         if (leg.balanceApplied) {
           await dbTx
@@ -55,6 +61,8 @@ export async function deleteTransaction(formData: FormData) {
         .delete(transactions)
         .where(and(eq(transactions.transferGroupId, tx.transferGroupId), eq(transactions.orgId, orgId)))
     } else {
+      // Manual/arquivo absorvido pelo extrato: o extrato volta a pendente.
+      await devolverExtratoAbsorvido(dbTx as unknown as Db, orgId, tx)
       // Only reverse balance if it was already applied
       if (tx.balanceApplied) {
         await dbTx
@@ -189,7 +197,14 @@ export async function updateTransaction(formData: FormData) {
     // Previsão (template ou parcela) e parcela futura do banco só entram quando
     // a regra de `deveAplicarSaldoNaEdicao` deixa; o resto entra sempre.
     const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    const balanceAppliedValue = deveAplicarSaldoNaEdicao(oldTx, input.date.toISOString().slice(0, 10), hoje)
+    // Numa conta Open Finance, lançamento manual (ou linha de arquivo) editado
+    // aguarda o extrato — inclusive o que chega agora de uma conta manual, que
+    // sai do saldo de lá (acima) e não entra no daqui. Movido para conta
+    // manual, ninguém mais o absorveria: volta ao saldo e perde a marca. Data
+    // antes do início do extrato também fica no saldo: nenhum extrato cobre.
+    const dataEditada = input.date.toISOString().slice(0, 10)
+    const aguardaOrigem = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, oldTx.origem, dataEditada)
+    const balanceAppliedValue = deveAplicarSaldoNaEdicao({ ...oldTx, aguardaExtrato: aguardaOrigem }, dataEditada, hoje)
 
     if (balanceAppliedValue) {
       await tx
@@ -211,15 +226,22 @@ export async function updateTransaction(formData: FormData) {
         description: input.description,
         date: new Date(input.date),
         balanceApplied: balanceAppliedValue,
+        aguardaExtrato: aguardaOrigem,
         transferGroupId,
       })
       .where(and(eq(transactions.id, input.id), eq(transactions.orgId, orgId)))
 
     if (convertendoEmTransferencia) {
       // Segunda perna: valor invertido na conta de destino, mesmo grupo.
-      // `balanceApplied` acompanha a origem para uma origem futura não
-      // creditar o destino antes da hora — mesmo racional de
-      // `buildTransferLegRow` no caminho do Open Finance.
+      // Destino Open Finance: a perna aguarda o extrato de lá, fora do saldo.
+      // Destino manual: `balanceApplied` acompanha a origem para uma origem
+      // futura não creditar o destino antes da hora — mesmo racional de
+      // `buildTransferLegRow` no caminho do Open Finance. O "fora do saldo" de
+      // uma origem que aguardava o extrato não vale para a perna (sem
+      // `external_id` e sem marca, ninguém a creditaria): aí ela entra.
+      const destinoAguarda = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.destAccountId!, 'perna', dataEditada)
+      const baseDaPerna = oldTx.aguardaExtrato ? { recurringTemplateId: null, balanceApplied: false } : oldTx
+      const destinoAplicado = deveAplicarSaldoNaEdicao({ ...baseDaPerna, aguardaExtrato: destinoAguarda }, dataEditada, hoje)
       await tx.insert(transactions).values({
         orgId,
         accountId: input.destAccountId!,
@@ -229,10 +251,12 @@ export async function updateTransaction(formData: FormData) {
         description: input.description,
         date: new Date(input.date),
         transferGroupId,
-        balanceApplied: balanceAppliedValue,
+        origem: 'perna',
+        balanceApplied: destinoAplicado,
+        aguardaExtrato: destinoAguarda,
       })
 
-      if (balanceAppliedValue) {
+      if (destinoAplicado) {
         await tx
           .update(accounts)
           .set({ balanceCents: sql`balance_cents + ${input.amountCents}` })
@@ -240,6 +264,11 @@ export async function updateTransaction(formData: FormData) {
       }
     }
   })
+
+  // A linha (e a perna) pode ter passado a aguardar numa conta Open Finance
+  // cujo extrato já chegou: o motor absorve agora. Nunca lança.
+  const contasTocadas = convertendoEmTransferencia ? [input.accountId, input.destAccountId!] : [input.accountId]
+  await conciliarContas(db, orgId, contasTocadas, '[updateTransaction]')
 
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)

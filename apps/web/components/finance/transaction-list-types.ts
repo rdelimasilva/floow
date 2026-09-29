@@ -54,6 +54,11 @@ export interface TransactionRowData {
    * Previsto com vinculo nunca entra no saldo.
    */
   matchedTransactionId?: string | null
+  /**
+   * Linha provisória numa conta Open Finance (manual, arquivo, perna de
+   * transferência): fora do saldo até o extrato daquela conta absorvê-la.
+   */
+  aguardaExtrato?: boolean
   affectsCashFlow?: boolean | null
   /**
    * O que a CATEGORIA deste lancamento diz sobre fluxo de caixa.

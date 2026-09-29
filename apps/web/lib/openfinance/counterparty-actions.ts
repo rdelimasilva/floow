@@ -8,7 +8,8 @@ import { assertAccountOwnership } from '@/lib/finance/account-actions'
 import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag, reviewGateTag } from '@/lib/cache-tags'
-import { condicaoForaDeParDeTransferenciaPendente, criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
+import { condicaoForaDeParDeTransferenciaPendente } from '@/lib/finance/forecast-match-db'
+import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarDecisaoAosPendentes, camposDaRegra, contaQueARegraGrava, ehRegraDoTitular, exceptionSchema } from './aplicar-regra'
 export type { ConfirmCounterpartyException } from './aplicar-regra'
 
@@ -142,16 +143,10 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
   // lugar que o destrava.
   invalidateTag(reviewGateTag(orgId))
 
-  // A ponta real pode já estar na outra conta: propõe o par agora, sem
-  // esperar o próximo sync dela. Falha aqui não desfaz a confirmação — a
-  // proposta nasce de novo na próxima passada daquela conta.
-  for (const conta of contasParaConciliar) {
-    try {
-      await criarPropostasDeConciliacao(db, orgId, conta)
-    } catch (error) {
-      console.error('[confirmCounterparty] falha ao propor conciliacao da perna prevista:', error)
-    }
-  }
+  // A ponta real pode já estar na outra conta: concilia agora, sem esperar o
+  // próximo sync dela. Falha aqui não desfaz a confirmação — o motor não
+  // lança, e a próxima passada daquela conta concilia de novo.
+  await conciliarContas(db, orgId, contasParaConciliar, '[confirmCounterparty]')
 
   // Depois das propostas, não antes: a lista de lançamentos e as filas leem
   // as propostas; invalidar antes serviria a tela sem o par recém-proposto.

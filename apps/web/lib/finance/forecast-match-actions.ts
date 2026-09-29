@@ -2,10 +2,12 @@
 
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { and, eq, inArray } from 'drizzle-orm'
-import { ehPernaPrevista } from '@/lib/openfinance/perna-prevista'
+import { aplicarEfeitoDaAbsorcao } from './conciliacao/absorver'
 import { condicaoDaTransacaoDaOrg, condicaoDePropostaPendenteDaOrg } from './forecast-match-db'
 import { getOrgId } from './queries'
 import { revalidateTransactionData } from './revalidate'
+
+type Db = ReturnType<typeof getDb>
 
 /**
  * Efetiva a conciliação proposta: a previsão passa a apontar para o lançamento
@@ -65,6 +67,11 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
         isIgnored: transactions.isIgnored,
         externalId: transactions.externalId,
         transferAccountId: transactions.transferAccountId,
+        aguardaExtrato: transactions.aguardaExtrato,
+        origem: transactions.origem,
+        categoryId: transactions.categoryId,
+        description: transactions.description,
+        transferGroupId: transactions.transferGroupId,
       })
       .from(transactions)
       .where(
@@ -96,20 +103,13 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
       .set({ matchedTransactionId: proposta.realizedTransactionId })
       .where(condicaoDaTransacaoDaOrg(proposta.forecastTransactionId, orgId))
 
-    // Perna prevista de transferência: a ponta real é a outra metade de uma
-    // transferência entre contas próprias. Vira transferência confirmada, e
-    // com isso sai de Classificar — senão o usuário a classificaria de novo
-    // e criaria um segundo par, cruzado.
-    if (ehPernaPrevista(previsao.externalId)) {
-      await tx
-        .update(transactions)
-        .set({
-          type: 'transfer',
-          categoryId: null,
-          reviewState: 'confirmed',
-          transferAccountId: previsao.transferAccountId,
-        })
-        .where(condicaoDaTransacaoDaOrg(proposta.realizedTransactionId, orgId))
+    // Linha que aguardava o extrato (perna de transferência, manual, arquivo):
+    // o extrato ganha o mesmo efeito que o motor daria ao absorvê-la sozinho
+    // (`aplicarEfeitoDaAbsorcao`). A perna vira a outra ponta da transferência
+    // e sai de Classificar — senão o usuário a classificaria de novo e
+    // criaria um segundo par, cruzado.
+    if (previsao.aguardaExtrato) {
+      await aplicarEfeitoDaAbsorcao(tx as unknown as Db, orgId, previsao, proposta.realizedTransactionId)
     }
 
     await tx

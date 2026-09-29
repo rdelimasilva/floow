@@ -42,5 +42,8 @@ export * from './openfinance/normalize'
 export * from './openfinance/polp-client'
 export * from './openfinance/saldo-do-banco'
 export * from './openfinance/duplicata'
+
+// Conciliação única — o extrato é a verdade
+export * from './conciliacao'
 export * from './openfinance/parcelas'
 export * from './openfinance/investments'

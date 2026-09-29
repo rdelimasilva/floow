@@ -243,6 +243,7 @@ export async function persistPage(
       description: tx.description,
       date,
       externalId: tx.externalId,
+      origem: 'extrato',
       importedAt: new Date(),
       isAutoCategorized: categoryId !== null,
       isIgnored: isScheduled,

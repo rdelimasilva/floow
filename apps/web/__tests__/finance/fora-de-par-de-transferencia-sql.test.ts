@@ -12,4 +12,9 @@ describe('condicaoForaDeParDeTransferenciaPendente', () => {
     expect(s).toContain('fmp.realized_transaction_id = "transactions"."id"')
     expect(q.params).toContain('%:transfer-par')
   })
+
+  it('perna absorvível que não é :transfer-par (:transfer-dest, manual) também conta', () => {
+    const s = new PgDialect().sqlToQuery(condicaoForaDeParDeTransferenciaPendente()).sql.toLowerCase()
+    expect(s).toContain("prev.origem = 'perna'")
+  })
 })

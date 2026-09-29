@@ -59,14 +59,12 @@ vi.mock('@/lib/supabase/server', () => ({
 const insertQueue: unknown[][] = []
 const insertedValues: any[] = []
 
-const criarPropostas = vi.fn(async (..._args: unknown[]) => 0)
-vi.mock('@/lib/finance/forecast-match-db', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/finance/forecast-match-db')>('@/lib/finance/forecast-match-db')
-  return {
-    ...actual,
-    criarPropostasDeConciliacao: (...args: Parameters<typeof actual.criarPropostasDeConciliacao>) => criarPropostas(...args),
-  }
-})
+const criarPropostas = vi.fn(async (..._args: unknown[]) => ({
+  reclassificadas: 0, estornoCents: 0, absorvidas: [], propostasDeConciliacao: 0, propostasDeDuplicata: 0,
+}))
+vi.mock('@/lib/finance/conciliacao/conciliar-conta', () => ({
+  conciliarContas: (...args: unknown[]) => criarPropostas(...args),
+}))
 
 vi.mock('@floow/db', async () => {
   const actual = await vi.importActual<typeof import('@floow/db')>('@floow/db')
@@ -223,8 +221,8 @@ describe('confirmCounterparty — par de transferência', () => {
       expect(origem.set).toMatchObject({
         type: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID, transferGroupId: null, reviewState: 'confirmed',
       })
-      expect(criarPropostas).toHaveBeenCalledWith(expect.anything(), ORG, 'conta-origem')
-      expect(criarPropostas).not.toHaveBeenCalledWith(expect.anything(), ORG, TRANSFER_ACCOUNT_ID)
+      expect(criarPropostas.mock.calls[0][1]).toBe(ORG)
+      expect([...(criarPropostas.mock.calls[0][2] as Iterable<string>)]).toEqual(['conta-origem'])
     })
   })
 

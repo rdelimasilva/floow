@@ -24,6 +24,7 @@ const rel = (f: string) => relative(WEB, f).split(sep).join('/')
 const SERVICO: Record<string, string> = {
   'app/api/cfo/run-daily/route.ts': 'cron: varre todas as orgs, sem usuário na requisição',
   'app/api/category-suggestions/run-weekly/route.ts': 'cron semanal: varre todas as orgs, sem usuário na requisição',
+  'app/api/cron/auditar-conciliacao/route.ts': 'cron diário read-only: audita todas as orgs, sem usuário na requisição',
   'lib/cfo/engine.ts': 'só é chamado por run-daily e run-event, ambas autenticadas por segredo',
   'lib/audit/record.ts': 'audit_log não tem policy de INSERT por desenho — só o backend escreve',
   'lib/openfinance/importacao-agendada.ts':
@@ -75,6 +76,10 @@ const PENDENTES = [
   // e `forecast_match_proposals` — com a mesma dívida de policy de ESCRITA.
   'lib/finance/desconciliar-actions.ts',
   'lib/finance/import-actions.ts',
+  // Saiu de `import-actions.ts` (a gravação das linhas do arquivo e a chamada
+  // ao motor de conciliação): o mesmo código em outro arquivo, com a mesma
+  // dívida de policy de ESCRITA em `transactions` e `accounts`.
+  'lib/finance/import-linhas.ts',
   // `lib/finance/queries.ts` era uma entrada só, de 590 linhas. Virou fachada
   // de reexport — não chama mais `getDb()` — e os seis módulos abaixo herdaram
   // as consultas como estavam. Seis entradas no lugar de uma é a mesma dívida
@@ -87,6 +92,7 @@ const PENDENTES = [
   'lib/finance/queries-snapshots.ts',
   'lib/finance/queries-transactions.ts',
   'lib/finance/recurring-actions.ts',
+  'lib/finance/recurring-generate.ts',
   // Saiu do antigo `lib/finance/actions.ts` (também pendente, hoje dividido —
   // ver acima): `cancelRecurring` ganhou a opção de limpar as parcelas
   // vencidas, e aquele arquivo já tinha 1250 linhas. Mesmo código em outro

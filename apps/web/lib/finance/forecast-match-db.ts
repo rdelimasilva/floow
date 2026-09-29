@@ -41,7 +41,10 @@ export function condicaoDePrevisaoSemPropostaAberta() {
 
 /**
  * Verdadeiro quando a linha de `transactions` sendo filtrada NÃO é o
- * realizado de uma proposta pendente contra perna prevista de transferência.
+ * realizado de uma proposta pendente contra perna de transferência — a
+ * `:transfer-par` ou qualquer perna que aguarda o extrato (`origem =
+ * 'perna'`: `:transfer-dest` numa conta que virou Open Finance, perna manual),
+ * que R1 propõe quando o par é ambíguo e `desconciliar` reabre.
  *
  * Essa ponta já tem decisão esperando em Confirmar previsões. Se Classificar
  * também a mostrasse, o usuário poderia marcá-la como transferência de novo —
@@ -52,7 +55,7 @@ export function condicaoDePrevisaoSemPropostaAberta() {
  * `"transactions"."id"` apontaria para a linha de dentro.
  */
 export function condicaoForaDeParDeTransferenciaPendente() {
-  return sql`not exists (select 1 from ${forecastMatchProposals} fmp inner join ${transactions} prev on prev.id = fmp.forecast_transaction_id where fmp.realized_transaction_id = ${transactions.id} and fmp.status = 'pending' and prev.external_id like ${`%${SUFIXO_PERNA_PREVISTA}`})`
+  return sql`not exists (select 1 from ${forecastMatchProposals} fmp inner join ${transactions} prev on prev.id = fmp.forecast_transaction_id where fmp.realized_transaction_id = ${transactions.id} and fmp.status = 'pending' and (prev.external_id like ${`%${SUFIXO_PERNA_PREVISTA}`} or prev.origem = 'perna'))`
 }
 
 /**
@@ -131,12 +134,15 @@ export function condicaoDeRealizadoSemVinculo() {
  * proposta aberta. Sem ele, a segunda rodada de sync estouraria.
  *
  * O filtro de previsão aberta é o mesmo de antes — `balance_applied = false`,
- * sem vínculo, de template ou perna prevista de transferência, não ignorada.
+ * sem vínculo, de template, não ignorada. Com `incluirPernaPrevista` (conta
+ * OF que não é conciliável, como cartão — Ruling P12), a perna prevista de
+ * transferência (`:transfer-par`) também entra, como era antes do R1.
  */
 export async function criarPropostasDeConciliacao(
   db: Db,
   orgId: string,
   accountId: string,
+  opcoes: { incluirPernaPrevista?: boolean } = {},
 ): Promise<number> {
   const previstos = await db
     .select({
@@ -150,9 +156,13 @@ export async function criarPropostasDeConciliacao(
       and(
         eq(transactions.orgId, orgId),
         eq(transactions.accountId, accountId),
-        // Previsão é de template (recorrente) ou perna de transferência cujo
-        // destino é conta Open Finance — a outra ponta chega pelo extrato.
-        or(isNotNull(transactions.recurringTemplateId), condicaoDePernaPrevista()),
+        // Previsão de template (recorrência). Em conta conciliável a perna de
+        // transferência aguarda o extrato e é resolvida por R1
+        // (`conciliacao/r1-db.ts`), que absorve sem pedir aprovação; no
+        // cartão OF, R1 não roda e ela é proposta aqui.
+        opcoes.incluirPernaPrevista
+          ? or(isNotNull(transactions.recurringTemplateId), condicaoDePernaPrevista())
+          : isNotNull(transactions.recurringTemplateId),
         eq(transactions.balanceApplied, false),
         isNull(transactions.matchedTransactionId),
         eq(transactions.isIgnored, false),
@@ -190,6 +200,8 @@ export async function criarPropostasDeConciliacao(
         // A perna prevista também tem `external_id` (para dedupe), mas é
         // previsão: jamais pode cumprir outra previsão.
         condicaoNaoEPernaPrevista(),
+        // Linha que aguarda o extrato não é realizado: é o outro lado de R1.
+        eq(transactions.aguardaExtrato, false),
         // Linha com grupo já é ponta de um par (origem de transferência, ou a
         // perna real de destino manual). Em OF↔OF com as duas contrapartes
         // confirmadas, casar a origem de um lado com a perna prevista do outro

@@ -39,7 +39,7 @@ const tx = {
 
 vi.mock('@floow/db', () => ({
   getDb: () => ({ transaction: async (fn: (t: typeof tx) => unknown) => fn(tx) }),
-  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', matchedTransactionId: 'matched_transaction_id', balanceApplied: 'balance_applied', isIgnored: 'is_ignored', externalId: 'external_id', transferAccountId: 'transfer_account_id', type: 'type', categoryId: 'category_id', reviewState: 'review_state' },
+  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', matchedTransactionId: 'matched_transaction_id', balanceApplied: 'balance_applied', isIgnored: 'is_ignored', externalId: 'external_id', transferAccountId: 'transfer_account_id', type: 'type', categoryId: 'category_id', reviewState: 'review_state', aguardaExtrato: 'aguarda_extrato', origem: 'origem', description: 'description', transferGroupId: 'transfer_group_id', accountId: 'account_id', isAutoCategorized: 'is_auto_categorized' },
   forecastMatchProposals: { _: { name: 'forecast_match_proposals' }, id: 'id', orgId: 'org_id', status: 'status', decidedAt: 'decided_at', forecastTransactionId: 'forecast_transaction_id', realizedTransactionId: 'realized_transaction_id' },
 }))
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: () => Promise.resolve('org-1') }))
@@ -98,9 +98,14 @@ describe('aprovarProposta', () => {
   it('perna prevista de transferência: a ponta real vira transferência confirmada, sem categoria', async () => {
     selectQueue.push([PENDENTE])
     selectQueue.push([
-      { ...PREVISAO_ABERTA, externalId: 'ext-1:transfer-par', transferAccountId: 'conta-itau' },
+      {
+        ...PREVISAO_ABERTA, externalId: 'ext-1:transfer-par', transferAccountId: 'conta-itau',
+        aguardaExtrato: true, origem: 'perna', categoryId: null, description: 'Transferência recebida', transferGroupId: 'g-1',
+      },
       { ...REALIZADO_VALENDO, externalId: 'pix-nubank', transferAccountId: null },
     ])
+    // Estado do extrato, lido por `aplicarEfeitoDaAbsorcao`.
+    selectQueue.push([{ reviewState: 'pending', categoryId: null, isAutoCategorized: false }])
 
     const { efetivada } = await aprovarProposta('prop-1')
 
@@ -113,6 +118,21 @@ describe('aprovarProposta', () => {
       reviewState: 'confirmed',
       transferAccountId: 'conta-itau',
     })
+  })
+
+  it('lançamento manual aguardando o banco: aprovar faz o extrato herdar a categoria do usuário', async () => {
+    selectQueue.push([PENDENTE])
+    selectQueue.push([
+      { ...PREVISAO_ABERTA, aguardaExtrato: true, origem: 'manual', categoryId: 'cat-feira', description: 'Feira', transferGroupId: null },
+      REALIZADO_VALENDO,
+    ])
+    selectQueue.push([{ reviewState: 'pending', categoryId: null, isAutoCategorized: false }])
+
+    const { efetivada } = await aprovarProposta('prop-1')
+
+    expect(efetivada).toBe(true)
+    const escritas = ops.filter((o) => o.op === 'update:transactions').map((o) => o.payload)
+    expect(escritas).toContainEqual({ categoryId: 'cat-feira', description: 'Feira', reviewState: 'confirmed', isAutoCategorized: false })
   })
 
   it('previsão recorrente: a ponta real não muda de natureza', async () => {

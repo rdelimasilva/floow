@@ -35,7 +35,7 @@ const db = {
 
 vi.mock('@floow/db', () => ({
   getDb: () => db,
-  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', accountId: 'account_id', amountCents: 'amount_cents', date: 'date', description: 'description', externalId: 'external_id', recurringTemplateId: 'recurring_template_id', balanceApplied: 'balance_applied', matchedTransactionId: 'matched_transaction_id', isIgnored: 'is_ignored' },
+  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', accountId: 'account_id', amountCents: 'amount_cents', date: 'date', description: 'description', externalId: 'external_id', recurringTemplateId: 'recurring_template_id', balanceApplied: 'balance_applied', matchedTransactionId: 'matched_transaction_id', isIgnored: 'is_ignored', aguardaExtrato: 'aguarda_extrato', transferGroupId: 'transfer_group_id' },
   forecastMatchProposals: { _: { name: 'forecast_match_proposals' }, forecastTransactionId: 'forecast_transaction_id', realizedTransactionId: 'realized_transaction_id', orgId: 'org_id', status: 'status' },
 }))
 

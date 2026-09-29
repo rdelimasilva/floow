@@ -8,7 +8,7 @@ import { assertAccountOwnership } from '@/lib/finance/account-actions'
 import { requireIdentity } from '@/lib/auth/session'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
-import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
+import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarDecisaoAosPendentes, camposDaRegra, contaQueARegraGrava, ehRegraDoTitular } from './aplicar-regra'
 import { analisarPar, desfazerParDaRegra } from './desfazer-par'
 import { selecionarLancamentosDaRegra, somarPrevia, type PreviaCorrecao } from './previa-correcao'
@@ -144,13 +144,7 @@ export async function corrigirRegra(
 
   invalidateTag(accountsTag(orgId))
   revalidateSnapshotData(orgId)
-  for (const c of contasParaConciliar) {
-    try {
-      await criarPropostasDeConciliacao(db, orgId, c)
-    } catch (error) {
-      console.error('[corrigirRegra] falha ao propor conciliacao:', error)
-    }
-  }
+  await conciliarContas(db, orgId, contasParaConciliar, '[corrigirRegra]')
   revalidateTransactionData(orgId)
   return resultado
 }

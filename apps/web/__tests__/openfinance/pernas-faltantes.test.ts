@@ -24,11 +24,12 @@ const db: any = {
   transaction: async (fn: (t: unknown) => unknown) => fn(db),
 }
 
-const propor = vi.fn(async (..._a: unknown[]) => 0)
-vi.mock('@/lib/finance/forecast-match-db', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/finance/forecast-match-db')>('@/lib/finance/forecast-match-db')
-  return { ...actual, criarPropostasDeConciliacao: (...a: unknown[]) => propor(...a) }
-})
+const propor = vi.fn(async (..._args: unknown[]) => ({
+  reclassificadas: 0, estornoCents: 0, absorvidas: [], propostasDeConciliacao: 0, propostasDeDuplicata: 0,
+}))
+vi.mock('@/lib/finance/conciliacao/conciliar-conta', () => ({
+  conciliarContas: (...args: unknown[]) => propor(...args),
+}))
 
 const { criarPernasPrevistasFaltantes } = await import('@/lib/openfinance/pernas-faltantes')
 
@@ -63,7 +64,9 @@ describe('criarPernasPrevistasFaltantes', () => {
     expect(criadas).toBe(1)
     expect(inserts[0]).toMatchObject({ accountId: 'nubank', externalId: 'ext-1:transfer-par', balanceApplied: false, transferAccountId: 'itau' })
     expect(updates[0]).toMatchObject({ transferGroupId: inserts[0].transferGroupId })
-    expect(propor).toHaveBeenCalledWith(db, 'org-1', 'nubank')
+    expect(propor.mock.calls[0][0]).toBe(db)
+    expect(propor.mock.calls[0][1]).toBe('org-1')
+    expect([...(propor.mock.calls[0][2] as Iterable<string>)]).toEqual(['nubank'])
   })
 
   it('destino que não é mais Open Finance fica como está', async () => {
@@ -90,7 +93,6 @@ describe('criarPernasPrevistasFaltantes', () => {
     expect(criadas).toBe(0)
     expect(inserts).toEqual([])
     expect(updates).toEqual([])
-    expect(propor).toHaveBeenCalledWith(db, 'org-1', 'nubank')
-    expect(propor).not.toHaveBeenCalledWith(db, 'org-1', 'itau')
+    expect([...(propor.mock.calls[0][2] as Iterable<string>)]).toEqual(['nubank'])
   })
 })

@@ -63,7 +63,9 @@ export interface ParDuplicado {
  * sinal e para de propor — degrada para silêncio, nunca para ruído.
  */
 function emitidoEm(externalId: string): number | null {
-  const limpo = externalId.replace(/-/g, '')
+  // Perna derivada carrega o id da origem com sufixo (`:transfer-dest`,
+  // `:transfer-par`). Sem cortá-lo, o id não tinha 32 hex e a função calava.
+  const limpo = externalId.split(':')[0].replace(/-/g, '')
   if (limpo.length !== 32) return null
   // Nibble de versão: o 13º hex de um UUID canônico.
   if (limpo[12] !== '7') return null
@@ -86,7 +88,10 @@ function emitidoEm(externalId: string): number | null {
  * Distribuicao Sao Paulo" com o CNPJ preenchido — exigir igualdade fazia o
  * detector cegar no caso que ele existe para pegar.
  */
-function contrapartesCompativeis(a: LancamentoParaDedupe, b: LancamentoParaDedupe): boolean {
+export function contrapartesCompativeis(
+  a: { counterpartyTaxId: string | null },
+  b: { counterpartyTaxId: string | null },
+): boolean {
   if (a.counterpartyTaxId === null || b.counterpartyTaxId === null) return true
   return a.counterpartyTaxId === b.counterpartyTaxId
 }

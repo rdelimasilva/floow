@@ -148,6 +148,21 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
     )
   }
 
+  // Numa conta Open Finance só o extrato move o saldo. Esta linha espera o
+  // extrato dela e, até lá, não soma em saldo nenhum. Sem fila nova: quando o
+  // extrato chega, o motor absorve sozinho; ambiguidade vai para "Confirmar
+  // previsões" (selo "confirmar?", acima deste).
+  if (tx.aguardaExtrato) {
+    return (
+      <span
+        className="inline-flex shrink-0 items-center rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-800"
+        title="Conta conectada ao banco: este lançamento fica fora do saldo até o extrato trazer o mesmo valor. Aí os dois viram um só."
+      >
+        aguardando o banco
+      </span>
+    )
+  }
+
   // O selo fala do estado da previsão, não do tipo da conta: previsão futura
   // em corretora é "previsto", não "não confirmado".
   if (!contaNoSaldoProjetado(tx, new Date(), { incluirInvestimento: true })) {

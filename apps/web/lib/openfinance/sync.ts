@@ -23,8 +23,7 @@ import { persistPage, type Db } from './persist-page'
 import { sugerirCategoriasDaFila } from './sugestao-da-fila'
 import { sugestaoDaFilaDeps } from './sugestao-da-fila-deps'
 import { completarParcelas } from './completar-parcelas'
-import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
-import { criarPropostasDeDuplicata } from '@/lib/finance/duplicata-db'
+import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarRedirecionamentos } from '@/lib/finance/polp-redirect'
 
 /**
@@ -160,35 +159,16 @@ export async function syncConnectionTransactions(
       }
     }
 
-    // Propõe o par previsto x realizado com o que acabou de entrar. Quem
-    // efetiva é o usuário, na aprovação — o sync não decide mais.
-    // Depois do loop de paginas, não dentro do persistPage: o `returning` do
-    // insert de lá traz só id, valor e balanceApplied, sem data nem descrição
-    // — e é delas que o casamento depende. Falha aqui não derruba o sync: o
-    // dado já entrou, e a proposta é criada de novo na próxima passada.
-    try {
-      summary.propostasDeConciliacao += await criarPropostasDeConciliacao(db, connection.orgId, resource.accountId)
-
-      // A perna prevista nasceu em OUTRA conta. Se a ponta real de lá já
-      // chegou num sync anterior, a proposta tem que nascer agora — o próximo
-      // sync daquela conta só olharia o que é novo nela.
-      for (const conta of contasComPernaPrevista) {
-        summary.propostasDeConciliacao += await criarPropostasDeConciliacao(db, connection.orgId, conta)
-      }
-    } catch (error) {
-      console.error('[sync] falha ao propor conciliacao de previsto com realizado:', error)
-    }
-
-    // O dedupe da ingestao e o indice unico `(external_id, account_id)`, que
-    // nao protege quando a fonte REEMITE o mesmo evento com outro id. Propor
-    // e separado de importar: o par so existe depois das duas linhas dentro.
-    // Falha aqui nao derruba o sync — o dado ja entrou, e a proposta volta a
-    // ser criada na proxima passada.
-    try {
-      summary.propostasDeDuplicata += await criarPropostasDeDuplicata(db, connection.orgId, resource.accountId)
-    } catch (error) {
-      console.error('[sync] falha ao propor duplicata:', error)
-    }
+    // O motor de conciliação, depois das páginas e não dentro do persistPage:
+    // o `returning` de lá não traz data nem descrição, e é delas que o
+    // casamento depende. Reclassifica o que ainda conta no saldo sem ser
+    // extrato, absorve o que aguarda (R1), propõe duplicata (R2) e previsão
+    // de recorrência (R3). A perna prevista nasceu em OUTRA conta: se a ponta
+    // real de lá já chegou num sync anterior, a conciliação tem que rodar lá
+    // agora. Nunca lança — o dado já entrou, e a próxima passada concilia.
+    const conciliacao = await conciliarContas(db, connection.orgId, [resource.accountId, ...contasComPernaPrevista], '[sync]')
+    summary.propostasDeConciliacao += conciliacao.propostasDeConciliacao
+    summary.propostasDeDuplicata += conciliacao.propostasDeDuplicata
 
     // Contraparte nova chega na fila com a categoria pré-selecionada
     // (histórico ou Claude); quem confirma é o usuário. Falha aqui não

@@ -126,6 +126,18 @@ describe('selo de nao confirmado', () => {
 
     screen.getByText('não confirmado')
   })
+
+  it('lançamento que aguarda o extrato mostra "aguardando o banco"', () => {
+    renderRow({ balanceApplied: false, aguardaExtrato: true, date: '2026-09-18' })
+    expect(screen.getByText('aguardando o banco')).toBeTruthy()
+    expect(screen.queryByText('não confirmado')).toBeNull()
+  })
+
+  it('depois de absorvido pelo extrato, volta ao selo "confirmado"', () => {
+    renderRow({ balanceApplied: false, aguardaExtrato: true, matchedTransactionId: 'ext-1' })
+    expect(screen.getByText('confirmado')).toBeTruthy()
+    expect(screen.queryByText('aguardando o banco')).toBeNull()
+  })
 })
 
 /**
