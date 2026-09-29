@@ -87,7 +87,6 @@ describe('CounterpartyQueueClient — exceção por lançamento', () => {
       })
     )
 
-    fireEvent.click(screen.getByText('ver lançamentos'))
 
     // padrão do grupo: despesa / aluguel
     fireEvent.click(screen.getByRole('button', { name: 'Despesa' }))
@@ -138,10 +137,9 @@ describe('CounterpartyQueueClient — sinal do valor', () => {
       })
     )
 
-    // `getByText` já lança se não achar — a asserção é a própria query.
-    screen.getByText('-R$ 750,00')
+    // Total do grupo e o único lançamento (já aberto) mostram o mesmo valor.
+    expect(screen.getAllByText('-R$ 750,00')).toHaveLength(2)
 
-    fireEvent.click(screen.getByText('ver lançamentos'))
     const row = screen.getByTestId('item-tx-debito')
     within(row).getByText('-R$ 750,00')
   })
@@ -281,7 +279,6 @@ describe('CounterpartyQueueClient — destino igual à conta do lançamento', ()
   it('a exceção de um lançamento também é checada', () => {
     renderFila()
     escolherConta('conta-destino')
-    fireEvent.click(screen.getByText('ver lançamentos'))
 
     const linha = screen.getByTestId('item-tx-outlier')
     fireEvent.click(within(linha).getByText('usar classificação diferente'))

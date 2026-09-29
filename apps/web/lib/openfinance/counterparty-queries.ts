@@ -122,6 +122,14 @@ export interface PendingGroupItem {
   type?: 'income' | 'expense' | 'transfer'
   /** CPF próprio: a conta do outro lado, se o par foi achado sem ambiguidade. */
   sugestaoContaId: string | null
+  /**
+   * O que o extrato trouxe além da descrição, para conciliar: meio (`polp_type`
+   * cru), cartão e parcela. Opcionais porque lançamento manual não tem.
+   */
+  polpType?: string | null
+  cardLastDigits?: string | null
+  installmentNumber?: number | null
+  installmentTotal?: number | null
 }
 
 export interface PendingGroup {
@@ -189,6 +197,10 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
         amountCents: transactions.amountCents,
         accountId: transactions.accountId,
         type: transactions.type,
+        polpType: transactions.polpType,
+        cardLastDigits: transactions.cardLastDigits,
+        installmentNumber: transactions.installmentNumber,
+        installmentTotal: transactions.installmentTotal,
       })
       .from(transactions)
       .innerJoin(counterparties, eq(counterparties.id, transactions.counterpartyId))
@@ -228,6 +240,10 @@ export async function getPendingCounterpartyGroups(orgId: string): Promise<Pendi
         accountId: row.accountId,
         type: row.type,
         sugestaoContaId: null,
+        polpType: row.polpType,
+        cardLastDigits: row.cardLastDigits,
+        installmentNumber: row.installmentNumber,
+        installmentTotal: row.installmentTotal,
       })
     }
 

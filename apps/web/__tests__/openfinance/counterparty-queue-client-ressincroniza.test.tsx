@@ -56,10 +56,11 @@ const props = (pending: ReturnType<typeof grupo>[]) => ({
 describe('CounterpartyQueueClient — fila nova do servidor (achado 5)', () => {
   it('mostra o grupo que voltou para Classificar quando as props mudam', () => {
     const { rerender } = render(React.createElement(CounterpartyQueueClient, props([grupo('cp-a', 'Aluguel Imobiliária')])))
-    expect(screen.queryByText('Resgate CDB DI')).toBeNull()
+    expect(screen.queryAllByText('Resgate CDB DI')).toHaveLength(0)
 
     rerender(React.createElement(CounterpartyQueueClient, props([grupo('cp-a', 'Aluguel Imobiliária'), grupo('cp-b', 'Resgate CDB DI')])))
 
-    expect(screen.getByText('Resgate CDB DI')).toBeTruthy()
+    // Nome do grupo e descrição do lançamento (já aberto) são o mesmo texto.
+    expect(screen.getAllByText('Resgate CDB DI').length).toBeGreaterThan(0)
   })
 })

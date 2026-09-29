@@ -42,10 +42,10 @@ export function CounterpartyQueueClient(props: Props) {
 function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryOptions, accountOptions, regraAberta }: Props) {
   const { toast } = useToast()
   const [pending, setPending] = useState(initialPending)
-  // CPF próprio já nasce expandido: não tem natureza/categoria de grupo pra
-  // decidir, só a conta de cada lançamento — esconder a lista faria o usuário
-  // clicar em "ver lançamentos" pra achar o único controle que existe.
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(initialPending.filter((g) => g.ehCpfProprio).map((g) => g.counterpartyId)))
+  // Todo grupo nasce expandido: classificar sem ver de que conta e com que
+  // descrição veio cada lançamento torna impossível conciliar com o extrato.
+  // No CPF próprio, além disso, a conta de cada lançamento é o único controle.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(initialPending.map((g) => g.counterpartyId)))
   const [drafts, setDrafts] = useState<Record<string, { nature: Nature | null; categoryId: string | null; transferAccountId: string | null }>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
   // Exceção por lançamento: foge do padrão do grupo sem virar regra da
@@ -228,6 +228,15 @@ function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryO
     return null
   }
 
+  /** "Itaú PJ: 2 · Nubank: 1" — quantos lançamentos do grupo em cada conta. */
+  function resumoDasContas(group: PendingGroup): string {
+    const porConta = new Map<string, number>()
+    for (const item of group.items) porConta.set(item.accountId, (porConta.get(item.accountId) ?? 0) + 1)
+    return [...porConta]
+      .map(([id, n]) => `${accountOptions.find((a) => a.id === id)?.name ?? 'Conta removida'}: ${n}`)
+      .join(' · ')
+  }
+
   function renderGroup(group: PendingGroup) {
     const draft = draftFor(group.counterpartyId)
     const isOpen = expanded.has(group.counterpartyId)
@@ -260,6 +269,7 @@ function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryO
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
                   {group.count} lançamento{group.count > 1 ? 's' : ''} ·{' '}
+                  <span data-testid={`contas-do-grupo-${group.counterpartyId}`}>{resumoDasContas(group)}</span> ·{' '}
                   <button
                     type="button"
                     className="underline"
@@ -282,6 +292,7 @@ function FilaDeClassificar({ mode, pending: initialPending, confirmed, categoryO
                       <ItemRow
                         key={item.id}
                         item={item}
+                        accountName={accountOptions.find((a) => a.id === item.accountId)?.name}
                         override={itemOverrides[item.id]}
                         categoryOptions={categoryOptions}
                         accountOptions={accountOptions}

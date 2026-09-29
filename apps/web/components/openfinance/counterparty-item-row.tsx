@@ -5,6 +5,8 @@ import type { PendingGroupItem } from '@/lib/openfinance/counterparty-queries'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { transferAccountLabel } from '@/lib/openfinance/transfer-direction'
+import { meioDoLancamento } from '@/lib/openfinance/meio-do-lancamento'
+import { formatarDia } from '@/lib/formatar-dia'
 
 type Nature = 'income' | 'expense' | 'transfer'
 type CategoryOption = { id: string; label: string; type: Nature }
@@ -13,6 +15,8 @@ type AccountOption = { id: string; name: string }
 
 interface Props {
   item: PendingGroupItem
+  /** Nome da conta do lançamento — um grupo junta lançamentos de contas diferentes. */
+  accountName: string | undefined
   override: Override | undefined
   categoryOptions: CategoryOption[]
   accountOptions: AccountOption[]
@@ -28,7 +32,7 @@ interface Props {
  * `confirmCounterparty` em `lib/openfinance/counterparty-actions.ts` — a
  * exceção não muda a regra gravada na contraparte).
  */
-export function ItemRow({ item, override, categoryOptions, accountOptions, onStartOverride, onSetOverride, onClearOverride }: Props) {
+export function ItemRow({ item, accountName, override, categoryOptions, accountOptions, onStartOverride, onSetOverride, onClearOverride }: Props) {
   const categoriesForOverride = categoryOptions.filter((c) => c.type === override?.nature)
   // Mesmo racional do grupo (counterparty-queue-client.tsx): um lançamento
   // débito não pode virar "Receita", e vice-versa.
@@ -40,10 +44,19 @@ export function ItemRow({ item, override, categoryOptions, accountOptions, onSta
 
   return (
     <li data-testid={`item-${item.id}`}>
-      <div className="flex justify-between gap-3">
-        <span>{item.date.slice(0, 10)} · {item.description}</span>
-        <span>{item.amountCents >= 0 ? '+' : ''}{formatBRL(item.amountCents)}</span>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="tabular-nums">{formatarDia(item.date)}</span>
+          {accountName && (
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-700">{accountName}</span>
+          )}
+        </span>
+        <span className="shrink-0 tabular-nums">{item.amountCents >= 0 ? '+' : ''}{formatBRL(item.amountCents)}</span>
       </div>
+      {/* Descrição como o banco mandou, inteira, mais o que o extrato traz
+          para achar o lançamento lá: meio, cartão, parcela. */}
+      <p className="mt-0.5 break-words text-gray-800">{item.description}</p>
+      <DetalhesDoExtrato item={item} />
 
       {override ? (
         <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -92,5 +105,20 @@ export function ItemRow({ item, override, categoryOptions, accountOptions, onSta
         </button>
       )}
     </li>
+  )
+}
+
+function DetalhesDoExtrato({ item }: { item: PendingGroupItem }) {
+  const meio = meioDoLancamento(item.polpType)
+  const detalhes = [
+    meio,
+    item.cardLastDigits ? `cartão final ${item.cardLastDigits}` : null,
+    item.installmentNumber && item.installmentTotal ? `parcela ${item.installmentNumber}/${item.installmentTotal}` : null,
+  ].filter((d): d is string => d !== null)
+  if (detalhes.length === 0) return null
+  return (
+    <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-gray-500">
+      {detalhes.map((d) => <span key={d}>{d}</span>)}
+    </p>
   )
 }
