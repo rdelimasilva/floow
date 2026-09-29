@@ -162,8 +162,10 @@ compatível e vice-versa), absorve:
 - **perna de transferência:** o extrato vira a ponta da transferência — o
   mesmo efeito de `aprovarProposta` para `:transfer-par` (§3.3 da spec de
   24/09): `type = 'transfer'`, `category_id = NULL`,
-  `review_state = 'confirmed'`, `transfer_account_id` = conta de origem,
-  `transfer_group_id` da perna;
+  `review_state = 'confirmed'`, `transfer_account_id` = conta de origem.
+  O extrato **não** entra no `transfer_group_id` da perna: `deleteTransaction`
+  e `desfazerParDaRegra` operam no grupo inteiro e estornariam o saldo do
+  extrato junto com a perna;
 - **manual ou arquivo:** o extrato herda o que o usuário decidiu —
   `category_id` e `description` da provisória, `review_state = 'confirmed'`
   — só se o extrato ainda está pendente de classificação. Se já foi
