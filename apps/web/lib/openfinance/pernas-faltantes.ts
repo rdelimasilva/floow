@@ -1,6 +1,7 @@
 import { and, eq, isNotNull, isNull } from 'drizzle-orm'
 import { getDb, transactions } from '@floow/db'
-import { condicaoDeRealizadoSemVinculo, criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
+import { condicaoDeRealizadoSemVinculo } from '@/lib/finance/forecast-match-db'
+import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { buildForecastTransferLegRow, isOpenFinanceLinkedAccount } from './transfer-leg'
 import { condicaoNaoEPernaPrevista } from './perna-prevista'
 import { acharPernaPrevistaAberta } from './perna-prevista-aberta'
@@ -87,7 +88,7 @@ export async function criarPernasPrevistasFaltantes(db: Db, orgId: string): Prom
     criadas++
   }
 
-  for (const conta of contas) await criarPropostasDeConciliacao(db, orgId, conta)
+  await conciliarContas(db, orgId, contas, '[pernasFaltantes]')
 
   return { criadas }
 }
