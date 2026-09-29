@@ -33,6 +33,7 @@ export async function criarPropostasDeDuplicata(
       AND irma.amount_cents = ${transactions.amountCents}
       AND irma.external_id IS NOT NULL
       AND irma.is_ignored = false
+      AND irma.aguarda_extrato = false
   )`
 
   const candidatos = await db
@@ -54,6 +55,9 @@ export async function criarPropostasDeDuplicata(
         // Já ignorado não volta para a fila: ou o usuário já decidiu por ele,
         // ou é agendado que ainda não aconteceu.
         eq(transactions.isIgnored, false),
+        // R2 é extrato × extrato. A linha que aguarda o extrato (ou que ele já
+        // absorveu) é assunto de R1, nunca duplicata.
+        eq(transactions.aguardaExtrato, false),
         temIrma,
       ),
     )

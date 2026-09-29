@@ -1,8 +1,8 @@
-import { and, eq, gte, isNotNull, isNull, lte, notExists, or, sql } from 'drizzle-orm'
+import { and, eq, gte, isNotNull, isNull, lte, notExists, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { matchForecast, type ForecastCandidate } from '@floow/core-finance'
-import { condicaoDePernaPrevista, condicaoNaoEPernaPrevista, SUFIXO_PERNA_PREVISTA } from '@/lib/openfinance/perna-prevista'
+import { condicaoNaoEPernaPrevista, SUFIXO_PERNA_PREVISTA } from '@/lib/openfinance/perna-prevista'
 
 type Db = ReturnType<typeof getDb>
 
@@ -134,7 +134,7 @@ export function condicaoDeRealizadoSemVinculo() {
  * proposta aberta. Sem ele, a segunda rodada de sync estouraria.
  *
  * O filtro de previsão aberta é o mesmo de antes — `balance_applied = false`,
- * sem vínculo, de template ou perna prevista de transferência, não ignorada.
+ * sem vínculo, de template, não ignorada.
  */
 export async function criarPropostasDeConciliacao(
   db: Db,
@@ -153,9 +153,10 @@ export async function criarPropostasDeConciliacao(
       and(
         eq(transactions.orgId, orgId),
         eq(transactions.accountId, accountId),
-        // Previsão é de template (recorrente) ou perna de transferência cujo
-        // destino é conta Open Finance — a outra ponta chega pelo extrato.
-        or(isNotNull(transactions.recurringTemplateId), condicaoDePernaPrevista()),
+        // Só previsão de template (recorrência). A perna de transferência para
+        // conta Open Finance aguarda o extrato e é resolvida por R1
+        // (`conciliacao/r1-db.ts`), que absorve sem pedir aprovação.
+        isNotNull(transactions.recurringTemplateId),
         eq(transactions.balanceApplied, false),
         isNull(transactions.matchedTransactionId),
         eq(transactions.isIgnored, false),
@@ -193,6 +194,8 @@ export async function criarPropostasDeConciliacao(
         // A perna prevista também tem `external_id` (para dedupe), mas é
         // previsão: jamais pode cumprir outra previsão.
         condicaoNaoEPernaPrevista(),
+        // Linha que aguarda o extrato não é realizado: é o outro lado de R1.
+        eq(transactions.aguardaExtrato, false),
         // Linha com grupo já é ponta de um par (origem de transferência, ou a
         // perna real de destino manual). Em OF↔OF com as duas contrapartes
         // confirmadas, casar a origem de um lado com a perna prevista do outro
