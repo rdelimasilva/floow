@@ -69,6 +69,8 @@ describe('createTransaction em conta Open Finance', () => {
     expect(inseridos[0]).toMatchObject({ origem: 'manual', aguardaExtrato: true, balanceApplied: false })
     expect(updates).toEqual([])
     expect(conciliar).toHaveBeenCalledWith(expect.anything(), 'org-1', [DESPESA.accountId], expect.any(String))
+    // A data da linha vai junto: antes do início do extrato ela não aguarda.
+    expect(aguarda).toHaveBeenCalledWith(expect.anything(), 'org-1', DESPESA.accountId, 'manual', '2026-09-20')
   })
 
   it('conta manual: soma no saldo como antes', async () => {

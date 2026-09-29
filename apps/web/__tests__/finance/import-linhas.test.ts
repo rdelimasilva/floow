@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { getTableName } from 'drizzle-orm'
-import { inserirLinhasDoArquivo } from '@/lib/finance/import-linhas'
+import { gravarLinhasDoArquivo, inserirLinhasDoArquivo } from '@/lib/finance/import-linhas'
 
 const inseridas: Record<string, unknown>[][] = []
 const updates: string[] = []
@@ -37,5 +37,24 @@ describe('inserirLinhasDoArquivo', () => {
   it('lista vazia: não grava nada', async () => {
     expect(await inserirLinhasDoArquivo(tx, { accountId: 'x', linhas: [], aguardaExtrato: false })).toBe(0)
     expect(inseridas).toEqual([])
+  })
+})
+
+describe('gravarLinhasDoArquivo', () => {
+  // Um arquivo pode trazer histórico de antes do início do extrato: esse
+  // pedaço fica no saldo, porque nenhum extrato vai cobri-lo.
+  it('conta OF: decide linha a linha pelo início do extrato', async () => {
+    const ANTIGA = { ...LINHA, externalId: 'fitid-0', date: new Date('2026-08-20T00:00:00Z') }
+    await gravarLinhasDoArquivo(tx, { accountId: 'nubank', linhas: [ANTIGA, LINHA], extrato: { openFinance: true, desde: '2026-09-01' } })
+    expect(inseridas).toHaveLength(2)
+    expect(inseridas[0]).toEqual([expect.objectContaining({ externalId: 'fitid-0', aguardaExtrato: false, balanceApplied: true })])
+    expect(inseridas[1]).toEqual([expect.objectContaining({ externalId: 'fitid-1', aguardaExtrato: true, balanceApplied: false })])
+    expect(updates).toEqual(['accounts']) // só a antiga soma no saldo
+  })
+
+  it('conta manual: tudo no saldo, num insert só', async () => {
+    await gravarLinhasDoArquivo(tx, { accountId: 'itau', linhas: [LINHA], extrato: { openFinance: false } })
+    expect(inseridas).toHaveLength(1)
+    expect(inseridas[0][0]).toMatchObject({ aguardaExtrato: false, balanceApplied: true })
   })
 })

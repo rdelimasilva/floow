@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb, accounts, transactions, type NewTransaction } from '@floow/db'
-import { aguardaExtratoNaConta } from './conciliacao/aguarda-extrato'
+import { aguardaNaData, diaDaLinha, type ExtratoDaConta } from './conciliacao/aguarda-extrato'
 import { conciliarContas } from './conciliacao/conciliar-conta'
 
 type Db = ReturnType<typeof getDb>
@@ -13,8 +13,24 @@ type Db = ReturnType<typeof getDb>
  */
 export type LinhaDoArquivo = Omit<NewTransaction, 'origem' | 'aguardaExtrato' | 'balanceApplied'>
 
-export function contaImportadaAguardaExtrato(db: Db, orgId: string, accountId: string): Promise<boolean> {
-  return aguardaExtratoNaConta(db, orgId, accountId, 'arquivo')
+/**
+ * As linhas de um arquivo numa conta, decididas linha a linha: um arquivo
+ * pode trazer histórico de antes do início do extrato, e esse pedaço fica no
+ * saldo (nenhum extrato vai cobri-lo). Devolve quantas entraram.
+ */
+export async function gravarLinhasDoArquivo(
+  tx: Db,
+  args: { accountId: string; linhas: LinhaDoArquivo[]; extrato: ExtratoDaConta },
+): Promise<number> {
+  const aguardam: LinhaDoArquivo[] = []
+  const noSaldo: LinhaDoArquivo[] = []
+  for (const linha of args.linhas) {
+    const aguarda = aguardaNaData(args.extrato, 'arquivo', diaDaLinha(linha.date))
+    ;(aguarda ? aguardam : noSaldo).push(linha)
+  }
+  const naoAguardando = await inserirLinhasDoArquivo(tx, { accountId: args.accountId, linhas: noSaldo, aguardaExtrato: false })
+  const aguardando = await inserirLinhasDoArquivo(tx, { accountId: args.accountId, linhas: aguardam, aguardaExtrato: true })
+  return naoAguardando + aguardando
 }
 
 /**

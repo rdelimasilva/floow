@@ -82,9 +82,11 @@ export async function createTransaction(formData: FormData) {
       await assertAccountOwnership(tx as unknown as Db, transferToAccountId, orgId)
 
       // Numa conta Open Finance só o extrato move o saldo: a perna de lá
-      // aguarda o extrato e o motor a absorve.
-      const aguardaOrigem = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, 'perna')
-      const aguardaDestino = await aguardaExtratoNaConta(tx as unknown as Db, orgId, transferToAccountId, 'perna')
+      // aguarda o extrato e o motor a absorve (a partir do início do extrato;
+      // antes dele, nenhum extrato cobre e a perna fica no saldo).
+      const dia = input.date.toISOString().slice(0, 10)
+      const aguardaOrigem = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, 'perna', dia)
+      const aguardaDestino = await aguardaExtratoNaConta(tx as unknown as Db, orgId, transferToAccountId, 'perna', dia)
 
       const transferGroupId = crypto.randomUUID()
 
@@ -161,8 +163,9 @@ export async function createTransaction(formData: FormData) {
     // Verify the account belongs to the org before any write
     await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
 
-    // Conta Open Finance: o lançamento aguarda o extrato, fora do saldo.
-    const aguarda = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, 'manual')
+    // Conta Open Finance: o lançamento aguarda o extrato, fora do saldo — se
+    // a data já está no período que o extrato cobre.
+    const aguarda = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, 'manual', input.date.toISOString().slice(0, 10))
 
     const [transaction] = await tx
       .insert(transactions)

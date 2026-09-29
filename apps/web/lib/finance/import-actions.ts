@@ -7,7 +7,8 @@ import type { CsvColumnMapping } from '@floow/core-finance'
 import { eq, and, gte, lte } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { inserirTransferenciaImportada } from './import-transfer'
-import { conciliarDepoisDaImportacao, contaImportadaAguardaExtrato, inserirLinhasDoArquivo } from './import-linhas'
+import { conciliarDepoisDaImportacao, gravarLinhasDoArquivo } from './import-linhas'
+import { aguardaNaData, diaDaLinha, extratoDaConta } from './conciliacao/aguarda-extrato'
 import type { ImportResult, MatchStatus, PreviewItem, TransactionOverride } from './import-types'
 import {
   accountsTag,
@@ -155,8 +156,8 @@ export async function previewImport(formData: FormData): Promise<PreviewItem[]> 
  *
  * Balance update: after insert, sums the amountCents of all actually-inserted
  * rows (returned via .returning()) and applies an atomic SQL increment — só em
- * conta manual. Em conta Open Finance as linhas aguardam o extrato
- * (`inserirLinhasDoArquivo`) e o motor de conciliação roda no fim.
+ * conta manual. Em conta Open Finance as linhas do período do extrato aguardam
+ * o extrato (`gravarLinhasDoArquivo`) e o motor de conciliação roda no fim.
  *
  * Ownership: verifies the target account belongs to the user's org before
  * any write operation. Both the ownership check and writes are wrapped in a
@@ -235,8 +236,8 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
       throw new Error(`Account ${accountId} not found or does not belong to this organization`)
     }
 
-    const aguarda = await contaImportadaAguardaExtrato(tx as unknown as Db, orgId, accountId)
-    const importedCount = await inserirLinhasDoArquivo(tx as unknown as Db, { accountId, linhas: rows, aguardaExtrato: aguarda })
+    const extrato = await extratoDaConta(tx as unknown as Db, orgId, accountId)
+    const importedCount = await gravarLinhasDoArquivo(tx as unknown as Db, { accountId, linhas: rows, extrato })
     const skippedCount = normalized.length - importedCount
 
     return { imported: importedCount, skipped: skippedCount }
@@ -357,14 +358,14 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
       throw new Error(`Account ${accountId} not found or does not belong to this organization`)
     }
 
-    const aguarda = await contaImportadaAguardaExtrato(tx as unknown as Db, orgId, accountId)
+    const extrato = await extratoDaConta(tx as unknown as Db, orgId, accountId)
 
     let importedCount = 0
     let skippedCount = 0
 
     // Insert regular (income/expense) transactions
     if (rows.length > 0) {
-      const inseridas = await inserirLinhasDoArquivo(tx as unknown as Db, { accountId, linhas: rows, aguardaExtrato: aguarda })
+      const inseridas = await gravarLinhasDoArquivo(tx as unknown as Db, { accountId, linhas: rows, extrato })
       importedCount += inseridas
       skippedCount += rows.length - inseridas
     }
@@ -381,7 +382,7 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
         externalId: item.tx.externalId ?? null,
         importedAt,
         categoryId: overrideMap.get(item.idx)?.categoryId ?? null,
-        contaImportadaAguarda: aguarda,
+        contaImportadaAguarda: aguardaNaData(extrato, 'arquivo', diaDaLinha(item.tx.date)),
       })
       if (!inserida) {
         skippedCount++

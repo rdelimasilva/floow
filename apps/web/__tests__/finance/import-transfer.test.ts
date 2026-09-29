@@ -73,4 +73,12 @@ describe('inserirTransferenciaImportada', () => {
     expect(inserts[1]).toMatchObject({ accountId: 'nubank', origem: 'perna', aguardaExtrato: true, balanceApplied: false })
     expect(updates).toEqual(['accounts']) // só o débito da origem
   })
+
+  it('destino Open Finance, data antes do início do extrato de lá: perna real no saldo', async () => {
+    selectQueue.push([{ id: 'recurso' }], [{ syncFromDate: '2026-10-01' }]) // destino linked, corte depois da data
+    const r = await inserirTransferenciaImportada(tx, BASE)
+    expect(r.destinoPrevisto).toBeNull()
+    expect(inserts[1]).toMatchObject({ accountId: 'nubank', origem: 'perna', aguardaExtrato: false, balanceApplied: true })
+    expect(updates).toEqual(['accounts', 'accounts'])
+  })
 })

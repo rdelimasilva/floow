@@ -200,9 +200,10 @@ export async function updateTransaction(formData: FormData) {
     // Numa conta Open Finance, lançamento manual (ou linha de arquivo) editado
     // aguarda o extrato — inclusive o que chega agora de uma conta manual, que
     // sai do saldo de lá (acima) e não entra no daqui. Movido para conta
-    // manual, ninguém mais o absorveria: volta ao saldo e perde a marca.
-    const aguardaOrigem = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, oldTx.origem)
+    // manual, ninguém mais o absorveria: volta ao saldo e perde a marca. Data
+    // antes do início do extrato também fica no saldo: nenhum extrato cobre.
     const dataEditada = input.date.toISOString().slice(0, 10)
+    const aguardaOrigem = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, oldTx.origem, dataEditada)
     const balanceAppliedValue = deveAplicarSaldoNaEdicao({ ...oldTx, aguardaExtrato: aguardaOrigem }, dataEditada, hoje)
 
     if (balanceAppliedValue) {
@@ -238,7 +239,7 @@ export async function updateTransaction(formData: FormData) {
       // `buildTransferLegRow` no caminho do Open Finance. O "fora do saldo" de
       // uma origem que aguardava o extrato não vale para a perna (sem
       // `external_id` e sem marca, ninguém a creditaria): aí ela entra.
-      const destinoAguarda = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.destAccountId!, 'perna')
+      const destinoAguarda = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.destAccountId!, 'perna', dataEditada)
       const baseDaPerna = oldTx.aguardaExtrato ? { recurringTemplateId: null, balanceApplied: false } : oldTx
       const destinoAplicado = deveAplicarSaldoNaEdicao({ ...baseDaPerna, aguardaExtrato: destinoAguarda }, dataEditada, hoje)
       await tx.insert(transactions).values({

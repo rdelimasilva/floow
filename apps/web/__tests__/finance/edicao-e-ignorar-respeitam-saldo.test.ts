@@ -203,6 +203,7 @@ describe('updateTransaction e o saldo', () => {
         selectQueue.push([{ id: CONTA }]) // posse da origem
         selectQueue.push([{ id: DESTINO }]) // posse do destino
         selectQueue.push([{ id: 'recurso-of' }]) // origem segue Open Finance
+        selectQueue.push([], []) // origem: sem sync_from_date, sem extrato ainda (aguarda)
         selectQueue.push(destinoOpenFinance ? [{ id: 'recurso-of' }] : []) // destino é Open Finance?
         const fd = formEdicao('2026-01-10')
         fd.set('type', 'transfer')
@@ -226,6 +227,50 @@ describe('updateTransaction e o saldo', () => {
         expect(updatesEmContas()).toEqual([])
       })
     })
+  })
+})
+
+/**
+ * Antes do início do extrato nada muda (spec §3.2): nenhum extrato vai cobrir
+ * o período, e a linha é a única representação do fato. Editar — nem que seja
+ * só a categoria — uma linha antiga numa conta Open Finance não pode tirá-la
+ * do saldo para sempre.
+ */
+describe('updateTransaction e o início do extrato', () => {
+  const MANUAL_NO_SALDO = { ...LINHA, origem: 'manual', aguardaExtrato: false }
+
+  async function editarEmContaOF(syncFromDate: string) {
+    selectQueue.push([MANUAL_NO_SALDO]) // oldTx
+    selectQueue.push([{ id: CONTA }]) // posse da conta
+    selectQueue.push([{ id: 'recurso-of' }]) // conta é Open Finance
+    selectQueue.push([{ syncFromDate }]) // corte de sincronização
+    await updateTransaction(formEdicao('2026-03-10'))
+  }
+
+  it('linha de antes do corte: fica no saldo e não aguarda', async () => {
+    await editarEmContaOF('2026-06-01')
+
+    expect(updatesEmContas().map(deltaDe)).toEqual([[45916], [-50000]])
+    expect(updateDaLinha().balanceApplied).toBe(true)
+    expect(updateDaLinha().aguardaExtrato).toBe(false)
+  })
+
+  it('linha de depois do corte: sai do saldo e aguarda o extrato', async () => {
+    await editarEmContaOF('2026-01-01')
+
+    expect(updatesEmContas().map(deltaDe)).toEqual([[45916]])
+    expect(updateDaLinha().balanceApplied).toBe(false)
+    expect(updateDaLinha().aguardaExtrato).toBe(true)
+  })
+
+  it('sem sync_from_date: o corte é a primeira linha do extrato', async () => {
+    selectQueue.push([MANUAL_NO_SALDO], [{ id: CONTA }], [{ id: 'recurso-of' }])
+    selectQueue.push([{ syncFromDate: null }]) // sem corte escolhido
+    selectQueue.push([{ inicio: '2026-05-01' }]) // extrato começa depois da linha
+    await updateTransaction(formEdicao('2026-03-10'))
+
+    expect(updateDaLinha().balanceApplied).toBe(true)
+    expect(updateDaLinha().aguardaExtrato).toBe(false)
   })
 })
 

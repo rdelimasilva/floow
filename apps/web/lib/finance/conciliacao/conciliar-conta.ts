@@ -1,11 +1,12 @@
-import { and, eq, sql } from 'drizzle-orm'
-import { openfinanceResources, type getDb } from '@floow/db'
+import { sql } from 'drizzle-orm'
+import type { getDb } from '@floow/db'
 import type { ParConciliado } from '@floow/core-finance'
 import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 import { criarPropostasDeDuplicata } from '@/lib/finance/duplicata-db'
 import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
 import { inicioDoExtrato, reclassificarConta } from './reclassificar-conta'
 import { aplicarR1 } from './r1-db'
+import { corteDeSincronizacao } from './aguarda-extrato'
 
 type Db = ReturnType<typeof getDb>
 
@@ -41,26 +42,6 @@ export interface ResumoDaConciliacao {
 
 function resumoVazio(): ResumoDaConciliacao {
   return { reclassificadas: 0, estornoCents: 0, absorvidas: [], propostasDeConciliacao: 0, propostasDeDuplicata: 0 }
-}
-
-/**
- * O corte de sincronização (`sync_from_date`) do recurso vivo da conta. Quem
- * decide se a conta é Open Finance viva é `isOpenFinanceLinkedAccount` — esta
- * consulta só busca a data, com o mesmo filtro.
- */
-async function corteDeSincronizacao(db: Db, orgId: string, accountId: string): Promise<string | null> {
-  const [recurso] = await db
-    .select({ syncFromDate: openfinanceResources.syncFromDate })
-    .from(openfinanceResources)
-    .where(
-      and(
-        eq(openfinanceResources.orgId, orgId),
-        eq(openfinanceResources.accountId, accountId),
-        eq(openfinanceResources.status, 'AVAILABLE'),
-      ),
-    )
-    .limit(1)
-  return recurso?.syncFromDate ?? null
 }
 
 export async function conciliarConta(db: Db, orgId: string, accountId: string): Promise<ResumoDaConciliacao> {

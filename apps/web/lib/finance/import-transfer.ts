@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb, accounts, transactions } from '@floow/db'
-import { buildForecastTransferLegRow, isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
+import { buildForecastTransferLegRow } from '@/lib/openfinance/transfer-leg'
+import { aguardaExtratoNaConta, diaDaLinha } from './conciliacao/aguarda-extrato'
 
 type Db = ReturnType<typeof getDb>
 
@@ -56,10 +57,12 @@ export async function inserirTransferenciaImportada(
       .where(eq(accounts.id, args.accountId))
   }
 
-  const destinoLinked = await isOpenFinanceLinkedAccount(tx, args.orgId, args.destAccountId)
+  // Destino Open Finance, na data que o extrato de lá cobre: a perna aguarda.
+  // Antes do início do extrato, nenhum extrato cobre: perna real no saldo.
+  const destinoAguarda = await aguardaExtratoNaConta(tx, args.orgId, args.destAccountId, 'perna', diaDaLinha(args.date))
 
   // Com FITID, a perna que aguarda tem chave de dedupe (`:transfer-par`).
-  if (destinoLinked && args.externalId !== null) {
+  if (destinoAguarda && args.externalId !== null) {
     await tx.insert(transactions).values(
       buildForecastTransferLegRow(
         { orgId: args.orgId, amountCents: -absAmount, date: args.date, externalId: args.externalId!, balanceApplied: false },
@@ -84,15 +87,15 @@ export async function inserirTransferenciaImportada(
     categoryId: args.categoryId,
     isAutoCategorized: false,
     origem: 'perna',
-    aguardaExtrato: destinoLinked,
-    balanceApplied: !destinoLinked,
+    aguardaExtrato: destinoAguarda,
+    balanceApplied: !destinoAguarda,
   })
 
-  if (!destinoLinked) {
+  if (!destinoAguarda) {
     await tx.update(accounts)
       .set({ balanceCents: sql`balance_cents + ${absAmount}` })
       .where(eq(accounts.id, args.destAccountId))
   }
 
-  return { inserida: true, destinoPrevisto: destinoLinked ? args.destAccountId : null }
+  return { inserida: true, destinoPrevisto: destinoAguarda ? args.destAccountId : null }
 }
