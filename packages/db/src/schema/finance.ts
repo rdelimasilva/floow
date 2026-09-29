@@ -122,7 +122,7 @@ export const categories = pgTable(
 /**
  * De onde a linha veio. Declarada por quem grava — nunca deduzida do formato
  * do `external_id` (FITID de arquivo e id da Polp moram na mesma coluna).
- * Ver migration 00067 e `lib/finance/conciliacao/`.
+ * Ver migration 00070 e `lib/finance/conciliacao/`.
  */
 export const ORIGENS_DE_TRANSACAO = [
   'extrato',
@@ -249,7 +249,7 @@ export const transactions = pgTable(
     /**
      * NOT NULL sem default de propósito: todo `insert(transactions)` tem de
      * dizer de onde a linha vem, senão não compila. (No banco a coluna só vira
-     * NOT NULL na 00068, depois do deploy.)
+     * NOT NULL na 00071, depois do deploy.)
      */
     origem: text('origem').$type<OrigemDaTransacao>().notNull(),
     /**

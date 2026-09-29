@@ -5,9 +5,9 @@
 -- insert). Antes disso, o código antigo em produção insere sem `origem` e este
 -- NOT NULL o derrubaria.
 --
--- Refaz o backfill da 00067 só para as linhas ainda NULL (as que o código
--- antigo inseriu entre a 00067 e o deploy) e então trava a coluna. A regra do
--- backfill é a mesma da 00067 — o teste origem-da-transacao-schema confere.
+-- Refaz o backfill da 00070 só para as linhas ainda NULL (as que o código
+-- antigo inseriu entre a 00070 e o deploy) e então trava a coluna. A regra do
+-- backfill é a mesma da 00070 — o teste origem-da-transacao-schema confere.
 --
 -- Idempotente: pode rodar de novo sem erro e sem efeito.
 -- Ver docs/superpowers/specs/2026-09-28-conciliacao-unica-design.md §3.1
@@ -36,5 +36,13 @@ UPDATE public.transactions t
   FROM public.accounts a
  WHERE a.id = t.account_id
    AND t.origem IS NULL;
+
+-- Pernas `:transfer-par` que o código antigo inseriu entre a 00070 e o deploy:
+-- mesma marca da 00070, para o motor absorvê-las (R1) em vez de ignorá-las.
+UPDATE public.transactions
+   SET aguarda_extrato = true
+ WHERE external_id LIKE '%:transfer-par'
+   AND balance_applied = false
+   AND aguarda_extrato = false;
 
 ALTER TABLE public.transactions ALTER COLUMN origem SET NOT NULL;

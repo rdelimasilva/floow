@@ -7,7 +7,7 @@
 --
 -- `origem` nasce NULLABLE aqui de propósito: enquanto o código novo não está
 -- no ar, o código antigo insere sem ela, e um NOT NULL derrubaria produção. O
--- NOT NULL vem na 00068, aplicada DEPOIS do deploy. O tipo do Drizzle já
+-- NOT NULL vem na 00071, aplicada DEPOIS do deploy. O tipo do Drizzle já
 -- declara `origem` como notNull sem default, então todo insert do código novo
 -- é obrigado a dizer de onde a linha vem. O backfill abaixo adivinha pelo
 -- formato do id UMA vez, sobre dado parado; daqui em diante a origem é

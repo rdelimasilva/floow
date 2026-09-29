@@ -10,13 +10,13 @@ import { transactions, ORIGENS_DE_TRANSACAO } from '@floow/db'
  * têm de ser a mesma — divergir só estoura em produção, porque os testes
  * mockam o banco.
  *
- * A migration é dividida: 00067 (coluna nullable + backfill) é segura com o
- * código antigo em produção; 00068 (SET NOT NULL) só entra depois do deploy.
+ * A migration é dividida: 00070 (coluna nullable + backfill) é segura com o
+ * código antigo em produção; 00071 (SET NOT NULL) só entra depois do deploy.
  */
 const repoRoot = resolve(__dirname, '../../../..')
 const ler = (nome: string) => readFileSync(resolve(repoRoot, 'supabase/migrations', nome), 'utf8')
-const migration = ler('00067_origem_e_aguarda_extrato.sql')
-const notNull = ler('00068_origem_not_null.sql')
+const migration = ler('00070_origem_e_aguarda_extrato.sql')
+const notNull = ler('00071_origem_not_null.sql')
 const coluna = (nome: string) => getTableConfig(transactions).columns.find((c) => c.name === nome)!
 
 describe('origem da transação', () => {
@@ -36,18 +36,18 @@ describe('origem da transação', () => {
     expect(coluna('aguarda_extrato').default).toBe(false)
   })
 
-  it('a 00067 pode rodar de novo sem erro nem efeito', () => {
+  it('a 00070 pode rodar de novo sem erro nem efeito', () => {
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS origem/)
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS aguarda_extrato/)
     expect(migration).toMatch(/CREATE INDEX IF NOT EXISTS idx_transactions_aguarda_extrato/)
     expect(migration).toMatch(/AND t\.origem IS NULL/)
   })
 
-  it('a 00067 deixa origem nullable: o código antigo em produção ainda insere sem ela', () => {
+  it('a 00070 deixa origem nullable: o código antigo em produção ainda insere sem ela', () => {
     expect(migration).not.toMatch(/SET NOT NULL/)
   })
 
-  it('a 00068 refaz o backfill só das linhas NULL e então aplica NOT NULL', () => {
+  it('a 00071 refaz o backfill só das linhas NULL e então aplica NOT NULL', () => {
     expect(notNull).toMatch(/AND t\.origem IS NULL/)
     expect(notNull).toMatch(/ALTER COLUMN origem SET NOT NULL/)
     expect(notNull.indexOf('t.origem IS NULL')).toBeLessThan(notNull.indexOf('SET NOT NULL'))
@@ -58,6 +58,14 @@ describe('origem da transação', () => {
     const corpo = (sql: string) => sql.match(/SET origem = CASE[\s\S]*?END\n  FROM/)?.[0]
     expect(corpo(migration)).toBeDefined()
     expect(corpo(notNull)).toEqual(corpo(migration))
+  })
+
+  it('a 00071 refaz também a marca aguarda_extrato das pernas :transfer-par', () => {
+    const marca = (sql: string) =>
+      sql.match(/UPDATE public\.transactions\s+SET aguarda_extrato = true[\s\S]*?;/)?.[0]
+    expect(marca(migration)).toBeDefined()
+    expect(marca(notNull)).toEqual(marca(migration))
+    expect(notNull.indexOf('SET aguarda_extrato = true')).toBeLessThan(notNull.indexOf('SET NOT NULL'))
   })
 
   it('ajuste de saldo não exige affects_cash_flow (ajustes antigos são anteriores a ele)', () => {
