@@ -1,6 +1,6 @@
 'use server'
 import { orgs, orgMembers, profiles, notificationPreferences } from '@floow/db'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { requireUserId } from '@/lib/auth/session'
 import { withUserDb } from '@/lib/db/rls'
 import { upsertFrequency } from './preferences-store'
@@ -14,7 +14,11 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   const userId = await requireUserId()
   return withUserDb(async (tx) => {
     const [profile] = await tx
-      .select({ whatsappPhone: profiles.whatsappPhone, whatsappVerifiedAt: profiles.whatsappVerifiedAt })
+      .select({
+        whatsappPhone: profiles.whatsappPhone,
+        whatsappVerifiedAt: profiles.whatsappVerifiedAt,
+        whatsappOrgId: profiles.whatsappOrgId,
+      })
       .from(profiles)
       .where(eq(profiles.id, userId))
     const memberOrgs = await tx
@@ -49,4 +53,18 @@ export async function setNotificationFrequency(
     throw new Error('Preferência inválida')
   }
   await withUserDb((tx) => upsertFrequency(tx, userId, [orgId], channel, frequency))
+}
+
+/** Org do consultor no WhatsApp. Só aceita org da qual o usuário é membro. */
+export async function setWhatsAppOrg(orgId: string): Promise<void> {
+  const userId = await requireUserId()
+  if (!UUID.test(orgId)) throw new Error('Organização inválida')
+  await withUserDb(async (tx) => {
+    const [membro] = await tx
+      .select({ orgId: orgMembers.orgId })
+      .from(orgMembers)
+      .where(and(eq(orgMembers.userId, userId), eq(orgMembers.orgId, orgId)))
+    if (!membro) throw new Error('Organização inválida')
+    await tx.update(profiles).set({ whatsappOrgId: orgId }).where(eq(profiles.id, userId))
+  })
 }
