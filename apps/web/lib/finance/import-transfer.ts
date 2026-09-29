@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb, accounts, transactions } from '@floow/db'
-import { buildForecastTransferLegRow } from '@/lib/openfinance/transfer-leg'
-import { aguardaExtratoNaConta, diaDaLinha } from './conciliacao/aguarda-extrato'
+import { buildForecastTransferLegRow, isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
+import { aguardaNaData, diaDaLinha, extratoDaConta } from './conciliacao/aguarda-extrato'
 
 type Db = ReturnType<typeof getDb>
 
@@ -59,10 +59,20 @@ export async function inserirTransferenciaImportada(
 
   // Destino Open Finance, na data que o extrato de lá cobre: a perna aguarda.
   // Antes do início do extrato, nenhum extrato cobre: perna real no saldo.
-  const destinoAguarda = await aguardaExtratoNaConta(tx, args.orgId, args.destAccountId, 'perna', diaDaLinha(args.date))
+  const extratoDestino = await extratoDaConta(tx, args.orgId, args.destAccountId)
+  const destinoAguarda = aguardaNaData(extratoDestino, 'perna', diaDaLinha(args.date))
 
   // Com FITID, a perna que aguarda tem chave de dedupe (`:transfer-par`).
-  if (destinoAguarda && args.externalId !== null) {
+  // Cartão Open Finance não é conciliável (Ruling P12), mas fica como antes:
+  // o pagamento chega pelo extrato do cartão, então a perna daqui é prevista,
+  // fora do saldo, e R3 a casa com o extrato de lá. Perna real creditaria o
+  // cartão duas vezes.
+  const destinoPrevisto = args.externalId !== null && (
+    destinoAguarda ||
+    (!extratoDestino.conciliavel && (await isOpenFinanceLinkedAccount(tx, args.orgId, args.destAccountId)))
+  )
+
+  if (destinoPrevisto) {
     await tx.insert(transactions).values(
       buildForecastTransferLegRow(
         { orgId: args.orgId, amountCents: -absAmount, date: args.date, externalId: args.externalId!, balanceApplied: false },

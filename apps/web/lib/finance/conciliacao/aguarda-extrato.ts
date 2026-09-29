@@ -23,7 +23,7 @@ export async function corteDeSincronizacao(db: Db, orgId: string, accountId: str
  * O que a conta diz sobre "aguardar o extrato": se é conciliável (conta
  * corrente/poupança com Open Finance vivo, `contaConciliavel`) e desde quando
  * o extrato a cobre (AAAA-MM-DD). `desde: null` numa conta conciliável =
- * ainda sem extrato nenhum; o primeiro que chegar cobre o que nascer agora.
+ * ainda sem extrato nenhum; nada aguarda até ele chegar (ver `aguardaNaData`).
  * Cartão Open Finance não é conciliável: a linha nasce no saldo, como antes.
  */
 export type ExtratoDaConta = { conciliavel: false } | { conciliavel: true; desde: string | null }
@@ -44,10 +44,16 @@ export async function extratoDaConta(db: Db, orgId: string, accountId: string): 
  * Antes do início do extrato nada muda (spec §3.2): o extrato não vai cobrir
  * esse período, então a linha é a única representação do fato e fica no
  * saldo, como numa conta manual.
+ *
+ * Sem extrato nenhum ainda (`desde: null`), também: não se sabe se o primeiro
+ * vai cobrir a data (histórico raso do banco, lançamento retroativo), e
+ * `reclassificarConta` só tira do saldo, nunca devolve — aguardar aqui
+ * poderia deixar a linha fora do saldo para sempre. Nascendo no saldo, a
+ * reclassificação a tira quando houver prova (par único no extrato, P12).
  */
 export function aguardaNaData(extrato: ExtratoDaConta, origem: OrigemDaTransacao, dataISO: string): boolean {
   if (!extrato.conciliavel || !deveAguardarExtrato(origem, true)) return false
-  return extrato.desde === null || dataISO >= extrato.desde
+  return extrato.desde !== null && dataISO >= extrato.desde
 }
 
 /** AAAA-MM-DD de uma data de lançamento (coluna `date`, meia-noite UTC). */

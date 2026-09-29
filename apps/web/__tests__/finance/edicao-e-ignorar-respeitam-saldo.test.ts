@@ -173,6 +173,7 @@ describe('updateTransaction e o saldo', () => {
       selectQueue.push([AGUARDANDO]) // oldTx
       selectQueue.push([{ id: CONTA }]) // posse da conta
       selectQueue.push(contaOpenFinance ? [{ id: 'recurso-of' }] : []) // conta de destino é Open Finance?
+      if (contaOpenFinance) selectQueue.push([{ syncFromDate: '2026-01-01' }]) // extrato cobre a data
       await updateTransaction(formEdicao('2026-01-10'))
     }
 
@@ -203,8 +204,9 @@ describe('updateTransaction e o saldo', () => {
         selectQueue.push([{ id: CONTA }]) // posse da origem
         selectQueue.push([{ id: DESTINO }]) // posse do destino
         selectQueue.push([{ id: 'recurso-of' }]) // origem segue Open Finance
-        selectQueue.push([], []) // origem: sem sync_from_date, sem extrato ainda (aguarda)
+        selectQueue.push([{ syncFromDate: '2026-01-01' }]) // origem: extrato cobre a data (aguarda)
         selectQueue.push(destinoOpenFinance ? [{ id: 'recurso-of' }] : []) // destino é Open Finance?
+        if (destinoOpenFinance) selectQueue.push([{ syncFromDate: '2026-01-01' }]) // extrato de lá cobre a data
         const fd = formEdicao('2026-01-10')
         fd.set('type', 'transfer')
         fd.append('destAccountId', DESTINO)

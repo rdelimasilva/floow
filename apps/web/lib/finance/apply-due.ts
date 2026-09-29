@@ -72,23 +72,35 @@ export async function applyDueBankTransactions() {
   if (pending.length === 0) return
 
   const pendingTxs = await db
-    .select({
-      id: transactions.id,
-      accountId: transactions.accountId,
-      amountCents: transactions.amountCents,
-    })
+    .select({ id: transactions.id })
     .from(transactions)
     .where(filtro)
 
-  // Agrupa por conta e aplica em bloco, para nao emitir N updates.
-  const deltaByAccount = new Map<string, number>()
-  const txIds: string[] = []
-  for (const tx of pendingTxs) {
-    deltaByAccount.set(tx.accountId, (deltaByAccount.get(tx.accountId) ?? 0) + tx.amountCents)
-    txIds.push(tx.id)
-  }
+  const txIds = pendingTxs.map((tx) => tx.id)
 
   await db.transaction(async (dbTx) => {
+    // As linhas foram lidas fora da transação: `reclassificarConta` pode ter
+    // marcado alguma como aguardando nesse meio-tempo (e outra carga pode ter
+    // aplicado alguma). O UPDATE re-checa as duas colunas, e o saldo recebe só
+    // o que ele de fato aplicou — o `RETURNING`, não a leitura antiga.
+    const aplicadas = await dbTx
+      .update(transactions)
+      .set({ balanceApplied: true })
+      .where(
+        and(
+          inArray(transactions.id, txIds),
+          eq(transactions.aguardaExtrato, false),
+          eq(transactions.balanceApplied, false),
+        ),
+      )
+      .returning({ accountId: transactions.accountId, amountCents: transactions.amountCents })
+
+    // Agrupa por conta e aplica em bloco, para nao emitir N updates.
+    const deltaByAccount = new Map<string, number>()
+    for (const tx of aplicadas) {
+      deltaByAccount.set(tx.accountId, (deltaByAccount.get(tx.accountId) ?? 0) + tx.amountCents)
+    }
+
     const deltas = Array.from(deltaByAccount.entries())
     if (deltas.length > 0) {
       const cases = sql.join(
@@ -102,11 +114,6 @@ export async function applyDueBankTransactions() {
         .set({ balanceCents: sql`${accounts.balanceCents} + CASE ${cases} ELSE 0 END` })
         .where(inArray(accounts.id, ids))
     }
-
-    await dbTx
-      .update(transactions)
-      .set({ balanceApplied: true })
-      .where(inArray(transactions.id, txIds))
   })
 
   revalidateTransactionData(orgId)

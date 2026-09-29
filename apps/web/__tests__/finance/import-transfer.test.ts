@@ -32,7 +32,7 @@ beforeEach(() => {
 
 describe('inserirTransferenciaImportada', () => {
   it('destino Open Finance: perna prevista, só o saldo da origem muda', async () => {
-    selectQueue.push([{ id: 'recurso' }]) // linked
+    selectQueue.push([{ id: 'recurso' }], [{ syncFromDate: '2026-09-01' }]) // conciliável, extrato cobre a data
     const r = await inserirTransferenciaImportada(tx, BASE)
     expect(r.destinoPrevisto).toBe('nubank')
     expect(inserts[1]).toMatchObject({ accountId: 'nubank', externalId: 'fitid-1:transfer-par', balanceApplied: false })
@@ -40,7 +40,7 @@ describe('inserirTransferenciaImportada', () => {
   })
 
   it('destino manual: duas pernas reais e dois saldos, como antes', async () => {
-    selectQueue.push([]) // não linked
+    selectQueue.push([], []) // não conciliável, nem Open Finance
     const r = await inserirTransferenciaImportada(tx, BASE)
     expect(r.destinoPrevisto).toBeNull()
     expect(inserts[1]).toMatchObject({ accountId: 'nubank', amountCents: 50000 })
@@ -68,7 +68,7 @@ describe('inserirTransferenciaImportada', () => {
   })
 
   it('destino Open Finance sem FITID: perna manual aguardando, sem crédito no destino', async () => {
-    selectQueue.push([{ id: 'recurso' }]) // destino linked
+    selectQueue.push([{ id: 'recurso' }], [{ syncFromDate: '2026-09-01' }]) // conciliável, extrato cobre a data
     await inserirTransferenciaImportada(tx, { ...BASE, externalId: null })
     expect(inserts[1]).toMatchObject({ accountId: 'nubank', origem: 'perna', aguardaExtrato: true, balanceApplied: false })
     expect(updates).toEqual(['accounts']) // só o débito da origem
@@ -76,6 +76,34 @@ describe('inserirTransferenciaImportada', () => {
 
   it('destino Open Finance, data antes do início do extrato de lá: perna real no saldo', async () => {
     selectQueue.push([{ id: 'recurso' }], [{ syncFromDate: '2026-10-01' }]) // destino linked, corte depois da data
+    const r = await inserirTransferenciaImportada(tx, BASE)
+    expect(r.destinoPrevisto).toBeNull()
+    expect(inserts[1]).toMatchObject({ accountId: 'nubank', origem: 'perna', aguardaExtrato: false, balanceApplied: true })
+    expect(updates).toEqual(['accounts', 'accounts'])
+  })
+
+  // Cartão Open Finance não é conciliável (Ruling P12), mas o pagamento da
+  // fatura chega pelo extrato do cartão: perna real aqui creditaria o cartão
+  // duas vezes. Fica como antes — perna prevista `:transfer-par`, fora do
+  // saldo, que R3 casa com o extrato de lá.
+  it('destino cartão Open Finance com FITID: perna prevista, só o saldo da origem muda', async () => {
+    selectQueue.push([], [{ id: 'recurso-cartao' }]) // não conciliável; recurso OF vivo
+    const r = await inserirTransferenciaImportada(tx, BASE)
+    expect(r.destinoPrevisto).toBe('nubank')
+    expect(inserts[1]).toMatchObject({ accountId: 'nubank', externalId: 'fitid-1:transfer-par', balanceApplied: false })
+    expect(updates).toEqual(['accounts'])
+  })
+
+  it('destino cartão Open Finance sem FITID: perna real, como antes (sem chave de dedupe)', async () => {
+    selectQueue.push([]) // não conciliável; sem FITID nem consulta o recurso
+    const r = await inserirTransferenciaImportada(tx, { ...BASE, externalId: null })
+    expect(r.destinoPrevisto).toBeNull()
+    expect(inserts[1]).toMatchObject({ accountId: 'nubank', origem: 'perna', aguardaExtrato: false, balanceApplied: true })
+    expect(updates).toEqual(['accounts', 'accounts'])
+  })
+
+  it('destino conciliável sem extrato nenhum ainda: perna real no saldo', async () => {
+    selectQueue.push([{ id: 'recurso' }], [{ syncFromDate: null }], [{ inicio: null }])
     const r = await inserirTransferenciaImportada(tx, BASE)
     expect(r.destinoPrevisto).toBeNull()
     expect(inserts[1]).toMatchObject({ accountId: 'nubank', origem: 'perna', aguardaExtrato: false, balanceApplied: true })

@@ -24,8 +24,12 @@ describe('aguardaNaData', () => {
     expect(aguardaNaData(OF_DESDE_SETEMBRO, 'perna', '2026-08-31')).toBe(false)
   })
 
-  it('conta OF sem extrato ainda: aguarda (o primeiro extrato cobre)', () => {
-    expect(aguardaNaData({ conciliavel: true, desde: null }, 'manual', '2020-01-01')).toBe(true)
+  // Sem extrato nenhum não se sabe se o primeiro vai cobrir a data (histórico
+  // raso do banco, lançamento retroativo). Aguardar deixaria a linha fora do
+  // saldo para sempre; nascendo no saldo, `reclassificarConta` a tira quando
+  // houver prova (par único no extrato — Ruling P12).
+  it('conta OF sem extrato ainda: fica no saldo, como numa conta manual', () => {
+    expect(aguardaNaData({ conciliavel: true, desde: null }, 'manual', '2026-09-20')).toBe(false)
   })
 
   it('origem que o extrato não cobre: não aguarda', () => {
@@ -54,6 +58,11 @@ describe('aguardaExtratoNaConta', () => {
   it('sem sync_from_date: o corte é a primeira linha do extrato', async () => {
     selectQueue.push([{ id: 'recurso' }], [{ syncFromDate: null }], [{ inicio: '2026-07-01' }])
     expect(await aguardaExtratoNaConta(db, 'org-1', 'nubank', 'arquivo', '2026-06-30')).toBe(false)
+  })
+
+  it('sem sync_from_date e sem linha de extrato: não aguarda', async () => {
+    selectQueue.push([{ id: 'recurso' }], [{ syncFromDate: null }], [{ inicio: null }])
+    expect(await aguardaExtratoNaConta(db, 'org-1', 'nubank', 'manual', '2026-09-15')).toBe(false)
   })
 
   it('conta não conciliável (manual ou cartão Open Finance): não aguarda e nem busca o corte', async () => {
