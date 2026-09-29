@@ -138,6 +138,19 @@ describe('responder', () => {
     expect(onTexto).toHaveBeenCalledWith(TEXTO_SEM_CONCLUSAO)
   })
 
+  it('prazoMs customizado (WhatsApp): usa o valor de deps em vez do padrão', async () => {
+    const rodadas = Array.from({ length: 10 }, (_, i) => ({ calls: [call('saldos_das_contas', `t${i}`)] }))
+    const p = providerFalso(rodadas)
+    let leituras = 0
+    const agoraFalso = () => (leituras++ === 0 ? 0 : 1000)
+    const r = await responder(
+      entrada,
+      deps(p, [leitura(async () => 'x')], { agora: agoraFalso, prazoMs: 1000 }),
+    )
+    expect(p.streamChat).toHaveBeenCalledTimes(1)
+    expect(r.texto.endsWith(TEXTO_SEM_CONCLUSAO)).toBe(true)
+  })
+
   it('limite estourado: não chama o Claude', async () => {
     const p = providerFalso([])
     const r = await responder(entrada, deps(p, [], { consumirLimite: vi.fn(async () => ({ allowed: false as const, retryAfterSeconds: 42 })) }))

@@ -4,6 +4,7 @@ import React from 'react'
 
 const m = vi.hoisted(() => ({
   setNotificationFrequency: vi.fn(async (..._a: unknown[]) => {}),
+  setWhatsAppOrg: vi.fn(async (..._a: unknown[]) => {}),
   // Horário do servidor = relógio (falso, nos testes com fake timers) do teste.
   startWhatsAppLink: vi.fn(async () => ({
     ok: true,
@@ -19,7 +20,10 @@ const m = vi.hoisted(() => ({
   refresh: vi.fn(),
   toast: vi.fn(),
 }))
-vi.mock('@/lib/notifications/preferences-actions', () => ({ setNotificationFrequency: m.setNotificationFrequency }))
+vi.mock('@/lib/notifications/preferences-actions', () => ({
+  setNotificationFrequency: m.setNotificationFrequency,
+  setWhatsAppOrg: m.setWhatsAppOrg,
+}))
 vi.mock('@/lib/notifications/whatsapp-verification-actions', () => ({
   startWhatsAppLink: m.startWhatsAppLink,
   getWhatsAppStatus: m.getWhatsAppStatus,
@@ -30,6 +34,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: m.refresh }) })
 vi.mock('@/components/ui/toast', () => ({ useToast: () => ({ toast: m.toast }) }))
 
 import { NotificationsSection } from '@/app/(app)/settings/notifications-section'
+import { setWhatsAppOrg } from '@/lib/notifications/preferences-actions'
 import type { NotificationSettings } from '@/lib/notifications/notification-settings'
 
 const T0 = new Date('2026-09-26T12:00:00.000Z')
@@ -38,10 +43,23 @@ const depois = (ms: number) => new Date(T0.getTime() + ms).toISOString()
 const semNumero: NotificationSettings = {
   whatsappPhone: null,
   whatsappVerified: false,
+  whatsappOrgId: null,
   orgs: [
     { orgId: 'o1', orgName: 'Pessoal', frequencies: { email: 'alerts', whatsapp: 'off' } },
     { orgId: 'o2', orgName: 'Empresa', frequencies: { email: 'off', whatsapp: 'off' } },
   ],
+}
+
+const settingsLigadoDuasOrgs: NotificationSettings = {
+  ...semNumero,
+  whatsappPhone: '+5511999998888',
+  whatsappVerified: true,
+  orgs: semNumero.orgs.map((o) => ({ ...o, frequencies: { ...o.frequencies, whatsapp: 'weekly' } })),
+}
+
+const settingsLigadoUmaOrg: NotificationSettings = {
+  ...settingsLigadoDuasOrgs,
+  orgs: [settingsLigadoDuasOrgs.orgs[0]],
 }
 
 describe('NotificationsSection', () => {
@@ -74,6 +92,17 @@ describe('NotificationsSection', () => {
     expect(sel.disabled).toBe(false)
     expect(sel.value).toBe('weekly')
     expect(screen.getByText('+55 11 99999-8888')).toBeDefined()
+  })
+
+  it('com WhatsApp ligado e duas orgs, mostra o seletor e grava a escolha', async () => {
+    render(<NotificationsSection settings={{ ...settingsLigadoDuasOrgs, whatsappOrgId: null }} />)
+    fireEvent.change(screen.getByLabelText('Org do consultor no WhatsApp'), { target: { value: 'o2' } })
+    await waitFor(() => expect(setWhatsAppOrg).toHaveBeenCalledWith('o2'))
+  })
+
+  it('com uma org só, não mostra o seletor', () => {
+    render(<NotificationsSection settings={{ ...settingsLigadoUmaOrg, whatsappOrgId: null }} />)
+    expect(screen.queryByLabelText('Org do consultor no WhatsApp')).toBeNull()
   })
 
   it('trocar a frequência grava só aquela org e canal', async () => {

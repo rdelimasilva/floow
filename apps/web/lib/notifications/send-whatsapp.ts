@@ -77,3 +77,11 @@ export function sendWhatsAppTemplate(msg: TemplateMessage, fetchImpl: typeof fet
 export function sendWhatsAppText(to: string, body: string, fetchImpl: typeof fetch = fetch) {
   return post({ to: digits(to), type: 'text', text: { body } }, fetchImpl)
 }
+
+/**
+ * Marca a mensagem recebida como lida e mostra "digitando" (some quando a
+ * resposta chega ou em ~25 s). A resposta do consultor leva segundos.
+ */
+export function marcarComoLidaDigitando(messageId: string, fetchImpl: typeof fetch = fetch) {
+  return post({ status: 'read', message_id: messageId, typing_indicator: { type: 'text' } }, fetchImpl)
+}

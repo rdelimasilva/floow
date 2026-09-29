@@ -83,6 +83,7 @@ export const cfoConversations = pgTable(
     userId: uuid('user_id').notNull(),
     title: text('title'),
     insightId: uuid('insight_id').references(() => cfoInsights.id, { onDelete: 'set null' }),
+    canal: text('canal').notNull().default('web'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -102,6 +103,7 @@ export const cfoMessages = pgTable(
     content: text('content').notNull(),
     toolCall: jsonb('tool_call'),
     toolResult: jsonb('tool_result'),
+    externalId: text('external_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

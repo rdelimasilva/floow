@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   findUserByPhone: vi.fn(async () => undefined as { userId: string } | undefined),
   turnOffWhatsApp: vi.fn(async () => {}),
   reply: vi.fn(async () => ({ ok: true as const, id: 'w' })),
+  consultar: vi.fn(async () => {}),
 }))
 
 vi.mock('@/lib/notifications/whatsapp-inbound-deps', () => ({
@@ -15,10 +16,18 @@ vi.mock('@/lib/notifications/whatsapp-inbound-deps', () => ({
     findUserByPhone: mocks.findUserByPhone,
     turnOffWhatsApp: mocks.turnOffWhatsApp,
     reply: mocks.reply,
+    consultar: mocks.consultar,
     appUrl: 'https://app.test',
   }),
 }))
 
+// after() roda depois do 200: nos testes, roda na hora para poder asserir.
+vi.mock('next/server', async (orig) => ({
+  ...(await orig<typeof import('next/server')>()),
+  after: vi.fn((fn: () => unknown) => { void fn() }),
+}))
+
+import { after } from 'next/server'
 import { GET, POST } from '@/app/api/webhooks/whatsapp/route'
 
 const sig = (body: string, secret: string) =>
@@ -99,6 +108,8 @@ describe('POST /api/webhooks/whatsapp', () => {
       }
       const body = JSON.stringify(payload)
       const res = await POST(postReq(body, { 'x-hub-signature-256': sig(body, 's') }))
+      // after() roda fora do request; espera o laço de mensagens terminar.
+      await new Promise((r) => setTimeout(r, 0))
 
       expect(res.status).toBe(200)
       expect(mocks.findUserByPhone).toHaveBeenCalledTimes(2)
@@ -109,5 +120,27 @@ describe('POST /api/webhooks/whatsapp', () => {
     } finally {
       errorSpy.mockRestore()
     }
+  })
+
+  it('after roda para payload com texto e não roda quando só há status', async () => {
+    vi.stubEnv('WHATSAPP_APP_SECRET', 's')
+
+    const comTexto = JSON.stringify({
+      entry: [{ changes: [{ value: {
+        messages: [{ from: '5511999998888', type: 'text', text: { body: 'oi' } }],
+      } }] }],
+    })
+    await POST(postReq(comTexto, { 'x-hub-signature-256': sig(comTexto, 's') }))
+    expect(vi.mocked(after)).toHaveBeenCalledTimes(1)
+
+    vi.mocked(after).mockClear()
+
+    const soStatus = JSON.stringify({
+      entry: [{ changes: [{ value: {
+        statuses: [{ status: 'delivered', recipient_id: '5511999998888' }],
+      } }] }],
+    })
+    await POST(postReq(soStatus, { 'x-hub-signature-256': sig(soStatus, 's') }))
+    expect(vi.mocked(after)).not.toHaveBeenCalled()
   })
 })

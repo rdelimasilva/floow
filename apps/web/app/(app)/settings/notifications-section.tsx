@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { useToast } from '@/components/ui/toast'
-import { setNotificationFrequency } from '@/lib/notifications/preferences-actions'
+import { setNotificationFrequency, setWhatsAppOrg } from '@/lib/notifications/preferences-actions'
 import { CHANNELS, FREQUENCIES, type Channel, type Frequency } from '@/lib/notifications/schedule'
 import type { NotificationSettings } from '@/lib/notifications/notification-settings'
 import { WhatsAppConnect } from './whatsapp-connect'
@@ -25,8 +25,24 @@ const valoresDe = (s: NotificationSettings): Valores =>
 export function NotificationsSection({ settings }: { settings: NotificationSettings }) {
   const { toast } = useToast()
   const [valores, setValores] = useState<Valores>(() => valoresDe(settings))
+  const [orgWhatsApp, setOrgWhatsApp] = useState(settings.whatsappOrgId)
   // router.refresh() depois de verificar/remover o número traz props novas.
-  useEffect(() => setValores(valoresDe(settings)), [settings])
+  useEffect(() => {
+    setValores(valoresDe(settings))
+    setOrgWhatsApp(settings.whatsappOrgId)
+  }, [settings])
+
+  async function escolherOrgWhatsApp(orgId: string) {
+    const anterior = orgWhatsApp
+    setOrgWhatsApp(orgId)
+    try {
+      await setWhatsAppOrg(orgId)
+      toast('Org do consultor salva')
+    } catch {
+      setOrgWhatsApp(anterior)
+      toast('Não foi possível salvar a org', 'error')
+    }
+  }
 
   async function mudar(orgId: string, canal: Channel, freq: Frequency) {
     const anterior = valores[orgId][canal]
@@ -56,6 +72,24 @@ export function NotificationsSection({ settings }: { settings: NotificationSetti
       <div className="space-y-2">
         <p className="text-sm font-medium">WhatsApp</p>
         <WhatsAppConnect phone={settings.whatsappPhone} />
+        {settings.whatsappVerified && settings.orgs.length > 1 && (
+          <div className="space-y-1">
+            <label htmlFor="org-whatsapp" className="text-xs text-muted-foreground">
+              Org do consultor no WhatsApp
+            </label>
+            <select
+              id="org-whatsapp"
+              className={SELECT}
+              value={orgWhatsApp ?? ''}
+              onChange={(e) => escolherOrgWhatsApp(e.target.value)}
+            >
+              <option value="" disabled>Escolha…</option>
+              {settings.orgs.map((o) => (
+                <option key={o.orgId} value={o.orgId}>{o.orgName}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {!settings.whatsappVerified && (
           <p className="text-xs text-muted-foreground">
             Você manda um código do seu WhatsApp para o do floow. Depois de conectar, o resumo

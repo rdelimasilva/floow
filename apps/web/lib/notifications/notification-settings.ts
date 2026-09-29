@@ -11,11 +11,15 @@ export interface NotificationSettings {
   /** Só o número verificado; pendente não aparece. */
   whatsappPhone: string | null
   whatsappVerified: boolean
+  /** Org que o consultor usa no WhatsApp; null = regra padrão. */
+  whatsappOrgId: string | null
   orgs: OrgNotificationRow[]
 }
 
 export function buildNotificationSettings(
-  profile: { whatsappPhone: string | null; whatsappVerifiedAt: Date | null } | undefined,
+  profile:
+    | { whatsappPhone: string | null; whatsappVerifiedAt: Date | null; whatsappOrgId?: string | null }
+    | undefined,
   memberOrgs: { orgId: string; orgName: string }[],
   prefs: { orgId: string; channel: Channel; frequency: Frequency }[],
 ): NotificationSettings {
@@ -23,6 +27,7 @@ export function buildNotificationSettings(
   return {
     whatsappPhone: verified ? profile!.whatsappPhone : null,
     whatsappVerified: verified,
+    whatsappOrgId: profile?.whatsappOrgId ?? null,
     orgs: memberOrgs.map(({ orgId, orgName }) => ({
       orgId,
       orgName,

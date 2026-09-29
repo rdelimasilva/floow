@@ -33,4 +33,13 @@ describe('buildNotificationSettings', () => {
     expect(s.whatsappVerified).toBe(false)
     expect(s.whatsappPhone).toBeNull()
   })
+
+  it('traz a org do WhatsApp do perfil', () => {
+    const s = buildNotificationSettings({ whatsappPhone: '+5511999998888', whatsappVerifiedAt: new Date(), whatsappOrgId: 'o2' }, orgs, [])
+    expect(s.whatsappOrgId).toBe('o2')
+  })
+
+  it('sem perfil, org do WhatsApp é null', () => {
+    expect(buildNotificationSettings(undefined, orgs, []).whatsappOrgId).toBeNull()
+  })
 })

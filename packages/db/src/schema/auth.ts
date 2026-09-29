@@ -38,6 +38,8 @@ export const profiles = pgTable('profiles', {
   /** WhatsApp em E.164 (+5511999998888). Só vale com whatsappVerifiedAt preenchido. */
   whatsappPhone: text('whatsapp_phone'),
   whatsappVerifiedAt: timestamp('whatsapp_verified_at', { withTimezone: true }),
+  /** Org que o consultor usa no WhatsApp. Vazio + uma org só = essa org (00068). */
+  whatsappOrgId: uuid('whatsapp_org_id').references(() => orgs.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
