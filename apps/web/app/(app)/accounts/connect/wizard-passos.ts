@@ -156,12 +156,12 @@ export function resumoDaConclusao(r: Conclusao): ResumoDaConclusao {
  *
  * Sem o portão, o primeiro import precisa de destino explícito: era o portão
  * que punha o usuário diante da fila. Com algo para conciliar, vai para lá.
- * Mas conta ambígua ou faltando pede decisão NESTA tela ("escolha qual vai
+ * Mas erro de importação, conta ambígua ou faltando pede decisão NESTA tela ("escolha qual vai
  * para onde"); sair dela esconderia o aviso. Os itens para conciliar esperam,
  * e a faixa de Transações os anuncia.
  */
 export function destinoDepoisDaConclusao(r: Conclusao, totalParaConciliar: number): string | null {
   if (r.etapa !== 'concluida' || totalParaConciliar <= 0) return null
-  if (r.ambiguos.length > 0 || r.faltando.length > 0) return null
+  if (r.erro || r.ambiguos.length > 0 || r.faltando.length > 0) return null
   return '/transactions/conciliar'
 }

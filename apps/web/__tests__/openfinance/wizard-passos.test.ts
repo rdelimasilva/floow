@@ -176,6 +176,10 @@ describe('destinoDepoisDaConclusao', () => {
     expect(destinoDepoisDaConclusao({ ...concluida, etapa: 'aguardando-contas' }, 3)).toBeNull()
   })
 
+  it('importação com erro precisa ser vista nesta tela: fica', () => {
+    expect(destinoDepoisDaConclusao({ ...concluida, erro: 'x', importadas: null }, 3)).toBeNull()
+  })
+
   it('conta ambígua ou faltando pede decisão nesta tela: fica', () => {
     expect(destinoDepoisDaConclusao({ ...concluida, ambiguos: ['ACCOUNT'] as never }, 3)).toBeNull()
     expect(destinoDepoisDaConclusao({ ...concluida, faltando: ['CREDIT_CARD_ACCOUNT'] as never }, 3)).toBeNull()

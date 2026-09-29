@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import React from 'react'
 
 /**
@@ -54,7 +54,10 @@ async function ateVerificar() {
   // "Autorizar no banco" já chama router.refresh; zera para que só o refresh
   // de depois do import conte nas asserções.
   refresh.mockClear()
-  fireEvent.click(verificar)
+  await act(async () => {
+    fireEvent.click(verificar)
+  })
+  return verificar
 }
 
 beforeEach(() => {
@@ -83,5 +86,29 @@ describe('assistente depois do primeiro import', () => {
     await waitFor(() => expect(totalParaConciliar).toHaveBeenCalled())
     await waitFor(() => expect(refresh).toHaveBeenCalled())
     expect(push).not.toHaveBeenCalled()
+  })
+
+  it('se a consulta do total falha, não navega e mostra o resultado da conexão', async () => {
+    totalParaConciliar.mockRejectedValue(new Error('falhou'))
+
+    await ateVerificar()
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled())
+    expect(push).not.toHaveBeenCalled()
+    expect(await screen.findByText(/Pronto: 1 conta vinculada/)).toBeTruthy()
+  })
+
+  it('se concluirConexaoGuiada falha, não navega, atualiza e libera nova verificação', async () => {
+    concluirConexaoGuiada.mockRejectedValue(new Error('falhou'))
+
+    const verificar = await ateVerificar()
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled())
+    expect(push).not.toHaveBeenCalled()
+    expect(totalParaConciliar).not.toHaveBeenCalled()
+    await act(async () => {
+      fireEvent.click(verificar)
+    })
+    await waitFor(() => expect(concluirConexaoGuiada).toHaveBeenCalledTimes(2))
   })
 })
