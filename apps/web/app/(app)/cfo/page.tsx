@@ -2,13 +2,17 @@ import { Suspense } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
 import { getOrgId } from '@/lib/finance/queries'
 import { getActiveInsights, getLatestRun } from '@/lib/cfo/queries'
+import { requireIdentity } from '@/lib/auth/session'
+import { listarMemorias } from '@/lib/consultor/memorias'
 import { CfoClient } from './client'
 import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 
 async function CfoContent({ orgId }: { orgId: string }) {
-  const [insights, latestRun] = await Promise.all([
+  const { userId } = await requireIdentity()
+  const [insights, latestRun, memorias] = await Promise.all([
     getActiveInsights(orgId),
     getLatestRun(orgId),
+    listarMemorias(orgId, userId),
   ])
 
   const toStr = (d: unknown) => d instanceof Date ? d.toISOString() : d
@@ -30,6 +34,7 @@ async function CfoContent({ orgId }: { orgId: string }) {
         completedAt: latestRun.completedAt ? toStr(latestRun.completedAt) as string : null,
         createdAt: toStr(latestRun.createdAt) as string,
       } : null}
+      memorias={memorias.map((m) => ({ id: m.id, conteudo: m.conteudo, createdAt: m.createdAt.toISOString() }))}
     />
   )
 }

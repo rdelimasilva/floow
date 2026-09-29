@@ -6,7 +6,7 @@ import { getAccounts } from '@/lib/finance/queries-accounts'
 import { saldosDasContas } from '@/lib/consultor/ferramentas/saldos-das-contas'
 import { reais } from '@/lib/consultor/ferramentas/utils'
 
-const ctx = { orgId: 'org-1', userId: 'u1' }
+const ctx = { orgId: 'org-1', userId: 'u1', canal: 'web' as const }
 
 describe('saldos_das_contas', () => {
   beforeEach(() => vi.mocked(getAccounts).mockReset())

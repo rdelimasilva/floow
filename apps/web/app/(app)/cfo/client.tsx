@@ -2,6 +2,7 @@
 
 import { InsightCard } from '@/components/cfo/insight-card'
 import { ChatPanel } from '@/components/cfo/chat-panel'
+import { MemoriasDoConsultor } from '@/components/cfo/memorias-do-consultor'
 import type { CfoInsight, CfoRun } from '@floow/db'
 
 type DateToString<T> = {
@@ -11,9 +12,10 @@ type DateToString<T> = {
 interface CfoClientProps {
   insights: DateToString<CfoInsight>[]
   latestRun: DateToString<CfoRun> | null
+  memorias: { id: string; conteudo: string; createdAt: string }[]
 }
 
-export function CfoClient({ insights, latestRun }: CfoClientProps) {
+export function CfoClient({ insights, latestRun, memorias }: CfoClientProps) {
   const critical = insights.filter((i) => i.severity === 'critical')
   const warning = insights.filter((i) => i.severity === 'warning')
   const info = insights.filter((i) => i.severity === 'info')
@@ -66,6 +68,9 @@ export function CfoClient({ insights, latestRun }: CfoClientProps) {
           Converse com seu Consultor
         </h3>
         <ChatPanel />
+        <div className="mt-4">
+          <MemoriasDoConsultor memorias={memorias} />
+        </div>
       </div>
     </div>
   )

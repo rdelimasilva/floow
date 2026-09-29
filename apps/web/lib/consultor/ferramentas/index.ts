@@ -5,6 +5,7 @@ import { resumoDoMes } from './resumo-do-mes'
 import { gastosPorCategoria } from './gastos-por-categoria'
 import { buscarTransacoes } from './buscar-transacoes'
 import { planoDoMes } from './plano-do-mes'
+import { lembrar, esquecer } from './memoria'
 
 /** As ações antigas viram botão na web até a fase 2 trocar por ação pendente. */
 const SUGESTOES: Ferramenta[] = CHAT_TOOLS.map((definicao) => ({ definicao, tipo: 'sugestao' as const }))
@@ -15,5 +16,7 @@ export const FERRAMENTAS: Ferramenta[] = [
   buscarTransacoes,
   planoDoMes,
   saldosDasContas,
+  lembrar,
+  esquecer,
   ...SUGESTOES,
 ]

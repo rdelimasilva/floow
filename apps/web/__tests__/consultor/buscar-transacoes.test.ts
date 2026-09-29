@@ -10,7 +10,7 @@ import { getAccounts } from '@/lib/finance/queries-accounts'
 import { buscarTransacoes, BUSCA_MAX } from '@/lib/consultor/ferramentas/buscar-transacoes'
 import { reais } from '@/lib/consultor/ferramentas/utils'
 
-const ctx = { orgId: 'org-1', userId: 'u1' }
+const ctx = { orgId: 'org-1', userId: 'u1', canal: 'web' as const }
 const tx = (over: Record<string, unknown> = {}) => ({
   date: new Date(Date.UTC(2026, 8, 10)), description: 'IFOOD *PEDIDO', amountCents: -4500,
   type: 'expense', reviewState: 'confirmed', isIgnored: false, categoryName: 'Delivery', ...over,

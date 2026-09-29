@@ -117,3 +117,23 @@ export type CfoConversation = typeof cfoConversations.$inferSelect
 export type NewCfoConversation = typeof cfoConversations.$inferInsert
 export type CfoMessage = typeof cfoMessages.$inferSelect
 export type NewCfoMessage = typeof cfoMessages.$inferInsert
+
+/** O que o consultor aprendeu sobre o usuário, por org (migration 00067). */
+export const consultorMemorias = pgTable(
+  'consultor_memorias',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    conteudo: text('conteudo').notNull(),
+    canal: text('canal').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    idxUsuario: index('idx_consultor_memorias_usuario').on(table.orgId, table.userId, table.createdAt),
+  })
+)
+
+export type ConsultorMemoria = typeof consultorMemorias.$inferSelect
