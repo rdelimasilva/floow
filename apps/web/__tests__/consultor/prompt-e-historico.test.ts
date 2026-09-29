@@ -29,6 +29,14 @@ describe('montarPrompt', () => {
     expect(montarPrompt({ ...dados, canal: 'whatsapp' })).not.toContain('markdown')
   })
 
+  it('no WhatsApp a resposta é curta; na web continua até 3 parágrafos', () => {
+    const whats = montarPrompt({ ...dados, canal: 'whatsapp' })
+    expect(whats).toContain('até 3 linhas curtas')
+    expect(whats).toContain('Comece pelo número')
+    expect(whats).not.toContain('3 parágrafos')
+    expect(montarPrompt(dados)).toContain('3 parágrafos curtos')
+  })
+
   it('insight em discussão entra com os dados', () => {
     const p = montarPrompt({ ...dados, insight: { type: 't', severity: 'critical', title: 'Caixa negativo', body: 'b', metric: { x: 1 } } })
     expect(p).toContain('## Insight em discussão')
