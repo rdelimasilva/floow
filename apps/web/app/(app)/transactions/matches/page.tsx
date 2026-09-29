@@ -1,22 +1,6 @@
-import { getOrgId } from '@/lib/finance/queries'
-import { getPropostasPendentes } from '@/lib/finance/forecast-match-queries'
-import { MatchProposalQueue } from '@/components/finance/match-proposal-queue'
-import { PageHeader } from '@/components/ui/page-header'
-import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
+import { redirect } from 'next/navigation'
 
-export default async function MatchesPage() {
-  const orgId = await getOrgId()
-  const propostas = await getPropostasPendentes(orgId)
-
-  return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Confirmar previsões"
-        description="Previsões suas que parecem já ter acontecido, com o lançamento do banco que as cumpriu. Nada é confirmado sem você aprovar."
-      >
-        <LinkDeAjuda topico="filas" />
-      </PageHeader>
-      <MatchProposalQueue propostas={propostas} />
-    </div>
-  )
+/** Confirmar previsões virou uma seção de /transactions/conciliar; a rota fica para links antigos. */
+export default function MatchesPage() {
+  redirect('/transactions/conciliar#confirmar')
 }

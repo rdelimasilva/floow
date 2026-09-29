@@ -1,28 +1,16 @@
-import { Suspense } from 'react'
-import { getOrgId } from '@/lib/finance/queries'
-import { CounterpartyQueue } from '@/components/openfinance/counterparty-queue'
-import { PageHeader } from '@/components/ui/page-header'
-import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
+import { redirect } from 'next/navigation'
 
 interface Props {
   searchParams: Promise<{ regra?: string }>
 }
 
+/**
+ * Classificar virou uma seção de /transactions/conciliar. A rota fica para
+ * links salvos, WhatsApp e e-mails já enviados, e `?regra=` ("Corrigir regra")
+ * continua abrindo a regra em edição.
+ */
 export default async function ReviewPage({ searchParams }: Props) {
-  const orgId = await getOrgId()
   const { regra } = await searchParams
-
-  return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Classificar lançamentos"
-        description="Lançamentos que vieram do banco e o floow ainda não sabe classificar sozinho. Você decide uma vez e vale para os próximos."
-      >
-        <LinkDeAjuda topico="filas" />
-      </PageHeader>
-      <Suspense fallback={null}>
-        <CounterpartyQueue orgId={orgId} regraAberta={regra} />
-      </Suspense>
-    </div>
-  )
+  const query = regra ? `?regra=${encodeURIComponent(regra)}` : ''
+  redirect(`/transactions/conciliar${query}#classificar`)
 }
