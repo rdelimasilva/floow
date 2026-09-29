@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Nenhum arquivo passa de 500 linhas (CLAUDE.md). `import-actions.ts` (491), `recurring-actions.ts` (498) e `investments/actions.ts` (555) só são tocados extraindo para módulo novo — as tarefas dizem qual.
-- Migration `supabase/migrations/00067_origem_e_aguarda_extrato.sql`, idempotente. O SQL é aplicado **pelo usuário, manualmente, no SQL editor do Supabase**: abra o arquivo no editor (`code supabase/migrations/00067_origem_e_aguarda_extrato.sql`) para ele copiar. Nunca cole SQL no terminal (trunca linhas).
+- Migration `supabase/migrations/00070_origem_e_aguarda_extrato.sql`, idempotente. O SQL é aplicado **pelo usuário, manualmente, no SQL editor do Supabase**: abra o arquivo no editor (`code supabase/migrations/00070_origem_e_aguarda_extrato.sql`) para ele copiar. Nunca cole SQL no terminal (trunca linhas).
 - A migration tem de estar aplicada em produção **antes** do push para `master`: o código novo grava `origem`, e sem a coluna todo insert em `transactions` falha.
 - Valores de `origem`, exatamente: `'extrato', 'manual', 'arquivo', 'perna', 'recorrencia', 'ajuste', 'investimento', 'parcela_prevista'`.
 - Invariante: `aguarda_extrato = true` ⇒ `balance_applied = false`.
@@ -43,7 +43,7 @@
 ### Task 1: Migration, schema e origem no banco
 
 **Files:**
-- Create: `supabase/migrations/00067_origem_e_aguarda_extrato.sql`
+- Create: `supabase/migrations/00070_origem_e_aguarda_extrato.sql`
 - Modify: `packages/db/src/schema/finance.ts` (colunas em `transactions`, perto de `reviewState` ~linha 227; índice no callback ~linha 231)
 - Modify: `scripts/rls-probe.mjs:73` (insert cru passa a declarar `origem`)
 - Test: `apps/web/__tests__/finance/origem-da-transacao-schema.test.ts`
@@ -80,7 +80,7 @@ import { transactions, ORIGENS_DE_TRANSACAO } from '@floow/db'
  */
 const repoRoot = resolve(__dirname, '../../../..')
 const migration = readFileSync(
-  resolve(repoRoot, 'supabase/migrations/00067_origem_e_aguarda_extrato.sql'),
+  resolve(repoRoot, 'supabase/migrations/00070_origem_e_aguarda_extrato.sql'),
   'utf8',
 )
 const coluna = (nome: string) => getTableConfig(transactions).columns.find((c) => c.name === nome)!
@@ -119,7 +119,7 @@ Expected: FAIL (`ENOENT` na migration / `ORIGENS_DE_TRANSACAO` undefined).
 - [ ] **Step 3: Escrever a migration**
 
 ```sql
--- supabase/migrations/00067_origem_e_aguarda_extrato.sql
+-- supabase/migrations/00070_origem_e_aguarda_extrato.sql
 -- =============================================================================
 -- Origem explícita e marca "aguarda o extrato"
 -- -----------------------------------------------------------------------------
@@ -259,13 +259,13 @@ Expected: PASS (4 testes). O `typecheck` do app fica vermelho até o fim da Task
 
 - [ ] **Step 7: Pedir ao usuário para aplicar a migration**
 
-Abra o arquivo no editor para o usuário copiar: `code supabase/migrations/00067_origem_e_aguarda_extrato.sql`. Diga: "Cole o conteúdo inteiro no SQL editor do Supabase e rode. Pode rodar de novo sem problema." Não cole o SQL no terminal. Espere a confirmação antes da Task 14.
+Abra o arquivo no editor para o usuário copiar: `code supabase/migrations/00070_origem_e_aguarda_extrato.sql`. Diga: "Cole o conteúdo inteiro no SQL editor do Supabase e rode. Pode rodar de novo sem problema." Não cole o SQL no terminal. Espere a confirmação antes da Task 14.
 
 - [ ] **Step 8: Commit**
 
 ```bash
 git branch --show-current
-git add supabase/migrations/00067_origem_e_aguarda_extrato.sql packages/db/src/schema/finance.ts scripts/rls-probe.mjs apps/web/__tests__/finance/origem-da-transacao-schema.test.ts
+git add supabase/migrations/00070_origem_e_aguarda_extrato.sql packages/db/src/schema/finance.ts scripts/rls-probe.mjs apps/web/__tests__/finance/origem-da-transacao-schema.test.ts
 git commit -m "feat(conciliacao): origem explícita e marca aguarda_extrato
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
