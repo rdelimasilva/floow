@@ -30,7 +30,10 @@ export async function carregarDadosDoPrompt(
         .orderBy(desc(cfoInsights.generatedAt))
         .limit(5),
     ),
-    listarMemorias(orgId, userId),
+    listarMemorias(orgId, userId).catch((err) => {
+      console.error('[consultor] falha ao carregar memórias', err)
+      return []
+    }),
   ])
   return {
     canal,

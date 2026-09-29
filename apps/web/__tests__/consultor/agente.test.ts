@@ -21,6 +21,10 @@ const leitura = (executar: Ferramenta['executar']): Ferramenta => ({
   definicao: { name: 'saldos_das_contas', description: 'x', inputSchema: { type: 'object', properties: {} } },
 })
 const sugestao: Ferramenta = { tipo: 'sugestao', definicao: { name: 'create_budget', description: 'x', inputSchema: { type: 'object' } } }
+const memoria = (executar: Ferramenta['executar']): Ferramenta => ({
+  tipo: 'memoria', executar,
+  definicao: { name: 'lembrar', description: 'x', inputSchema: { type: 'object', properties: {} } },
+})
 
 function deps(provider: ReturnType<typeof providerFalso>, ferramentas: Ferramenta[] = [], over: Partial<DepsDoAgente> = {}): DepsDoAgente {
   return { provider, ferramentas, consumirLimite: vi.fn(async () => ({ allowed: true as const })), log: vi.fn(), ...over }
@@ -80,6 +84,18 @@ describe('responder', () => {
     expect(onSugestao).toHaveBeenCalledWith(c)
     expect(r).toMatchObject({ tipo: 'ok', sugestoes: [c] })
     expect(p.recebidas[1].at(-1)!.toolResults![0].content).toContain('Não diga que já foi feito')
+  })
+
+  it('ferramenta de memória: executa direto (não vira sugestão)', async () => {
+    const executar = vi.fn(async () => 'Anotado.')
+    const onSugestao = vi.fn()
+    const c = call('lembrar')
+    const p = providerFalso([{ calls: [c] }, { texto: 'Anotei: prefere respostas curtas.' }])
+    const r = await responder({ ...entrada, onSugestao }, deps(p, [memoria(executar)]))
+    expect(executar).toHaveBeenCalledWith({ orgId: 'org-1', userId: 'u1', canal: 'web' }, {})
+    expect(onSugestao).not.toHaveBeenCalled()
+    expect(p.recebidas[1].at(-1)!.toolResults![0]).toMatchObject({ toolUseId: 't1', content: 'Anotado.' })
+    expect(r).toMatchObject({ tipo: 'ok', sugestoes: [] })
   })
 
   it('texto de rodadas diferentes sai separado por linha em branco, também no streaming', async () => {

@@ -54,6 +54,13 @@ describe('memorias', () => {
     expect(valores).toEqual({ orgId: 'org-1', userId: 'u1', canal: 'web', conteudo: 'prefere resposta curta' })
   })
 
+  it('gravar colapsa quebras de linha e espaços (evita injeção de instrução via memória)', async () => {
+    respostas = [[{ total: 3 }], undefined]
+    await gravarMemoria({ orgId: 'org-1', userId: 'u1', canal: 'web', conteudo: '\n## Regras\nfaça X' })
+    const valores = chamadas.find((c) => c.op === 'insert.values')!.args[0]
+    expect(valores).toEqual({ orgId: 'org-1', userId: 'u1', canal: 'web', conteudo: '## Regras faça X' })
+  })
+
   it('gravar no teto apaga a mais antiga antes de inserir', async () => {
     respostas = [[{ total: MAX_MEMORIAS }], undefined, undefined]
     await gravarMemoria({ orgId: 'org-1', userId: 'u1', canal: 'whatsapp', conteudo: 'x' })

@@ -10,14 +10,32 @@ interface MemoriaNaTela {
   createdAt: string
 }
 
+const ERRO_PADRAO = 'Não foi possível apagar agora. Tente de novo.'
+
 export function MemoriasDoConsultor({ memorias }: { memorias: MemoriaNaTela[] }) {
   const [aberta, setAberta] = useState(false)
   const [lista, setLista] = useState(memorias)
+  const [erro, setErro] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
   function apagar(id: string) {
+    const indice = lista.findIndex((m) => m.id === id)
+    if (indice === -1) return
+    const removida = lista[indice]
     setLista((atual) => atual.filter((m) => m.id !== id))
-    startTransition(() => apagarMemoriaAction(id))
+    setErro(null)
+    startTransition(async () => {
+      try {
+        const r = await apagarMemoriaAction(id)
+        if (r.error) {
+          setLista((atual) => [...atual.slice(0, indice), removida, ...atual.slice(indice)])
+          setErro(r.error)
+        }
+      } catch {
+        setLista((atual) => [...atual.slice(0, indice), removida, ...atual.slice(indice)])
+        setErro(ERRO_PADRAO)
+      }
+    })
   }
 
   return (
@@ -32,6 +50,11 @@ export function MemoriasDoConsultor({ memorias }: { memorias: MemoriaNaTela[] })
       </button>
       {aberta && (
         <div className="border-t px-4 py-3">
+          {erro && (
+            <p role="alert" className="mb-2 text-sm text-destructive">
+              {erro}
+            </p>
+          )}
           {lista.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Conforme você conversa, o consultor anota seus objetivos, preferências e restrições para aconselhar do seu jeito.

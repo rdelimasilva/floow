@@ -52,7 +52,7 @@ export function gravarMemoria(p: { orgId: string; userId: string; canal: CanalDa
       orgId: p.orgId,
       userId: p.userId,
       canal: p.canal,
-      conteudo: p.conteudo.trim(),
+      conteudo: p.conteudo.replace(/\s+/g, ' ').trim(),
     })
   })
 }

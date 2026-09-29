@@ -1,9 +1,10 @@
 /**
  * O Consultor: um laço Claude ⇄ ferramentas, igual para todo canal.
  *
- * Leitura roda aqui e o resultado volta ao Claude. Sugestão (ações antigas da
- * web) não roda: vai ao canal como botão. O canal cuida de histórico,
- * persistência e formato de saída; o agente, de limite, laço e ferramentas.
+ * Leitura e memória (lembrar/esquecer) rodam aqui e o resultado volta ao
+ * Claude. Sugestão (ações antigas da web) não roda: vai ao canal como botão.
+ * O canal cuida de histórico, persistência e formato de saída; o agente, de
+ * limite, laço e ferramentas.
  */
 import type { ChatMessage, ChatProvider, ToolCall, ToolResultBlock } from '@floow/core-finance'
 import { ParametroInvalido, type ContextoFerramenta, type Ferramenta } from './ferramentas/tipos'
