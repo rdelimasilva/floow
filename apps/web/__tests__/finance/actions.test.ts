@@ -34,6 +34,11 @@ vi.mock('@/lib/cfo/trigger', () => ({
   triggerCfoAnalysis: vi.fn(),
 }))
 
+// Conta manual: o comportamento que estes testes prendem não muda com a regra
+// da conta Open Finance (lá a linha aguarda o extrato e o motor roda depois).
+vi.mock('@/lib/finance/conciliacao/aguarda-extrato', () => ({ aguardaExtratoNaConta: async () => false }))
+vi.mock('@/lib/finance/conciliacao/conciliar-conta', () => ({ conciliarContas: async () => undefined }))
+
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
   // invalidateTag (lib/cache-tags.ts) chama revalidateTag; unstable_cache é

@@ -6,7 +6,8 @@ import { eq, sql, and, inArray } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { assertAccountOwnership } from './account-actions'
 import { deveAplicarSaldoNaEdicao } from './saldo-na-edicao'
-import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
+import { aguardaExtratoNaConta } from './conciliacao/aguarda-extrato'
+import { conciliarContas } from './conciliacao/conciliar-conta'
 import { devolverExtratoAbsorvido } from './conciliacao/desfazer-absorcao'
 import {
   revalidateAccountData,
@@ -196,16 +197,13 @@ export async function updateTransaction(formData: FormData) {
     // Previsão (template ou parcela) e parcela futura do banco só entram quando
     // a regra de `deveAplicarSaldoNaEdicao` deixa; o resto entra sempre.
     const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    // Linha que aguarda o extrato continua aguardando enquanto a conta for Open
-    // Finance; movida para conta manual, ninguém mais a absorveria e ela volta
-    // ao saldo (e perde a marca).
-    const aguardaOrigem =
-      oldTx.aguardaExtrato && (await isOpenFinanceLinkedAccount(tx as unknown as Db, orgId, input.accountId))
-    const balanceAppliedValue = deveAplicarSaldoNaEdicao(
-      { ...oldTx, aguardaExtrato: aguardaOrigem },
-      input.date.toISOString().slice(0, 10),
-      hoje,
-    )
+    // Numa conta Open Finance, lançamento manual (ou linha de arquivo) editado
+    // aguarda o extrato — inclusive o que chega agora de uma conta manual, que
+    // sai do saldo de lá (acima) e não entra no daqui. Movido para conta
+    // manual, ninguém mais o absorveria: volta ao saldo e perde a marca.
+    const aguardaOrigem = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, oldTx.origem)
+    const dataEditada = input.date.toISOString().slice(0, 10)
+    const balanceAppliedValue = deveAplicarSaldoNaEdicao({ ...oldTx, aguardaExtrato: aguardaOrigem }, dataEditada, hoje)
 
     if (balanceAppliedValue) {
       await tx
@@ -234,23 +232,15 @@ export async function updateTransaction(formData: FormData) {
 
     if (convertendoEmTransferencia) {
       // Segunda perna: valor invertido na conta de destino, mesmo grupo.
-      // `balanceApplied` acompanha a origem para uma origem futura não
-      // creditar o destino antes da hora — mesmo racional de
-      // `buildTransferLegRow` no caminho do Open Finance. Exceção: origem que
-      // aguardava o extrato. O que ela tem de "fora do saldo" não vale para a
-      // perna (sem `external_id` e sem marca, ninguém a creditaria): quem
-      // decide é a conta de destino — Open Finance aguarda o extrato dela,
-      // manual entra no saldo.
-      const destinoAguarda = oldTx.aguardaExtrato
-        ? await isOpenFinanceLinkedAccount(tx as unknown as Db, orgId, input.destAccountId!)
-        : false
-      const destinoAplicado = oldTx.aguardaExtrato
-        ? deveAplicarSaldoNaEdicao(
-            { recurringTemplateId: null, balanceApplied: false, aguardaExtrato: destinoAguarda },
-            input.date.toISOString().slice(0, 10),
-            hoje,
-          )
-        : balanceAppliedValue
+      // Destino Open Finance: a perna aguarda o extrato de lá, fora do saldo.
+      // Destino manual: `balanceApplied` acompanha a origem para uma origem
+      // futura não creditar o destino antes da hora — mesmo racional de
+      // `buildTransferLegRow` no caminho do Open Finance. O "fora do saldo" de
+      // uma origem que aguardava o extrato não vale para a perna (sem
+      // `external_id` e sem marca, ninguém a creditaria): aí ela entra.
+      const destinoAguarda = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.destAccountId!, 'perna')
+      const baseDaPerna = oldTx.aguardaExtrato ? { recurringTemplateId: null, balanceApplied: false } : oldTx
+      const destinoAplicado = deveAplicarSaldoNaEdicao({ ...baseDaPerna, aguardaExtrato: destinoAguarda }, dataEditada, hoje)
       await tx.insert(transactions).values({
         orgId,
         accountId: input.destAccountId!,
@@ -273,6 +263,11 @@ export async function updateTransaction(formData: FormData) {
       }
     }
   })
+
+  // A linha (e a perna) pode ter passado a aguardar numa conta Open Finance
+  // cujo extrato já chegou: o motor absorve agora. Nunca lança.
+  const contasTocadas = convertendoEmTransferencia ? [input.accountId, input.destAccountId!] : [input.accountId]
+  await conciliarContas(db, orgId, contasTocadas, '[updateTransaction]')
 
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)

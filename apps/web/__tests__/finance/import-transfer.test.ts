@@ -22,7 +22,7 @@ const tx: any = {
 const BASE = {
   orgId: 'org-1', accountId: 'itau', destAccountId: 'nubank', amountCents: -50000,
   description: 'TED', date: new Date('2026-09-10T12:00:00Z'), externalId: 'fitid-1',
-  importedAt: new Date(), categoryId: null,
+  importedAt: new Date(), categoryId: null, contaImportadaAguarda: false,
 }
 
 beforeEach(() => {
@@ -58,5 +58,19 @@ describe('inserirTransferenciaImportada', () => {
     expect(r.inserida).toBe(false)
     expect(inserts).toHaveLength(1)
     expect(updates).toEqual([])
+  })
+
+  it('conta importada é Open Finance: a origem aguarda o extrato e não debita o saldo', async () => {
+    selectQueue.push([]) // destino não linked
+    await inserirTransferenciaImportada(tx, { ...BASE, contaImportadaAguarda: true })
+    expect(inserts[0]).toMatchObject({ origem: 'arquivo', aguardaExtrato: true, balanceApplied: false })
+    expect(updates).toEqual(['accounts']) // só o crédito da perna real no destino manual
+  })
+
+  it('destino Open Finance sem FITID: perna manual aguardando, sem crédito no destino', async () => {
+    selectQueue.push([{ id: 'recurso' }]) // destino linked
+    await inserirTransferenciaImportada(tx, { ...BASE, externalId: null })
+    expect(inserts[1]).toMatchObject({ accountId: 'nubank', origem: 'perna', aguardaExtrato: true, balanceApplied: false })
+    expect(updates).toEqual(['accounts']) // só o débito da origem
   })
 })

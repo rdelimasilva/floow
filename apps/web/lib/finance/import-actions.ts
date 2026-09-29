@@ -4,10 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { getDb, accounts, transactions } from '@floow/db'
 import { parseOFXFile, parseCSVFile, matchCategory } from '@floow/core-finance'
 import type { CsvColumnMapping } from '@floow/core-finance'
-import { eq, sql, and, gte, lte } from 'drizzle-orm'
+import { eq, and, gte, lte } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { inserirTransferenciaImportada } from './import-transfer'
-import { criarPropostasDeConciliacao } from './forecast-match-db'
+import { conciliarDepoisDaImportacao, contaImportadaAguardaExtrato, inserirLinhasDoArquivo } from './import-linhas'
 import type { ImportResult, MatchStatus, PreviewItem, TransactionOverride } from './import-types'
 import {
   accountsTag,
@@ -154,7 +154,9 @@ export async function previewImport(formData: FormData): Promise<PreviewItem[]> 
  * Plan 02-01 migration. Without that unique constraint, this would throw.
  *
  * Balance update: after insert, sums the amountCents of all actually-inserted
- * rows (returned via .returning()) and applies an atomic SQL increment.
+ * rows (returned via .returning()) and applies an atomic SQL increment — só em
+ * conta manual. Em conta Open Finance as linhas aguardam o extrato
+ * (`inserirLinhasDoArquivo`) e o motor de conciliação roda no fim.
  *
  * Ownership: verifies the target account belongs to the user's org before
  * any write operation. Both the ownership check and writes are wrapped in a
@@ -215,7 +217,6 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
       description: tx.description,
       date: tx.date,
       externalId: tx.externalId,
-      origem: 'arquivo' as const,
       importedAt,
       categoryId: autoCategoryId,
       isAutoCategorized: autoCategoryId !== null,
@@ -234,33 +235,14 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
       throw new Error(`Account ${accountId} not found or does not belong to this organization`)
     }
 
-    // Insert with ON CONFLICT DO NOTHING for deduplication.
-    // The UNIQUE INDEX uq_transactions_external_account(external_id, account_id)
-    // from Plan 02-01 enables this. Returns only actually-inserted rows.
-    const insertedRows = await tx
-      .insert(transactions)
-      .values(rows)
-      .onConflictDoNothing()
-      .returning({ id: transactions.id, amountCents: transactions.amountCents })
-
-    const importedCount = insertedRows.length
+    const aguarda = await contaImportadaAguardaExtrato(tx as unknown as Db, orgId, accountId)
+    const importedCount = await inserirLinhasDoArquivo(tx as unknown as Db, { accountId, linhas: rows, aguardaExtrato: aguarda })
     const skippedCount = normalized.length - importedCount
-
-    // Update account balance atomically using sum of inserted amounts.
-    // Uses sql`balance_cents + ${delta}` to avoid read-modify-write race conditions.
-    if (importedCount > 0) {
-      const totalDelta = insertedRows.reduce((sum, row) => sum + row.amountCents, 0)
-
-      if (totalDelta !== 0) {
-        await tx
-          .update(accounts)
-          .set({ balanceCents: sql`balance_cents + ${totalDelta}` })
-          .where(eq(accounts.id, accountId))
-      }
-    }
 
     return { imported: importedCount, skipped: skippedCount }
   })
+
+  await conciliarDepoisDaImportacao(orgId, [accountId])
 
   revalidatePath('/transactions')
   revalidatePath('/accounts', 'layout')
@@ -356,7 +338,6 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
       description: tx.description,
       date: tx.date,
       externalId: tx.externalId,
-      origem: 'arquivo' as const,
       importedAt,
       categoryId,
       isAutoCategorized: !override?.categoryId && categoryId !== null,
@@ -376,29 +357,16 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
       throw new Error(`Account ${accountId} not found or does not belong to this organization`)
     }
 
+    const aguarda = await contaImportadaAguardaExtrato(tx as unknown as Db, orgId, accountId)
+
     let importedCount = 0
     let skippedCount = 0
 
     // Insert regular (income/expense) transactions
     if (rows.length > 0) {
-      const insertedRows = await tx
-        .insert(transactions)
-        .values(rows)
-        .onConflictDoNothing()
-        .returning({ id: transactions.id, amountCents: transactions.amountCents })
-
-      importedCount += insertedRows.length
-      skippedCount += rows.length - insertedRows.length
-
-      if (insertedRows.length > 0) {
-        const totalDelta = insertedRows.reduce((sum, row) => sum + row.amountCents, 0)
-        if (totalDelta !== 0) {
-          await tx
-            .update(accounts)
-            .set({ balanceCents: sql`balance_cents + ${totalDelta}` })
-            .where(eq(accounts.id, accountId))
-        }
-      }
+      const inseridas = await inserirLinhasDoArquivo(tx as unknown as Db, { accountId, linhas: rows, aguardaExtrato: aguarda })
+      importedCount += inseridas
+      skippedCount += rows.length - inseridas
     }
 
     // Transferências: perna da conta importada + a da outra conta própria.
@@ -413,6 +381,7 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
         externalId: item.tx.externalId ?? null,
         importedAt,
         categoryId: overrideMap.get(item.idx)?.categoryId ?? null,
+        contaImportadaAguarda: aguarda,
       })
       if (!inserida) {
         skippedCount++
@@ -428,14 +397,9 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
   revalidatePath('/accounts', 'layout')
   invalidateTag(accountsTag(orgId))
 
-  // A ponta real pode já estar na conta de destino: propõe o par agora.
-  for (const conta of destinosPrevistos) {
-    try {
-      await criarPropostasDeConciliacao(getDb(), orgId, conta)
-    } catch (error) {
-      console.error('[import] falha ao propor conciliacao da perna prevista:', error)
-    }
-  }
+  // A ponta real pode já estar na outra conta, e a linha do arquivo pode já
+  // ter extrato para absorvê-la: o motor roda nas duas agora.
+  await conciliarDepoisDaImportacao(orgId, [accountId, ...destinosPrevistos])
 
   // Depois das propostas, não antes: a lista de lançamentos lê as propostas;
   // invalidar antes serviria a tela sem o par recém-proposto.

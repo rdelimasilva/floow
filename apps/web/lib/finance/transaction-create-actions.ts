@@ -8,6 +8,8 @@ import { getOrgId, getCategoryRules } from './queries'
 import { assertAccountOwnership } from './account-actions'
 import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
 import { revalidateAccountData, revalidateTransactionData } from './revalidate'
+import { aguardaExtratoNaConta } from './conciliacao/aguarda-extrato'
+import { conciliarContas } from './conciliacao/conciliar-conta'
 
 type Db = ReturnType<typeof getDb>
 
@@ -27,6 +29,9 @@ type Db = ReturnType<typeof getDb>
  *
  * CRITICAL: Uses sql`balance_cents + ${delta}` for atomic balance updates
  * (never read-modify-write — race condition risk).
+ *
+ * Conta Open Finance: a linha (ou a perna daquela conta) nasce aguardando o
+ * extrato, fora do saldo, e o motor de conciliação roda depois da gravação.
  *
  * Wrapped in a db.transaction so failure at any step rolls back all writes.
  * Ownership of all accounts is verified against the user's orgId before writes.
@@ -76,6 +81,11 @@ export async function createTransaction(formData: FormData) {
       await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
       await assertAccountOwnership(tx as unknown as Db, transferToAccountId, orgId)
 
+      // Numa conta Open Finance só o extrato move o saldo: a perna de lá
+      // aguarda o extrato e o motor a absorve.
+      const aguardaOrigem = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, 'perna')
+      const aguardaDestino = await aguardaExtratoNaConta(tx as unknown as Db, orgId, transferToAccountId, 'perna')
+
       const transferGroupId = crypto.randomUUID()
 
       // Insert source (debit) row — negative amount
@@ -91,6 +101,8 @@ export async function createTransaction(formData: FormData) {
           date: new Date(input.date),
           transferGroupId,
           origem: 'perna',
+          aguardaExtrato: aguardaOrigem,
+          balanceApplied: !aguardaOrigem,
           isAutoCategorized,
         })
         .returning()
@@ -108,24 +120,32 @@ export async function createTransaction(formData: FormData) {
           date: new Date(input.date),
           transferGroupId,
           origem: 'perna',
+          aguardaExtrato: aguardaDestino,
+          balanceApplied: !aguardaDestino,
           isAutoCategorized,
         })
         .returning()
 
       // Atomic balance update: source account decremented
-      await tx
-        .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${-input.amountCents}` })
-        .where(eq(accounts.id, input.accountId))
+      if (!aguardaOrigem) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${-input.amountCents}` })
+          .where(eq(accounts.id, input.accountId))
+      }
 
       // Atomic balance update: destination account incremented
-      await tx
-        .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${input.amountCents}` })
-        .where(eq(accounts.id, transferToAccountId))
+      if (!aguardaDestino) {
+        await tx
+          .update(accounts)
+          .set({ balanceCents: sql`balance_cents + ${input.amountCents}` })
+          .where(eq(accounts.id, transferToAccountId))
+      }
 
       return [sourceTransaction, destTransaction]
     })
+
+    await conciliarContas(db, orgId, [input.accountId, transferToAccountId], '[createTransaction]')
 
     revalidateTransactionData(orgId)
     revalidateAccountData(orgId)
@@ -141,6 +161,9 @@ export async function createTransaction(formData: FormData) {
     // Verify the account belongs to the org before any write
     await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
 
+    // Conta Open Finance: o lançamento aguarda o extrato, fora do saldo.
+    const aguarda = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, 'manual')
+
     const [transaction] = await tx
       .insert(transactions)
       .values({
@@ -153,17 +176,23 @@ export async function createTransaction(formData: FormData) {
         date: new Date(input.date),
         isAutoCategorized,
         origem: 'manual',
+        aguardaExtrato: aguarda,
+        balanceApplied: !aguarda,
       })
       .returning()
 
     // Atomic balance update
-    await tx
-      .update(accounts)
-      .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
-      .where(eq(accounts.id, input.accountId))
+    if (!aguarda) {
+      await tx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
+        .where(eq(accounts.id, input.accountId))
+    }
 
     return transaction
   })
+
+  await conciliarContas(db, orgId, [input.accountId], '[createTransaction]')
 
   revalidateTransactionData(orgId)
   revalidateAccountData(orgId)

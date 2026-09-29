@@ -76,6 +76,10 @@ const PENDENTES = [
   // e `forecast_match_proposals` — com a mesma dívida de policy de ESCRITA.
   'lib/finance/desconciliar-actions.ts',
   'lib/finance/import-actions.ts',
+  // Saiu de `import-actions.ts` (a gravação das linhas do arquivo e a chamada
+  // ao motor de conciliação): o mesmo código em outro arquivo, com a mesma
+  // dívida de policy de ESCRITA em `transactions` e `accounts`.
+  'lib/finance/import-linhas.ts',
   // `lib/finance/queries.ts` era uma entrada só, de 590 linhas. Virou fachada
   // de reexport — não chama mais `getDb()` — e os seis módulos abaixo herdaram
   // as consultas como estavam. Seis entradas no lugar de uma é a mesma dívida

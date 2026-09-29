@@ -22,6 +22,7 @@ export async function inserirTransferenciaImportada(
     externalId: string | null
     importedAt: Date
     categoryId: string | null
+    contaImportadaAguarda: boolean
   },
 ): Promise<{ inserida: boolean; destinoPrevisto: string | null }> {
   const absAmount = Math.abs(args.amountCents)
@@ -35,26 +36,30 @@ export async function inserirTransferenciaImportada(
     description: args.description,
     date: args.date,
     externalId: args.externalId,
-    origem: 'arquivo',
     importedAt: args.importedAt,
     transferGroupId,
     categoryId: args.categoryId,
     isAutoCategorized: false,
+    origem: 'arquivo',
+    // Conta importada Open Finance: a linha do arquivo aguarda o extrato.
+    aguardaExtrato: args.contaImportadaAguarda,
+    balanceApplied: !args.contaImportadaAguarda,
   }).onConflictDoNothing().returning({ id: transactions.id })
 
   // FITID repetido (duas transferências idênticas no mesmo CSV, ou reimportação):
   // a perna não entrou, então nada de saldo nem de perna de destino órfã.
   if (origem.length === 0) return { inserida: false, destinoPrevisto: null }
 
-  await tx.update(accounts)
-    .set({ balanceCents: sql`balance_cents + ${-absAmount}` })
-    .where(eq(accounts.id, args.accountId))
+  if (!args.contaImportadaAguarda) {
+    await tx.update(accounts)
+      .set({ balanceCents: sql`balance_cents + ${-absAmount}` })
+      .where(eq(accounts.id, args.accountId))
+  }
 
-  // Sem FITID não há chave de dedupe para a perna prevista: segue o caminho
-  // antigo, perna real.
-  const destinoOpenFinance = args.externalId !== null && (await isOpenFinanceLinkedAccount(tx, args.orgId, args.destAccountId))
+  const destinoLinked = await isOpenFinanceLinkedAccount(tx, args.orgId, args.destAccountId)
 
-  if (destinoOpenFinance) {
+  // Com FITID, a perna que aguarda tem chave de dedupe (`:transfer-par`).
+  if (destinoLinked && args.externalId !== null) {
     await tx.insert(transactions).values(
       buildForecastTransferLegRow(
         { orgId: args.orgId, amountCents: -absAmount, date: args.date, externalId: args.externalId!, balanceApplied: false },
@@ -66,6 +71,8 @@ export async function inserirTransferenciaImportada(
     return { inserida: true, destinoPrevisto: args.destAccountId }
   }
 
+  // Destino manual: perna real no saldo. Destino Open Finance sem FITID: a
+  // perna aguarda o extrato de lá, fora do saldo, e o motor a absorve.
   await tx.insert(transactions).values({
     orgId: args.orgId,
     accountId: args.destAccountId,
@@ -74,14 +81,18 @@ export async function inserirTransferenciaImportada(
     description: args.description,
     date: args.date,
     transferGroupId,
-    origem: 'perna',
     categoryId: args.categoryId,
     isAutoCategorized: false,
+    origem: 'perna',
+    aguardaExtrato: destinoLinked,
+    balanceApplied: !destinoLinked,
   })
 
-  await tx.update(accounts)
-    .set({ balanceCents: sql`balance_cents + ${absAmount}` })
-    .where(eq(accounts.id, args.destAccountId))
+  if (!destinoLinked) {
+    await tx.update(accounts)
+      .set({ balanceCents: sql`balance_cents + ${absAmount}` })
+      .where(eq(accounts.id, args.destAccountId))
+  }
 
-  return { inserida: true, destinoPrevisto: null }
+  return { inserida: true, destinoPrevisto: destinoLinked ? args.destAccountId : null }
 }
