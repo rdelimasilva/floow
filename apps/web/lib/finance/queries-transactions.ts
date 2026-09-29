@@ -283,6 +283,7 @@ export function consultaDaPagina(
       balanceApplied: transactions.balanceApplied,
       affectsCashFlow: transactions.affectsCashFlow,
       matchedTransactionId: transactions.matchedTransactionId,
+      aguardaExtrato: transactions.aguardaExtrato,
       installmentNumber: transactions.installmentNumber,
       installmentTotal: transactions.installmentTotal,
       purchaseDate: transactions.purchaseDate,
