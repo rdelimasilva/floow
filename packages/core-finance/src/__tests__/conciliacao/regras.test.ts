@@ -98,6 +98,33 @@ describe('conciliarExtratoComAguardando', () => {
   })
 })
 
+describe('conciliarExtratoComAguardando — espelho OF↔OF (Ruling P12)', () => {
+  // Itaú (X) e Nubank (Y), as duas conciliáveis. G1 = {extrato do Itaú, perna
+  // no Nubank}; G2 = {extrato do Nubank, perna no Itaú}. `espelho` é a conta
+  // do outro lado: no extrato com grupo, a da perna parceira; na perna, a do
+  // extrato parceiro.
+  const comEspelho = (l: LinhaParaConciliar, espelho: string): LinhaParaConciliar => ({ ...l, espelho })
+
+  it('extrato de G2 absorve a perna de G1 quando os dois apontam para a mesma conta', () => {
+    const r = conciliarExtratoComAguardando(
+      [comEspelho(linha('ext-nubank', '2026-09-01', 12300), 'itau')],
+      [comEspelho(linha('perna-nubank', '2026-09-01', 12300), 'itau')],
+    )
+    expect(r.absorver).toEqual([{ aguardandoId: 'perna-nubank', extratoId: 'ext-nubank' }])
+  })
+
+  it('extrato com grupo não casa com perna de outra conta nem com provisória sem espelho', () => {
+    const ext = [comEspelho(linha('ext', '2026-09-01', 12300), 'itau')]
+    expect(conciliarExtratoComAguardando(ext, [comEspelho(linha('p', '2026-09-01', 12300), 'bradesco')])).toEqual({ absorver: [], propor: [] })
+    expect(conciliarExtratoComAguardando(ext, [linha('manual', '2026-09-01', 12300)])).toEqual({ absorver: [], propor: [] })
+  })
+
+  it('extrato sem grupo continua casando com a perna, com ou sem espelho', () => {
+    const r = conciliarExtratoComAguardando([linha('ext', '2026-09-18')], [comEspelho(linha('perna', '2026-09-18'), 'itau')])
+    expect(r.absorver).toEqual([{ aguardandoId: 'perna', extratoId: 'ext' }])
+  })
+})
+
 describe('efeitoDaAbsorcao', () => {
   const extratoPendente = { reviewState: 'pending' as const, categoryId: null, isAutoCategorized: false }
 
@@ -125,6 +152,13 @@ describe('efeitoDaAbsorcao', () => {
   it('extrato já classificado à mão fica como está', () => {
     const classificado = { reviewState: 'confirmed' as const, categoryId: 'cat-x', isAutoCategorized: false }
     expect(efeitoDaAbsorcao({ origem: 'manual', categoryId: 'cat-y', description: 'y' }, classificado, null)).toBeNull()
+  })
+
+  it('espelho: extrato já é ponta de outro grupo — só o vínculo, nada muda nele', () => {
+    const extratoDeOutroGrupo = { ...extratoPendente, transferGroupId: 'g2' }
+    expect(
+      efeitoDaAbsorcao({ origem: 'perna', categoryId: null, description: 'x', transferGroupId: 'g1' }, extratoDeOutroGrupo, 'conta-itau'),
+    ).toBeNull()
   })
 
   it('manual sem categoria não apaga a do extrato', () => {

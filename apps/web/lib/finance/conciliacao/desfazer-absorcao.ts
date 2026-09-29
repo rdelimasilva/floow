@@ -1,5 +1,6 @@
 import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { transactions, type getDb, type OrigemDaTransacao } from '@floow/db'
+import { extratoDeOutroGrupo } from '@floow/core-finance'
 import { ehPernaPrevista } from '@/lib/openfinance/perna-prevista'
 
 type Db = ReturnType<typeof getDb>
@@ -10,6 +11,7 @@ export interface ProvisoriaVinculada {
   aguardaExtrato?: boolean | null
   externalId: string | null
   matchedTransactionId: string | null
+  transferGroupId?: string | null
 }
 
 /**
@@ -38,9 +40,14 @@ export type DevolucaoDoExtrato =
  * nova), então não há o que restaurar; o usuário revê a linha uma vez.
  *
  * Previsão de recorrência cumprida não mudou nada no extrato: `null`.
+ *
+ * Espelho OF↔OF (`grupoDoExtrato` diferente do da provisória): o extrato é a
+ * ponta confirmada de OUTRO par, e a absorção não o mudou. Só o vínculo se
+ * desfaz: `null`.
  */
-export function devolucaoDoExtrato(p: ProvisoriaVinculada): DevolucaoDoExtrato | null {
+export function devolucaoDoExtrato(p: ProvisoriaVinculada, grupoDoExtrato: string | null = null): DevolucaoDoExtrato | null {
   if (!p.matchedTransactionId) return null
+  if (extratoDeOutroGrupo(grupoDoExtrato, p.transferGroupId)) return null
   if (p.origem === 'perna' || ehPernaPrevista(p.externalId)) return { type: TIPO_PELO_SINAL, reviewState: 'pending', transferAccountId: null }
   if (p.aguardaExtrato) return { reviewState: 'pending' }
   return null
@@ -49,11 +56,19 @@ export function devolucaoDoExtrato(p: ProvisoriaVinculada): DevolucaoDoExtrato |
 /**
  * Aplica `devolucaoDoExtrato` no extrato vinculado. Não solta o vínculo nem
  * mexe em saldo: quem chama apaga a provisória ou limpa o vínculo, e o
- * extrato sempre esteve no saldo. Devolve o id do extrato devolvido.
+ * extrato sempre esteve no saldo. Devolve o id do extrato devolvido — `null`
+ * no espelho, em que o extrato fica como está. Quem chama passa o
+ * `transferGroupId` da provisória, para o espelho ser reconhecido.
  */
 export async function devolverExtratoAbsorvido(db: Db, orgId: string, p: ProvisoriaVinculada): Promise<string | null> {
-  const devolucao = devolucaoDoExtrato(p)
-  if (!devolucao || !p.matchedTransactionId) return null
+  if (!p.matchedTransactionId || !devolucaoDoExtrato(p)) return null
+  const [extrato] = await db
+    .select({ transferGroupId: transactions.transferGroupId })
+    .from(transactions)
+    .where(and(eq(transactions.id, p.matchedTransactionId), eq(transactions.orgId, orgId)))
+    .limit(1)
+  const devolucao = devolucaoDoExtrato(p, extrato?.transferGroupId ?? null)
+  if (!devolucao) return null
   await db
     .update(transactions)
     .set(devolucao)

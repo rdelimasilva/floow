@@ -48,7 +48,8 @@ async function outraContaDaPerna(db: Db, orgId: string, p: ProvisoriaAbsorvida):
 /**
  * O que a linha do extrato ganha ao absorver a provisória (regra em
  * `efeitoDaAbsorcao`). Usado pelo motor (R1) e por `aprovarProposta`, para
- * que decidir na fila e absorver sozinho deem o mesmo resultado.
+ * que decidir na fila e absorver sozinho deem o mesmo resultado. No espelho
+ * OF↔OF (extrato já em outro grupo) não ganha nada: só o vínculo.
  */
 export async function aplicarEfeitoDaAbsorcao(
   db: Db,
@@ -61,6 +62,7 @@ export async function aplicarEfeitoDaAbsorcao(
       reviewState: transactions.reviewState,
       categoryId: transactions.categoryId,
       isAutoCategorized: transactions.isAutoCategorized,
+      transferGroupId: transactions.transferGroupId,
     })
     .from(transactions)
     .where(condicaoDaTransacaoDaOrg(extratoId, orgId))

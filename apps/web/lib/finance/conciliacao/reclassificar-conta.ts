@@ -1,12 +1,13 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { accounts, transactions, type getDb } from '@floow/db'
 import { ORIGENS_QUE_AGUARDAM_EXTRATO } from '@floow/core-finance'
+import { buscarProvisorias, paresDoR1 } from './r1-candidatos'
 
 type Db = ReturnType<typeof getDb>
 
 /**
- * A conta é Open Finance: o que ainda conta no saldo sem ser extrato passa a
- * aguardar o extrato.
+ * A conta é conciliável: o que ainda conta no saldo sem ser extrato passa a
+ * aguardar o extrato — mas só com prova (Ruling P12).
  *
  * A decisão "esta linha conta no saldo?" era tomada uma vez, quando a linha
  * nascia. Em 24/09 o Nubank virou Open Finance e as duas `:transfer-dest` que
@@ -14,15 +15,20 @@ type Db = ReturnType<typeof getDb>
  * saldo — junto com as mesmas entradas trazidas pelo extrato. Aqui a decisão
  * é refeita.
  *
+ * Prova = par ÚNICO no extrato pela mesma regra do R1 (`paresDoR1`: valor
+ * exato, até 3 dias, contraparte compatível, unicidade dos dois lados,
+ * espelho OF↔OF), junto com o que já aguarda. Sem par único a linha fica no
+ * saldo: tirar sem contrapartida some com dinheiro (a perna de R$ 500 de
+ * 06/04 no Nubank não tem linha no extrato). O R1 que roda em seguida
+ * absorve o que foi reclassificado aqui.
+ *
  * Só a partir de `desde`: antes dele o extrato não cobre o período, e essas
  * linhas continuam sendo a única representação do fato.
  *
  * Idempotente: só pega `aguarda_extrato = false`. Quem chama segura o lock da
  * conta (`conciliarConta`), e o `FOR UPDATE` trava as linhas entre ler o
- * estado antigo e gravar o novo — o estorno usa o `balance_applied` de ANTES.
- *
- * Ignorada sai do saldo mantendo `balance_applied = true` (ver
- * `toggleIgnoreTransaction`): muda de marca, mas não estorna de novo.
+ * estado antigo e gravar o novo — o estorno usa o `balance_applied` de ANTES,
+ * na mesma instrução que marca.
  */
 export async function reclassificarConta(
   db: Db,
@@ -30,7 +36,18 @@ export async function reclassificarConta(
   accountId: string,
   desde: string,
 ): Promise<{ reclassificadas: number; estornoCents: number }> {
+  const nada = { reclassificadas: 0, estornoCents: 0 }
+  const legado = await buscarProvisorias(db, orgId, accountId, { legadoDesde: desde })
+  if (legado.length === 0) return nada
+
+  const aguardando = await buscarProvisorias(db, orgId, accountId)
+  const { absorver } = await paresDoR1(db, orgId, accountId, [...aguardando, ...legado])
+  const doLegado = new Set(legado.map((l) => l.id))
+  const comProva = absorver.map((p) => p.aguardandoId).filter((id) => doLegado.has(id))
+  if (comProva.length === 0) return nada
+
   const origens = sql.join(ORIGENS_QUE_AGUARDAM_EXTRATO.map((o) => sql`${o}`), sql`, `)
+  const ids = sql.join(comProva.map((id) => sql`${id}`), sql`, `)
 
   const linhas = await db.execute<{ id: string; amount_cents: number; no_saldo: boolean }>(sql`
     with alvo as (
@@ -38,6 +55,7 @@ export async function reclassificarConta(
         from ${transactions}
        where ${transactions.orgId} = ${orgId}
          and ${transactions.accountId} = ${accountId}
+         and ${transactions.id} in (${ids})
          and ${transactions.aguardaExtrato} = false
          and ${transactions.origem} in (${origens})
          and ${transactions.date} >= ${desde}::date

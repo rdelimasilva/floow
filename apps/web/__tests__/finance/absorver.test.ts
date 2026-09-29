@@ -13,7 +13,9 @@ function chain(result: unknown[]): any {
 }
 const db: any = {
   update: () => ({ set: (p: Record<string, unknown>) => { sets.push(p); return chain(retornosDoUpdate.shift() ?? []) } }),
-  select: () => chain(retornosDoSelect.shift() ?? []),
+  // Devolve só as colunas pedidas, como o banco: o código tem de pedir o que usa.
+  select: (campos: Record<string, unknown>) =>
+    chain((retornosDoSelect.shift() ?? []).map((l) => Object.fromEntries(Object.keys(campos).map((k) => [k, (l as Record<string, unknown>)[k]])))),
 }
 
 const EXTRATO_PENDENTE = { reviewState: 'pending', categoryId: null, isAutoCategorized: false }
@@ -43,5 +45,13 @@ describe('absorverNoBanco', () => {
     retornosDoSelect = [[EXTRATO_PENDENTE]]
     await absorverNoBanco(db, 'org-1', { aguardandoId: 'm', extratoId: 'e' })
     expect(sets[1]).toEqual({ categoryId: 'cat-feira', description: 'Feira', reviewState: 'confirmed', isAutoCategorized: false })
+  })
+
+  it('espelho OF↔OF: extrato já em outro grupo só ganha o vínculo, tipo e categoria ficam', async () => {
+    retornosDoUpdate = [[{ id: 'perna-g1', origem: 'perna', categoryId: null, description: 'Transferência recebida', transferAccountId: null, transferGroupId: 'g1' }]]
+    retornosDoSelect = [[{ ...EXTRATO_PENDENTE, reviewState: 'confirmed', transferGroupId: 'g2' }], [{ accountId: 'itau' }]]
+    const ok = await absorverNoBanco(db, 'org-1', { aguardandoId: 'perna-g1', extratoId: 'ext-g2' })
+    expect(ok).toBe(true)
+    expect(sets).toEqual([{ matchedTransactionId: 'ext-g2' }])
   })
 })

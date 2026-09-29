@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import type { getDb } from '@floow/db'
 import { compararComOBanco } from '@/lib/finance/divergencia-com-o-banco'
+import { TIPO_DE_RECURSO_CONCILIAVEL } from './conta-conciliavel'
 
 type Db = ReturnType<typeof getDb>
 
@@ -9,8 +10,10 @@ type Db = ReturnType<typeof getDb>
  * lê: achado é bug no motor, e o conserto vai no motor, não em correção
  * silenciosa por aqui.
  *
- * "Conta OF viva" segue o mesmo critério de `isOpenFinanceLinkedAccount`:
- * recurso com conta vinculada e status AVAILABLE, sem filtrar resource_type.
+ * Pares e invariante só em conta conciliável, o mesmo critério de
+ * `contaConciliavel`: recurso vivo (AVAILABLE) do tipo ACCOUNT — o motor não
+ * roda em cartão (Ruling P12). A divergência de saldo vale para toda conta
+ * Open Finance viva com saldo do banco.
  *
  * Ver docs/superpowers/specs/2026-09-28-conciliacao-unica-design.md §3.5
  */
@@ -43,6 +46,7 @@ export async function auditarConciliacao(db: Db): Promise<AchadosDaAuditoria> {
                       (select min(x.date) from transactions x where x.account_id = r.account_id and x.origem = 'extrato')) as desde
         from openfinance_resources r
        where r.status = 'AVAILABLE' and r.account_id is not null
+         and r.resource_type = ${TIPO_DE_RECURSO_CONCILIAVEL}
     )
     select c.account_id, count(*)::int as pares
       from contas c
@@ -70,10 +74,13 @@ export async function auditarConciliacao(db: Db): Promise<AchadosDaAuditoria> {
 
   // 3. Invariante: aguarda_extrato => balance_applied = false.
   const invariante = await db.execute<{ account_id: string; linhas: number }>(sql`
-    select account_id, count(*)::int as linhas
-      from transactions
-     where aguarda_extrato and balance_applied
-     group by account_id
+    select t.account_id, count(*)::int as linhas
+      from transactions t
+     where t.aguarda_extrato and t.balance_applied
+       and exists (select 1 from openfinance_resources r
+                    where r.account_id = t.account_id and r.status = 'AVAILABLE'
+                      and r.resource_type = ${TIPO_DE_RECURSO_CONCILIAVEL})
+     group by t.account_id
   `)
 
   return {

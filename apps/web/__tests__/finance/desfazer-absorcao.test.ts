@@ -45,6 +45,13 @@ describe('devolucaoDoExtrato', () => {
     expect(devolucaoDoExtrato({ origem: 'recorrencia', aguardaExtrato: false, externalId: null, matchedTransactionId: 'ext' })).toBeNull()
   })
 
+  it('espelho OF↔OF: extrato de outro grupo não é devolvido (só o vínculo se desfaz)', () => {
+    const perna = { origem: 'perna' as const, aguardaExtrato: true, externalId: 'itau-1:transfer-dest', matchedTransactionId: 'ext', transferGroupId: 'g1' }
+    expect(devolucaoDoExtrato(perna, 'g2')).toBeNull()
+    expect(devolucaoDoExtrato(perna, 'g1')).toEqual(DEVOLUCAO_DA_PERNA)
+    expect(devolucaoDoExtrato(perna, null)).toEqual(DEVOLUCAO_DA_PERNA)
+  })
+
   it('sem vínculo: nada a devolver', () => {
     expect(devolucaoDoExtrato({ origem: 'perna', aguardaExtrato: true, externalId: 'x:transfer-dest', matchedTransactionId: null })).toBeNull()
   })
@@ -68,6 +75,16 @@ describe('desconciliarNoBanco — absorção', () => {
     expect(paramsDo(e[0])).toContain('perna-18')
     expect(e[2].set).toEqual(DEVOLUCAO_DA_PERNA)
     expect(paramsDo(e[2])).toContain('ext-18')
+  })
+
+  it('espelho: clicou no extrato de G2 que absorveu a perna de G1 — solta o vínculo, reabre a proposta, extrato segue transferência', async () => {
+    const { tx, ops } = fakeTx([
+      [{ ...linhaBase, id: 'ext-g2', externalId: 'pluggy-01', counterpartyId: 'cp', transferGroupId: 'g2', origem: 'extrato', aguardaExtrato: false }],
+      [{ id: 'perna-g1', origem: 'perna', aguardaExtrato: true, externalId: 'itau-01:transfer-dest', transferGroupId: 'g1' }],
+      [{ transferGroupId: 'g2' }],
+    ])
+    expect(await desconciliarNoBanco(tx, ORG, 'ext-g2')).toBe('previsoes')
+    expect(escritas(ops).map((o) => `${o.op}:${o.table}`)).toEqual(['update:transactions', 'insert:forecast_match_proposals'])
   })
 
   it('clicou no lançamento manual absorvido: o extrato volta a pendente mantendo a categoria', async () => {
@@ -110,6 +127,20 @@ describe('desfazerParDaRegra — perna absorvida por R1', () => {
     expect(ops.some((o) => o.table === 'accounts')).toBe(false)
     const devolucao = escritas(ops).find((o) => o.op === 'update' && paramsDo(o).includes('ext-18'))
     expect(devolucao?.set).toEqual(DEVOLUCAO_DA_PERNA)
+    expect(ops.some((o) => o.op === 'delete')).toBe(true)
+  })
+
+  it('espelho: a perna apagada tinha sido absorvida por extrato de outro grupo — ele não é devolvido', async () => {
+    const { tx, ops } = fakeTx([
+      [{
+        id: 'p1', accountId: 'nubank', amountCents: 20000, externalId: 'itau-1:transfer-dest', balanceApplied: false,
+        isIgnored: false, matchedTransactionId: 'ext-g2', origem: 'perna', aguardaExtrato: true,
+      }],
+      [{ transferGroupId: 'g2' }],
+    ])
+    const r = await desfazerParDaRegra(tx, ORG, base)
+    expect(r.realizadoDevolvidoId).toBeNull()
+    expect(escritas(ops).some((o) => o.op === 'update' && paramsDo(o).includes('ext-g2'))).toBe(false)
     expect(ops.some((o) => o.op === 'delete')).toBe(true)
   })
 

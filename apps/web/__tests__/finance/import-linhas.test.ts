@@ -45,7 +45,7 @@ describe('gravarLinhasDoArquivo', () => {
   // pedaço fica no saldo, porque nenhum extrato vai cobri-lo.
   it('conta OF: decide linha a linha pelo início do extrato', async () => {
     const ANTIGA = { ...LINHA, externalId: 'fitid-0', date: new Date('2026-08-20T00:00:00Z') }
-    await gravarLinhasDoArquivo(tx, { accountId: 'nubank', linhas: [ANTIGA, LINHA], extrato: { openFinance: true, desde: '2026-09-01' } })
+    await gravarLinhasDoArquivo(tx, { accountId: 'nubank', linhas: [ANTIGA, LINHA], extrato: { conciliavel: true, desde: '2026-09-01' } })
     expect(inseridas).toHaveLength(2)
     expect(inseridas[0]).toEqual([expect.objectContaining({ externalId: 'fitid-0', aguardaExtrato: false, balanceApplied: true })])
     expect(inseridas[1]).toEqual([expect.objectContaining({ externalId: 'fitid-1', aguardaExtrato: true, balanceApplied: false })])
@@ -53,7 +53,7 @@ describe('gravarLinhasDoArquivo', () => {
   })
 
   it('conta manual: tudo no saldo, num insert só', async () => {
-    await gravarLinhasDoArquivo(tx, { accountId: 'itau', linhas: [LINHA], extrato: { openFinance: false } })
+    await gravarLinhasDoArquivo(tx, { accountId: 'itau', linhas: [LINHA], extrato: { conciliavel: false } })
     expect(inseridas).toHaveLength(1)
     expect(inseridas[0][0]).toMatchObject({ aguardaExtrato: false, balanceApplied: true })
   })

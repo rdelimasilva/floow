@@ -31,6 +31,12 @@ export interface LinhaParaConciliar {
   /** AAAA-MM-DD. */
   dateISO: string
   counterpartyTaxId: string | null
+  /**
+   * Par cruzado OF↔OF (Ruling P12): a conta do outro lado. No extrato que já
+   * é ponta de um grupo, a conta da perna parceira; na perna que aguarda, a
+   * conta do extrato parceiro. Ver `espelhoCompativel`.
+   */
+  espelho?: string | null
 }
 
 export interface ParConciliado {
@@ -46,11 +52,24 @@ function distanciaEmDias(a: string, b: string): number {
   return Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / DIA_EM_MS
 }
 
+/**
+ * Extrato que já tem grupo só casa no espelho: Itaú (X) e Nubank (Y), cada
+ * extrato classificado como transferência para o outro. G1 = {extrato do
+ * Itaú, perna no Nubank}; G2 = {extrato do Nubank, perna no Itaú}. O extrato
+ * do Nubank (G2) absorve a perna de G1 porque os dois apontam para o Itaú.
+ * Fora disso o extrato com grupo não é candidato (Ruling P11).
+ */
+function espelhoCompativel(aguardando: LinhaParaConciliar, extrato: LinhaParaConciliar): boolean {
+  if (!extrato.espelho) return true
+  return aguardando.espelho === extrato.espelho
+}
+
 function compativeis(aguardando: LinhaParaConciliar, extrato: LinhaParaConciliar): boolean {
   return (
     aguardando.amountCents === extrato.amountCents &&
     distanciaEmDias(aguardando.dateISO, extrato.dateISO) <= JANELA_DE_ABSORCAO_DIAS &&
-    contrapartesCompativeis(aguardando, extrato)
+    contrapartesCompativeis(aguardando, extrato) &&
+    espelhoCompativel(aguardando, extrato)
   )
 }
 
@@ -114,12 +133,25 @@ export interface ProvisoriaParaEfeito {
   origem: OrigemDaTransacao
   categoryId: string | null
   description: string
+  transferGroupId?: string | null
 }
 
 export interface ExtratoParaEfeito {
   reviewState: 'confirmed' | 'pending'
   categoryId: string | null
   isAutoCategorized: boolean
+  transferGroupId?: string | null
+}
+
+/**
+ * O extrato já é a ponta confirmada de OUTRO par de transferência (espelho
+ * OF↔OF): absorver ou desfazer só mexe no vínculo, nunca no tipo dele.
+ */
+export function extratoDeOutroGrupo(
+  extratoGrupo: string | null | undefined,
+  provisoriaGrupo: string | null | undefined,
+): boolean {
+  return Boolean(extratoGrupo) && extratoGrupo !== (provisoriaGrupo ?? null)
 }
 
 export type EfeitoDaAbsorcao =
@@ -138,12 +170,15 @@ export type EfeitoDaAbsorcao =
  * Manual ou arquivo: o extrato herda o que o usuário decidiu, só se ainda não
  * foi classificado à mão. Categoria automática (regra, Polp, contraparte) é
  * palpite da máquina e perde para a escolha do usuário.
+ *
+ * Espelho (extrato já em outro grupo): nada — ele já é a ponta de lá.
  */
 export function efeitoDaAbsorcao(
   provisoria: ProvisoriaParaEfeito,
   extrato: ExtratoParaEfeito,
   outraConta: string | null,
 ): EfeitoDaAbsorcao | null {
+  if (extratoDeOutroGrupo(extrato.transferGroupId, provisoria.transferGroupId)) return null
   if (provisoria.origem === 'perna') {
     return outraConta ? { type: 'transfer', categoryId: null, reviewState: 'confirmed', transferAccountId: outraConta } : null
   }

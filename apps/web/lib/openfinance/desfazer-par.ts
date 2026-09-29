@@ -142,7 +142,9 @@ export async function desfazerParDaRegra(
     // `:transfer-par` ou `:transfer-dest` aguardando: o extrato virou
     // transferência para cá. Sem a perna, esse par não existe mais: ele
     // volta para Classificar como receita ou despesa, pelo sinal.
-    const devolvido = await devolverExtratoAbsorvido(tx, orgId, p)
+    // As pernas são do grupo de `l`: é o grupo delas, para o espelho OF↔OF
+    // (extrato de outro grupo) ser reconhecido e ficar como está.
+    const devolvido = await devolverExtratoAbsorvido(tx, orgId, { ...p, transferGroupId: l.transferGroupId })
     if (devolvido) realizadoDevolvidoId = devolvido
   }
 

@@ -9,6 +9,14 @@
  * as duas pernas passam a aguardar, estornam R$ 323,00 e são absorvidas pelas
  * linhas do extrato — um lançamento por fato.
  *
+ * As linhas do extrato do Nubank já são transferência, cada uma em grupo com
+ * uma `:transfer-par` no Itaú: é o espelho OF↔OF (Ruling P12). Absorver só
+ * grava o vínculo; o extrato não muda. Do lado do Itaú, a `:transfer-par` de
+ * 01/09 é absorvida pelo extrato do Itaú depois que a perna do Nubank passa
+ * a aguardar. A de 18/09 já estava vinculada (aprovada antes contra outra
+ * linha do Itaú) e fica como está. Legado sem par (a perna de R$ 500 de
+ * 06/04) não sai do saldo, e conta de cartão não passa pelo motor.
+ *
  * Também roda o auditor (antes e depois do motor) e um caso ambíguo montado
  * dentro da transação, contra os índices únicos de verdade.
  *
@@ -35,6 +43,14 @@ const PERNAS = {
   '01a067d3-1110-70f2-af23-d36cba102883:transfer-dest': { valor: 12300, dia: '2026-09-01' },
 } as const
 const EXTRATO = new Set(['cf0b94b4-30a7-432b-b0e9-6badbee3b6df', '711b4a08-90ce-4a99-980d-9f95a0e33ec4'])
+const ITAU = '3ac85523-08e1-4623-bbff-5baadb44fd37'
+/** Espelho no Itaú: `:transfer-par` de 01/09 → extrato do Itaú de 01/09 (grupo com a perna do Nubank). */
+const ESPELHO_ITAU = { perna: '403e50f1-5f9c-452c-8aa0-edadf86abed9', extrato: '1d34876a-dae6-4a2b-a685-257a015a09b1' }
+/** `:transfer-par` de 18/09 no Itaú, já vinculada antes deste motor. */
+const PAR_JA_VINCULADO = { perna: '120dbaf5-419c-472a-adcf-2231f1fc5e9c', extrato: 'badefa94-3538-4588-a538-b94e6da36441' }
+/** Perna de R$ 500 de 06/04 no Nubank: sem linha no extrato, não pode sair do saldo. */
+const PERNA_SEM_PAR = '58c23c7e-4447-4a58-97d5-dc5f36c9ff34'
+const CARTOES = ['4caecce6-74cb-4ffb-8cbf-e50386e9692a', 'ad6ba717-0cde-4056-aeae-3ec74eea4ccc']
 
 const url = databaseUrl()
 const db = createDb(url)
@@ -112,6 +128,9 @@ try {
     console.log('\n1. Caso de 28/09')
     const auditAntes = await auditoria(tx, 'antes do motor')
     const antes = await saldo(tx)
+    const colunasDoExtrato = { id: transactions.id, type: transactions.type, categoryId: transactions.categoryId, transferAccountId: transactions.transferAccountId, grupo: transactions.transferGroupId, reviewState: transactions.reviewState }
+    const extratoIds = sql`${transactions.id} in (${sql.join([...EXTRATO].map((i) => sql`${i}`), sql`, `)})`
+    const extAntes = await tx.select(colunasDoExtrato).from(transactions).where(extratoIds)
     const r = await conciliarConta(tx, ORG, NUBANK)
     const depois = await saldo(tx)
     const auditDepois = await auditoria(tx, 'depois do motor')
@@ -132,12 +151,11 @@ try {
     checar('estorno de R$ 323,00', antes.local - depois.local === 32300, `${brl(antes.local)} -> ${brl(depois.local)}`)
     checar('resumo do motor: 2 absorções', r.absorvidas.filter((a) => EXTRATO.has(a.extratoId)).length === 2, JSON.stringify(r.absorvidas))
 
-    const ext = await tx
-      .select({ id: transactions.id, type: transactions.type, categoryId: transactions.categoryId, transferAccountId: transactions.transferAccountId, grupo: transactions.transferGroupId })
-      .from(transactions)
-      .where(sql`${transactions.id} in (${sql.join([...EXTRATO].map((i) => sql`${i}`), sql`, `)})`)
+    const ext = await tx.select(colunasDoExtrato).from(transactions).where(extratoIds)
     for (const e of ext) {
-      checar(`extrato ${e.id} virou transferência sem categoria, com a conta de origem`, e.type === 'transfer' && e.categoryId === null && e.transferAccountId !== null)
+      const antesDele = extAntes.find((x) => x.id === e.id)
+      // Espelho: o extrato já era a ponta confirmada do grupo dele com o Itaú.
+      checar(`extrato ${e.id} (espelho) não mudou: tipo, categoria, conta e grupo`, JSON.stringify(e) === JSON.stringify(antesDele))
       // `deleteTransaction`/`desfazerParDaRegra` tratam o grupo inteiro: o
       // extrato no grupo da perna teria o saldo estornado junto com ela.
       checar(`extrato ${e.id} não entrou no grupo da perna`, !pernas.some((p) => p.grupo !== null && p.grupo === e.grupo))
@@ -151,7 +169,39 @@ try {
            and abs(date - ${dia}::date) <= 3`)
       checar(`um lançamento no saldo para ${chave.slice(0, 8)} (${brl(valor)} em ${dia})`, Number(n) === 1, `${n}`)
     }
-    checar('saldo igual ao do banco', depois.banco !== null && depois.local === depois.banco, `local ${brl(depois.local)} × banco ${depois.banco === null ? '—' : brl(depois.banco)}`)
+
+    const [semPar] = await tx.select({ aguarda: transactions.aguardaExtrato, aplicada: transactions.balanceApplied }).from(transactions).where(eq(transactions.id, PERNA_SEM_PAR))
+    checar('perna de R$ 500 (06/04) sem par no extrato: continua no saldo', semPar !== undefined && !semPar.aguarda && semPar.aplicada)
+
+    // Informativo: a diferença com o banco tem outra origem (Task 14); o motor
+    // só a move pelo estorno.
+    console.log(`  saldo × banco: antes ${brl(antes.local)} × ${antes.banco === null ? '—' : brl(antes.banco)}; depois ${brl(depois.local)} × ${depois.banco === null ? '—' : brl(depois.banco)}`)
+
+    console.log('\n1b. Espelho do lado do Itaú')
+    const saldoDe = async (conta: string) => {
+      const [l] = await tx.execute<{ s: number }>(sql`select balance_cents::bigint::float8 as s from accounts where id = ${conta}`)
+      return Number(l.s)
+    }
+    const vinculoDe = async (id: string) => (await tx.select({ v: transactions.matchedTransactionId }).from(transactions).where(eq(transactions.id, id)))[0]?.v ?? null
+    const itauAntes = await saldoDe(ITAU)
+    const [extItauAntes] = await tx.select(colunasDoExtrato).from(transactions).where(eq(transactions.id, ESPELHO_ITAU.extrato))
+    const rItau = await conciliarConta(tx, ORG, ITAU)
+    console.log(`  resumo do motor (Itaú): reclassificadas=${rItau.reclassificadas} estorno=${brl(rItau.estornoCents)} absorvidas=${rItau.absorvidas.length} propostas=${rItau.propostasDeConciliacao} duplicatas=${rItau.propostasDeDuplicata}`)
+    checar(':transfer-par de 01/09 absorvida pelo extrato do Itaú (espelho)', (await vinculoDe(ESPELHO_ITAU.perna)) === ESPELHO_ITAU.extrato)
+    const [extItau] = await tx.select(colunasDoExtrato).from(transactions).where(eq(transactions.id, ESPELHO_ITAU.extrato))
+    checar('extrato do Itaú (espelho) não mudou', JSON.stringify(extItau) === JSON.stringify(extItauAntes))
+    checar(':transfer-par de 18/09 segue com o vínculo que já tinha', (await vinculoDe(PAR_JA_VINCULADO.perna)) === PAR_JA_VINCULADO.extrato)
+    checar('saldo do Itaú não mudou (a perna nunca esteve nele)', (await saldoDe(ITAU)) === itauAntes)
+
+    console.log('\n1c. Cartão Open Finance não passa pela reclassificação nem por R1')
+    for (const cartao of CARTOES) {
+      const [{ org }] = await tx.execute<{ org: string }>(sql`select org_id as org from accounts where id = ${cartao}`)
+      const s0 = await saldoDe(cartao)
+      const rc = await conciliarConta(tx, org, cartao)
+      const s1 = await saldoDe(cartao)
+      checar(`cartão ${cartao.slice(0, 8)}: nada reclassificado nem absorvido, saldo igual`, rc.reclassificadas === 0 && rc.absorvidas.length === 0 && s0 === s1, `propostas=${rc.propostasDeConciliacao} duplicatas=${rc.propostasDeDuplicata}`)
+      checar(`cartão ${cartao.slice(0, 8)}: manual nasce no saldo`, !(await aguardaExtratoNaConta(tx, org, cartao, 'manual', '2026-09-20')))
+    }
 
     console.log('\n2. Idempotência: rodar de novo não muda nada')
     const r2 = await conciliarConta(tx, ORG, NUBANK)
@@ -159,10 +209,10 @@ try {
     checar('nada reclassificado nem absorvido', r2.reclassificadas === 0 && r2.absorvidas.length === 0, JSON.stringify(r2))
     checar('saldo igual', depois2.local === depois.local)
 
-    console.log('\n3. Manual em conta Open Finance: extrato chega, uma linha, com a categoria do usuário')
+    console.log('\n3. Manual em conta conciliável: extrato chega, uma linha, com a categoria do usuário')
     const [cat] = await tx.execute<{ id: string }>(sql`select id from categories where org_id = ${ORG} or org_id is null limit 1`)
     const aguarda = await aguardaExtratoNaConta(tx, ORG, NUBANK, 'manual', '2026-09-20')
-    checar('conta Nubank é Open Finance viva: manual aguarda', aguarda)
+    checar('conta Nubank é conciliável: manual aguarda', aguarda)
     const [manual] = await tx.insert(transactions).values({
       orgId: ORG, accountId: NUBANK, type: 'expense', amountCents: -4321, description: 'repro manual',
       date: new Date('2026-09-20T12:00:00Z'), categoryId: cat.id, origem: 'manual', aguardaExtrato: aguarda, balanceApplied: !aguarda,

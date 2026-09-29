@@ -34,7 +34,7 @@ export async function desconciliarNoBanco(tx: Db, orgId: string, transactionId: 
 
   // A previsão que este realizado cumpre, se houver.
   const [previsaoCumprida] = linha.matchedTransactionId ? [] : await tx
-    .select({ id: transactions.id, origem: transactions.origem, aguardaExtrato: transactions.aguardaExtrato, externalId: transactions.externalId })
+    .select({ id: transactions.id, origem: transactions.origem, aguardaExtrato: transactions.aguardaExtrato, externalId: transactions.externalId, transferGroupId: transactions.transferGroupId })
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), eq(transactions.matchedTransactionId, linha.id))).limit(1)
 

@@ -1,45 +1,40 @@
-import { and, eq } from 'drizzle-orm'
 import { openfinanceResources, type getDb, type OrigemDaTransacao } from '@floow/db'
 import { deveAguardarExtrato } from '@floow/core-finance'
-import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
+import { condicaoDeRecursoConciliavel, contaConciliavel } from './conta-conciliavel'
 import { inicioDoExtrato } from './reclassificar-conta'
 
 type Db = ReturnType<typeof getDb>
 
 /**
- * O corte de sincronização (`sync_from_date`) do recurso vivo da conta. Quem
- * decide se a conta é Open Finance viva é `isOpenFinanceLinkedAccount` — esta
+ * O corte de sincronização (`sync_from_date`) do recurso conciliável da
+ * conta. Quem decide se a conta é conciliável é `contaConciliavel` — esta
  * consulta só busca a data, com o mesmo filtro.
  */
 export async function corteDeSincronizacao(db: Db, orgId: string, accountId: string): Promise<string | null> {
   const [recurso] = await db
     .select({ syncFromDate: openfinanceResources.syncFromDate })
     .from(openfinanceResources)
-    .where(
-      and(
-        eq(openfinanceResources.orgId, orgId),
-        eq(openfinanceResources.accountId, accountId),
-        eq(openfinanceResources.status, 'AVAILABLE'),
-      ),
-    )
+    .where(condicaoDeRecursoConciliavel(orgId, accountId))
     .limit(1)
   return recurso?.syncFromDate ?? null
 }
 
 /**
- * O que a conta diz sobre "aguardar o extrato": se é Open Finance viva e desde
- * quando o extrato a cobre (AAAA-MM-DD). `desde: null` numa conta viva = ainda
- * sem extrato nenhum; o primeiro que chegar cobre o que nascer agora.
+ * O que a conta diz sobre "aguardar o extrato": se é conciliável (conta
+ * corrente/poupança com Open Finance vivo, `contaConciliavel`) e desde quando
+ * o extrato a cobre (AAAA-MM-DD). `desde: null` numa conta conciliável =
+ * ainda sem extrato nenhum; o primeiro que chegar cobre o que nascer agora.
+ * Cartão Open Finance não é conciliável: a linha nasce no saldo, como antes.
  */
-export type ExtratoDaConta = { openFinance: false } | { openFinance: true; desde: string | null }
+export type ExtratoDaConta = { conciliavel: false } | { conciliavel: true; desde: string | null }
 
 export async function extratoDaConta(db: Db, orgId: string, accountId: string): Promise<ExtratoDaConta> {
-  if (!(await isOpenFinanceLinkedAccount(db, orgId, accountId))) return { openFinance: false }
+  if (!(await contaConciliavel(db, orgId, accountId))) return { conciliavel: false }
   const syncFromDate = await corteDeSincronizacao(db, orgId, accountId)
   // Mesmo corte que `reclassificarConta` usa: o que ela nunca toca, aqui
   // também não aguarda.
   const desde = await inicioDoExtrato(db, orgId, accountId, syncFromDate)
-  return { openFinance: true, desde: desde ? desde.slice(0, 10) : null }
+  return { conciliavel: true, desde: desde ? desde.slice(0, 10) : null }
 }
 
 /**
@@ -51,7 +46,7 @@ export async function extratoDaConta(db: Db, orgId: string, accountId: string): 
  * saldo, como numa conta manual.
  */
 export function aguardaNaData(extrato: ExtratoDaConta, origem: OrigemDaTransacao, dataISO: string): boolean {
-  if (!extrato.openFinance || !deveAguardarExtrato(origem, true)) return false
+  if (!extrato.conciliavel || !deveAguardarExtrato(origem, true)) return false
   return extrato.desde === null || dataISO >= extrato.desde
 }
 
@@ -62,7 +57,7 @@ export function diaDaLinha(data: Date): string {
 
 /**
  * A linha que está para nascer nesta conta, nesta data, aguarda o extrato? Só
- * em conta Open Finance viva, só para as origens que o extrato cobre (manual,
+ * em conta conciliável, só para as origens que o extrato cobre (manual,
  * arquivo, perna) e só a partir do início do extrato. Quem grava usa a
  * resposta para `aguarda_extrato` e, invertida, para `balance_applied`.
  */

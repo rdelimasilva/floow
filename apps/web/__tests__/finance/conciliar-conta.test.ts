@@ -17,6 +17,11 @@ vi.mock('@/lib/finance/duplicata-db', () => ({
 vi.mock('@/lib/finance/forecast-match-db', () => ({
   criarPropostasDeConciliacao: vi.fn(async () => { ordem.push('r3'); return 4 }),
 }))
+let conciliavel = true
+vi.mock('@/lib/finance/conciliacao/conta-conciliavel', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  contaConciliavel: vi.fn(async () => conciliavel),
+}))
 
 let recurso: unknown[] = [{ syncFromDate: '2026-01-01' }]
 const locks: unknown[][] = []
@@ -34,8 +39,12 @@ const db: any = {
 
 const { conciliarConta, conciliarContas } = await import('@/lib/finance/conciliacao/conciliar-conta')
 const { aplicarR1 } = await import('@/lib/finance/conciliacao/r1-db')
+const { criarPropostasDeConciliacao } = await import('@/lib/finance/forecast-match-db')
 
-beforeEach(() => { ordem.length = 0; locks.length = 0; recurso = [{ syncFromDate: '2026-01-01' }] })
+beforeEach(() => {
+  ordem.length = 0; locks.length = 0; recurso = [{ syncFromDate: '2026-01-01' }]; conciliavel = true
+  vi.mocked(criarPropostasDeConciliacao).mockClear()
+})
 
 describe('conciliarConta', () => {
   it('trava a conta e roda reclassificar → R1 → R2 → R3, nessa ordem', async () => {
@@ -53,6 +62,19 @@ describe('conciliarConta', () => {
       propostasDeConciliacao: 5,
       propostasDeDuplicata: 3,
     })
+  })
+
+  it('conta conciliável: R3 fica só com recorrência (:transfer-par é de R1)', async () => {
+    await conciliarConta(db, 'org-1', 'nubank')
+    expect(criarPropostasDeConciliacao).toHaveBeenCalledWith(db, 'org-1', 'nubank', { incluirPernaPrevista: false })
+  })
+
+  it('cartão Open Finance (não conciliável): pula reclassificação e R1; R2 e R3 rodam, com :transfer-par em R3', async () => {
+    conciliavel = false
+    const r = await conciliarConta(db, 'org-1', 'cartao')
+    expect(ordem).toEqual(['lock', 'r2', 'r3'])
+    expect(criarPropostasDeConciliacao).toHaveBeenCalledWith(db, 'org-1', 'cartao', { incluirPernaPrevista: true })
+    expect(r).toEqual({ reclassificadas: 0, estornoCents: 0, absorvidas: [], propostasDeConciliacao: 4, propostasDeDuplicata: 3 })
   })
 
   it('conta sem Open Finance vivo: não faz nada', async () => {

@@ -1,8 +1,8 @@
-import { and, eq, gte, isNotNull, isNull, lte, notExists, sql } from 'drizzle-orm'
+import { and, eq, gte, isNotNull, isNull, lte, notExists, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { matchForecast, type ForecastCandidate } from '@floow/core-finance'
-import { condicaoNaoEPernaPrevista, SUFIXO_PERNA_PREVISTA } from '@/lib/openfinance/perna-prevista'
+import { condicaoDePernaPrevista, condicaoNaoEPernaPrevista, SUFIXO_PERNA_PREVISTA } from '@/lib/openfinance/perna-prevista'
 
 type Db = ReturnType<typeof getDb>
 
@@ -134,12 +134,15 @@ export function condicaoDeRealizadoSemVinculo() {
  * proposta aberta. Sem ele, a segunda rodada de sync estouraria.
  *
  * O filtro de previsão aberta é o mesmo de antes — `balance_applied = false`,
- * sem vínculo, de template, não ignorada.
+ * sem vínculo, de template, não ignorada. Com `incluirPernaPrevista` (conta
+ * OF que não é conciliável, como cartão — Ruling P12), a perna prevista de
+ * transferência (`:transfer-par`) também entra, como era antes do R1.
  */
 export async function criarPropostasDeConciliacao(
   db: Db,
   orgId: string,
   accountId: string,
+  opcoes: { incluirPernaPrevista?: boolean } = {},
 ): Promise<number> {
   const previstos = await db
     .select({
@@ -153,10 +156,13 @@ export async function criarPropostasDeConciliacao(
       and(
         eq(transactions.orgId, orgId),
         eq(transactions.accountId, accountId),
-        // Só previsão de template (recorrência). A perna de transferência para
-        // conta Open Finance aguarda o extrato e é resolvida por R1
-        // (`conciliacao/r1-db.ts`), que absorve sem pedir aprovação.
-        isNotNull(transactions.recurringTemplateId),
+        // Previsão de template (recorrência). Em conta conciliável a perna de
+        // transferência aguarda o extrato e é resolvida por R1
+        // (`conciliacao/r1-db.ts`), que absorve sem pedir aprovação; no
+        // cartão OF, R1 não roda e ela é proposta aqui.
+        opcoes.incluirPernaPrevista
+          ? or(isNotNull(transactions.recurringTemplateId), condicaoDePernaPrevista())
+          : isNotNull(transactions.recurringTemplateId),
         eq(transactions.balanceApplied, false),
         isNull(transactions.matchedTransactionId),
         eq(transactions.isIgnored, false),

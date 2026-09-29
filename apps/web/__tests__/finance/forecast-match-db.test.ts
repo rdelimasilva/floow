@@ -225,7 +225,15 @@ describe('criarPropostasDeConciliacao', () => {
     }
   })
 
-  it('perna de transferência não é mais previsão de R3: quem a resolve é R1', async () => {
+  it('cartão Open Finance (sem R1): a perna prevista volta a ser previsão de R3', async () => {
+    selectQueue.push([])
+    await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA, { incluirPernaPrevista: true })
+    const q = dialect.sqlToQuery(wheres[0])
+    expect(q.sql).toContain('("transactions"."recurring_template_id" is not null or "transactions"."external_id" like $')
+    expect(q.params).toContain('%:transfer-par')
+  })
+
+  it('perna de transferência em conta conciliável não é previsão de R3: quem a resolve é R1', async () => {
     selectQueue.push([])
     await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)
     const q = dialect.sqlToQuery(wheres[0])
