@@ -3,7 +3,7 @@
 /**
  * Aplica a conciliação única ao que já existe (spec de 28/09 §3.6):
  *  0. imprime a contagem por origem (conferência do backfill da 00070);
- *  1. apaga as propostas PENDENTES de perna prevista (`:transfer-par`) — R1
+ *  1. apaga, por conta viva, as propostas PENDENTES de perna prevista (`:transfer-par`) — R1
  *     decide de novo, absorvendo ou recriando a proposta se ambíguo. Sem
  *     isto a perna com proposta aberta nunca seria absorvida;
  *  2. roda `conciliarConta` em toda conta Open Finance viva (reclassifica e
@@ -35,16 +35,6 @@ try {
     console.log('Linhas por origem:')
     for (const o of porOrigem) console.log(`  ${String(o.origem).padEnd(18)} ${String(o.n).padStart(7)}`)
 
-    const apagadas = await tx.execute<{ id: string }>(sql`
-      delete from forecast_match_proposals fmp
-       using transactions prev
-       where prev.id = fmp.forecast_transaction_id
-         and fmp.status = 'pending'
-         and prev.external_id like '%:transfer-par'
-      returning fmp.id
-    `)
-    console.log(`\nPropostas pendentes de perna prevista apagadas (R1 decide de novo): ${apagadas.length}\n`)
-
     // Mesmo critério de `isOpenFinanceLinkedAccount`: recurso AVAILABLE ligado
     // à conta, sem filtrar tipo. Uma linha por conta, mesmo com vários recursos.
     const contas = await tx.execute<{ org_id: string; account_id: string; nome: string }>(sql`
@@ -61,14 +51,28 @@ try {
     }
 
     let totalAbsorvidas = 0
+    let totalApagadas = 0
     for (const c of contas) {
+      // Só as propostas da conta que o motor vai conciliar: em conta manual ou
+      // OF sem recurso vivo o motor não faz nada, e a proposta apagada se perderia.
+      const apagadas = await tx.execute<{ id: string }>(sql`
+        delete from forecast_match_proposals fmp
+         using transactions prev
+         where prev.id = fmp.forecast_transaction_id
+           and prev.org_id = ${c.org_id}
+           and prev.account_id = ${c.account_id}
+           and fmp.status = 'pending'
+           and prev.external_id like '%:transfer-par'
+        returning fmp.id
+      `)
+      totalApagadas += apagadas.length
       const antes = await saldoDa(c.account_id)
       const r = await conciliarConta(tx, c.org_id, c.account_id)
       const depois = await saldoDa(c.account_id)
       totalAbsorvidas += r.absorvidas.length
       console.log(
         `${sigla(c.nome).padEnd(8)} ${c.account_id}  reclassificadas=${r.reclassificadas}  estorno=${brl(r.estornoCents)}  ` +
-          `absorvidas=${r.absorvidas.length}  propostas=${r.propostasDeConciliacao}  duplicatas=${r.propostasDeDuplicata}  ` +
+          `apagadas=${apagadas.length}  absorvidas=${r.absorvidas.length}  propostas=${r.propostasDeConciliacao}  duplicatas=${r.propostasDeDuplicata}  ` +
           `saldo ${brl(antes)} -> ${brl(depois)} (${brl(depois - antes)})`,
       )
       if (r.absorvidas.length === 0) continue
@@ -90,7 +94,7 @@ try {
       }
     }
 
-    console.log(`\nContas conciliadas: ${contas.length}. Total de pares absorvidos: ${totalAbsorvidas}`)
+    console.log(`\nContas conciliadas: ${contas.length}. Propostas de perna prevista apagadas (R1 decide de novo): ${totalApagadas}. Total de pares absorvidos: ${totalAbsorvidas}`)
     if (!aplicar) throw new Rollback()
   })
   console.log('\nGravado.')
