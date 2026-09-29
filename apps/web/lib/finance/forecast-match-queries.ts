@@ -122,12 +122,12 @@ export async function getPropostasPendentes(orgId: string): Promise<PropostaPend
 }
 
 /**
- * Quantas propostas esperam decisão — alimenta o badge do menu.
+ * Quantas propostas esperam decisão; entra no total de
+ * `contarItensParaConciliar`.
  *
- * Recebe o `userId` em vez de resolvê-lo da requisição: quem chama esta
- * função é `contagemDeConciliacoesPendentes`, de dentro do callback de um
- * `unstable_cache` — e esse callback não pode ler cookies. `withUserDbFor`
- * existe exatamente para isso; ver o docblock dele em `lib/db/rls.ts`.
+ * Recebe o `userId` em vez de resolvê-lo da requisição, com `withUserDbFor`:
+ * a contagem roda em paralelo com as das outras filas e não depende de
+ * cookies (ver o docblock de `withUserDbFor` em `lib/db/rls.ts`).
  */
 export async function contarPropostasPendentes(orgId: string, userId: string): Promise<number> {
   return withUserDbFor(userId, async (db) => {
