@@ -15,4 +15,12 @@ describe('rotas agendadas no apps/web/vercel.json', () => {
     const source = readFileSync(resolve(repoRoot, 'apps/web/app', `.${path}`, 'route.ts'), 'utf8')
     expect(source).toMatch(/export\s+(async\s+function\s+GET\b|\{[^}]*\bas\s+GET\b[^}]*\})/)
   })
+
+  // Rota fora da allowlist do middleware é redirecionada para /auth: o cron
+  // "roda" todo dia, recebe o HTML do login e não executa nada, sem erro.
+  it.each(vercel.crons.map((c) => c.path))('%s passa pelo middleware sem sessão', (path) => {
+    const middleware = readFileSync(resolve(repoRoot, 'apps/web/middleware.ts'), 'utf8')
+    const prefixos = [...(middleware.match(/PUBLIC_ROUTE_PREFIXES = \[([\s\S]*?)\]/)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+    expect(prefixos.some((p) => path.startsWith(p))).toBe(true)
+  })
 })
