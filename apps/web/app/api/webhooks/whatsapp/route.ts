@@ -6,9 +6,13 @@
  * corpo cru. Responde 200 rápido a todo POST válido — a Meta reenvia o que não
  * recebe 200, e um erro nosso viraria mensagem duplicada.
  */
+import { after } from 'next/server'
 import { parseWebhook, safeEqual, verifyMetaSignature, maskPhone } from '@/lib/notifications/whatsapp-webhook'
 import { handleInboundText } from '@/lib/notifications/whatsapp-inbound'
 import { defaultInboundDeps } from '@/lib/notifications/whatsapp-inbound-deps'
+
+// O consultor pode levar até ~45 s; a Meta já recebeu o 200.
+export const maxDuration = 60
 
 export async function GET(request: Request) {
   const p = new URL(request.url).searchParams
@@ -39,14 +43,17 @@ export async function POST(request: Request) {
   }
 
   if (texts.length > 0) {
-    const deps = defaultInboundDeps()
-    for (const t of texts) {
-      try {
-        await handleInboundText(t, deps)
-      } catch (err) {
-        console.error(`[whatsapp] erro ao tratar mensagem de ${maskPhone(t.from)}:`, err)
+    // 200 na hora: a Meta reenvia o que demora. O consultor roda depois.
+    after(async () => {
+      const deps = defaultInboundDeps()
+      for (const t of texts) {
+        try {
+          await handleInboundText(t, deps)
+        } catch (err) {
+          console.error(`[whatsapp] erro ao tratar mensagem de ${maskPhone(t.from)}:`, err)
+        }
       }
-    }
+    })
   }
 
   return new Response('ok', { status: 200 })

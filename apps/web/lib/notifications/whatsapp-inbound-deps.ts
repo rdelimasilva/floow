@@ -6,6 +6,8 @@ import { getServiceDb, profiles } from '@floow/db'
 import { and, desc, inArray, isNotNull, sql } from 'drizzle-orm'
 import { withUserDbFor } from '@/lib/db/rls'
 import { getAppUrl } from '@/lib/app-url'
+import { atenderNoWhatsApp } from '@/lib/consultor/whatsapp/atender'
+import { depsReaisDoWhatsApp } from '@/lib/consultor/whatsapp/deps'
 import { listUserOrgIds, upsertFrequency } from './preferences-store'
 import { sendWhatsAppText } from './send-whatsapp'
 import { completeLink } from './whatsapp-verification'
@@ -35,6 +37,9 @@ export function defaultInboundDeps(): InboundDeps {
       })
     },
     reply: (to, body) => sendWhatsAppText(to, body),
+    async consultar(userId, msg) {
+      await atenderNoWhatsApp({ userId, waId: msg.from, texto: msg.text, wamid: msg.id }, depsReaisDoWhatsApp())
+    },
     appUrl: getAppUrl(),
   }
 }

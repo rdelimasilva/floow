@@ -2,10 +2,8 @@
  * O que fazer com uma mensagem de texto recebida no WhatsApp do floow.
  *
  * Primeiro a mensagem de vínculo ("floow XXXX-XXXX"), que vem de quem ainda
- * não está ligado. Depois, só para números verificados, o SAIR e um aviso.
- *
- * FASE 2: o agente conversacional entra aqui, no lugar da resposta padrão.
- * Ele recebe o userId já identificado pelo número verificado.
+ * não está ligado. Depois, só para números verificados, o SAIR e, para
+ * qualquer outra mensagem, o consultor (lib/consultor/whatsapp).
  */
 import { phoneCandidatesFromWaId } from './phone'
 import { isStopWord, maskPhone, type InboundText } from './whatsapp-webhook'
@@ -21,12 +19,14 @@ export interface InboundDeps {
   turnOffWhatsApp(userId: string): Promise<void>
   /** Texto livre — permitido porque o usuário acabou de escrever (janela de 24h). */
   reply(to: string, body: string): Promise<SendResult>
+  /** Mensagem comum de número verificado → consultor (lib/consultor/whatsapp). */
+  consultar(userId: string, msg: InboundText): Promise<void>
   appUrl: string
 }
 
 export type InboundOutcome =
   | 'linked' | 'link_invalid' | 'link_already_linked' | 'link_in_use' | 'link_rate_limited'
-  | 'unknown_sender' | 'stopped' | 'default_reply'
+  | 'unknown_sender' | 'stopped' | 'consultor'
 
 const LINK_OUTCOME: Record<CompleteLinkResult, InboundOutcome> = {
   linked: 'linked',
@@ -78,6 +78,6 @@ export async function handleInboundText(msg: InboundText, deps: InboundDeps): Pr
     return 'stopped'
   }
 
-  await reply(deps, msg.from, `Por enquanto eu só mando o ritmo de gastos. Ajuste em Configurações: ${settingsUrl}`)
-  return 'default_reply'
+  await deps.consultar(user.userId, msg)
+  return 'consultor'
 }
