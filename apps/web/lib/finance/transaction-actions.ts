@@ -230,7 +230,21 @@ export async function updateTransaction(formData: FormData) {
       // Segunda perna: valor invertido na conta de destino, mesmo grupo.
       // `balanceApplied` acompanha a origem para uma origem futura não
       // creditar o destino antes da hora — mesmo racional de
-      // `buildTransferLegRow` no caminho do Open Finance.
+      // `buildTransferLegRow` no caminho do Open Finance. Exceção: origem que
+      // aguardava o extrato. O que ela tem de "fora do saldo" não vale para a
+      // perna (sem `external_id` e sem marca, ninguém a creditaria): quem
+      // decide é a conta de destino — Open Finance aguarda o extrato dela,
+      // manual entra no saldo.
+      const destinoAguarda = oldTx.aguardaExtrato
+        ? await isOpenFinanceLinkedAccount(tx as unknown as Db, orgId, input.destAccountId!)
+        : false
+      const destinoAplicado = oldTx.aguardaExtrato
+        ? deveAplicarSaldoNaEdicao(
+            { recurringTemplateId: null, balanceApplied: false, aguardaExtrato: destinoAguarda },
+            input.date.toISOString().slice(0, 10),
+            hoje,
+          )
+        : balanceAppliedValue
       await tx.insert(transactions).values({
         orgId,
         accountId: input.destAccountId!,
@@ -241,10 +255,11 @@ export async function updateTransaction(formData: FormData) {
         date: new Date(input.date),
         transferGroupId,
         origem: 'perna',
-        balanceApplied: balanceAppliedValue,
+        balanceApplied: destinoAplicado,
+        aguardaExtrato: destinoAguarda,
       })
 
-      if (balanceAppliedValue) {
+      if (destinoAplicado) {
         await tx
           .update(accounts)
           .set({ balanceCents: sql`balance_cents + ${input.amountCents}` })

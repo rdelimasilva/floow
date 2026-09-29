@@ -193,6 +193,39 @@ describe('updateTransaction e o saldo', () => {
       expect(updateDaLinha().balanceApplied).toBe(true)
       expect(updateDaLinha().aguardaExtrato).toBe(false)
     })
+
+    describe('convertida em transferência', () => {
+      const DESTINO = '22222222-2222-4222-8222-222222222222'
+      const pernaInserida = () => ops.find((o) => o.op === 'insert' && o.table === 'transactions')!.payload!
+
+      async function converter(destinoOpenFinance: boolean) {
+        selectQueue.push([AGUARDANDO]) // oldTx
+        selectQueue.push([{ id: CONTA }]) // posse da origem
+        selectQueue.push([{ id: DESTINO }]) // posse do destino
+        selectQueue.push([{ id: 'recurso-of' }]) // origem segue Open Finance
+        selectQueue.push(destinoOpenFinance ? [{ id: 'recurso-of' }] : []) // destino é Open Finance?
+        const fd = formEdicao('2026-01-10')
+        fd.set('type', 'transfer')
+        fd.append('destAccountId', DESTINO)
+        await updateTransaction(fd)
+      }
+
+      it('destino manual: a perna entra no saldo e o destino é creditado', async () => {
+        await converter(false)
+
+        expect(pernaInserida().balanceApplied).toBe(true)
+        expect(pernaInserida().aguardaExtrato).toBe(false)
+        expect(updatesEmContas().map(deltaDe)).toEqual([[50000]])
+      })
+
+      it('destino Open Finance: a perna aguarda o extrato e fica fora do saldo', async () => {
+        await converter(true)
+
+        expect(pernaInserida().balanceApplied).toBe(false)
+        expect(pernaInserida().aguardaExtrato).toBe(true)
+        expect(updatesEmContas()).toEqual([])
+      })
+    })
   })
 })
 
