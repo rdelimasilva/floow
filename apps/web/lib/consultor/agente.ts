@@ -10,6 +10,8 @@ import { ParametroInvalido, type ContextoFerramenta, type Ferramenta } from './f
 import type { ResultadoDoLimite } from './limite'
 
 export const MAX_RODADAS = 5
+/** Prazo total do laço (ver o motivo no `for` abaixo). */
+export const PRAZO_MS = 45_000
 export const TEXTO_SEM_CONCLUSAO = 'Não consegui concluir essa análise. Tente perguntar de forma mais específica.'
 
 export interface EntradaDoAgente {
@@ -28,6 +30,7 @@ export interface DepsDoAgente {
   ferramentas: Ferramenta[]
   consumirLimite: (orgId: string) => Promise<ResultadoDoLimite>
   log?: (msg: string, err?: unknown) => void
+  agora?: () => number
 }
 
 export type RespostaDoAgente =
@@ -45,6 +48,9 @@ export async function responder(e: EntradaDoAgente, deps: DepsDoAgente): Promise
       texto: `Limite de uso do consultor atingido. Tente de novo em ${limite.retryAfterSeconds}s.`,
     }
   }
+
+  const relogio = deps.agora ?? Date.now
+  const inicio = relogio()
 
   const porNome = new Map(deps.ferramentas.map((f) => [f.definicao.name, f]))
   const tools = deps.ferramentas.map((f) => f.definicao)
@@ -68,6 +74,14 @@ export async function responder(e: EntradaDoAgente, deps: DepsDoAgente): Promise
   }
 
   for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
+    // O route tem maxDuration de 60s e cada chamada ao Claude pode levar até
+    // 30s; melhor responder com o aviso do que ser morto no meio do stream.
+    if (rodada > 0 && relogio() - inicio >= PRAZO_MS) {
+      deps.log?.(`[consultor] estourou o prazo total (org ${e.orgId})`)
+      emitir(TEXTO_SEM_CONCLUSAO)
+      return { tipo: 'ok', texto, sugestoes }
+    }
+
     const r = await deps.provider.streamChat(conversa, {
       system: e.system,
       tools,
@@ -76,7 +90,10 @@ export async function responder(e: EntradaDoAgente, deps: DepsDoAgente): Promise
       },
     })
     if (texto) separar = true
-    if (r.toolCalls.length === 0) return { tipo: 'ok', texto, sugestoes }
+    if (r.toolCalls.length === 0) {
+      if (!texto) emitir(TEXTO_SEM_CONCLUSAO)
+      return { tipo: 'ok', texto, sugestoes }
+    }
 
     conversa.push({ id: crypto.randomUUID(), role: 'assistant', content: r.content, toolCalls: r.toolCalls, createdAt: agora() })
     const resultados: ToolResultBlock[] = []

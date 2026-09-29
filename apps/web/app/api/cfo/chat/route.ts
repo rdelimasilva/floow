@@ -103,7 +103,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to build context' }, { status: 500 })
   }
 
-  const provider = createAnthropicProvider({ apiKey, model: process.env.CFO_CHAT_MODEL ?? 'claude-sonnet-5' })
+  const provider = createAnthropicProvider({
+    apiKey,
+    model: process.env.CFO_CHAT_MODEL ?? 'claude-sonnet-5',
+    maxTokens: 8000,
+  })
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -131,6 +135,8 @@ export async function POST(request: Request) {
           },
         )
         if (r.tipo === 'limite') {
+          // O route web já consumiu o limite acima; este branch é para canais
+          // (ex. WhatsApp) que deixam o agente aplicar o limite.
           enviar({ type: 'error', text: r.texto })
         } else {
           if (convId && !insightId) {

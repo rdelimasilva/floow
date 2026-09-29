@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { ChatMessage, ToolCall } from '@floow/core-finance'
-import { responder, MAX_RODADAS, TEXTO_SEM_CONCLUSAO, type DepsDoAgente } from '@/lib/consultor/agente'
+import { responder, MAX_RODADAS, PRAZO_MS, TEXTO_SEM_CONCLUSAO, type DepsDoAgente } from '@/lib/consultor/agente'
 import { ParametroInvalido, type Ferramenta } from '@/lib/consultor/ferramentas/tipos'
 
 type Rodada = { texto?: string; calls?: ToolCall[] }
@@ -98,6 +98,28 @@ describe('responder', () => {
     expect(p.streamChat).toHaveBeenCalledTimes(MAX_RODADAS)
     expect(r).toMatchObject({ tipo: 'ok', texto: `Analisando.\n\n${TEXTO_SEM_CONCLUSAO}` })
     expect(pedacos.join('')).toBe(`Analisando.\n\n${TEXTO_SEM_CONCLUSAO}`)
+  })
+
+  it('prazo total: se já estourou o tempo, para antes da próxima rodada e avisa', async () => {
+    const pedacos: string[] = []
+    const rodadas = Array.from({ length: 10 }, (_, i) => ({ calls: [call('saldos_das_contas', `t${i}`)] }))
+    const p = providerFalso(rodadas)
+    let leituras = 0
+    const agoraFalso = () => (leituras++ === 0 ? 0 : PRAZO_MS)
+    const r = await responder(
+      { ...entrada, onTexto: (t) => pedacos.push(t) },
+      deps(p, [leitura(async () => 'x')], { agora: agoraFalso }),
+    )
+    expect(p.streamChat).toHaveBeenCalledTimes(1)
+    expect(r.texto.endsWith(TEXTO_SEM_CONCLUSAO)).toBe(true)
+  })
+
+  it('resposta final vazia: emite o aviso em vez de devolver bolha vazia', async () => {
+    const p = providerFalso([{ texto: '', calls: [] }])
+    const onTexto = vi.fn()
+    const r = await responder({ ...entrada, onTexto }, deps(p))
+    expect(r).toMatchObject({ tipo: 'ok', texto: TEXTO_SEM_CONCLUSAO })
+    expect(onTexto).toHaveBeenCalledWith(TEXTO_SEM_CONCLUSAO)
   })
 
   it('limite estourado: não chama o Claude', async () => {
