@@ -7,6 +7,7 @@ const dados: DadosDoPrompt = {
   canal: 'web', hoje: '2026-09-28',
   contas: ['Itaú', 'Nubank'], categorias: ['Mercado', 'Lazer'],
   insights: [{ severity: 'warning', title: 'Delivery alto', body: 'Subiu 40%' }],
+  memorias: [],
 }
 
 describe('montarPrompt', () => {
@@ -33,6 +34,22 @@ describe('montarPrompt', () => {
     expect(p).toContain('## Insight em discussão')
     expect(p).toContain('Caixa negativo')
     expect(p).toContain('{"x":1}')
+  })
+
+  it('lista as memórias com id e explica como usar lembrar/esquecer', () => {
+    const p = montarPrompt({ ...dados, memorias: [{ id: 'abc', conteudo: 'quer quitar o cartão até dezembro' }] })
+    expect(p).toContain('## O que você sabe sobre o usuário')
+    expect(p).toContain('- [abc] quer quitar o cartão até dezembro')
+  })
+
+  it('sem memórias a seção diz que ainda não há nada', () => {
+    expect(montarPrompt(dados)).toContain('## O que você sabe sobre o usuário\nnada ainda')
+  })
+
+  it('manda anotar sozinho e avisar', () => {
+    const p = montarPrompt(dados)
+    expect(p).toContain('chame `lembrar`')
+    expect(p).toContain('Anotei:')
   })
 })
 

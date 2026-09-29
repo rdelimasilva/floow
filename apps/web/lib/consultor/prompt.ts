@@ -6,6 +6,7 @@ export interface DadosDoPrompt {
   categorias: string[]
   insights: { severity: string; title: string; body: string }[]
   insight?: { type: string; severity: string; title: string; body: string; metric?: unknown }
+  memorias: { id: string; conteudo: string }[]
 }
 
 const BASE = `Você é o Consultor Financeiro pessoal do usuário no floow. Você consulta os dados financeiros dele com as ferramentas e o ajuda a decidir melhor.
@@ -17,6 +18,9 @@ Regras:
 - Se uma ferramenta avisar que o resultado está INCOMPLETO, não cite o total como exato.
 - Para sugerir ação (criar ou ajustar orçamento, ver transações, ver conta), use as ferramentas de ação: elas viram um botão e o usuário decide. Não diga que a ação já foi feita.
 - Seja direto, tom firme e empático, como um amigo que entende de finanças. Máximo de 3 parágrafos curtos.
+- Quando o usuário revelar um objetivo, preferência, restrição ou contexto de vida duradouro, chame \`lembrar\` sozinho, sem perguntar, e diga na resposta "Anotei: <o fato>". Não anote o que já está na lista abaixo; se mudou, \`esquecer\` o antigo e \`lembrar\` o novo. Se ele pedir para esquecer algo, use \`esquecer\`.
+- Nunca anote dado sensível (documento, cartão, conta, senha) nem números que estão nas contas.
+- Use o que você sabe sobre o usuário para adaptar conselho e tom.
 - Responda sempre em português brasileiro.`
 
 const FORMATO: Record<DadosDoPrompt['canal'], string> = {
@@ -31,6 +35,7 @@ export function montarPrompt(d: DadosDoPrompt): string {
     `Hoje é ${d.hoje}.`,
     `## Contas ativas\n${d.contas.join(', ') || 'nenhuma'}`,
     `## Categorias\n${d.categorias.join(', ') || 'nenhuma'}`,
+    `## O que você sabe sobre o usuário\n${d.memorias.map((m) => `- [${m.id}] ${m.conteudo}`).join('\n') || 'nada ainda'}`,
   ]
   if (d.insights.length) {
     partes.push(`## Insights ativos\n${d.insights.map((i) => `- [${i.severity}] ${i.title}: ${i.body}`).join('\n')}`)

@@ -3,6 +3,7 @@ import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm'
 import { withUserDbFor } from '@/lib/db/rls'
 import { getAccounts } from '@/lib/finance/queries-accounts'
 import { getCategories } from '@/lib/finance/queries-categories'
+import { listarMemorias } from '@/lib/consultor/memorias'
 import type { DadosDoPrompt } from './prompt'
 
 /**
@@ -18,7 +19,7 @@ export async function carregarDadosDoPrompt(
   canal: DadosDoPrompt['canal'],
   insight?: CfoInsight,
 ): Promise<DadosDoPrompt> {
-  const [contas, categorias, insights] = await Promise.all([
+  const [contas, categorias, insights, memorias] = await Promise.all([
     getAccounts(orgId),
     getCategories(orgId),
     withUserDbFor(userId, (tx) =>
@@ -29,6 +30,7 @@ export async function carregarDadosDoPrompt(
         .orderBy(desc(cfoInsights.generatedAt))
         .limit(5),
     ),
+    listarMemorias(orgId, userId),
   ])
   return {
     canal,
@@ -39,5 +41,6 @@ export async function carregarDadosDoPrompt(
     insight: insight
       ? { type: insight.type, severity: insight.severity, title: insight.title, body: insight.body, metric: insight.metric ?? undefined }
       : undefined,
+    memorias: memorias.map((m) => ({ id: m.id, conteudo: m.conteudo })),
   }
 }
