@@ -34,6 +34,8 @@ export interface DepsDoAgente {
   consumirLimite: (orgId: string) => Promise<ResultadoDoLimite>
   log?: (msg: string, err?: unknown) => void
   agora?: () => number
+  /** Sobrescreve PRAZO_MS (o WhatsApp usa um prazo menor; ver whatsapp/deps.ts). */
+  prazoMs?: number
 }
 
 export type RespostaDoAgente =
@@ -54,6 +56,7 @@ export async function responder(e: EntradaDoAgente, deps: DepsDoAgente): Promise
 
   const relogio = deps.agora ?? Date.now
   const inicio = relogio()
+  const prazoMs = deps.prazoMs ?? PRAZO_MS
 
   const porNome = new Map(deps.ferramentas.map((f) => [f.definicao.name, f]))
   const tools = deps.ferramentas.map((f) => f.definicao)
@@ -79,7 +82,7 @@ export async function responder(e: EntradaDoAgente, deps: DepsDoAgente): Promise
   for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
     // O route tem maxDuration de 60s e cada chamada ao Claude pode levar até
     // 30s; melhor responder com o aviso do que ser morto no meio do stream.
-    if (rodada > 0 && relogio() - inicio >= PRAZO_MS) {
+    if (rodada > 0 && relogio() - inicio >= prazoMs) {
       deps.log?.(`[consultor] estourou o prazo total (org ${e.orgId})`)
       emitir(TEXTO_SEM_CONCLUSAO)
       return { tipo: 'ok', texto, sugestoes }

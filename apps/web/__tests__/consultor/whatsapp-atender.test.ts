@@ -82,6 +82,34 @@ describe('atenderNoWhatsApp', () => {
     expect(d.enviar).toHaveBeenCalled()
   })
 
+  it('digitando nunca resolve: não bloqueia a resposta', async () => {
+    const d = deps({ marcarDigitando: vi.fn(() => new Promise(() => {})) })
+    expect(await atenderNoWhatsApp(msg, d)).toBe('respondido')
+    expect(d.enviar).toHaveBeenCalledWith('+5511999998888', 'Você gastou R$ 10.')
+  })
+
+  it('falha ao salvar a resposta: ainda assim envia e conta como respondido', async () => {
+    const d = deps({ registrarResposta: vi.fn(async () => { throw new Error('db') }) })
+    expect(await atenderNoWhatsApp(msg, d)).toBe('respondido')
+    expect(d.enviar).toHaveBeenCalledWith('+5511999998888', 'Você gastou R$ 10.')
+    expect(d.log).toHaveBeenCalled()
+    expect(d.enviar).not.toHaveBeenCalledWith('+5511999998888', TEXTO_INDISPONIVEL)
+  })
+
+  it('orgsDoWhatsApp falha: erro e indisponível', async () => {
+    const d = deps({ orgsDoWhatsApp: vi.fn(async () => { throw new Error('db') }) })
+    expect(await atenderNoWhatsApp(msg, d)).toBe('erro')
+    expect(d.enviar).toHaveBeenCalledWith('+5511999998888', TEXTO_INDISPONIVEL)
+    expect(d.log).toHaveBeenCalled()
+  })
+
+  it('registrarPergunta falha: erro e indisponível', async () => {
+    const d = deps({ registrarPergunta: vi.fn(async () => { throw new Error('db') }) })
+    expect(await atenderNoWhatsApp(msg, d)).toBe('erro')
+    expect(d.enviar).toHaveBeenCalledWith('+5511999998888', TEXTO_INDISPONIVEL)
+    expect(d.log).toHaveBeenCalled()
+  })
+
   it('sem wamid: não chama o digitando e segue', async () => {
     const d = deps()
     expect(await atenderNoWhatsApp({ ...msg, wamid: undefined }, d)).toBe('respondido')

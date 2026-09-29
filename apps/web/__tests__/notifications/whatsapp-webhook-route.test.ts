@@ -27,6 +27,7 @@ vi.mock('next/server', async (orig) => ({
   after: vi.fn((fn: () => unknown) => { void fn() }),
 }))
 
+import { after } from 'next/server'
 import { GET, POST } from '@/app/api/webhooks/whatsapp/route'
 
 const sig = (body: string, secret: string) =>
@@ -119,5 +120,27 @@ describe('POST /api/webhooks/whatsapp', () => {
     } finally {
       errorSpy.mockRestore()
     }
+  })
+
+  it('after roda para payload com texto e não roda quando só há status', async () => {
+    vi.stubEnv('WHATSAPP_APP_SECRET', 's')
+
+    const comTexto = JSON.stringify({
+      entry: [{ changes: [{ value: {
+        messages: [{ from: '5511999998888', type: 'text', text: { body: 'oi' } }],
+      } }] }],
+    })
+    await POST(postReq(comTexto, { 'x-hub-signature-256': sig(comTexto, 's') }))
+    expect(vi.mocked(after)).toHaveBeenCalledTimes(1)
+
+    vi.mocked(after).mockClear()
+
+    const soStatus = JSON.stringify({
+      entry: [{ changes: [{ value: {
+        statuses: [{ status: 'delivered', recipient_id: '5511999998888' }],
+      } }] }],
+    })
+    await POST(postReq(soStatus, { 'x-hub-signature-256': sig(soStatus, 's') }))
+    expect(vi.mocked(after)).not.toHaveBeenCalled()
   })
 })

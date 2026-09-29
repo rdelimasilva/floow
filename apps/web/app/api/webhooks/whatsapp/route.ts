@@ -11,7 +11,8 @@ import { parseWebhook, safeEqual, verifyMetaSignature, maskPhone } from '@/lib/n
 import { handleInboundText } from '@/lib/notifications/whatsapp-inbound'
 import { defaultInboundDeps } from '@/lib/notifications/whatsapp-inbound-deps'
 
-// O consultor pode levar até ~45 s; a Meta já recebeu o 200.
+// O consultor para de iniciar rodadas novas em 20 s no WhatsApp (ver
+// whatsapp/deps.ts); a Meta já recebeu o 200, então o corte aqui é folga.
 export const maxDuration = 60
 
 export async function GET(request: Request) {
@@ -46,13 +47,15 @@ export async function POST(request: Request) {
     // 200 na hora: a Meta reenvia o que demora. O consultor roda depois.
     after(async () => {
       const deps = defaultInboundDeps()
-      for (const t of texts) {
-        try {
-          await handleInboundText(t, deps)
-        } catch (err) {
-          console.error(`[whatsapp] erro ao tratar mensagem de ${maskPhone(t.from)}:`, err)
-        }
-      }
+      await Promise.allSettled(
+        texts.map(async (t) => {
+          try {
+            await handleInboundText(t, deps)
+          } catch (err) {
+            console.error(`[whatsapp] erro ao tratar mensagem de ${maskPhone(t.from)}:`, err)
+          }
+        }),
+      )
     })
   }
 

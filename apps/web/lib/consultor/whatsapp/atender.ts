@@ -41,26 +41,31 @@ export async function atenderNoWhatsApp(
     }
   }
 
-  const { orgIds, preferida } = await deps.orgsDoWhatsApp(m.userId)
-  const org = escolherOrgDoWhatsApp(orgIds, preferida)
-  if (org.tipo === 'escolher') {
-    await enviar(TEXTO_ESCOLHER_ORG(deps.appUrl))
-    return 'escolher-org'
-  }
-  if (org.tipo === 'sem-org') {
-    await enviar(TEXTO_SEM_ORG)
-    return 'sem-org'
-  }
-
-  const pergunta = await deps.registrarPergunta({ userId: m.userId, orgId: org.orgId, texto: m.texto, wamid: m.wamid })
-  if (!pergunta) return 'repetida'
-
-  if (m.wamid) {
-    // Só conforto visual: se a Meta recusar, a resposta sai do mesmo jeito.
-    await deps.marcarDigitando(m.wamid).catch((err) => deps.log('[consultor] digitando falhou', err))
-  }
-
   try {
+    const { orgIds, preferida } = await deps.orgsDoWhatsApp(m.userId)
+    const org = escolherOrgDoWhatsApp(orgIds, preferida)
+    if (org.tipo === 'escolher') {
+      await enviar(TEXTO_ESCOLHER_ORG(deps.appUrl))
+      return 'escolher-org'
+    }
+    if (org.tipo === 'sem-org') {
+      await enviar(TEXTO_SEM_ORG)
+      return 'sem-org'
+    }
+
+    const pergunta = await deps.registrarPergunta({ userId: m.userId, orgId: org.orgId, texto: m.texto, wamid: m.wamid })
+    if (!pergunta) return 'repetida'
+
+    if (m.wamid) {
+      // Só conforto visual: nunca espera, mesmo que a Meta demore ou recuse.
+      void deps
+        .marcarDigitando(m.wamid)
+        .then((r) => {
+          if (r && typeof r === 'object' && 'ok' in r && !(r as { ok: boolean }).ok) deps.log('[consultor] digitando falhou', r)
+        })
+        .catch((err) => deps.log('[consultor] digitando falhou', err))
+    }
+
     const r = await deps.responder({
       orgId: org.orgId,
       userId: m.userId,
@@ -73,8 +78,13 @@ export async function atenderNoWhatsApp(
       await enviar(r.texto)
       return 'limite'
     }
-    await deps.registrarResposta({ userId: m.userId, conversaId: pergunta.conversaId, texto: r.texto })
+    // A resposta chega ao usuário mesmo que gravar no banco falhe depois.
     await enviar(r.texto)
+    try {
+      await deps.registrarResposta({ userId: m.userId, conversaId: pergunta.conversaId, texto: r.texto })
+    } catch (err) {
+      deps.log('[consultor] falha ao salvar a resposta', err)
+    }
     return 'respondido'
   } catch (err) {
     deps.log(`[consultor] falha no WhatsApp de ${maskPhone(m.waId)}`, err)

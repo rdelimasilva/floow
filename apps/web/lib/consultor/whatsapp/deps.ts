@@ -29,7 +29,9 @@ export function depsReaisDoWhatsApp(): DepsDoWhatsApp {
       const apiKey = process.env.ANTHROPIC_API_KEY
       if (!apiKey) throw new Error('ANTHROPIC_API_KEY ausente')
       const provider = createAnthropicProvider({ apiKey, model: process.env.CFO_CHAT_MODEL ?? 'claude-sonnet-5', maxTokens: 8000 })
-      return responder(e, { provider, ferramentas: FERRAMENTAS_WHATSAPP, consumirLimite: consumirLimiteDoConsultor, log })
+      // O route tem maxDuration de 60s e uma rodada pode levar até 30s; 20s
+      // deixa folga para salvar no banco e enviar antes do corte da Vercel.
+      return responder(e, { provider, ferramentas: FERRAMENTAS_WHATSAPP, consumirLimite: consumirLimiteDoConsultor, log, prazoMs: 20_000 })
     },
     appUrl: getAppUrl(),
     log,
