@@ -118,7 +118,6 @@ function filaTransferenciaManual() {
   updateQueue.push([]) // update da origem
   insertQueue.push([{ id: 'tx-1-dest' }])
   updateQueue.push([]) // saldo do destino
-  selectQueue.push([{ one: 1 }])
 }
 
 beforeEach(() => {
@@ -158,7 +157,6 @@ describe('confirmCounterparty — par de transferência', () => {
       selectQueue.push([{ id: COUNTERPARTY_ID }])
       updateQueue.push([])
       updateQueue.push([{ id: 'tx-1' }])
-      selectQueue.push([{ one: 1 }])
 
       await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID, transferAccountId: null })
 
@@ -186,7 +184,6 @@ describe('confirmCounterparty — par de transferência', () => {
       selectQueue.push([{ id: COUNTERPARTY_ID }])
       updateQueue.push([])
       updateQueue.push([{ id: 'tx-1' }])
-      selectQueue.push([{ one: 1 }])
 
       await confirmCounterparty({ counterpartyId: COUNTERPARTY_ID, nature: 'expense', categoryId: CATEGORY_ID, transferAccountId: null })
 
@@ -209,7 +206,6 @@ describe('confirmCounterparty — par de transferência', () => {
       selectQueue.push([{ id: 'resource-1' }]) // isOpenFinanceLinkedAccount: linked
       selectQueue.push([{ id: 'perna-do-outro-lado' }]) // acharPernaPrevistaAberta: achou
       updateQueue.push([]) // update da origem
-      selectQueue.push([{ one: 1 }])
 
       const result = await confirmCounterparty({
         counterpartyId: COUNTERPARTY_ID, nature: 'transfer', categoryId: null, transferAccountId: TRANSFER_ACCOUNT_ID,
@@ -243,7 +239,6 @@ describe('confirmCounterparty — par de transferência', () => {
     selectQueue.push([]) // nenhuma perna do outro lado
     updateQueue.push([])
     insertQueue.push([{ id: 'tx-1-par' }])
-    selectQueue.push([{ one: 1 }])
     vi.mocked(revalidateTag).mockClear()
 
     await confirmCounterparty({

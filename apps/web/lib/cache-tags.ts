@@ -14,11 +14,6 @@ export function invalidateTag(tag: string) {
   revalidateTag(tag, { expire: 0 })
 }
 
-/** Estado do portão de revisão do Open Finance (`orgs.review_gate_cleared_at`). */
-export function reviewGateTag(orgId: string) {
-  return `review-gate:${orgId}`
-}
-
 export function accountsTag(orgId: string) {
   return `accounts:${orgId}`
 }

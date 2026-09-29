@@ -5,8 +5,6 @@ import { AppShell } from '@/components/layout/app-shell'
 import { SidebarLayout } from '@/components/layout/sidebar-layout'
 import { SidebarProvider, SIDEBAR_COOKIE_NAME } from '@/components/layout/sidebar-context'
 import { ToastProvider } from '@/components/ui/toast'
-import { getReviewGateStatusSafe } from '@/lib/openfinance/counterparty-queries'
-import { ReviewGate } from '@/components/openfinance/review-gate'
 import { ApplyDueProvider } from '@/components/providers/apply-due-provider'
 import dynamic from 'next/dynamic'
 
@@ -16,27 +14,19 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  // As duas leituras saem juntas e nenhuma vai ao servidor de Auth: o perfil
-  // vem do token já verificado. Este layout roda em toda navegação, antes até
-  // do skeleton — cada ida à rede aqui é espera em todas as telas.
-  const [profile, gate] = await Promise.all([getShellProfile(), getReviewGateStatusSafe()])
+  // Nenhuma ida ao servidor de Auth: o perfil vem do token já verificado. Este
+  // layout roda em toda navegação, antes até do skeleton, e cada ida à rede
+  // aqui é espera em todas as telas.
+  //
+  // O portão de Classificar saiu (spec 2026-09-29): nenhuma decisão tranca o
+  // app. As filas se anunciam na tela de Transações (`PendingQueuesNotice`),
+  // e o layout volta a não consultar nada além do perfil.
+  const profile = await getShellProfile()
 
   if (!profile) {
     redirect('/auth')
   }
 
-  if (gate.ok && gate.blocked) {
-    return (
-      <ToastProvider>
-        <ReviewGate orgId={gate.orgId} />
-      </ToastProvider>
-    )
-  }
-
-  // O contador de conciliações saiu daqui junto com o item do menu: as filas
-  // agora se anunciam no topo da lista de lançamentos (`PendingQueuesNotice`),
-  // que é onde o assunto aparece. O layout volta a não consultar nada para
-  // montar o menu.
   const cookieStore = await cookies()
   const sidebarPinned = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === 'true'
 

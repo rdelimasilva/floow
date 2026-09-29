@@ -21,7 +21,7 @@ export default async function ReviewPage({ searchParams }: Props) {
         <LinkDeAjuda topico="filas" />
       </PageHeader>
       <Suspense fallback={null}>
-        <CounterpartyQueue orgId={orgId} mode="page" regraAberta={regra} />
+        <CounterpartyQueue orgId={orgId} regraAberta={regra} />
       </Suspense>
     </div>
   )

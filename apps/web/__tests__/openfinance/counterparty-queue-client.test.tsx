@@ -79,7 +79,6 @@ describe('CounterpartyQueueClient — exceção por lançamento', () => {
   it('confirma o grupo com padrão + uma exceção num lançamento específico', async () => {
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: PENDING,
         confirmed: [],
         categoryOptions: CATEGORY_OPTIONS,
@@ -129,7 +128,6 @@ describe('CounterpartyQueueClient — sinal do valor', () => {
 
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: debitPending,
         confirmed: [],
         categoryOptions: CATEGORY_OPTIONS,
@@ -149,7 +147,6 @@ describe('CounterpartyQueueClient — transferência com conta de destino', () =
   it('confirma o grupo como transferência com a conta escolhida', async () => {
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: PENDING,
         confirmed: [],
         categoryOptions: CATEGORY_OPTIONS,
@@ -190,7 +187,6 @@ describe('CounterpartyQueueClient — rótulo da conta segue a direção', () =>
   function renderComPendentes(pending: typeof ENTRADA) {
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending,
         confirmed: [],
         categoryOptions: CATEGORY_OPTIONS,
@@ -226,7 +222,6 @@ describe('CounterpartyQueueClient — destino igual à conta do lançamento', ()
   function renderFila() {
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: PENDING,
         confirmed: [],
         categoryOptions: CATEGORY_OPTIONS,
@@ -298,7 +293,7 @@ describe('CounterpartyQueueClient — natureza já decidida pelo banco', () => {
       items: [{ id: 'tx-a', date: '2026-01-05', description: 'APLICACAO CDB DI', amountCents: -100_000, accountId: 'conta-origem', type: 'transfer' as const, sugestaoContaId: null }],
     }]
     render(React.createElement(CounterpartyQueueClient, {
-      mode: 'page', pending, confirmed: [], categoryOptions: CATEGORY_OPTIONS, accountOptions: ACCOUNT_OPTIONS,
+      pending, confirmed: [], categoryOptions: CATEGORY_OPTIONS, accountOptions: ACCOUNT_OPTIONS,
     }))
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'conta-destino' } })
@@ -336,7 +331,6 @@ describe('CounterpartyQueueClient — CPF próprio', () => {
     }
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: [grupo],
         confirmed: [],
         categoryOptions: [],
@@ -374,7 +368,6 @@ describe('CounterpartyQueueClient — CPF próprio', () => {
     }
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: [grupo],
         confirmed: [],
         categoryOptions: [],
@@ -411,7 +404,6 @@ describe('CounterpartyQueueClient — CPF próprio', () => {
     }
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: [grupo],
         confirmed: [],
         categoryOptions: [],
@@ -449,7 +441,6 @@ describe('CounterpartyQueueClient — aviso de descrição genérica', () => {
     }
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: [grupo],
         confirmed: [],
         categoryOptions: [],
@@ -474,7 +465,6 @@ describe('CounterpartyQueueClient — sugestão do floow', () => {
   it('abre com a categoria sugerida marcada; um clique em Confirmar basta', async () => {
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: comSugestao,
         confirmed: [],
         categoryOptions: CATEGORY_OPTIONS,
@@ -493,7 +483,6 @@ describe('CounterpartyQueueClient — sugestão do floow', () => {
   it('sem sugestão, continua abrindo sem categoria', () => {
     render(
       React.createElement(CounterpartyQueueClient, {
-        mode: 'page',
         pending: PENDING,
         confirmed: [],
         categoryOptions: CATEGORY_OPTIONS,

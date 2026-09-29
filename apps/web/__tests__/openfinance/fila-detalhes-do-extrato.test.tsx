@@ -47,7 +47,6 @@ const PENDING = [
 function renderFila() {
   render(
     React.createElement(CounterpartyQueueClient, {
-      mode: 'page',
       pending: PENDING,
       confirmed: [],
       categoryOptions: [],
