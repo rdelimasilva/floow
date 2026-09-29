@@ -95,14 +95,17 @@ export function buildTransferLegRow(
     externalId: `${source.externalId}:transfer-dest`,
     balanceApplied: source.balanceApplied,
     reviewState: 'confirmed',
+    origem: 'perna',
+    aguardaExtrato: false,
   }
 }
 
 /**
- * A perna do lado de uma conta Open Finance: previsão, não lançamento. Quem
- * move o saldo daquela conta é o extrato dela; esta linha só espera a ponta
- * real para a conciliação casar. `transferAccountId` guarda a conta de ORIGEM
- * — é o que `aprovarProposta` grava na ponta real ao conciliar.
+ * A perna do lado de uma conta Open Finance: aguarda o extrato, não é
+ * lançamento. Quem move o saldo daquela conta é o extrato dela; esta linha
+ * fica fora do saldo até o motor de conciliação (R1) a absorver.
+ * `transferAccountId` guarda a conta de ORIGEM — é o que vira a outra ponta
+ * da transferência na linha do extrato que a absorve.
  */
 export function buildForecastTransferLegRow(
   source: TransferSourceLeg,
@@ -114,6 +117,7 @@ export function buildForecastTransferLegRow(
     ...buildTransferLegRow(source, otherAccountId, transferGroupId),
     externalId: `${source.externalId}${SUFIXO_PERNA_PREVISTA}`,
     balanceApplied: false,
+    aguardaExtrato: true,
     transferAccountId: sourceAccountId,
   }
 }

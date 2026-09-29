@@ -33,6 +33,7 @@ export function linhaDaPrevisao(
     installmentNumber: p.installmentNumber,
     installmentTotal: p.installmentTotal,
     isInstallmentForecast: true,
+    origem: 'parcela_prevista',
     externalId: null,
     recurringTemplateId: null,
     balanceApplied: false,

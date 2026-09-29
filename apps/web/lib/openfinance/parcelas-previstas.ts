@@ -46,6 +46,9 @@ export function camposDaOcupacao(
     description: real.description,
     date,
     isInstallmentForecast: false as const,
+    // A previsão ocupada vira a linha do extrato: daqui em diante é ela que
+    // move o saldo, e o motor a trata como tal.
+    origem: 'extrato' as const,
     balanceApplied: real.date <= hojeEmSaoPaulo(hoje),
     importedAt: new Date(),
     ...(real.categoryId ? { categoryId: real.categoryId } : {}),
