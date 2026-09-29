@@ -1,5 +1,6 @@
 import { and, eq, inArray, ne, sql } from 'drizzle-orm'
-import { getDb, accounts, transactions, forecastMatchProposals } from '@floow/db'
+import { getDb, accounts, transactions, forecastMatchProposals, type OrigemDaTransacao } from '@floow/db'
+import { devolverExtratoAbsorvido } from '@/lib/finance/conciliacao/desfazer-absorcao'
 import { ehPernaPrevista, SUFIXO_PERNA_PREVISTA } from './perna-prevista'
 
 type Db = ReturnType<typeof getDb>
@@ -24,6 +25,8 @@ export interface PernaDoGrupo {
   balanceApplied: boolean
   isIgnored: boolean
   matchedTransactionId: string | null
+  origem?: OrigemDaTransacao
+  aguardaExtrato?: boolean
 }
 
 export interface AnaliseDoPar {
@@ -31,6 +34,10 @@ export interface AnaliseDoPar {
   pernas: PernaDoGrupo[]
   /** Delta de saldo por conta que desfazer aplica: o contrário da perna real que estava no saldo. */
   estorno: Record<string, number>
+}
+
+function ehPerna(l: { externalId: string | null; origem?: OrigemDaTransacao | null }): boolean {
+  return l.origem === 'perna' || ehPernaPrevista(l.externalId)
 }
 
 /**
@@ -49,6 +56,8 @@ export async function analisarPar(tx: Pick<Db, 'select'>, orgId: string, l: Lanc
         balanceApplied: transactions.balanceApplied,
         isIgnored: transactions.isIgnored,
         matchedTransactionId: transactions.matchedTransactionId,
+        origem: transactions.origem,
+        aguardaExtrato: transactions.aguardaExtrato,
       })
       .from(transactions)
       .where(and(eq(transactions.orgId, orgId), eq(transactions.transferGroupId, l.transferGroupId), ne(transactions.id, l.id)))
@@ -66,19 +75,20 @@ export async function analisarPar(tx: Pick<Db, 'select'>, orgId: string, l: Lanc
     return { forma: prevista ? 'perna-prevista' : 'perna-real', pernas, estorno }
   }
 
-  // Sem grupo: pode ser a ponta que a perna prevista de OUTRA conta espera.
-  // Esse par foi decidido pela regra de lá; corrigir esta regra não o desfaz.
-  // Só conta se quem espera é perna prevista (`:transfer-par`): conciliação
-  // com previsão de template (aluguel, salário) não é par de transferência, e
-  // a regra daqui é a única que classificou o lançamento.
+  // Sem grupo: pode ser a ponta que a perna de OUTRA conta espera (ou que
+  // ela já absorveu). Esse par foi decidido pela regra de lá; corrigir esta
+  // regra não o desfaz. Só conta se quem espera é perna (`:transfer-par`,
+  // `:transfer-dest` aguardando, perna manual): conciliação com previsão de
+  // template (aluguel, salário) ou lançamento manual não é par de
+  // transferência, e a regra daqui é a única que classificou o lançamento.
   const casadas = await tx
-    .select({ id: transactions.id, externalId: transactions.externalId })
+    .select({ id: transactions.id, externalId: transactions.externalId, origem: transactions.origem })
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), eq(transactions.matchedTransactionId, l.id)))
-  if (casadas.some((c) => ehPernaPrevista(c.externalId))) return { forma: 'par-do-outro-lado', pernas: [], estorno: {} }
+  if (casadas.some(ehPerna)) return { forma: 'par-do-outro-lado', pernas: [], estorno: {} }
 
   const propostas = await tx
-    .select({ id: forecastMatchProposals.id, externalId: transactions.externalId })
+    .select({ id: forecastMatchProposals.id, externalId: transactions.externalId, origem: transactions.origem })
     .from(forecastMatchProposals)
     .innerJoin(transactions, eq(transactions.id, forecastMatchProposals.forecastTransactionId))
     .where(and(
@@ -86,7 +96,7 @@ export async function analisarPar(tx: Pick<Db, 'select'>, orgId: string, l: Lanc
       eq(forecastMatchProposals.realizedTransactionId, l.id),
       eq(forecastMatchProposals.status, 'pending'),
     ))
-  if (propostas.some((p) => ehPernaPrevista(p.externalId))) return { forma: 'par-do-outro-lado', pernas: [], estorno: {} }
+  if (propostas.some(ehPerna)) return { forma: 'par-do-outro-lado', pernas: [], estorno: {} }
 
   return { forma: 'sem-par', pernas: [], estorno: {} }
 }
@@ -127,18 +137,13 @@ export async function desfazerParDaRegra(
   }
 
   let realizadoDevolvidoId: string | null = null
-  if (analise.forma === 'perna-prevista') {
-    const casada = analise.pernas.find((p) => p.matchedTransactionId)
-    if (casada?.matchedTransactionId) {
-      // `aprovarProposta` converteu o lançamento do outro banco em
-      // transferência para cá. Sem a perna, esse par não existe mais: ele
-      // volta para Classificar, como transferência sem conta.
-      await tx
-        .update(transactions)
-        .set({ reviewState: 'pending', transferAccountId: null })
-        .where(and(eq(transactions.id, casada.matchedTransactionId), eq(transactions.orgId, orgId)))
-      realizadoDevolvidoId = casada.matchedTransactionId
-    }
+  for (const p of analise.pernas) {
+    // Perna absorvida pelo extrato da outra conta (R1 ou `aprovarProposta`),
+    // `:transfer-par` ou `:transfer-dest` aguardando: o extrato virou
+    // transferência para cá. Sem a perna, esse par não existe mais: ele
+    // volta para Classificar, como transferência sem conta.
+    const devolvido = await devolverExtratoAbsorvido(tx, orgId, p)
+    if (devolvido) realizadoDevolvidoId = devolvido
   }
 
   if (analise.pernas.length > 0) {

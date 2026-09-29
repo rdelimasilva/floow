@@ -41,7 +41,10 @@ export function condicaoDePrevisaoSemPropostaAberta() {
 
 /**
  * Verdadeiro quando a linha de `transactions` sendo filtrada NÃO é o
- * realizado de uma proposta pendente contra perna prevista de transferência.
+ * realizado de uma proposta pendente contra perna de transferência — a
+ * `:transfer-par` ou qualquer perna que aguarda o extrato (`origem =
+ * 'perna'`: `:transfer-dest` numa conta que virou Open Finance, perna manual),
+ * que R1 propõe quando o par é ambíguo e `desconciliar` reabre.
  *
  * Essa ponta já tem decisão esperando em Confirmar previsões. Se Classificar
  * também a mostrasse, o usuário poderia marcá-la como transferência de novo —
@@ -52,7 +55,7 @@ export function condicaoDePrevisaoSemPropostaAberta() {
  * `"transactions"."id"` apontaria para a linha de dentro.
  */
 export function condicaoForaDeParDeTransferenciaPendente() {
-  return sql`not exists (select 1 from ${forecastMatchProposals} fmp inner join ${transactions} prev on prev.id = fmp.forecast_transaction_id where fmp.realized_transaction_id = ${transactions.id} and fmp.status = 'pending' and prev.external_id like ${`%${SUFIXO_PERNA_PREVISTA}`})`
+  return sql`not exists (select 1 from ${forecastMatchProposals} fmp inner join ${transactions} prev on prev.id = fmp.forecast_transaction_id where fmp.realized_transaction_id = ${transactions.id} and fmp.status = 'pending' and (prev.external_id like ${`%${SUFIXO_PERNA_PREVISTA}`} or prev.origem = 'perna'))`
 }
 
 /**

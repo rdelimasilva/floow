@@ -7,6 +7,7 @@ import { getOrgId } from './queries'
 import { assertAccountOwnership } from './account-actions'
 import { deveAplicarSaldoNaEdicao } from './saldo-na-edicao'
 import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
+import { devolverExtratoAbsorvido } from './conciliacao/desfazer-absorcao'
 import {
   revalidateAccountData,
   revalidateSnapshotData,
@@ -43,6 +44,9 @@ export async function deleteTransaction(formData: FormData) {
         .where(and(eq(transactions.transferGroupId, tx.transferGroupId), eq(transactions.orgId, orgId)))
 
       for (const leg of legs) {
+        // Perna que o extrato da outra conta absorveu: sem o par, o extrato
+        // não pode seguir como transferência para cá.
+        await devolverExtratoAbsorvido(dbTx as unknown as Db, orgId, leg)
         // Only reverse balance if it was already applied
         if (leg.balanceApplied) {
           await dbTx
@@ -56,6 +60,8 @@ export async function deleteTransaction(formData: FormData) {
         .delete(transactions)
         .where(and(eq(transactions.transferGroupId, tx.transferGroupId), eq(transactions.orgId, orgId)))
     } else {
+      // Manual/arquivo absorvido pelo extrato: o extrato volta a pendente.
+      await devolverExtratoAbsorvido(dbTx as unknown as Db, orgId, tx)
       // Only reverse balance if it was already applied
       if (tx.balanceApplied) {
         await dbTx
