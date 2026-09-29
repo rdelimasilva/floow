@@ -52,6 +52,6 @@ describe('adjustAccountBalance', () => {
     await adjustAccountBalance(form(novoSaldo))
 
     expect(inseridos).toHaveLength(1)
-    expect(inseridos[0]).toMatchObject({ affectsCashFlow: false })
+    expect(inseridos[0]).toMatchObject({ affectsCashFlow: false, origem: 'ajuste' })
   })
 })

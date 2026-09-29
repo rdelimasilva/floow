@@ -154,6 +154,9 @@ export async function adjustAccountBalance(formData: FormData) {
       description: finalDescription,
       date: txDate,
       balanceApplied: true,
+      // Correção explícita do usuário: nunca aguarda extrato, nem em conta
+      // Open Finance.
+      origem: 'ajuste',
       // Ajuste corrige o saldo, não é dinheiro entrando ou saindo: fora do
       // fluxo de caixa, senão um acerto de R$ 140 mil vira despesa do mês.
       affectsCashFlow: false,

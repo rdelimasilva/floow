@@ -35,6 +35,7 @@ export async function inserirTransferenciaImportada(
     description: args.description,
     date: args.date,
     externalId: args.externalId,
+    origem: 'arquivo',
     importedAt: args.importedAt,
     transferGroupId,
     categoryId: args.categoryId,
@@ -73,6 +74,7 @@ export async function inserirTransferenciaImportada(
     description: args.description,
     date: args.date,
     transferGroupId,
+    origem: 'perna',
     categoryId: args.categoryId,
     isAutoCategorized: false,
   })

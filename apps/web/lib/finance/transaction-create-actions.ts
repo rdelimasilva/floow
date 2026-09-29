@@ -90,6 +90,7 @@ export async function createTransaction(formData: FormData) {
           description: input.description,
           date: new Date(input.date),
           transferGroupId,
+          origem: 'perna',
           isAutoCategorized,
         })
         .returning()
@@ -106,6 +107,7 @@ export async function createTransaction(formData: FormData) {
           description: input.description,
           date: new Date(input.date),
           transferGroupId,
+          origem: 'perna',
           isAutoCategorized,
         })
         .returning()
@@ -150,6 +152,7 @@ export async function createTransaction(formData: FormData) {
         description: input.description,
         date: new Date(input.date),
         isAutoCategorized,
+        origem: 'manual',
       })
       .returning()
 
@@ -300,6 +303,7 @@ export async function createRecurringTransactions(formData: FormData) {
           date: installDate,
           transferGroupId,
           recurringTemplateId: template.id,
+          origem: 'recorrencia' as const,
           balanceApplied: isApplied,
           installmentNumber: i + 1,
           installmentTotal: total,
@@ -316,6 +320,7 @@ export async function createRecurringTransactions(formData: FormData) {
           date: installDate,
           transferGroupId,
           recurringTemplateId: template.id,
+          origem: 'recorrencia' as const,
           balanceApplied: isApplied,
           installmentNumber: i + 1,
           installmentTotal: total,
@@ -360,6 +365,7 @@ export async function createRecurringTransactions(formData: FormData) {
           description: `${input.description} (${i + 1}/${total})`,
           date: installDate,
           recurringTemplateId: template.id,
+          origem: 'recorrencia' as const,
           balanceApplied: isApplied,
           installmentNumber: i + 1,
           installmentTotal: total,

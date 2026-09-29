@@ -24,6 +24,8 @@ import {
   invalidateTag,
 } from '@/lib/cache-tags'
 import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
+import { assertAccountOwnership, assertAssetOwnership } from './ownership'
+import { CASH_FLOW_EVENT_TYPES, inserirTransacaoDoEvento } from './transacao-do-evento'
 
 type Db = ReturnType<typeof getDb>
 
@@ -44,53 +46,6 @@ function revalidateCrossModuleData(orgId: string) {
   invalidateTag(snapshotsTag(orgId))
   invalidateTag(patrimonyHistoryTag(orgId, 12))
   invalidateTag(incomeEventsTag(orgId, 12))
-}
-
-/**
- * Verifies that an asset belongs to the given org.
- * Throws if the asset does not exist or belongs to a different org.
- */
-async function assertAssetOwnership(db: Db, assetId: string, orgId: string): Promise<void> {
-  const [row] = await db
-    .select({ id: assets.id })
-    .from(assets)
-    .where(and(eq(assets.id, assetId), eq(assets.orgId, orgId)))
-    .limit(1)
-
-  if (!row) {
-    throw new Error(`Asset ${assetId} not found or does not belong to this organization`)
-  }
-}
-
-/**
- * Verifies that an account belongs to the given org.
- * Throws if the account does not exist or belongs to a different org.
- */
-async function assertAccountOwnership(db: Db, accountId: string, orgId: string): Promise<void> {
-  const [row] = await db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
-    .limit(1)
-
-  if (!row) {
-    throw new Error(`Account ${accountId} not found or does not belong to this organization`)
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Cash flow mapping for INV-07 integration
-// buy: expense (cash leaves account), sell: income (cash enters account),
-// dividend/interest/amortization: income (cash enters account), split: no cash flow
-// ---------------------------------------------------------------------------
-
-const CASH_FLOW_EVENT_TYPES: Record<string, { transactionType: 'income' | 'expense'; sign: 1 | -1 } | null> = {
-  buy: { transactionType: 'expense', sign: -1 },
-  sell: { transactionType: 'income', sign: 1 },
-  dividend: { transactionType: 'income', sign: 1 },
-  interest: { transactionType: 'income', sign: 1 },
-  amortization: { transactionType: 'income', sign: 1 },
-  split: null,
 }
 
 // ---------------------------------------------------------------------------
@@ -200,34 +155,12 @@ export async function createPortfolioEvent(formData: FormData) {
       })
       .returning()
 
-    // 2. INV-07: Insert cash flow transaction if this event moves cash
+    // 2. INV-07: lançamento de caixa do evento, quando ele move caixa
     if (cashFlowMapping && input.totalCents) {
-      const signedAmount = cashFlowMapping.sign * Math.abs(input.totalCents)
-
-      // Insert corresponding transaction row
-      const [txRow] = await tx
-        .insert(transactions)
-        .values({
-          orgId,
-          accountId: input.accountId,
-          type: cashFlowMapping.transactionType,
-          amountCents: signedAmount,
-          description: `${input.eventType}: ${assetTicker}`,
-          date: input.eventDate,
-        })
-        .returning()
-
-      // 3. Atomic balance update on linked account
-      await tx
-        .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
-        .where(eq(accounts.id, input.accountId))
-
-      // 4. Link portfolio event back to transaction for audit trail
-      await tx
-        .update(portfolioEvents)
-        .set({ transactionId: txRow.id })
-        .where(eq(portfolioEvents.id, event.id))
+      await inserirTransacaoDoEvento(tx as unknown as Db, {
+        orgId, accountId: input.accountId, eventId: event.id, eventType: input.eventType,
+        eventDate: input.eventDate, totalCents: input.totalCents, assetTicker,
+      })
     }
 
     await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, input.assetId)
@@ -514,33 +447,12 @@ export async function updatePortfolioEvent(formData: FormData) {
       })
       .where(and(eq(portfolioEvents.id, input.id), eq(portfolioEvents.orgId, orgId)))
 
-    // 3. Create new cash-flow transaction if the updated event moves cash
+    // 3. Novo lançamento de caixa, se o evento editado move caixa
     if (cashFlowMapping && input.totalCents) {
-      const signedAmount = cashFlowMapping.sign * Math.abs(input.totalCents)
-
-      const [txRow] = await tx
-        .insert(transactions)
-        .values({
-          orgId,
-          accountId: input.accountId,
-          type: cashFlowMapping.transactionType,
-          amountCents: signedAmount,
-          description: `${input.eventType}: ${assetTicker}`,
-          date: input.eventDate,
-        })
-        .returning()
-
-      // Atomic balance update on linked account
-      await tx
-        .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${signedAmount}` })
-        .where(eq(accounts.id, input.accountId))
-
-      // 4. Link portfolio event back to new transaction
-      await tx
-        .update(portfolioEvents)
-        .set({ transactionId: txRow.id })
-        .where(eq(portfolioEvents.id, input.id))
+      await inserirTransacaoDoEvento(tx as unknown as Db, {
+        orgId, accountId: input.accountId, eventId: input.id, eventType: input.eventType,
+        eventDate: input.eventDate, totalCents: input.totalCents, assetTicker,
+      })
     }
 
     await recomputeAssetPositionSnapshot(tx as unknown as Db, orgId, input.assetId)

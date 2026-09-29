@@ -8,6 +8,7 @@ import { eq, sql, and, gte, lte } from 'drizzle-orm'
 import { getOrgId, getCategoryRules } from './queries'
 import { inserirTransferenciaImportada } from './import-transfer'
 import { criarPropostasDeConciliacao } from './forecast-match-db'
+import type { ImportResult, MatchStatus, PreviewItem, TransactionOverride } from './import-types'
 import {
   accountsTag,
   recentTransactionsTag,
@@ -17,53 +18,7 @@ import {
 
 type Db = ReturnType<typeof getDb>
 
-/**
- * Result returned after an import operation.
- */
-export interface ImportResult {
-  imported: number
-  skipped: number
-  /** `importedAt` do lote — a chave para desfazer a importação. */
-  lote?: string
-}
-
-/**
- * Match status for a parsed transaction during import preview.
- */
-export type MatchStatus = 'new' | 'duplicate' | 'possible_match'
-
-/**
- * A single item in the import preview — the parsed transaction plus its match status.
- */
-export interface PreviewItem {
-  index: number
-  parsed: {
-    date: string
-    description: string
-    amountCents: number
-    type: 'income' | 'expense'
-    externalId: string | null
-  }
-  status: MatchStatus
-  suggestedCategoryId: string | null
-  isAutoCategorized: boolean
-  matchedTransaction?: {
-    id: string
-    date: string
-    description: string
-    amountCents: number
-  }
-}
-
-/**
- * Per-transaction override applied during import review step.
- */
-export interface TransactionOverride {
-  index: number
-  categoryId: string | null
-  type: 'income' | 'expense' | 'transfer'
-  transferToAccountId?: string
-}
+export type { ImportResult, MatchStatus, PreviewItem, TransactionOverride }
 
 /**
  * Server action: parse an import file and compare against existing transactions.
@@ -260,6 +215,7 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
       description: tx.description,
       date: tx.date,
       externalId: tx.externalId,
+      origem: 'arquivo' as const,
       importedAt,
       categoryId: autoCategoryId,
       isAutoCategorized: autoCategoryId !== null,
@@ -400,6 +356,7 @@ export async function importSelectedTransactions(formData: FormData): Promise<Im
       description: tx.description,
       date: tx.date,
       externalId: tx.externalId,
+      origem: 'arquivo' as const,
       importedAt,
       categoryId,
       isAutoCategorized: !override?.categoryId && categoryId !== null,

@@ -229,6 +229,7 @@ export async function updateTransaction(formData: FormData) {
         description: input.description,
         date: new Date(input.date),
         transferGroupId,
+        origem: 'perna',
         balanceApplied: balanceAppliedValue,
       })
 

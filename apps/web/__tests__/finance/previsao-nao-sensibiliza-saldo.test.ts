@@ -112,7 +112,7 @@ describe('geração de ocorrência vencida de template', () => {
     const linhas = inseridos.filter((i) => i.tabela === 'transactions')
     expect(linhas.length).toBeGreaterThan(0)
     for (const linha of linhas) {
-      expect(linha.valores).toMatchObject({ balanceApplied: false })
+      expect(linha.valores).toMatchObject({ balanceApplied: false, origem: 'recorrencia' })
     }
   })
 
