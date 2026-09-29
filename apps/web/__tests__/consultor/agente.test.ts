@@ -25,7 +25,7 @@ const sugestao: Ferramenta = { tipo: 'sugestao', definicao: { name: 'create_budg
 function deps(provider: ReturnType<typeof providerFalso>, ferramentas: Ferramenta[] = [], over: Partial<DepsDoAgente> = {}): DepsDoAgente {
   return { provider, ferramentas, consumirLimite: vi.fn(async () => ({ allowed: true as const })), log: vi.fn(), ...over }
 }
-const entrada = { orgId: 'org-1', userId: 'u1', historico: [] as ChatMessage[], mensagem: 'quanto tenho?', system: 'sys' }
+const entrada = { orgId: 'org-1', userId: 'u1', canal: 'web' as const, historico: [] as ChatMessage[], mensagem: 'quanto tenho?', system: 'sys' }
 const call = (name = 'saldos_das_contas', id = 't1'): ToolCall => ({ id, name, params: {} })
 
 describe('responder', () => {
@@ -41,7 +41,7 @@ describe('responder', () => {
     const executar = vi.fn(async () => 'Total: R$ 10')
     const p = providerFalso([{ calls: [call()] }, { texto: 'Você tem R$ 10.' }])
     const r = await responder(entrada, deps(p, [leitura(executar)]))
-    expect(executar).toHaveBeenCalledWith({ orgId: 'org-1', userId: 'u1' }, {})
+    expect(executar).toHaveBeenCalledWith({ orgId: 'org-1', userId: 'u1', canal: 'web' }, {})
     const segunda = p.recebidas[1]
     expect(segunda.at(-2)).toMatchObject({ role: 'assistant', toolCalls: [call()] })
     expect(segunda.at(-1)).toMatchObject({ role: 'tool_result', toolResults: [{ toolUseId: 't1', content: 'Total: R$ 10' }] })

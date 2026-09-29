@@ -19,7 +19,7 @@ import { getCategories } from '@/lib/finance/queries-categories'
 import { planoDoMes } from '@/lib/consultor/ferramentas/plano-do-mes'
 import { reais } from '@/lib/consultor/ferramentas/utils'
 
-const ctx = { orgId: 'org-1', userId: 'u1' }
+const ctx = { orgId: 'org-1', userId: 'u1', canal: 'web' as const }
 const inicio = new Date(2026, 9, 1)
 const fim = new Date(2026, 10, 0)
 

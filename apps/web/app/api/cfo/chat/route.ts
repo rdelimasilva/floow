@@ -120,6 +120,7 @@ export async function POST(request: Request) {
           {
             orgId,
             userId,
+            canal: 'web',
             historico,
             mensagem: message,
             system,

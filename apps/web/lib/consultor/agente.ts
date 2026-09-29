@@ -8,6 +8,7 @@
 import type { ChatMessage, ChatProvider, ToolCall, ToolResultBlock } from '@floow/core-finance'
 import { ParametroInvalido, type ContextoFerramenta, type Ferramenta } from './ferramentas/tipos'
 import type { ResultadoDoLimite } from './limite'
+import type { CanalDaMemoria } from './memorias'
 
 export const MAX_RODADAS = 5
 /** Prazo total do laço (ver o motivo no `for` abaixo). */
@@ -17,6 +18,7 @@ export const TEXTO_SEM_CONCLUSAO = 'Não consegui concluir essa análise. Tente 
 export interface EntradaDoAgente {
   orgId: string
   userId: string
+  canal: CanalDaMemoria
   /** Só texto (ver `historicoParaOAgente`). */
   historico: ChatMessage[]
   mensagem: string
@@ -54,7 +56,7 @@ export async function responder(e: EntradaDoAgente, deps: DepsDoAgente): Promise
 
   const porNome = new Map(deps.ferramentas.map((f) => [f.definicao.name, f]))
   const tools = deps.ferramentas.map((f) => f.definicao)
-  const ctx: ContextoFerramenta = { orgId: e.orgId, userId: e.userId }
+  const ctx: ContextoFerramenta = { orgId: e.orgId, userId: e.userId, canal: e.canal }
   const conversa: ChatMessage[] = [
     ...e.historico,
     { id: crypto.randomUUID(), role: 'user', content: e.mensagem, createdAt: agora() },

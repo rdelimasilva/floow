@@ -12,7 +12,7 @@ import { gastosPorCategoria } from '@/lib/consultor/ferramentas/gastos-por-categ
 import { reais } from '@/lib/consultor/ferramentas/utils'
 import { ParametroInvalido } from '@/lib/consultor/ferramentas/tipos'
 
-const ctx = { orgId: 'org-1', userId: 'u1' }
+const ctx = { orgId: 'org-1', userId: 'u1', canal: 'web' as const }
 
 beforeEach(() => vi.clearAllMocks())
 
