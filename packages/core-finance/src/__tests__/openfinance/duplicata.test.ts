@@ -143,6 +143,14 @@ describe('detectarDuplicatas', () => {
 
     expect(pares).toHaveLength(1)
   })
+
+  it('lê o UUIDv7 mesmo com sufixo (:transfer-dest) em vez de calar', () => {
+    const a = { ...BASE, id: 'a', externalId: `${uuidV7Em('2026-09-16T03:00:00Z')}:transfer-dest` }
+    const b = { ...BASE, id: 'b', externalId: `${uuidV7Em('2026-09-16T19:00:00Z', '1111')}:transfer-dest` }
+    const pares = detectarDuplicatas([a, b])
+    expect(pares).toHaveLength(1)
+    expect(Math.round(pares[0].minutosEntreEmissoes)).toBe(16 * 60)
+  })
 })
 
 /**
