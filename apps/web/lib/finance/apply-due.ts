@@ -46,6 +46,11 @@ export async function applyDueBankTransactions() {
     // lançamento do banco: quem move o saldo daquela conta é o extrato dela.
     // Aplicá-la contaria o mesmo dinheiro duas vezes.
     condicaoNaoEPernaPrevista(),
+    // Linha que aguarda o extrato (perna `:transfer-dest` reclassificada,
+    // linha de arquivo em conta Open Finance) também tem `external_id` e
+    // `balance_applied = false`. Numa conta OF só o extrato move o saldo:
+    // aplicá-la por data contaria o mesmo dinheiro duas vezes.
+    eq(transactions.aguardaExtrato, false),
     // Agendado entra do sync com `is_ignored = true` e `balance_applied =
     // false` (`sync.ts:386`): visivel para o usuario, fora das somas. Aplicar
     // por data sem olhar esta coluna fazia dele o "gasto que ninguem fez" que

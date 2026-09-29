@@ -6,6 +6,7 @@ import { eq, sql, and, inArray } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { assertAccountOwnership } from './account-actions'
 import { deveAplicarSaldoNaEdicao } from './saldo-na-edicao'
+import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
 import {
   revalidateAccountData,
   revalidateSnapshotData,
@@ -189,7 +190,16 @@ export async function updateTransaction(formData: FormData) {
     // Previsão (template ou parcela) e parcela futura do banco só entram quando
     // a regra de `deveAplicarSaldoNaEdicao` deixa; o resto entra sempre.
     const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    const balanceAppliedValue = deveAplicarSaldoNaEdicao(oldTx, input.date.toISOString().slice(0, 10), hoje)
+    // Linha que aguarda o extrato continua aguardando enquanto a conta for Open
+    // Finance; movida para conta manual, ninguém mais a absorveria e ela volta
+    // ao saldo (e perde a marca).
+    const aguardaOrigem =
+      oldTx.aguardaExtrato && (await isOpenFinanceLinkedAccount(tx as unknown as Db, orgId, input.accountId))
+    const balanceAppliedValue = deveAplicarSaldoNaEdicao(
+      { ...oldTx, aguardaExtrato: aguardaOrigem },
+      input.date.toISOString().slice(0, 10),
+      hoje,
+    )
 
     if (balanceAppliedValue) {
       await tx
@@ -211,6 +221,7 @@ export async function updateTransaction(formData: FormData) {
         description: input.description,
         date: new Date(input.date),
         balanceApplied: balanceAppliedValue,
+        aguardaExtrato: aguardaOrigem,
         transferGroupId,
       })
       .where(and(eq(transactions.id, input.id), eq(transactions.orgId, orgId)))

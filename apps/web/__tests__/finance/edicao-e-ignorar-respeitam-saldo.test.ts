@@ -165,6 +165,35 @@ describe('updateTransaction e o saldo', () => {
     expect(updatesEmContas().map(deltaDe)).toEqual([[45916], [-50000]])
     expect(updateDaLinha().balanceApplied).toBe(true)
   })
+
+  describe('linha que aguarda o extrato', () => {
+    const AGUARDANDO = { ...LINHA, balanceApplied: false, aguardaExtrato: true, origem: 'manual' }
+
+    async function editarAguardando(contaOpenFinance: boolean) {
+      selectQueue.push([AGUARDANDO]) // oldTx
+      selectQueue.push([{ id: CONTA }]) // posse da conta
+      selectQueue.push(contaOpenFinance ? [{ id: 'recurso-of' }] : []) // conta de destino é Open Finance?
+      await updateTransaction(formEdicao('2026-01-10'))
+    }
+
+    it('editada dentro de conta Open Finance continua fora do saldo e aguardando', async () => {
+      await editarAguardando(true)
+
+      expect(updatesEmContas()).toEqual([])
+      expect(updateDaLinha().balanceApplied).toBe(false)
+      expect(updateDaLinha().aguardaExtrato).toBe(true)
+    })
+
+    it('movida para conta manual volta ao saldo e perde a marca', async () => {
+      await editarAguardando(false)
+
+      const contas = updatesEmContas()
+      expect(contas).toHaveLength(1)
+      expect(deltaDe(contas[0])).toEqual([-50000])
+      expect(updateDaLinha().balanceApplied).toBe(true)
+      expect(updateDaLinha().aguardaExtrato).toBe(false)
+    })
+  })
 })
 
 function formIgnorar() {

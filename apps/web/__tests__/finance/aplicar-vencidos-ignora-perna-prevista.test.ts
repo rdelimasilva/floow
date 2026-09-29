@@ -29,4 +29,11 @@ describe('applyDueBankTransactions', () => {
     expect(q.sql).toContain('not like')
     expect(q.params).toContain('%:transfer-par')
   })
+
+  it('exclui a linha que aguarda o extrato: :transfer-dest reclassificada tem external_id e não pode voltar ao saldo', async () => {
+    wheres.length = 0
+    await applyDueBankTransactions()
+    const q = new PgDialect().sqlToQuery(wheres[0])
+    expect(q.sql).toContain('"aguarda_extrato" = ')
+  })
 })
