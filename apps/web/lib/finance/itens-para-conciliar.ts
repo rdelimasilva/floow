@@ -1,7 +1,5 @@
 import { cache } from 'react'
-import { contarDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
-import { contarPropostasPendentes } from '@/lib/finance/forecast-match-queries'
-import { contarLancamentosAClassificar } from '@/lib/openfinance/counterparty-queries'
+import { contarFila } from '@/lib/finance/conciliacao/fila-db'
 
 export interface ItensParaConciliar {
   repetidos: number
@@ -17,21 +15,16 @@ export interface ItensParaConciliar {
  * conexão: se cada um somasse do seu jeito, o número do botão e o da faixa
  * poderiam discordar na mesma tela.
  *
- * Falha numa contagem vale 0 e não derruba as outras. É o mesmo "fail open"
- * da faixa: um aviso não pode custar a tela que ele existe para melhorar. Sem
- * usuário resolvido, as filas que precisam dele para o RLS (`withUserDbFor`)
- * contam zero.
+ * `total` é de lançamentos distintos na fila do modo foco (spec 2026-10-01
+ * §3.3). Falha na contagem vale 0 — mesmo "fail open" de antes: um aviso não
+ * pode custar a tela que ele existe para melhorar. Sem usuário resolvido
+ * (RLS exige `userId` via `withUserDbFor`), conta zero.
  *
  * `cache` do React: a tela de Transações pergunta duas vezes no mesmo request
- * (faixa e botão), e as três consultas só precisam rodar uma vez.
+ * (faixa e botão), e a consulta só precisa rodar uma vez.
  */
+const ZERO: ItensParaConciliar = { repetidos: 0, classificar: 0, confirmar: 0, total: 0 }
 export const contarItensParaConciliar = cache(
-  async (orgId: string, userId: string | null): Promise<ItensParaConciliar> => {
-    const [repetidos, classificar, confirmar] = await Promise.all([
-      userId === null ? 0 : contarDuplicatasPendentes(orgId, userId).catch(() => 0),
-      contarLancamentosAClassificar(orgId).catch(() => 0),
-      userId === null ? 0 : contarPropostasPendentes(orgId, userId).catch(() => 0),
-    ])
-    return { repetidos, classificar, confirmar, total: repetidos + classificar + confirmar }
-  },
+  async (orgId: string, userId: string | null): Promise<ItensParaConciliar> =>
+    userId === null ? ZERO : contarFila(orgId, userId).catch(() => ZERO),
 )
