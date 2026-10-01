@@ -11,7 +11,7 @@ type Db = ReturnType<typeof getDb>
  * janela de `matchForecast` de propósito: a query traz o candidato e a função
  * pura decide. Filtrar apertado aqui esconderia caso da lógica testada.
  */
-const JANELA_BUSCA_DIAS = 10
+export const JANELA_BUSCA_DIAS = 10
 
 const DIA_EM_MS = 24 * 60 * 60 * 1000
 
