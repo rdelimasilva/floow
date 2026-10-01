@@ -1,6 +1,6 @@
 import type { ItemDaFila } from '@/lib/finance/conciliacao/fila'
 
-export type Fase = 'repetido' | 'candidatas' | 'classificar'
+export type Fase = 'repetido' | 'decidir'
 
 export interface EstadoDaFila {
   itens: ItemDaFila[]
@@ -22,11 +22,13 @@ export type Evento =
   | { tipo: 'pulado'; id: string }
   | { tipo: 'revisarPulados' }
 
-/** A ordem de decidir dentro do card é a mesma da fila: repetido, vínculo, classificação (spec §2.3). */
+/**
+ * O repetido decide primeiro (spec §2.3); vínculo e classificação ficam na
+ * mesma tela (card v2 §C). Sem nada a decidir, o item sai da fila.
+ */
 export function faseDe(item: ItemDaFila): Fase | null {
   if (item.repetido) return 'repetido'
-  if (item.candidatas.length > 0) return 'candidatas'
-  if (item.classificacao) return 'classificar'
+  if (item.candidatas.length > 0 || item.classificacao) return 'decidir'
   return null
 }
 

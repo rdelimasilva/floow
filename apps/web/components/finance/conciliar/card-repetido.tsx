@@ -3,7 +3,7 @@ import type { Repetido } from '@/lib/finance/conciliacao/fila'
 import { Button } from '@/components/ui/button'
 import { diaMes } from './card-conta'
 
-/** Estado C do card (spec §2.3): decidir o repetido vem antes de classificar o que pode sumir. */
+/** Coluna direita quando o banco mandou duas vezes (spec §2.3): decidir o repetido vem antes de classificar o que pode sumir. */
 export function CardRepetido({ repetido, ocupado, onDescartar, onNaoERepetido, onPular }: {
   repetido: Repetido
   ocupado: boolean
@@ -13,7 +13,7 @@ export function CardRepetido({ repetido, ocupado, onDescartar, onNaoERepetido, o
 }) {
   const { outro } = repetido
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">O banco parece ter mandado isto duas vezes</p>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
         <span className="font-medium text-gray-900">{outro.description}</span>

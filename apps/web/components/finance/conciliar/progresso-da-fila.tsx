@@ -7,7 +7,7 @@ export function ProgressoDaFila({ feitos, total }: { feitos: number; total: numb
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
         <span>{`${Math.min(feitos + 1, total)} de ${total}`}</span>
-        <span className="hidden sm:block">Enter = botão principal · 1/2/3 = escolher · N = não é nenhum · → = pular</span>
+        <span className="hidden sm:block">Enter = botão principal · 1/2/3 = vincular · → = pular</span>
       </div>
       <div className="h-1 rounded-full bg-gray-100">
         <div className="h-1 rounded-full bg-gray-900" style={{ width: `${largura}%` }} />

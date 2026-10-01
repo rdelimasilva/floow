@@ -3,19 +3,21 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Candidata } from '@/lib/finance/conciliacao/candidatos'
 import { procurarPrevisoes } from '@/lib/finance/conciliacao/vincular-actions'
-import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 import { LinhaDaCandidata } from './card-candidatos'
 
 const ESPERA_MS = 300
 
-/** Busca dentro do card nas previsões em aberto de todas as contas (spec §2.4). Escolher = Vincular. */
-export function ProcurarPrevisao({ realizadoId, ocupado, onVincular, onFechar }: {
+/**
+ * Busca sempre visível no card (card v2 §C.2) nas previsões em aberto de
+ * todas as contas. Escolher = Vincular. Sem autofoco: com o foco no campo,
+ * os atalhos da fila não disparam.
+ */
+export function ProcurarPrevisao({ realizadoId, ocupado, onVincular }: {
   realizadoId: string
   ocupado: boolean
   onVincular: (c: Candidata) => void
-  onFechar: () => void
 }) {
   const { toast } = useToast()
   const [termo, setTermo] = useState('')
@@ -42,19 +44,15 @@ export function ProcurarPrevisao({ realizadoId, ocupado, onVincular, onFechar }:
   }, [termo, realizadoId, toast])
 
   return (
-    <div className="space-y-2 rounded-lg border border-gray-200 p-3">
-      <div className="flex gap-2">
-        <input
-          autoFocus
-          type="search"
-          value={termo}
-          onChange={(e) => setTermo(e.target.value)}
-          placeholder="Descrição ou valor da previsão"
-          aria-label="Procurar previsão"
-          className="h-8 min-w-0 flex-1 rounded-md border border-gray-300 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-        />
-        <Button variant="outline" size="sm" onClick={onFechar}>Fechar</Button>
-      </div>
+    <div className="space-y-2">
+      <input
+        type="search"
+        value={termo}
+        onChange={(e) => setTermo(e.target.value)}
+        placeholder="Procurar previsão por nome ou valor…"
+        aria-label="Procurar previsão"
+        className="h-9 w-full rounded-md border border-gray-300 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+      />
       {resultados !== null && resultados.length === 0 && (
         <p className="text-sm text-gray-600">Nenhuma previsão em aberto com esse termo.</p>
       )}

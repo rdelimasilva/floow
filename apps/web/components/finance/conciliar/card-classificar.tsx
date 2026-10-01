@@ -38,9 +38,14 @@ export function decisaoCompleta(d: Decisao, contaDoItemId: string): boolean {
   return d.transferAccountId !== null && d.transferAccountId !== contaDoItemId
 }
 
+/**
+ * "Lançar como novo" (card v2 §C.3), já preenchido com o palpite. Com
+ * previsões parecidas na tela, vira alternativa ("Ou lançar como novo") e o
+ * botão deixa de ser o principal.
+ */
 export function CardClassificar({
   classificacao: c, amountCents, contaDoItemId, decisao: d, onMudar,
-  categoryOptions, accountOptions, ocupado, onConfirmar, onProcurar, onPular,
+  categoryOptions, accountOptions, ocupado, alternativa, onConfirmar,
 }: {
   classificacao: Classificacao
   amountCents: number
@@ -50,9 +55,8 @@ export function CardClassificar({
   categoryOptions: CategoryOption[]
   accountOptions: AccountOption[]
   ocupado: boolean
+  alternativa: boolean
   onConfirmar: () => void
-  onProcurar: () => void
-  onPular: () => void
 }) {
   const categorias = categoryOptions.filter((o) => o.type === d.nature)
   // Transferir para a própria conta do lançamento é o erro de produção de 16/09/2026.
@@ -72,7 +76,7 @@ export function CardClassificar({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Lançar como</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{alternativa ? 'Ou lançar como novo' : 'Lançar como novo'}</p>
       <div className="flex flex-wrap items-center gap-2">
         {NATUREZAS.map((n) => (
           <Button
@@ -89,7 +93,7 @@ export function CardClassificar({
         ))}
         {d.nature === 'transfer' ? (
           <Select value={d.transferAccountId ?? ''} onValueChange={(v) => onMudar({ ...d, transferAccountId: v })}>
-            <SelectTrigger className="w-56" aria-label="Conta">
+            <SelectTrigger className="w-full sm:w-56" aria-label="Conta">
               <SelectValue placeholder={transferAccountLabel(amountCents)} />
             </SelectTrigger>
             <SelectContent>
@@ -98,7 +102,7 @@ export function CardClassificar({
           </Select>
         ) : (
           <Select value={d.categoryId ?? ''} onValueChange={(v) => onMudar({ ...d, categoryId: v })}>
-            <SelectTrigger className="w-56" aria-label="Categoria">
+            <SelectTrigger className="w-full sm:w-56" aria-label="Categoria">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -127,11 +131,14 @@ export function CardClassificar({
           )}
         </label>
       )}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="primary" size="sm" disabled={ocupado || !decisaoCompleta(d, contaDoItemId)} onClick={onConfirmar}>Confirmar</Button>
-        <Button variant="outline" size="sm" disabled={ocupado} onClick={onProcurar}>Procurar previsão</Button>
-        <Button variant="outline" size="sm" disabled={ocupado} onClick={onPular}>Pular</Button>
-      </div>
+      <Button
+        variant={alternativa ? 'outline' : 'primary'}
+        size="sm"
+        disabled={ocupado || !decisaoCompleta(d, contaDoItemId)}
+        onClick={onConfirmar}
+      >
+        Lançar como novo
+      </Button>
     </div>
   )
 }
