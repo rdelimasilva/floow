@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 
-/** Remover repetidos virou uma seção de /transactions/conciliar; a rota fica para links antigos. */
+/** Remover repetidos virou o modo foco em /transactions/conciliar; a rota fica para links antigos. */
 export default function DuplicatesPage() {
-  redirect('/transactions/conciliar#repetidos')
+  redirect('/transactions/conciliar')
 }
