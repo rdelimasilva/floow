@@ -1,6 +1,6 @@
 import { and, asc, count, eq, isNull, sql } from 'drizzle-orm'
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
-import { accounts, forecastMatchProposals, transactions } from '@floow/db'
+import { accounts, forecastMatchProposals, transactions, type RlsTx } from '@floow/db'
 import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 
 export interface LadoDoPar {
@@ -43,7 +43,7 @@ const DIA_EM_MS = 24 * 60 * 60 * 1000
  * Recebe as colunas de cada lado, e não a tabela, porque a linha junta
  * previsão e realizado — que são a mesma tabela, lida por dois aliases.
  */
-function condicaoDePropostaAprovavel(
+export function condicaoDePropostaAprovavel(
   orgId: string,
   previsao: { matchedTransactionId: AnyPgColumn; balanceApplied: AnyPgColumn },
   realizado: { isIgnored: AnyPgColumn },
@@ -72,53 +72,56 @@ function condicaoDePropostaAprovavel(
  * `condicaoDePropostaAprovavel`.
  */
 export async function getPropostasPendentes(orgId: string): Promise<PropostaPendente[]> {
-  return withUserDb(async (db) => {
-    const previsao = alias(transactions, 'previsao')
-    const realizado = alias(transactions, 'realizado')
+  return withUserDb((db) => lerPropostasPendentes(db, orgId))
+}
 
-    const rows = await db
-      .select({
-        id: forecastMatchProposals.id,
-        previsaoId: previsao.id,
-        previsaoDate: previsao.date,
-        previsaoDescription: previsao.description,
-        previsaoAmount: previsao.amountCents,
-        realizadoId: realizado.id,
-        realizadoDate: realizado.date,
-        realizadoDescription: realizado.description,
-        realizadoAmount: realizado.amountCents,
-        contaNome: accounts.name,
-      })
-      .from(forecastMatchProposals)
-      .innerJoin(previsao, eq(previsao.id, forecastMatchProposals.forecastTransactionId))
-      .innerJoin(realizado, eq(realizado.id, forecastMatchProposals.realizedTransactionId))
-      .leftJoin(accounts, eq(accounts.id, realizado.accountId))
-      .where(condicaoDePropostaAprovavel(orgId, previsao, realizado))
-      .orderBy(sql`abs(${realizado.amountCents}) desc`, asc(forecastMatchProposals.proposedAt))
+/** O corpo de `getPropostasPendentes`, para quem já está numa transação RLS (a fila). */
+export async function lerPropostasPendentes(db: RlsTx, orgId: string): Promise<PropostaPendente[]> {
+  const previsao = alias(transactions, 'previsao')
+  const realizado = alias(transactions, 'realizado')
 
-    const iso = (d: Date | string) => (d instanceof Date ? d.toISOString() : String(d))
+  const rows = await db
+    .select({
+      id: forecastMatchProposals.id,
+      previsaoId: previsao.id,
+      previsaoDate: previsao.date,
+      previsaoDescription: previsao.description,
+      previsaoAmount: previsao.amountCents,
+      realizadoId: realizado.id,
+      realizadoDate: realizado.date,
+      realizadoDescription: realizado.description,
+      realizadoAmount: realizado.amountCents,
+      contaNome: accounts.name,
+    })
+    .from(forecastMatchProposals)
+    .innerJoin(previsao, eq(previsao.id, forecastMatchProposals.forecastTransactionId))
+    .innerJoin(realizado, eq(realizado.id, forecastMatchProposals.realizedTransactionId))
+    .leftJoin(accounts, eq(accounts.id, realizado.accountId))
+    .where(condicaoDePropostaAprovavel(orgId, previsao, realizado))
+    .orderBy(sql`abs(${realizado.amountCents}) desc`, asc(forecastMatchProposals.proposedAt))
 
-    return rows.map((row) => ({
-      id: row.id,
-      previsao: {
-        id: row.previsaoId,
-        date: iso(row.previsaoDate),
-        description: row.previsaoDescription,
-        amountCents: row.previsaoAmount,
-      },
-      realizado: {
-        id: row.realizadoId,
-        date: iso(row.realizadoDate),
-        description: row.realizadoDescription,
-        amountCents: row.realizadoAmount,
-      },
-      contaNome: row.contaNome,
-      diasDeDiferenca: Math.round(
-        Math.abs(new Date(row.previsaoDate).getTime() - new Date(row.realizadoDate).getTime()) / DIA_EM_MS,
-      ),
-      diferencaCents: Math.abs(row.previsaoAmount - row.realizadoAmount),
-    }))
-  })
+  const iso = (d: Date | string) => (d instanceof Date ? d.toISOString() : String(d))
+
+  return rows.map((row) => ({
+    id: row.id,
+    previsao: {
+      id: row.previsaoId,
+      date: iso(row.previsaoDate),
+      description: row.previsaoDescription,
+      amountCents: row.previsaoAmount,
+    },
+    realizado: {
+      id: row.realizadoId,
+      date: iso(row.realizadoDate),
+      description: row.realizadoDescription,
+      amountCents: row.realizadoAmount,
+    },
+    contaNome: row.contaNome,
+    diasDeDiferenca: Math.round(
+      Math.abs(new Date(row.previsaoDate).getTime() - new Date(row.realizadoDate).getTime()) / DIA_EM_MS,
+    ),
+    diferencaCents: Math.abs(row.previsaoAmount - row.realizadoAmount),
+  }))
 }
 
 /**
