@@ -58,7 +58,8 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
 
     if (!proposta) return false
 
-    return vincularNoBanco(tx as unknown as Db, orgId, proposta.realizedTransactionId, proposta.forecastTransactionId)
+    const { efetivada } = await vincularNoBanco(tx as unknown as Db, orgId, proposta.realizedTransactionId, proposta.forecastTransactionId)
+    return efetivada
   })
 
   if (efetivada) revalidateTransactionData(orgId)

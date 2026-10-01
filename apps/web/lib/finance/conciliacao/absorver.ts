@@ -49,14 +49,15 @@ async function outraContaDaPerna(db: Db, orgId: string, p: ProvisoriaAbsorvida):
  * O que a linha do extrato ganha ao absorver a provisória (regra em
  * `efeitoDaAbsorcao`). Usado pelo motor (R1) e por `aprovarProposta`, para
  * que decidir na fila e absorver sozinho deem o mesmo resultado. No espelho
- * OF↔OF (extrato já em outro grupo) não ganha nada: só o vínculo.
+ * OF↔OF (extrato já em outro grupo) não ganha nada: só o vínculo. Devolve se
+ * aplicou efeito; todo efeito confirma o extrato (`reviewState: 'confirmed'`).
  */
 export async function aplicarEfeitoDaAbsorcao(
   db: Db,
   orgId: string,
   provisoria: ProvisoriaAbsorvida,
   extratoId: string,
-): Promise<void> {
+): Promise<boolean> {
   const [extrato] = await db
     .select({
       reviewState: transactions.reviewState,
@@ -67,11 +68,13 @@ export async function aplicarEfeitoDaAbsorcao(
     .from(transactions)
     .where(condicaoDaTransacaoDaOrg(extratoId, orgId))
     .limit(1)
-  if (!extrato) return
+  if (!extrato) return false
 
   const outraConta = provisoria.origem === 'perna' ? await outraContaDaPerna(db, orgId, provisoria) : null
   const efeito = efeitoDaAbsorcao(provisoria, extrato, outraConta)
-  if (efeito) await db.update(transactions).set(efeito).where(condicaoDaTransacaoDaOrg(extratoId, orgId))
+  if (!efeito) return false
+  await db.update(transactions).set(efeito).where(condicaoDaTransacaoDaOrg(extratoId, orgId))
+  return true
 }
 
 /**

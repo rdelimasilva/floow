@@ -40,7 +40,7 @@ function montar(itens: unknown[], total = itens.length) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vincularPrevisao.mockResolvedValue({ efetivada: true })
+  vincularPrevisao.mockResolvedValue({ efetivada: true, classificou: true })
   marcarSemVinculo.mockResolvedValue({ ok: true })
   classificarSoEste.mockResolvedValue({ ok: true })
   confirmCounterparty.mockResolvedValue({ reclassified: 3 })
@@ -120,13 +120,35 @@ describe('FilaFoco', () => {
     expect(screen.queryByText('Prev p1')).not.toBeInTheDocument()
     expect(screen.getByText('Prev p2')).toBeInTheDocument()
   })
-  it('previsão sem categoria: vinculou, mas o lançamento segue para classificar', async () => {
-    montar([{ ...base, id: 'a', description: 'A', candidatas: [cand('p1', { categoriaNome: null })], classificacao }])
+  it('servidor não classificou: vinculou, mas o lançamento segue para classificar (mesmo com categoria na tela)', async () => {
+    vincularPrevisao.mockResolvedValue({ efetivada: true, classificou: false })
+    montar([{ ...base, id: 'a', description: 'A', candidatas: [cand('p1')], classificacao }])
     await act(async () => { fireEvent.keyDown(document, { key: 'Enter' }) })
     expect(screen.getByRole('button', { name: /Confirmar/ })).toBeInTheDocument()
   })
+  it('servidor classificou (perna de transferência, sem categoria): o lançamento sai', async () => {
+    montar([{ ...base, id: 'a', description: 'A', candidatas: [cand('p1', { categoriaNome: null })], classificacao }])
+    await act(async () => { fireEvent.keyDown(document, { key: 'Enter' }) })
+    expect(screen.getByText('Tudo conciliado')).toBeInTheDocument()
+  })
+  it('lote anexado não volta quando a fila troca de lote', async () => {
+    const pulado = { ...base, id: 'a', description: 'PULADO', classificacao }
+    const { rerender } = montar([pulado], 3)
+    fireEvent.click(screen.getByRole('button', { name: /Pular/ }))
+    await act(async () => { rerender(arvore([pulado, { ...base, id: 'b', description: 'NOVO', classificacao: { ...classificacao, counterpartyId: 'cp-2' } }], 3)) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Confirmar/ })) })
+    // Pediu mais de novo; o servidor só tem o pulado: para de pedir.
+    await act(async () => { rerender(arvore([pulado], 2)) })
+    fireEvent.click(screen.getByRole('button', { name: /Revisar agora/ }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Confirmar/ })) })
+    // Lote acabou com feitos < total: troca de lote, e o servidor manda um lote novo.
+    await act(async () => { rerender(arvore([{ ...base, id: 'c', description: 'ULTIMO', classificacao: { ...classificacao, counterpartyId: 'cp-3' } }], 1)) })
+    expect(screen.getByText('ULTIMO')).toBeInTheDocument()
+    expect(screen.queryByText('PULADO')).not.toBeInTheDocument()
+    expect(screen.queryByText('NOVO')).not.toBeInTheDocument()
+  })
   it('previsão recusada pelo servidor: sai só ela; a próxima candidata fica na frente', async () => {
-    vincularPrevisao.mockResolvedValue({ efetivada: false })
+    vincularPrevisao.mockResolvedValue({ efetivada: false, classificou: false })
     montar([{ ...base, id: 'a', description: 'A', candidatas: [cand('p1'), cand('p2')] }])
     await act(async () => { fireEvent.keyDown(document, { key: 'Enter' }) })
     expect(screen.queryByText('Prev p1')).not.toBeInTheDocument()

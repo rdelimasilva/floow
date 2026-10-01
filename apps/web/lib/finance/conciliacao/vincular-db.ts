@@ -5,14 +5,24 @@ import { condicaoDaTransacaoDaOrg } from '@/lib/finance/forecast-match-db'
 
 type Db = ReturnType<typeof getDb>
 
+export type ResultadoDoVinculo = { efetivada: boolean; classificou: boolean }
+
+const NAO_VALE: ResultadoDoVinculo = { efetivada: false, classificou: false }
+
 /**
  * O vínculo previsão → lançamento do banco, com ou sem proposta prévia
  * (spec 2026-10-01 §5.1). Único gravador de `matched_transaction_id` fora do
  * motor R1. Reconfere as duas pontas: a tela é renderizada e o clique chega
  * depois — ver o docblock de `aprovarProposta` para o porquê de cada checagem.
- * Devolve `false` sem gravar nada quando o par deixou de valer.
+ * Devolve `efetivada: false` sem gravar nada quando o par deixou de valer.
+ *
+ * `classificou`: o realizado terminou fora de `pending` — já estava, a
+ * previsão passou a categoria, ou a absorção aplicou efeito (todo efeito
+ * confirma). É o que tira o card da fase "classificar"; a tela não tem como
+ * saber sozinha (perna de transferência sem categoria classifica; previsão
+ * com a categoria apagada, não).
  */
-export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string, previsaoId: string): Promise<boolean> {
+export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string, previsaoId: string): Promise<ResultadoDoVinculo> {
   const pontas = await tx
     .select({
       id: transactions.id, matchedTransactionId: transactions.matchedTransactionId, balanceApplied: transactions.balanceApplied,
@@ -26,9 +36,9 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
 
   const previsao = pontas.find((p) => p.id === previsaoId)
   const realizado = pontas.find((p) => p.id === realizadoId)
-  if (!previsao || !realizado) return false
-  if (previsao.matchedTransactionId || previsao.balanceApplied || previsao.isIgnored || previsao.origem === 'extrato') return false
-  if (realizado.isIgnored) return false
+  if (!previsao || !realizado) return NAO_VALE
+  if (previsao.matchedTransactionId || previsao.balanceApplied || previsao.isIgnored || previsao.origem === 'extrato') return NAO_VALE
+  if (realizado.isIgnored) return NAO_VALE
 
   // O "realizado" tem de ser lançamento de verdade, já aplicado no saldo da
   // conta, e sem vínculo próprio — senão o valor some dos DOIS saldos (mesmo
@@ -36,15 +46,15 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
   // saldo projetado achando que foi cumprida por algo que nunca entrou no
   // saldo real, ou que já está comprometido com outra previsão. Inclui o
   // caso degenerado de vincular a previsão a si mesma.
-  if (realizadoId === previsaoId || !realizado.balanceApplied || realizado.matchedTransactionId) return false
+  if (realizadoId === previsaoId || !realizado.balanceApplied || realizado.matchedTransactionId) return NAO_VALE
 
   // "Procurar previsão" casa por valor absoluto e entre contas; o servidor
   // não pode confiar nisso. Sinal trocado faz a saída prevista sumir do saldo
   // projetado por causa de uma entrada (e vice-versa). E a perna de
   // transferência que aguarda extrato é da conta dela: absorvê-la pelo
   // extrato de outra conta vira transferência da conta para si mesma.
-  if (Math.sign(previsao.amountCents) !== Math.sign(realizado.amountCents)) return false
-  if (previsao.aguardaExtrato && previsao.accountId !== realizado.accountId) return false
+  if (Math.sign(previsao.amountCents) !== Math.sign(realizado.amountCents)) return NAO_VALE
+  if (previsao.aguardaExtrato && previsao.accountId !== realizado.accountId) return NAO_VALE
 
   // Realizado que outra previsão já reivindicou: o índice único da 00042
   // estouraria no UPDATE. Melhor dizer "não vale mais" que lançar.
@@ -53,13 +63,15 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), eq(transactions.matchedTransactionId, realizadoId)))
     .limit(1)
-  if (reivindicado) return false
+  if (reivindicado) return NAO_VALE
 
   await tx.update(transactions).set({ matchedTransactionId: realizadoId }).where(condicaoDaTransacaoDaOrg(previsaoId, orgId))
 
+  let classificou = realizado.reviewState !== 'pending'
   if (previsao.aguardaExtrato) {
-    await aplicarEfeitoDaAbsorcao(tx, orgId, previsao, realizadoId)
+    if (await aplicarEfeitoDaAbsorcao(tx, orgId, previsao, realizadoId)) classificou = true
   } else if (realizado.reviewState === 'pending' && previsao.type !== 'transfer' && previsao.categoryId) {
+    classificou = true
     // A previsão já diz o que o dinheiro é: o card não pede classificação.
     await tx.update(transactions)
       .set({ type: previsao.type, categoryId: previsao.categoryId, reviewState: 'confirmed' })
@@ -74,5 +86,5 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
     or(eq(forecastMatchProposals.forecastTransactionId, previsaoId), eq(forecastMatchProposals.realizedTransactionId, realizadoId)),
     or(ne(forecastMatchProposals.forecastTransactionId, previsaoId), ne(forecastMatchProposals.realizedTransactionId, realizadoId)),
   ))
-  return true
+  return { efetivada: true, classificou }
 }

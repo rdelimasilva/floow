@@ -12,17 +12,20 @@ import { aplicarDecisaoAosPendentes } from '@/lib/openfinance/aplicar-regra'
 import { withUserDb } from '@/lib/db/rls'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 import type { Candidata } from './candidatos'
-import { vincularNoBanco } from './vincular-db'
+import { vincularNoBanco, type ResultadoDoVinculo } from './vincular-db'
 import { interpretarTermo } from './termo-de-busca'
 
 type Db = ReturnType<typeof getDb>
 
-/** "Vincular" do card (spec §5.1). `false` = o par deixou de valer; a tela tira o card e avisa. */
-export async function vincularPrevisao(realizadoId: string, previsaoId: string): Promise<{ efetivada: boolean }> {
+/**
+ * "Vincular" do card (spec §5.1). `efetivada: false` = o par deixou de valer;
+ * a tela tira a candidata e avisa. `classificou` diz se ainda há o que classificar.
+ */
+export async function vincularPrevisao(realizadoId: string, previsaoId: string): Promise<ResultadoDoVinculo> {
   const orgId = await getOrgId()
-  const efetivada = await getDb().transaction((tx) => vincularNoBanco(tx as unknown as Db, orgId, realizadoId, previsaoId))
-  if (efetivada) revalidateTransactionData(orgId)
-  return { efetivada }
+  const r = await getDb().transaction((tx) => vincularNoBanco(tx as unknown as Db, orgId, realizadoId, previsaoId))
+  if (r.efetivada) revalidateTransactionData(orgId)
+  return r
 }
 
 /** "Não é nenhum" (spec §5.2): o lançamento não cumpre previsão nenhuma. */

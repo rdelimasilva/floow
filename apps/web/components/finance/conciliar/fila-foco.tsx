@@ -40,8 +40,12 @@ export function FilaFoco(props: Props) {
   const [anexo, setAnexo] = useState<ItemDaFila[] | null>(null)
   if (pedido && props.itens !== pedido.base) {
     setPedido(null)
-    if (pedido.modo === 'trocar') setLote((l) => l + 1)
-    else setAnexo(props.itens)
+    // Lote novo descarta o anexo do lote anterior: a `Fila` remontada o
+    // reaplicaria e traria de volta itens já decididos.
+    if (pedido.modo === 'trocar') {
+      setLote((l) => l + 1)
+      setAnexo(null)
+    } else setAnexo(props.itens)
   }
   function pedir(modo: Pedido['modo']) {
     setPedido({ base: props.itens, modo })
@@ -111,7 +115,7 @@ function Fila({ itens: iniciais, total: totalAoMontar, categoryOptions, accountO
   }
 
   const vincular = (c: Candidata) => executar(async (item) => {
-    const { efetivada } = await vincularPrevisao(item.id, c.id)
+    const { efetivada, classificou } = await vincularPrevisao(item.id, c.id)
     if (!efetivada) {
       toast('Esta previsão não está mais disponível. A fila foi atualizada.', 'info')
       despachar({ tipo: 'candidataRecusada', id: item.id, previsaoId: c.id })
@@ -119,9 +123,10 @@ function Fila({ itens: iniciais, total: totalAoMontar, categoryOptions, accountO
     }
     toast('Vinculado')
     setProcurandoId(null)
-    // O servidor só passa a categoria quando a previsão tem uma; sem ela,
-    // o lançamento segue para classificar.
-    despachar({ tipo: 'vinculado', id: item.id, previsaoId: c.id, classificou: c.categoriaNome !== null })
+    // Quem sabe se o lançamento saiu de pendente é o servidor: a perna de
+    // transferência não tem categoria e classifica; a previsão com categoria
+    // apagada tem nome na tela e não classifica.
+    despachar({ tipo: 'vinculado', id: item.id, previsaoId: c.id, classificou })
   })
 
   const nenhum = () => executar(async (item) => {

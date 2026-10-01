@@ -57,20 +57,35 @@ beforeEach(() => {
 describe('vincularPrevisao', () => {
   it('grava o vínculo, herda a categoria da previsão e decide as propostas', async () => {
     selectQueue.push([PREV, REAL], [])
-    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true })
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
     const updates = ops.filter((o) => o.op.startsWith('update'))
     expect(updates[0]).toMatchObject({ op: 'update:transactions', payload: { matchedTransactionId: 'real-1' } })
     expect(updates[1]).toMatchObject({ op: 'update:transactions', payload: { type: 'expense', categoryId: 'cat-9', reviewState: 'confirmed' } })
     expect(updates.filter((o) => o.op === 'update:forecast_match_proposals')).toHaveLength(2)
   })
   it('previsão de transferência que aguarda extrato segue o efeito da absorção', async () => {
+    vi.mocked(aplicarEfeitoDaAbsorcao).mockResolvedValue(true)
     selectQueue.push([{ ...PREV, aguardaExtrato: true, type: 'transfer', categoryId: null }, REAL], [])
-    await vincularPrevisao('real-1', 'prev-1')
+    // A perna não tem categoria, mas a absorção confirma o realizado como transferência.
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
     expect(aplicarEfeitoDaAbsorcao).toHaveBeenCalled()
+  })
+  it('absorção sem efeito (espelho OF↔OF): vinculou, mas o realizado segue pendente', async () => {
+    vi.mocked(aplicarEfeitoDaAbsorcao).mockResolvedValue(false)
+    selectQueue.push([{ ...PREV, aguardaExtrato: true, type: 'transfer', categoryId: null }, REAL], [])
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: false })
+  })
+  it('previsão sem categoria (ou com a categoria apagada): vinculou, segue pendente', async () => {
+    selectQueue.push([{ ...PREV, categoryId: null }, REAL], [])
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: false })
+  })
+  it('realizado já confirmado: nada a classificar', async () => {
+    selectQueue.push([{ ...PREV, categoryId: null }, { ...REAL, reviewState: 'confirmed' }], [])
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
   })
   it('previsão comum de outra conta, mesmo sinal, ainda vincula (Procurar previsão é entre contas)', async () => {
     selectQueue.push([{ ...PREV, accountId: 'nubank' }, REAL], [])
-    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true })
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
   })
   it.each([
     ['previsão já vinculada', [{ ...PREV, matchedTransactionId: 'outro' }, REAL], []],
@@ -87,13 +102,13 @@ describe('vincularPrevisao', () => {
     ['perna que aguarda extrato, de outra conta', [{ ...PREV, aguardaExtrato: true, type: 'transfer', categoryId: null, accountId: 'nubank' }, REAL], []],
   ])('%s → efetivada false, nada gravado', async (_, pontas, reivindicado) => {
     selectQueue.push(pontas as unknown[], reivindicado as unknown[])
-    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: false })
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: false, classificou: false })
     expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
   })
 
   it('previsão e realizado não podem ser o mesmo lançamento', async () => {
     selectQueue.push([PREV])
-    expect(await vincularPrevisao('prev-1', 'prev-1')).toEqual({ efetivada: false })
+    expect(await vincularPrevisao('prev-1', 'prev-1')).toEqual({ efetivada: false, classificou: false })
     expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
   })
 })
