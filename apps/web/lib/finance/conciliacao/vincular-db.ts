@@ -30,6 +30,14 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
   if (previsao.matchedTransactionId || previsao.balanceApplied || previsao.isIgnored || previsao.origem === 'extrato') return false
   if (realizado.isIgnored) return false
 
+  // O "realizado" tem de ser lançamento de verdade, já aplicado no saldo da
+  // conta, e sem vínculo próprio — senão o valor some dos DOIS saldos (mesmo
+  // risco do docblock de `condicaoDePropostaAprovavel`): a previsão sai do
+  // saldo projetado achando que foi cumprida por algo que nunca entrou no
+  // saldo real, ou que já está comprometido com outra previsão. Inclui o
+  // caso degenerado de vincular a previsão a si mesma.
+  if (realizadoId === previsaoId || !realizado.balanceApplied || realizado.matchedTransactionId) return false
+
   // Realizado que outra previsão já reivindicou: o índice único da 00042
   // estouraria no UPDATE. Melhor dizer "não vale mais" que lançar.
   const [reivindicado] = await tx

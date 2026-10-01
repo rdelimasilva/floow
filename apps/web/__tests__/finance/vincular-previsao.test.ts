@@ -74,9 +74,17 @@ describe('vincularPrevisao', () => {
     ['realizado ignorado', [PREV, { ...REAL, isIgnored: true }], []],
     ['realizado já reivindicado por outra previsão', [PREV, REAL], [{ id: 'prev-2' }]],
     ['ponta de outra org (não volta)', [REAL], []],
+    ['realizado é previsão (fora do saldo)', [PREV, { ...REAL, balanceApplied: false }], []],
+    ['realizado com vínculo próprio', [PREV, { ...REAL, matchedTransactionId: 'x' }], []],
   ])('%s → efetivada false, nada gravado', async (_, pontas, reivindicado) => {
     selectQueue.push(pontas as unknown[], reivindicado as unknown[])
     expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: false })
+    expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
+  })
+
+  it('previsão e realizado não podem ser o mesmo lançamento', async () => {
+    selectQueue.push([PREV])
+    expect(await vincularPrevisao('prev-1', 'prev-1')).toEqual({ efetivada: false })
     expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
   })
 })

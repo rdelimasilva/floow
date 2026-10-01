@@ -141,9 +141,23 @@ describe('aprovarProposta', () => {
 
   it('previsão recorrente: a ponta real não muda de natureza', async () => {
     selectQueue.push([PENDENTE])
-    selectQueue.push(PONTAS_ELEGIVEIS)
+    // Realizado já confirmado: `reviewState: 'confirmed'` explícito, para que
+    // o título continue verdadeiro mesmo com o novo comportamento de herdar
+    // categoria de `vincularNoBanco` (que só mexe no realizado `pending`).
+    selectQueue.push([PREVISAO_ABERTA, { ...REALIZADO_VALENDO, reviewState: 'confirmed' }])
     await aprovarProposta('prop-1')
     expect(ops.filter((o) => o.op === 'update:transactions')).toHaveLength(1)
+  })
+
+  it('previsão recorrente com categoria classifica o realizado pendente', async () => {
+    selectQueue.push([PENDENTE])
+    selectQueue.push([
+      { ...PREVISAO_ABERTA, type: 'expense', categoryId: 'cat-mercado' },
+      { ...REALIZADO_VALENDO, reviewState: 'pending' },
+    ])
+    await aprovarProposta('prop-1')
+    const escritas = ops.filter((o) => o.op === 'update:transactions').map((o) => o.payload)
+    expect(escritas).toContainEqual({ type: 'expense', categoryId: 'cat-mercado', reviewState: 'confirmed' })
   })
 
   it('realizado marcado como ignorado na janela não é efetivado', async () => {
