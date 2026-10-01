@@ -104,7 +104,8 @@ function palavrasUteis(descricao: string): Set<string> {
   return palavras
 }
 
-function temPalavraEmComum(a: string, b: string): boolean {
+/** As duas descrições dividem ao menos uma palavra com significado (ver `palavrasUteis`). */
+export function temPalavraEmComum(a: string, b: string): boolean {
   const palavrasA = palavrasUteis(a)
   for (const palavra of palavrasUteis(b)) {
     if (palavrasA.has(palavra)) return true

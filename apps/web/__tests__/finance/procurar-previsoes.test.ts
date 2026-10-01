@@ -110,4 +110,12 @@ describe('procurarPrevisoes', () => {
     expect(q.sql).toContain('ilike')
     expect(q.sql).not.toContain('abs(')
   })
+  it('não filtra pelo palpite; só marca nome parecido', async () => {
+    selectQueue.push([{ accountId: 'itau', date: '2026-09-12', amountCents: -15000, description: 'PIX JUSSARA SILVA' }], [
+      { id: 'a', accountId: 'itau', contaNome: 'Itaú', date: '2026-09-10', amountCents: -36000, description: 'Jussara - Diarista', categoriaNome: null },
+      { id: 'b', accountId: 'nu', contaNome: 'Nubank', date: '2026-09-10', amountCents: -99000, description: 'Escola', categoriaNome: null },
+    ])
+    const r = await procurarPrevisoes('real-1', 'diarista escola')
+    expect(r.map((c) => [c.id, c.nomeParecido, c.outraConta])).toEqual([['a', true, false], ['b', false, true]])
+  })
 })

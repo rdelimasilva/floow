@@ -1,6 +1,8 @@
+import { temPalavraEmComum } from '@floow/core-finance/src/forecast-match'
 import { JANELA_BUSCA_DIAS } from '@/lib/finance/forecast-match-db'
 
-export const TETO_DIFERENCA_RELATIVA = 0.2
+/** Sem nome em comum, só vale como palpite o valor praticamente igual. */
+export const TOLERANCIA_VALOR_IGUAL = 0.02
 export const MAX_CANDIDATAS = 3
 
 export interface LancamentoDoBanco {
@@ -8,6 +10,7 @@ export interface LancamentoDoBanco {
   accountId: string
   date: string
   amountCents: number
+  description: string
 }
 
 export interface PrevisaoAberta {
@@ -25,6 +28,7 @@ export interface Candidata extends PrevisaoAberta {
   diferencaCents: number
   outraConta: boolean
   propostaId: string | null
+  nomeParecido: boolean
 }
 
 const DIA_EM_MS = 24 * 60 * 60 * 1000
@@ -33,18 +37,19 @@ const dia = (iso: string) => Date.parse(iso.slice(0, 10))
 
 /**
  * Quais previsões abertas parecem ser este lançamento do banco. Pura: a
- * consulta mora em `fila-db.ts`. Spec 2026-10-01 §4.
+ * consulta mora em `fila-db.ts`. Spec 2026-10-01 §4, card v2 §A.
  *
- * Mesma conta, mesmo sinal, ±10 dias, até 20% de diferença. Ordem: valor,
- * depois dias. A proposta que o sync gravou (se houver) é a candidata 1: é o
- * palpite que o motor já fez com regras de descrição que esta pontuação não tem.
+ * Mesma conta, mesmo sinal, ±10 dias e — o que segura palpite ruim — nome
+ * com palavra em comum OU valor até 2% diferente. Ordem: nome parecido,
+ * diferença de valor, dias. A proposta que o sync gravou é a candidata 1 se
+ * passar nesse filtro: é o palpite que o motor já fez.
  */
 export function escolherCandidatas(
   lancamento: LancamentoDoBanco,
   previsoes: PrevisaoAberta[],
   opcoes: { proposta?: { id: string; previsaoId: string } | null; recusadas?: Set<string> } = {},
 ): Candidata[] {
-  const teto = Math.abs(lancamento.amountCents) * TETO_DIFERENCA_RELATIVA
+  const quaseIgual = Math.abs(lancamento.amountCents) * TOLERANCIA_VALOR_IGUAL
   const elegiveis = previsoes
     .filter((p) => p.accountId === lancamento.accountId)
     .filter((p) => Math.sign(p.amountCents) === Math.sign(lancamento.amountCents))
@@ -55,9 +60,11 @@ export function escolherCandidatas(
       diferencaCents: Math.abs(p.amountCents - lancamento.amountCents),
       outraConta: false,
       propostaId: opcoes.proposta?.previsaoId === p.id ? opcoes.proposta.id : null,
+      nomeParecido: temPalavraEmComum(lancamento.description, p.description),
     }))
-    .filter((c) => c.diasDeDiferenca <= JANELA_BUSCA_DIAS && c.diferencaCents <= teto)
-    .sort((a, b) => a.diferencaCents - b.diferencaCents || a.diasDeDiferenca - b.diasDeDiferenca)
+    .filter((c) => c.diasDeDiferenca <= JANELA_BUSCA_DIAS && (c.nomeParecido || c.diferencaCents <= quaseIgual))
+    .sort((a, b) => Number(b.nomeParecido) - Number(a.nomeParecido)
+      || a.diferencaCents - b.diferencaCents || a.diasDeDiferenca - b.diasDeDiferenca)
 
   const daProposta = elegiveis.findIndex((c) => c.propostaId !== null)
   if (daProposta > 0) elegiveis.unshift(...elegiveis.splice(daProposta, 1))

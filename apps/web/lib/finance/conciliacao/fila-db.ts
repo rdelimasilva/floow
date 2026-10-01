@@ -22,7 +22,10 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
 
   const desde = new Date(hoje.getTime() - JANELA_FILA_DIAS * DIA_EM_MS)
   const recentes = await db
-    .select({ id: transactions.id, accountId: transactions.accountId, date: transactions.date, amountCents: transactions.amountCents })
+    .select({
+      id: transactions.id, accountId: transactions.accountId, date: transactions.date, amountCents: transactions.amountCents,
+      description: transactions.description,
+    })
     .from(transactions)
     .where(and(
       eq(transactions.orgId, orgId), eq(transactions.origem, 'extrato'), eq(transactions.isIgnored, false),

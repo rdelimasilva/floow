@@ -11,6 +11,7 @@ import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarDecisaoAosPendentes } from '@/lib/openfinance/aplicar-regra'
 import { withUserDb } from '@/lib/db/rls'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { temPalavraEmComum } from '@floow/core-finance/src/forecast-match'
 import type { Candidata } from './candidatos'
 import { vincularNoBanco, type ResultadoDoVinculo } from './vincular-db'
 import { interpretarTermo } from './termo-de-busca'
@@ -109,7 +110,8 @@ const diaIso = (d: Date | string) => (d instanceof Date ? d.toISOString() : Stri
 /**
  * "Procurar previsão" (spec §2.4): todas as contas, por descrição ou valor.
  * Só devolve o que `vincularNoBanco` aceitaria: mesmo sinal do realizado, e
- * perna que aguarda extrato só da conta dele.
+ * perna que aguarda extrato só da conta dele. Não aplica o filtro do palpite
+ * (o usuário procura o que quiser); só marca o nome parecido.
  */
 export async function procurarPrevisoes(realizadoId: string, termo: string): Promise<Candidata[]> {
   const orgId = await getOrgId()
@@ -117,7 +119,9 @@ export async function procurarPrevisoes(realizadoId: string, termo: string): Pro
   if (t.length < 2) return []
   const { centavos, texto } = interpretarTermo(t)
   return withUserDb(async (db) => {
-    const [real] = await db.select({ accountId: transactions.accountId, date: transactions.date, amountCents: transactions.amountCents })
+    const [real] = await db.select({
+      accountId: transactions.accountId, date: transactions.date, amountCents: transactions.amountCents, description: transactions.description,
+    })
       .from(transactions).where(and(eq(transactions.id, realizadoId), eq(transactions.orgId, orgId))).limit(1)
     if (!real) return []
     const porValor = centavos !== null ? sql`abs(${transactions.amountCents}) = ${centavos}` : undefined
@@ -144,6 +148,7 @@ export async function procurarPrevisoes(realizadoId: string, termo: string): Pro
       diasDeDiferenca: Math.round(Math.abs(dia(p.date) - dia(real.date)) / 86_400_000),
       diferencaCents: Math.abs(p.amountCents - real.amountCents),
       outraConta: p.accountId !== real.accountId, propostaId: null,
+      nomeParecido: temPalavraEmComum(real.description, p.description),
     }))
   })
 }

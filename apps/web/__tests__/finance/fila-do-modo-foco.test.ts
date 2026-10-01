@@ -5,7 +5,7 @@ const conta = { id: 'itau', nome: 'Itaú CC', tipo: 'checking', instituicao: 'It
 const base = (id: string, amountCents: number, extra: Partial<LancamentoBase> = {}): LancamentoBase => ({
   id, date: '2026-09-12', description: id, amountCents, cardLastDigits: null, importedAt: null, conta, vinculoRevisado: false, ...extra,
 })
-const cand = (id: string) => ({ id, accountId: 'itau', contaNome: 'Itaú CC', date: '2026-09-10', amountCents: -1, description: id, categoriaNome: null, diasDeDiferenca: 2, diferencaCents: 0, outraConta: false, propostaId: null })
+const cand = (id: string) => ({ id, accountId: 'itau', contaNome: 'Itaú CC', date: '2026-09-10', amountCents: -1, description: id, categoriaNome: null, diasDeDiferenca: 2, diferencaCents: 0, outraConta: false, propostaId: null, nomeParecido: false })
 const grupo = (counterpartyId: string, ids: string[]) => ({
   counterpartyId, displayName: counterpartyId.toUpperCase(), keyType: 'description' as const, count: ids.length, totalCents: 0, ehCpfProprio: false,
   suggestedCategoryId: 'cat-1', suggestionSource: 'historico' as const,
