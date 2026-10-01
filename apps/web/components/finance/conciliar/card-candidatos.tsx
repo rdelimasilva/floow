@@ -45,7 +45,7 @@ export function LinhaDaCandidata({ candidata: c, numero, destaque, ocupado, onVi
 export function CardCandidatos({ candidatas, ocupado, onVincular, onNenhum, onProcurar, onPular }: {
   candidatas: Candidata[]
   ocupado: boolean
-  onVincular: (previsaoId: string) => void
+  onVincular: (c: Candidata) => void
   onNenhum: () => void
   onProcurar: () => void
   onPular: () => void
@@ -61,7 +61,7 @@ export function CardCandidatos({ candidatas, ocupado, onVincular, onNenhum, onPr
             numero={i + 1}
             destaque={i === 0}
             ocupado={ocupado}
-            onVincular={() => onVincular(c.id)}
+            onVincular={() => onVincular(c)}
           />
         ))}
       </ul>

@@ -14,7 +14,7 @@ const ESPERA_MS = 300
 export function ProcurarPrevisao({ realizadoId, ocupado, onVincular, onFechar }: {
   realizadoId: string
   ocupado: boolean
-  onVincular: (previsaoId: string) => void
+  onVincular: (c: Candidata) => void
   onFechar: () => void
 }) {
   const { toast } = useToast()
@@ -61,7 +61,7 @@ export function ProcurarPrevisao({ realizadoId, ocupado, onVincular, onFechar }:
       {resultados !== null && resultados.length > 0 && (
         <ul className="space-y-2">
           {resultados.map((c) => (
-            <LinhaDaCandidata key={c.id} candidata={c} destaque={false} ocupado={ocupado} onVincular={() => onVincular(c.id)} />
+            <LinhaDaCandidata key={c.id} candidata={c} destaque={false} ocupado={ocupado} onVincular={() => onVincular(c)} />
           ))}
         </ul>
       )}

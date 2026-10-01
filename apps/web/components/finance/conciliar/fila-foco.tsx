@@ -4,6 +4,7 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { ItemDaFila } from '@/lib/finance/conciliacao/fila'
+import type { Candidata } from '@/lib/finance/conciliacao/candidatos'
 import { vincularPrevisao, marcarSemVinculo, classificarSoEste } from '@/lib/finance/conciliacao/vincular-actions'
 import { aprovarDuplicata, recusarDuplicata } from '@/lib/finance/duplicata-actions'
 import { confirmCounterparty } from '@/lib/openfinance/counterparty-actions'
@@ -23,35 +24,49 @@ export type { CategoryOption, AccountOption } from './card-classificar'
 
 type Props = { itens: ItemDaFila[]; total: number; categoryOptions: CategoryOption[]; accountOptions: AccountOption[] }
 
+type Pedido = { base: ItemDaFila[]; modo: 'trocar' | 'anexar' }
+
 /**
  * A fila só lê `itens` ao montar: as actions revalidam a página e trazem
  * props novas a cada decisão, e reaplicá-las no meio embaralharia pulados e
  * progresso. Quando o lote acaba, pede o próximo (spec §3.4) e remonta com o
- * que chegar.
+ * que chegar. Quando só restam pulados e o servidor tem mais, pede o próximo
+ * sem remontar: os novos entram na frente e os pulados seguem para revisar.
  */
 export function FilaFoco(props: Props) {
   const router = useRouter()
   const [lote, setLote] = useState(0)
-  const [aguardando, setAguardando] = useState<ItemDaFila[] | null>(null)
-  if (aguardando && props.itens !== aguardando) {
-    setAguardando(null)
-    setLote((l) => l + 1)
+  const [pedido, setPedido] = useState<Pedido | null>(null)
+  const [anexo, setAnexo] = useState<ItemDaFila[] | null>(null)
+  if (pedido && props.itens !== pedido.base) {
+    setPedido(null)
+    if (pedido.modo === 'trocar') setLote((l) => l + 1)
+    else setAnexo(props.itens)
   }
-  function pedirProximoLote() {
-    setAguardando(props.itens)
+  function pedir(modo: Pedido['modo']) {
+    setPedido({ base: props.itens, modo })
     router.refresh()
   }
-  return <Fila key={lote} {...props} pedirProximoLote={pedirProximoLote} />
+  return <Fila key={lote} {...props} anexo={anexo} pedirProximoLote={() => pedir('trocar')} pedirMais={() => pedir('anexar')} />
 }
 
-function Fila({ itens: iniciais, total, categoryOptions, accountOptions, pedirProximoLote }: Props & { pedirProximoLote: () => void }) {
+function Fila({ itens: iniciais, total: totalAoMontar, categoryOptions, accountOptions, anexo, pedirProximoLote, pedirMais }: Props & {
+  anexo: ItemDaFila[] | null
+  pedirProximoLote: () => void
+  pedirMais: () => void
+}) {
   const { toast } = useToast()
   const [estado, despachar] = useReducer(reduzir, { itens: iniciais, pulados: [], feitos: 0 })
+  // O `total` das props muda a cada revalidação (é o que resta no servidor);
+  // `feitos` conta a partir da montagem, então o total é o da montagem.
+  const [total] = useState(totalAoMontar)
   const [ocupado, setOcupado] = useState(false)
   // O estado só muda no próximo render; a ref barra o segundo Enter no mesmo tique.
   const ocupadoRef = useRef(false)
   const [rascunho, setRascunho] = useState<{ id: string; d: Decisao } | null>(null)
   const [procurandoId, setProcurandoId] = useState<string | null>(null)
+  // Um pedido de "mais" que não trouxe nada novo encerra os pedidos: senão, laço.
+  const [semMais, setSemMais] = useState(false)
 
   const atual: ItemDaFila | undefined = estado.itens[0]
   const fase = atual ? faseDe(atual) : null
@@ -67,6 +82,20 @@ function Fila({ itens: iniciais, total, categoryOptions, accountOptions, pedirPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregando])
 
+  const buscarMais = restamPulados && !semMais && estado.feitos + estado.pulados.length < total
+  useEffect(() => {
+    if (buscarMais) pedirMais()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buscarMais])
+
+  useEffect(() => {
+    if (!anexo) return
+    const presentes = new Set(estado.itens.map((i) => i.id))
+    if (anexo.some((i) => !presentes.has(i.id) && faseDe(i) !== null)) despachar({ tipo: 'loteAnexado', itens: anexo })
+    else setSemMais(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anexo])
+
   async function executar(fn: (item: ItemDaFila) => Promise<void>) {
     if (ocupadoRef.current || !atual) return
     ocupadoRef.current = true
@@ -81,11 +110,18 @@ function Fila({ itens: iniciais, total, categoryOptions, accountOptions, pedirPr
     }
   }
 
-  const vincular = (previsaoId: string) => executar(async (item) => {
-    const { efetivada } = await vincularPrevisao(item.id, previsaoId)
-    if (efetivada) toast('Vinculado')
-    else toast('Esta previsão não está mais disponível. A fila foi atualizada.', 'info')
-    despachar({ tipo: 'resolvido', id: item.id })
+  const vincular = (c: Candidata) => executar(async (item) => {
+    const { efetivada } = await vincularPrevisao(item.id, c.id)
+    if (!efetivada) {
+      toast('Esta previsão não está mais disponível. A fila foi atualizada.', 'info')
+      despachar({ tipo: 'candidataRecusada', id: item.id, previsaoId: c.id })
+      return
+    }
+    toast('Vinculado')
+    setProcurandoId(null)
+    // O servidor só passa a categoria quando a previsão tem uma; sem ela,
+    // o lançamento segue para classificar.
+    despachar({ tipo: 'vinculado', id: item.id, previsaoId: c.id, classificou: c.categoriaNome !== null })
   })
 
   const nenhum = () => executar(async (item) => {
@@ -134,8 +170,8 @@ function Fila({ itens: iniciais, total, categoryOptions, accountOptions, pedirPr
     if (e.key === 'ArrowRight') acao = pular
     else if (fase === 'repetido' && e.key === 'Enter') acao = descartar
     else if (fase === 'candidatas') {
-      if (e.key === 'Enter') acao = () => vincular(atual.candidatas[0].id)
-      else if (n >= 1 && n <= 3 && atual.candidatas[n - 1]) acao = () => vincular(atual.candidatas[n - 1].id)
+      if (e.key === 'Enter') acao = () => vincular(atual.candidatas[0])
+      else if (n >= 1 && n <= 3 && atual.candidatas[n - 1]) acao = () => vincular(atual.candidatas[n - 1])
       else if (e.key === 'n' || e.key === 'N') acao = nenhum
     } else if (fase === 'classificar' && e.key === 'Enter' && decisao && decisaoCompleta(decisao, atual.conta.id)) acao = confirmar
     if (!acao) return

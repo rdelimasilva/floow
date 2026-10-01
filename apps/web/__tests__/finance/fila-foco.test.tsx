@@ -11,7 +11,8 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ToastProvider } from '@/components/ui/toast'
 import type { ItemDaFila } from '@/lib/finance/conciliacao/fila'
 
-const { vincularPrevisao, marcarSemVinculo, classificarSoEste, confirmCounterparty, aprovarDuplicata, recusarDuplicata } = vi.hoisted(() => ({
+const { vincularPrevisao, marcarSemVinculo, classificarSoEste, confirmCounterparty, aprovarDuplicata, recusarDuplicata, refresh } = vi.hoisted(() => ({
+  refresh: vi.fn(),
   vincularPrevisao: vi.fn(),
   marcarSemVinculo: vi.fn(),
   classificarSoEste: vi.fn(),
@@ -22,7 +23,7 @@ const { vincularPrevisao, marcarSemVinculo, classificarSoEste, confirmCounterpar
 vi.mock('@/lib/finance/conciliacao/vincular-actions', () => ({ vincularPrevisao, marcarSemVinculo, classificarSoEste, procurarPrevisoes: vi.fn().mockResolvedValue([]) }))
 vi.mock('@/lib/finance/duplicata-actions', () => ({ aprovarDuplicata, recusarDuplicata }))
 vi.mock('@/lib/openfinance/counterparty-actions', () => ({ confirmCounterparty }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }))
 
 import { FilaFoco, type CategoryOption } from '@/components/finance/conciliar/fila-foco'
 
@@ -32,8 +33,9 @@ const cand = (id: string, extra = {}) => ({ id, accountId: 'itau', contaNome: 'C
 const classificacao = { counterpartyId: 'cp-1', displayName: 'NETFLIX.COM', nature: 'expense' as const, categoryId: 'cat-1', suggestionSource: 'historico' as const, sugestaoContaId: null, ehCpfProprio: false, outrosNaFila: 2 }
 const opts = { categoryOptions: [{ id: 'cat-1', label: 'Assinaturas', type: 'expense' }] as CategoryOption[], accountOptions: [{ id: 'itau', name: 'Conta Itaú' }, { id: 'nu', name: 'Nubank' }] }
 
+const arvore = (itens: unknown[], total: number) => <ToastProvider><FilaFoco itens={itens as ItemDaFila[]} total={total} {...opts} /></ToastProvider>
 function montar(itens: unknown[], total = itens.length) {
-  return render(<ToastProvider><FilaFoco itens={itens as ItemDaFila[]} total={total} {...opts} /></ToastProvider>)
+  return render(arvore(itens, total))
 }
 
 beforeEach(() => {
@@ -106,5 +108,47 @@ describe('FilaFoco', () => {
     fireEvent.click(screen.getByRole('button', { name: /Revisar agora/ }))
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Confirmar/ })) })
     expect(screen.getByText('Tudo conciliado')).toBeInTheDocument()
+  })
+  it('previsão vinculada some das candidatas dos outros lançamentos', async () => {
+    montar([
+      { ...base, id: 'a', description: 'A', candidatas: [cand('p1')] },
+      { ...base, id: 'b', description: 'B', candidatas: [cand('p1'), cand('p2')] },
+    ])
+    await act(async () => { fireEvent.keyDown(document, { key: 'Enter' }) })
+    expect(vincularPrevisao).toHaveBeenCalledWith('a', 'p1')
+    expect(screen.getByText('B')).toBeInTheDocument()
+    expect(screen.queryByText('Prev p1')).not.toBeInTheDocument()
+    expect(screen.getByText('Prev p2')).toBeInTheDocument()
+  })
+  it('previsão sem categoria: vinculou, mas o lançamento segue para classificar', async () => {
+    montar([{ ...base, id: 'a', description: 'A', candidatas: [cand('p1', { categoriaNome: null })], classificacao }])
+    await act(async () => { fireEvent.keyDown(document, { key: 'Enter' }) })
+    expect(screen.getByRole('button', { name: /Confirmar/ })).toBeInTheDocument()
+  })
+  it('previsão recusada pelo servidor: sai só ela; a próxima candidata fica na frente', async () => {
+    vincularPrevisao.mockResolvedValue({ efetivada: false })
+    montar([{ ...base, id: 'a', description: 'A', candidatas: [cand('p1'), cand('p2')] }])
+    await act(async () => { fireEvent.keyDown(document, { key: 'Enter' }) })
+    expect(screen.queryByText('Prev p1')).not.toBeInTheDocument()
+    expect(screen.getByText('Prev p2')).toBeInTheDocument()
+  })
+  it('só pulados com mais na fila: busca o próximo lote e mantém os pulados para revisar', async () => {
+    const pulado = { ...base, id: 'a', description: 'PULADO', classificacao }
+    const { rerender } = montar([pulado], 2)
+    fireEvent.click(screen.getByRole('button', { name: /Pular/ }))
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/1 pulado/)).toBeInTheDocument()
+    // O servidor devolve o pulado (ainda pendente) e o próximo da fila.
+    await act(async () => { rerender(arvore([pulado, { ...base, id: 'b', description: 'NOVO', classificacao: { ...classificacao, counterpartyId: 'cp-2' } }], 2)) })
+    expect(screen.getByText('NOVO')).toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Confirmar/ })) })
+    expect(screen.getByText(/1 pulado/)).toBeInTheDocument()
+    expect(screen.getByText('2 de 2')).toBeInTheDocument()
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+  it('só pulados e nada além deles: não busca', () => {
+    montar([{ ...base, id: 'a', description: 'X', classificacao }], 1)
+    fireEvent.click(screen.getByRole('button', { name: /Pular/ }))
+    expect(refresh).not.toHaveBeenCalled()
   })
 })
