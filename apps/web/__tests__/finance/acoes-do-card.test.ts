@@ -52,6 +52,7 @@ vi.mock('@/lib/cache-tags', () => ({ accountsTag: () => 't', invalidateTag: vi.f
 const { marcarSemVinculo, classificarSoEste } = await import('@/lib/finance/conciliacao/vincular-actions')
 const { aplicarDecisaoAosPendentes } = await import('@/lib/openfinance/aplicar-regra')
 const { conciliarContas } = await import('@/lib/finance/conciliacao/conciliar-conta')
+const { assertAccountOwnership } = await import('@/lib/finance/account-actions')
 
 beforeEach(() => {
   ops.length = 0
@@ -90,5 +91,13 @@ describe('classificarSoEste', () => {
     const r = await classificarSoEste({ transactionId: '00000000-0000-4000-8000-000000000001', counterpartyId: '00000000-0000-4000-8000-000000000002', nature: 'transfer', categoryId: null, transferAccountId: '00000000-0000-4000-8000-000000000004' })
     expect(r).toMatchObject({ error: expect.stringContaining('A conta da transferência não pode ser a mesma conta do lançamento.') })
     expect(conciliarContas).not.toHaveBeenCalled()
+  })
+  it('conta de outra org traduz o erro técnico do assertAccountOwnership', async () => {
+    vi.mocked(assertAccountOwnership).mockRejectedValueOnce(
+      new Error('Account 00000000-0000-4000-8000-000000000004 not found or does not belong to this organization'),
+    )
+    const r = await classificarSoEste({ transactionId: '00000000-0000-4000-8000-000000000001', counterpartyId: '00000000-0000-4000-8000-000000000002', nature: 'transfer', categoryId: null, transferAccountId: '00000000-0000-4000-8000-000000000004' })
+    expect(r).toEqual({ error: 'A conta escolhida não pertence a esta organização.' })
+    expect(aplicarDecisaoAosPendentes).not.toHaveBeenCalled()
   })
 })

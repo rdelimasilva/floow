@@ -59,7 +59,19 @@ export async function classificarSoEste(raw: z.input<typeof soEsteSchema>): Prom
   let aplicados: number
   try {
     aplicados = await db.transaction(async (tx) => {
-      if (input.transferAccountId) await assertAccountOwnership(tx as unknown as Db, input.transferAccountId, orgId)
+      if (input.transferAccountId) {
+        try {
+          await assertAccountOwnership(tx as unknown as Db, input.transferAccountId, orgId)
+        } catch {
+          // `assertAccountOwnership` lança em inglês com o uuid cru da conta
+          // ("Account <id> not found or does not belong to this
+          // organization") — mensagem técnica que não pode chegar ao
+          // catch genérico abaixo (`mensagemDeErro` a devolveria do jeito
+          // que está, por ser uma `Error` com texto). Troca pela mensagem
+          // de usuário antes de sair da transação.
+          throw new Error('A conta escolhida não pertence a esta organização.')
+        }
+      }
       return aplicarDecisaoAosPendentes(
         tx as unknown as Db, orgId,
         { counterpartyId: input.counterpartyId, nature: input.nature, categoryId: input.categoryId, transferAccountId: input.transferAccountId, exceptions: [] },
