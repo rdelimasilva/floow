@@ -56,7 +56,7 @@ function Fila({ itens: iniciais, total, categoryOptions, accountOptions, pedirPr
   const atual: ItemDaFila | undefined = estado.itens[0]
   const fase = atual ? faseDe(atual) : null
   // A decisão nasce do palpite de cada lançamento e é descartada quando ele sai da frente.
-  const decisao = atual?.classificacao ? (rascunho?.id === atual.id ? rascunho.d : decisaoInicial(atual.classificacao)) : null
+  const decisao = atual?.classificacao ? (rascunho?.id === atual.id ? rascunho.d : decisaoInicial(atual.classificacao, atual.conta.id)) : null
   const procurando = atual !== undefined && procurandoId === atual.id
   const restamPulados = soRestamPulados(estado)
   // Um lote que já chegou vazio é o fim de verdade; pedir de novo seria um laço.
@@ -108,7 +108,7 @@ function Fila({ itens: iniciais, total, categoryOptions, accountOptions, pedirPr
 
   const confirmar = () => executar(async (item) => {
     const c = item.classificacao
-    if (!c || !decisao || !decisaoCompleta(decisao)) return
+    if (!c || !decisao || !decisaoCompleta(decisao, item.conta.id)) return
     const escolha = {
       nature: decisao.nature,
       categoryId: decisao.nature === 'transfer' ? null : decisao.categoryId,
@@ -137,7 +137,7 @@ function Fila({ itens: iniciais, total, categoryOptions, accountOptions, pedirPr
       if (e.key === 'Enter') acao = () => vincular(atual.candidatas[0].id)
       else if (n >= 1 && n <= 3 && atual.candidatas[n - 1]) acao = () => vincular(atual.candidatas[n - 1].id)
       else if (e.key === 'n' || e.key === 'N') acao = nenhum
-    } else if (fase === 'classificar' && e.key === 'Enter' && decisao && decisaoCompleta(decisao)) acao = confirmar
+    } else if (fase === 'classificar' && e.key === 'Enter' && decisao && decisaoCompleta(decisao, atual.conta.id)) acao = confirmar
     if (!acao) return
     e.preventDefault()
     acao()

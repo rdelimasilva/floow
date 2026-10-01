@@ -14,18 +14,28 @@ const NATUREZAS: { valor: Nature; rotulo: string }[] = [
   { valor: 'transfer', rotulo: 'Transferência' },
 ]
 
+/**
+ * A conta sugerida para a transferência, desde que não seja a do próprio
+ * lançamento: transferir para si mesma é o erro de produção de 16/09/2026, e
+ * o caminho da regra (`confirmCounterparty`) não barra isso no servidor.
+ */
+function contaSugerida(c: Classificacao, contaDoItemId: string): string | null {
+  return c.sugestaoContaId === contaDoItemId ? null : c.sugestaoContaId
+}
+
 /** O card chega com o palpite do floow já marcado (spec §2.3 B). CPF próprio nunca vira regra: cada lançamento é uma conta diferente. */
-export function decisaoInicial(c: Classificacao): Decisao {
+export function decisaoInicial(c: Classificacao, contaDoItemId: string): Decisao {
   return {
     nature: c.nature,
     categoryId: c.nature === 'transfer' ? null : c.categoryId,
-    transferAccountId: c.nature === 'transfer' ? c.sugestaoContaId : null,
+    transferAccountId: c.nature === 'transfer' ? contaSugerida(c, contaDoItemId) : null,
     regra: !c.ehCpfProprio,
   }
 }
 
-export function decisaoCompleta(d: Decisao): boolean {
-  return d.nature === 'transfer' ? d.transferAccountId !== null : d.categoryId !== null
+export function decisaoCompleta(d: Decisao, contaDoItemId: string): boolean {
+  if (d.nature !== 'transfer') return d.categoryId !== null
+  return d.transferAccountId !== null && d.transferAccountId !== contaDoItemId
 }
 
 export function CardClassificar({
@@ -56,7 +66,7 @@ export function CardClassificar({
       ...d,
       nature,
       categoryId: nature !== 'transfer' && categoriaServe ? d.categoryId : null,
-      transferAccountId: nature === 'transfer' ? c.sugestaoContaId : null,
+      transferAccountId: nature === 'transfer' ? contaSugerida(c, contaDoItemId) : null,
     })
   }
 
@@ -118,7 +128,7 @@ export function CardClassificar({
         </label>
       )}
       <div className="flex flex-wrap gap-2">
-        <Button variant="primary" size="sm" disabled={ocupado || !decisaoCompleta(d)} onClick={onConfirmar}>Confirmar</Button>
+        <Button variant="primary" size="sm" disabled={ocupado || !decisaoCompleta(d, contaDoItemId)} onClick={onConfirmar}>Confirmar</Button>
         <Button variant="outline" size="sm" disabled={ocupado} onClick={onProcurar}>Procurar previsão</Button>
         <Button variant="outline" size="sm" disabled={ocupado} onClick={onPular}>Pular</Button>
       </div>

@@ -80,6 +80,14 @@ describe('FilaFoco', () => {
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' })
     expect(confirmCounterparty).not.toHaveBeenCalled()
   })
+  it('transferência sugerida para a própria conta do lançamento não confirma', async () => {
+    const paraSiMesma = { ...classificacao, nature: 'transfer' as const, categoryId: null, sugestaoContaId: 'itau' }
+    montar([{ ...base, id: 'a', description: 'PIX EU MESMO', classificacao: paraSiMesma }])
+    expect(screen.getByRole('button', { name: /Confirmar/ })).toBeDisabled()
+    await act(async () => { fireEvent.keyDown(document, { key: 'Enter' }) })
+    expect(confirmCounterparty).not.toHaveBeenCalled()
+    expect(classificarSoEste).not.toHaveBeenCalled()
+  })
   it('previsão de outra conta aparece com aviso', () => {
     montar([{ ...base, id: 'a', description: 'X', candidatas: [cand('p1', { outraConta: true, contaNome: 'Nubank' })] }])
     expect(screen.getByText('outra conta')).toBeInTheDocument()
