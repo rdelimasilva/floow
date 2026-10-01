@@ -42,10 +42,10 @@ describe('filtros lembrados na tela de transações', () => {
   it('a pílula de período preenche os campos de data com as datas dela', async () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Este trimestre' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Último ano' }))
     })
 
-    const { startDate, endDate } = getPeriodDates('quarter')
+    const { startDate, endDate } = getPeriodDates('lastYear')
     expect(dataInicial()).toBe(startDate)
     expect(dataFinal()).toBe(endDate)
     expect(urlDoUltimoReplace().searchParams.get('startDate')).toBe(startDate)
@@ -89,7 +89,7 @@ describe('filtros lembrados na tela de transações', () => {
     params = new URLSearchParams({ types: 'expense', categoryIds: 'c1', minAmount: '100', sortBy: 'amount', sortDir: 'desc' })
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Este ano' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Último mês' }))
     })
     const url = urlDoUltimoReplace().searchParams
     expect(url.get('types')).toBe('expense')

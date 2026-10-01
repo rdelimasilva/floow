@@ -40,7 +40,7 @@ export const PERIOD_LABELS: Record<PeriodKey, string> = {
  */
 export const PERIOD_GROUPS: { label: string; keys: PeriodKey[] }[] = [
   { label: 'Passado', keys: ['lastMonth', 'last3Months', 'lastYear'] },
-  { label: 'Presente', keys: ['today', 'month', 'quarter', 'semester', 'year'] },
+  { label: 'Presente', keys: ['today', 'month'] },
   { label: 'Futuro', keys: ['nextMonth', 'next3Months', 'nextSemester', 'nextYear'] },
 ]
 
