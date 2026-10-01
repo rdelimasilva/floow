@@ -25,6 +25,14 @@ describe('atalhos de período', () => {
     expect(getPeriodDates('year', '2026-09-23')).toEqual({ startDate: '2026-01-01', endDate: '2026-12-31' })
   })
 
+  it('os passados são blocos de calendário até o mês anterior', () => {
+    expect(getPeriodDates('lastMonth', '2026-10-01')).toEqual({ startDate: '2026-09-01', endDate: '2026-09-30' })
+    expect(getPeriodDates('lastMonth', '2026-01-15')).toEqual({ startDate: '2025-12-01', endDate: '2025-12-31' })
+    expect(getPeriodDates('last3Months', '2026-10-01')).toEqual({ startDate: '2026-07-01', endDate: '2026-09-30' })
+    expect(getPeriodDates('last3Months', '2026-02-10')).toEqual({ startDate: '2025-11-01', endDate: '2026-01-31' })
+    expect(getPeriodDates('lastYear', '2026-10-01')).toEqual({ startDate: '2025-01-01', endDate: '2025-12-31' })
+  })
+
   it('os futuros são blocos de calendário a partir do mês seguinte', () => {
     expect(getPeriodDates('nextMonth', '2026-09-23')).toEqual({ startDate: '2026-10-01', endDate: '2026-10-31' })
     expect(getPeriodDates('nextMonth', '2026-12-05')).toEqual({ startDate: '2027-01-01', endDate: '2027-01-31' })
@@ -44,6 +52,7 @@ describe('atalhos de período', () => {
   it('reconhece a pílula ativa pelas datas', () => {
     expect(detectActivePeriod('2026-09-01', '2026-09-30', '2026-09-23')).toBe('month')
     expect(detectActivePeriod('2026-09-02', '2026-09-30', '2026-09-23')).toBeNull()
+    expect(detectActivePeriod('2026-09-01', '2026-09-30', '2026-10-01')).toBe('lastMonth')
   })
 })
 
@@ -76,6 +85,16 @@ describe('memória dos filtros', () => {
     expect(restaurado.get('startDate')).toBe('2026-10-01')
     expect(restaurado.get('endDate')).toBe('2026-10-31')
     expect(restaurado.has('period')).toBe(false)
+  })
+
+  it('período passado lembrado também vira relativo e volta recalculado, com virada de ano', () => {
+    // Relativo a `hoje` (2026-09-23), ago/2026 é "lastMonth".
+    const salvo = serializarFiltros(new URLSearchParams('startDate=2026-08-01&endDate=2026-08-31'), hoje)
+    expect(new URLSearchParams(salvo).get('period')).toBe('lastMonth')
+
+    const restaurado = restaurarFiltros(salvo, '2026-01-15')
+    expect(restaurado.get('startDate')).toBe('2025-12-01')
+    expect(restaurado.get('endDate')).toBe('2025-12-31')
   })
 
   it('datas digitadas à mão voltam exatamente como estavam', () => {

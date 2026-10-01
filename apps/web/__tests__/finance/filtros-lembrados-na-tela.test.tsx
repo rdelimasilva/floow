@@ -99,6 +99,31 @@ describe('filtros lembrados na tela de transações', () => {
     expect(url.get('sortDir')).toBe('desc')
   })
 
+  it('os atalhos de período aparecem em três grupos: Passado, Presente e Futuro', () => {
+    render(<TransactionFilters accounts={[]} hideAccountFilter />)
+    // getAllByRole: o <select> mobile também tem <optgroup> (role="group") com o mesmo nome.
+    expect(screen.getAllByRole('group', { name: 'Passado' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('group', { name: 'Presente' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('group', { name: 'Futuro' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Último mês' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Últimos 3 meses' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Último ano' })).toBeTruthy()
+    // O toggle de futuro continua existindo (desktop + versão mobile colapsável).
+    expect(screen.getAllByRole('button', { name: 'Lançamentos futuros' }).length).toBeGreaterThan(0)
+  })
+
+  it('a pílula de período passado também preenche os campos de data e grava relativo', async () => {
+    render(<TransactionFilters accounts={[]} hideAccountFilter />)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Último mês' }))
+    })
+
+    const { startDate, endDate } = getPeriodDates('lastMonth')
+    expect(dataInicial()).toBe(startDate)
+    expect(dataFinal()).toBe(endDate)
+    expect(cookieSalvo()?.get('period')).toBe('lastMonth')
+  })
+
   it('a página da conta não mexe na memória da tela de transações', async () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter baseUrl="/accounts/acc-1" />)
     await act(async () => {
