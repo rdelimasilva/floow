@@ -104,6 +104,8 @@ describe('aprovarProposta', () => {
       },
       { ...REALIZADO_VALENDO, externalId: 'pix-nubank', transferAccountId: null },
     ])
+    // Ninguém reivindicou este realizado ainda (o SELECT de "realizado já reivindicado" de `vincularNoBanco`).
+    selectQueue.push([])
     // Estado do extrato, lido por `aplicarEfeitoDaAbsorcao`.
     selectQueue.push([{ reviewState: 'pending', categoryId: null, isAutoCategorized: false }])
 
@@ -126,6 +128,8 @@ describe('aprovarProposta', () => {
       { ...PREVISAO_ABERTA, aguardaExtrato: true, origem: 'manual', categoryId: 'cat-feira', description: 'Feira', transferGroupId: null },
       REALIZADO_VALENDO,
     ])
+    // Ninguém reivindicou este realizado ainda (o SELECT de "realizado já reivindicado" de `vincularNoBanco`).
+    selectQueue.push([])
     selectQueue.push([{ reviewState: 'pending', categoryId: null, isAutoCategorized: false }])
 
     const { efetivada } = await aprovarProposta('prop-1')

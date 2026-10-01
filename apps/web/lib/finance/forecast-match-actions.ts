@@ -1,9 +1,9 @@
 'use server'
 
-import { getDb, transactions, forecastMatchProposals } from '@floow/db'
-import { and, eq, inArray } from 'drizzle-orm'
-import { aplicarEfeitoDaAbsorcao } from './conciliacao/absorver'
-import { condicaoDaTransacaoDaOrg, condicaoDePropostaPendenteDaOrg } from './forecast-match-db'
+import { getDb, forecastMatchProposals } from '@floow/db'
+import { eq } from 'drizzle-orm'
+import { vincularNoBanco } from './conciliacao/vincular-db'
+import { condicaoDePropostaPendenteDaOrg } from './forecast-match-db'
 import { getOrgId } from './queries'
 import { revalidateTransactionData } from './revalidate'
 
@@ -37,6 +37,9 @@ type Db = ReturnType<typeof getDb>
  * quando uma ponta ficou inelegível — dois cliques, duas abas, o realizado
  * ignorado, a ponta apagada. Nenhum deles é erro, e a fila diz o mesmo nos
  * dois casos: não vale mais.
+ *
+ * O vínculo em si mora em `vincularNoBanco`, compartilhado com o card do
+ * modo foco.
  */
 export async function aprovarProposta(propostaId: string): Promise<{ efetivada: boolean }> {
   const orgId = await getOrgId()
@@ -55,69 +58,7 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
 
     if (!proposta) return false
 
-    // As duas pontas em uma consulta. `inArray` e não dois joins com alias
-    // porque o que importa aqui é o estado de cada linha, e o filtro por org
-    // fecha o caminho de um vínculo antigo apontar para fora da org —
-    // `getDb()` ignora as policies de RLS.
-    const pontas = await tx
-      .select({
-        id: transactions.id,
-        matchedTransactionId: transactions.matchedTransactionId,
-        balanceApplied: transactions.balanceApplied,
-        isIgnored: transactions.isIgnored,
-        externalId: transactions.externalId,
-        transferAccountId: transactions.transferAccountId,
-        aguardaExtrato: transactions.aguardaExtrato,
-        origem: transactions.origem,
-        categoryId: transactions.categoryId,
-        description: transactions.description,
-        transferGroupId: transactions.transferGroupId,
-      })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.orgId, orgId),
-          inArray(transactions.id, [
-            proposta.forecastTransactionId,
-            proposta.realizedTransactionId,
-          ]),
-        ),
-      )
-
-    const previsao = pontas.find((p) => p.id === proposta.forecastTransactionId)
-    const realizado = pontas.find((p) => p.id === proposta.realizedTransactionId)
-
-    // Ponta apagada (o CASCADE da 00047 levaria a proposta, mas a leitura e a
-    // escrita desta transação não são o mesmo instante para quem clicou).
-    if (!previsao || !realizado) return false
-
-    // Previsão que já ganhou vínculo, previsão que virou realizada, realizado
-    // marcado como ignorado: em todos, o par não existe mais como o sync o
-    // propôs.
-    if (previsao.matchedTransactionId || previsao.balanceApplied || realizado.isIgnored) {
-      return false
-    }
-
-    await tx
-      .update(transactions)
-      .set({ matchedTransactionId: proposta.realizedTransactionId })
-      .where(condicaoDaTransacaoDaOrg(proposta.forecastTransactionId, orgId))
-
-    // Linha que aguardava o extrato (perna de transferência, manual, arquivo):
-    // o extrato ganha o mesmo efeito que o motor daria ao absorvê-la sozinho
-    // (`aplicarEfeitoDaAbsorcao`). A perna vira a outra ponta da transferência
-    // e sai de Classificar — senão o usuário a classificaria de novo e
-    // criaria um segundo par, cruzado.
-    if (previsao.aguardaExtrato) {
-      await aplicarEfeitoDaAbsorcao(tx as unknown as Db, orgId, previsao, proposta.realizedTransactionId)
-    }
-
-    await tx
-      .update(forecastMatchProposals)
-      .set({ status: 'approved', decidedAt: new Date() })
-      .where(eq(forecastMatchProposals.id, proposta.id))
-
-    return true
+    return vincularNoBanco(tx as unknown as Db, orgId, proposta.realizedTransactionId, proposta.forecastTransactionId)
   })
 
   if (efetivada) revalidateTransactionData(orgId)
