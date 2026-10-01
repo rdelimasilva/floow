@@ -63,3 +63,4 @@ Thumbs.db
 baseline-*.json
 .migracao/
 .migracao-novo.env
+.superpowers/
