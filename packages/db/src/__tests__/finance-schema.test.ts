@@ -150,3 +150,11 @@ describe('transferência com conta de destino', () => {
     expect(getTableColumns(transactions).transferAccountId).toBeDefined()
   })
 })
+
+describe('transactions.vinculo_revisado_em', () => {
+  it('existe, é timestamptz e aceita nulo', () => {
+    const col = (transactions as any).vinculoRevisadoEm
+    expect(col.name).toBe('vinculo_revisado_em')
+    expect(col.notNull).toBe(false)
+  })
+})
