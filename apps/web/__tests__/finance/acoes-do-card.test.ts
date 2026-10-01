@@ -51,6 +51,7 @@ vi.mock('@/lib/cache-tags', () => ({ accountsTag: () => 't', invalidateTag: vi.f
 
 const { marcarSemVinculo, classificarSoEste } = await import('@/lib/finance/conciliacao/vincular-actions')
 const { aplicarDecisaoAosPendentes } = await import('@/lib/openfinance/aplicar-regra')
+const { conciliarContas } = await import('@/lib/finance/conciliacao/conciliar-conta')
 
 beforeEach(() => {
   ops.length = 0
@@ -83,5 +84,11 @@ describe('classificarSoEste', () => {
     vi.mocked(aplicarDecisaoAosPendentes).mockResolvedValueOnce(0)
     const r = await classificarSoEste({ transactionId: '00000000-0000-4000-8000-000000000001', counterpartyId: '00000000-0000-4000-8000-000000000002', nature: 'expense', categoryId: '00000000-0000-4000-8000-000000000003', transferAccountId: null })
     expect(r).toEqual({ error: 'Este lançamento já foi classificado. A fila foi atualizada.' })
+  })
+  it('conta da transferência igual à do lançamento devolve { error } em vez de lançar', async () => {
+    vi.mocked(aplicarDecisaoAosPendentes).mockRejectedValueOnce(new Error('A conta da transferência não pode ser a mesma conta do lançamento.'))
+    const r = await classificarSoEste({ transactionId: '00000000-0000-4000-8000-000000000001', counterpartyId: '00000000-0000-4000-8000-000000000002', nature: 'transfer', categoryId: null, transferAccountId: '00000000-0000-4000-8000-000000000004' })
+    expect(r).toMatchObject({ error: expect.stringContaining('A conta da transferência não pode ser a mesma conta do lançamento.') })
+    expect(conciliarContas).not.toHaveBeenCalled()
   })
 })

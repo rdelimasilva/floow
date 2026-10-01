@@ -10,6 +10,7 @@ import { assertAccountOwnership } from '@/lib/finance/account-actions'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarDecisaoAosPendentes } from '@/lib/openfinance/aplicar-regra'
 import { withUserDb } from '@/lib/db/rls'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 import type { Candidata } from './candidatos'
 import { vincularNoBanco } from './vincular-db'
 
@@ -55,14 +56,24 @@ export async function classificarSoEste(raw: z.input<typeof soEsteSchema>): Prom
   const db = getDb()
   const contasParaConciliar = new Set<string>()
 
-  const aplicados = await db.transaction(async (tx) => {
-    if (input.transferAccountId) await assertAccountOwnership(tx as unknown as Db, input.transferAccountId, orgId)
-    return aplicarDecisaoAosPendentes(
-      tx as unknown as Db, orgId,
-      { counterpartyId: input.counterpartyId, nature: input.nature, categoryId: input.categoryId, transferAccountId: input.transferAccountId, exceptions: [] },
-      contasParaConciliar, [input.transactionId],
-    )
-  })
+  let aplicados: number
+  try {
+    aplicados = await db.transaction(async (tx) => {
+      if (input.transferAccountId) await assertAccountOwnership(tx as unknown as Db, input.transferAccountId, orgId)
+      return aplicarDecisaoAosPendentes(
+        tx as unknown as Db, orgId,
+        { counterpartyId: input.counterpartyId, nature: input.nature, categoryId: input.categoryId, transferAccountId: input.transferAccountId, exceptions: [] },
+        contasParaConciliar, [input.transactionId],
+      )
+    })
+  } catch (error) {
+    // `assertAccountOwnership` e `aplicarDecisaoAosPendentes` lançam em vez de
+    // devolver erro (mesmo padrão de `confirmCounterparty`, que não é tocado
+    // aqui). Sem este catch, a mensagem — ex.: "A conta da transferência não
+    // pode ser a mesma conta do lançamento." — some em produção: o Next
+    // substitui todo erro lançado no servidor por um texto genérico.
+    return { error: mensagemDeErro(error, 'Não foi possível classificar este lançamento.') }
+  }
   if (aplicados === 0) return { error: 'Este lançamento já foi classificado. A fila foi atualizada.' }
 
   invalidateTag(accountsTag(orgId))
