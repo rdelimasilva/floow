@@ -3,7 +3,7 @@ import { montarFila, type LancamentoBase } from '@/lib/finance/conciliacao/fila'
 
 const conta = { id: 'itau', nome: 'Itaú CC', tipo: 'checking', instituicao: 'Itaú', agencia: '0123', numero: '4521' }
 const base = (id: string, amountCents: number, extra: Partial<LancamentoBase> = {}): LancamentoBase => ({
-  id, date: '2026-09-12', description: id, amountCents, cardLastDigits: null, importedAt: null, conta, vinculoRevisado: false, ...extra,
+  id, date: '2026-09-12', description: id, amountCents, cardLastDigits: null, importedAt: null, meio: null, conta, vinculoRevisado: false, ...extra,
 })
 const cand = (id: string) => ({ id, accountId: 'itau', contaNome: 'Itaú CC', date: '2026-09-10', amountCents: -1, description: id, categoriaNome: null, diasDeDiferenca: 2, diferencaCents: 0, outraConta: false, propostaId: null, nomeParecido: false })
 const grupo = (counterpartyId: string, ids: string[]) => ({

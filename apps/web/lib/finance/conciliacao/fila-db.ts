@@ -5,6 +5,7 @@ import { lerDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
 import { lerPropostasPendentes } from '@/lib/finance/forecast-match-queries'
 import { lerGruposPendentes } from '@/lib/openfinance/counterparty-queries'
 import { condicaoDeRealizadoSemVinculo, JANELA_BUSCA_DIAS } from '@/lib/finance/forecast-match-db'
+import { meioDoLancamento } from '@/lib/openfinance/meio-do-lancamento'
 import { escolherCandidatas, type Candidata } from './candidatos'
 import { montarFila, LOTE_DA_FILA, JANELA_FILA_DIAS, type ItemDaFila, type LancamentoBase } from './fila'
 
@@ -73,6 +74,7 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
     .select({
       id: transactions.id, date: transactions.date, description: transactions.description, amountCents: transactions.amountCents,
       cardLastDigits: transactions.cardLastDigits, importedAt: transactions.importedAt, vinculoRevisadoEm: transactions.vinculoRevisadoEm,
+      polpType: transactions.polpType,
       contaId: accounts.id, contaNome: accounts.name, contaTipo: accounts.type, agencia: accounts.branch, numero: accounts.accountNumber,
       instituicao: openfinanceConnections.institutionName,
     })
@@ -88,6 +90,7 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
     lancamentos.set(l.id, {
       id: l.id, date: iso(l.date)!, description: l.description, amountCents: l.amountCents,
       cardLastDigits: l.cardLastDigits, importedAt: iso(l.importedAt), vinculoRevisado: l.vinculoRevisadoEm !== null,
+      meio: meioDoLancamento(l.polpType),
       conta: { id: l.contaId, nome: l.contaNome, tipo: l.contaTipo, instituicao: l.instituicao, agencia: l.agencia, numero: l.numero },
     })
   }

@@ -38,6 +38,8 @@ export interface ItemDaFila {
   amountCents: number
   cardLastDigits: string | null
   importedAt: string | null
+  /** Pix, TED, Boleto… (`meioDoLancamento`); null quando o banco não diz. */
+  meio: string | null
   conta: ContaDoItem
   candidatas: Candidata[]
   repetido: Repetido | null
