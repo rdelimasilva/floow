@@ -19,7 +19,7 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
       isIgnored: transactions.isIgnored, externalId: transactions.externalId, transferAccountId: transactions.transferAccountId,
       aguardaExtrato: transactions.aguardaExtrato, origem: transactions.origem, categoryId: transactions.categoryId,
       description: transactions.description, transferGroupId: transactions.transferGroupId, type: transactions.type,
-      reviewState: transactions.reviewState,
+      reviewState: transactions.reviewState, accountId: transactions.accountId, amountCents: transactions.amountCents,
     })
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), inArray(transactions.id, [previsaoId, realizadoId])))
@@ -37,6 +37,14 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
   // saldo real, ou que já está comprometido com outra previsão. Inclui o
   // caso degenerado de vincular a previsão a si mesma.
   if (realizadoId === previsaoId || !realizado.balanceApplied || realizado.matchedTransactionId) return false
+
+  // "Procurar previsão" casa por valor absoluto e entre contas; o servidor
+  // não pode confiar nisso. Sinal trocado faz a saída prevista sumir do saldo
+  // projetado por causa de uma entrada (e vice-versa). E a perna de
+  // transferência que aguarda extrato é da conta dela: absorvê-la pelo
+  // extrato de outra conta vira transferência da conta para si mesma.
+  if (Math.sign(previsao.amountCents) !== Math.sign(realizado.amountCents)) return false
+  if (previsao.aguardaExtrato && previsao.accountId !== realizado.accountId) return false
 
   // Realizado que outra previsão já reivindicou: o índice único da 00042
   // estouraria no UPDATE. Melhor dizer "não vale mais" que lançar.

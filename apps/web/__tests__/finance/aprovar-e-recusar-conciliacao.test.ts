@@ -61,6 +61,8 @@ const PENDENTE = {
 /** As duas pontas como estavam quando a proposta nasceu. */
 const PREVISAO_ABERTA = {
   id: 'prev-1',
+  accountId: 'nubank',
+  amountCents: 15000,
   matchedTransactionId: null,
   balanceApplied: false,
   isIgnored: false,
@@ -69,6 +71,8 @@ const PREVISAO_ABERTA = {
 }
 const REALIZADO_VALENDO = {
   id: 'real-1',
+  accountId: 'nubank',
+  amountCents: 15000,
   matchedTransactionId: null,
   balanceApplied: true,
   isIgnored: false,

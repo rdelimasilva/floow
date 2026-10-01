@@ -1,7 +1,7 @@
 'use server'
 
 import { z } from 'zod'
-import { and, eq, ilike, isNull, ne, sql } from 'drizzle-orm'
+import { and, eq, ilike, isNull, ne, or, sql } from 'drizzle-orm'
 import { getDb, transactions, forecastMatchProposals, accounts, categories } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance/revalidate'
@@ -13,6 +13,7 @@ import { withUserDb } from '@/lib/db/rls'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 import type { Candidata } from './candidatos'
 import { vincularNoBanco } from './vincular-db'
+import { interpretarTermo } from './termo-de-busca'
 
 type Db = ReturnType<typeof getDb>
 
@@ -95,19 +96,23 @@ export async function classificarSoEste(raw: z.input<typeof soEsteSchema>): Prom
   return { ok: true }
 }
 
-/** "Procurar previsão" (spec §2.4): todas as contas, por descrição ou valor. */
+/**
+ * "Procurar previsão" (spec §2.4): todas as contas, por descrição ou valor.
+ * Só devolve o que `vincularNoBanco` aceitaria: mesmo sinal do realizado, e
+ * perna que aguarda extrato só da conta dele.
+ */
 export async function procurarPrevisoes(realizadoId: string, termo: string): Promise<Candidata[]> {
   const orgId = await getOrgId()
   const t = termo.trim()
   if (t.length < 2) return []
-  const centavos = Math.round(Number(t.replace(/\./g, '').replace(',', '.')) * 100)
+  const { centavos, texto } = interpretarTermo(t)
   return withUserDb(async (db) => {
     const [real] = await db.select({ accountId: transactions.accountId, date: transactions.date, amountCents: transactions.amountCents })
       .from(transactions).where(and(eq(transactions.id, realizadoId), eq(transactions.orgId, orgId))).limit(1)
     if (!real) return []
-    const filtroTermo = Number.isFinite(centavos) && centavos !== 0
-      ? sql`abs(${transactions.amountCents}) = ${Math.abs(centavos)}`
-      : ilike(transactions.description, `%${t}%`)
+    const porValor = centavos !== null ? sql`abs(${transactions.amountCents}) = ${centavos}` : undefined
+    const porTexto = texto !== null ? ilike(transactions.description, `%${texto}%`) : undefined
+    const filtroTermo = porValor && porTexto ? or(porValor, porTexto) : (porValor ?? porTexto)
     const rows = await db.select({
       id: transactions.id, accountId: transactions.accountId, contaNome: accounts.name, date: transactions.date,
       amountCents: transactions.amountCents, description: transactions.description, categoriaNome: categories.name,
@@ -118,6 +123,8 @@ export async function procurarPrevisoes(realizadoId: string, termo: string): Pro
       .where(and(
         eq(transactions.orgId, orgId), eq(transactions.balanceApplied, false), isNull(transactions.matchedTransactionId),
         eq(transactions.isIgnored, false), ne(transactions.origem, 'extrato'), filtroTermo,
+        sql`sign(${transactions.amountCents}) = ${Math.sign(real.amountCents)}`,
+        or(eq(transactions.aguardaExtrato, false), eq(transactions.accountId, real.accountId)),
       ))
       .orderBy(sql`abs(${transactions.date} - ${real.date}::date)`)
       .limit(10)

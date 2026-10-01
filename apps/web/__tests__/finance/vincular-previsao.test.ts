@@ -45,8 +45,8 @@ vi.mock('@/lib/db/rls', () => ({ withUserDb: vi.fn() }))
 const { vincularPrevisao } = await import('@/lib/finance/conciliacao/vincular-actions')
 const { aplicarEfeitoDaAbsorcao } = await import('@/lib/finance/conciliacao/absorver')
 
-const PREV = { id: 'prev-1', matchedTransactionId: null, balanceApplied: false, isIgnored: false, aguardaExtrato: false, type: 'expense', categoryId: 'cat-9', origem: 'recorrencia' }
-const REAL = { id: 'real-1', matchedTransactionId: null, balanceApplied: true, isIgnored: false, reviewState: 'pending', origem: 'extrato' }
+const PREV = { id: 'prev-1', accountId: 'itau', amountCents: -15000, matchedTransactionId: null, balanceApplied: false, isIgnored: false, aguardaExtrato: false, type: 'expense', categoryId: 'cat-9', origem: 'recorrencia' }
+const REAL = { id: 'real-1', accountId: 'itau', amountCents: -15000, matchedTransactionId: null, balanceApplied: true, isIgnored: false, reviewState: 'pending', origem: 'extrato' }
 
 beforeEach(() => {
   ops.length = 0
@@ -68,6 +68,10 @@ describe('vincularPrevisao', () => {
     await vincularPrevisao('real-1', 'prev-1')
     expect(aplicarEfeitoDaAbsorcao).toHaveBeenCalled()
   })
+  it('previsão comum de outra conta, mesmo sinal, ainda vincula (Procurar previsão é entre contas)', async () => {
+    selectQueue.push([{ ...PREV, accountId: 'nubank' }, REAL], [])
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true })
+  })
   it.each([
     ['previsão já vinculada', [{ ...PREV, matchedTransactionId: 'outro' }, REAL], []],
     ['previsão já no saldo', [{ ...PREV, balanceApplied: true }, REAL], []],
@@ -76,6 +80,11 @@ describe('vincularPrevisao', () => {
     ['ponta de outra org (não volta)', [REAL], []],
     ['realizado é previsão (fora do saldo)', [PREV, { ...REAL, balanceApplied: false }], []],
     ['realizado com vínculo próprio', [PREV, { ...REAL, matchedTransactionId: 'x' }], []],
+    // Saída prevista cumprida por uma entrada: o saldo projetado sairia com o sinal trocado.
+    ['sinal oposto (previsão de saída, realizado de entrada)', [PREV, { ...REAL, amountCents: 15000 }], []],
+    ['sinal oposto (previsão de entrada, realizado de saída)', [{ ...PREV, amountCents: 15000 }, REAL], []],
+    // A perna é da conta dela: absorvê-la pelo extrato de outra conta vira transferência para si mesma.
+    ['perna que aguarda extrato, de outra conta', [{ ...PREV, aguardaExtrato: true, type: 'transfer', categoryId: null, accountId: 'nubank' }, REAL], []],
   ])('%s → efetivada false, nada gravado', async (_, pontas, reivindicado) => {
     selectQueue.push(pontas as unknown[], reivindicado as unknown[])
     expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: false })
