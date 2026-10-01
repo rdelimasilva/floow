@@ -100,6 +100,13 @@ export async function classificarSoEste(raw: z.input<typeof soEsteSchema>): Prom
 }
 
 /**
+ * A coluna `date` chega como Date. Os helpers do Drizzle (`eq`, `gte`) a
+ * serializam; parâmetro de `sql` cru, não — o postgres-js lança
+ * ERR_INVALID_ARG_TYPE. Em `sql` cru, data vai como 'YYYY-MM-DD'.
+ */
+const diaIso = (d: Date | string) => (d instanceof Date ? d.toISOString() : String(d)).slice(0, 10)
+
+/**
  * "Procurar previsão" (spec §2.4): todas as contas, por descrição ou valor.
  * Só devolve o que `vincularNoBanco` aceitaria: mesmo sinal do realizado, e
  * perna que aguarda extrato só da conta dele.
@@ -129,9 +136,9 @@ export async function procurarPrevisoes(realizadoId: string, termo: string): Pro
         sql`sign(${transactions.amountCents}) = ${Math.sign(real.amountCents)}`,
         or(eq(transactions.aguardaExtrato, false), eq(transactions.accountId, real.accountId)),
       ))
-      .orderBy(sql`abs(${transactions.date} - ${real.date}::date)`)
+      .orderBy(sql`abs(${transactions.date} - ${diaIso(real.date)}::date)`)
       .limit(10)
-    const dia = (d: Date | string) => Date.parse(String(d instanceof Date ? d.toISOString() : d).slice(0, 10))
+    const dia = (d: Date | string) => Date.parse(diaIso(d))
     return rows.map((p) => ({
       ...p, date: p.date instanceof Date ? p.date.toISOString() : String(p.date),
       diasDeDiferenca: Math.round(Math.abs(dia(p.date) - dia(real.date)) / 86_400_000),

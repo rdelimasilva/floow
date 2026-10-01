@@ -42,11 +42,13 @@ describe('interpretarTermo', () => {
 })
 
 const wheres: SQL[] = []
+const ordens: SQL[] = []
 const selectQueue: unknown[][] = []
 
 function chain(result: unknown[]): any {
   const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve(result).then(r) }
-  for (const m of ['from', 'limit', 'innerJoin', 'leftJoin', 'orderBy']) c[m] = () => c
+  for (const m of ['from', 'limit', 'innerJoin', 'leftJoin']) c[m] = () => c
+  c.orderBy = (o: SQL) => { ordens.push(o); return c }
   c.where = (cond: SQL) => { wheres.push(cond); return c }
   return c
 }
@@ -62,6 +64,7 @@ const dialect = new PgDialect()
 
 beforeEach(() => {
   wheres.length = 0
+  ordens.length = 0
   selectQueue.length = 0
 })
 
@@ -92,6 +95,15 @@ describe('procurarPrevisoes', () => {
     const q = await whereDaBusca('2024')
     expect(q.sql).toMatch(/\(abs\("transactions"\."amount_cents"\) = \$\d+ or "transactions"\."description" ilike \$\d+\)/)
     expect(q.params).toEqual(expect.arrayContaining([202400, '%2024%']))
+  })
+  // A coluna `date` (mode 'date') chega como Date; o postgres-js não serializa
+  // Date em parâmetro de `sql` cru e lança ERR_INVALID_ARG_TYPE.
+  it('nenhum parâmetro do WHERE ou do ORDER BY é Date', async () => {
+    selectQueue.push([{ accountId: 'itau', date: new Date('2026-09-12T00:00:00Z'), amountCents: -15000 }], [])
+    await procurarPrevisoes('real-1', '150,00')
+    const params = [...wheres, ...ordens].flatMap((c) => dialect.sqlToQuery(c).params)
+    expect(params.some((p) => p instanceof Date)).toBe(false)
+    expect(dialect.sqlToQuery(ordens[0]).params).toEqual(['2026-09-12'])
   })
   it('texto busca só na descrição', async () => {
     const q = await whereDaBusca('12.34')
