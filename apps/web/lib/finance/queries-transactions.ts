@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { getDb, accounts, transactions, categories, fixedAssets, forecastMatchProposals } from '@floow/db'
-import { eq, and, desc, asc, count, gte, ilike, lte, inArray, sql } from 'drizzle-orm'
+import { eq, and, desc, asc, count, gte, ilike, lte, inArray, isNull, sql } from 'drizzle-orm'
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { sqlPrevisaoAindaPorVencer, sqlValorNoSaldo } from './balance-sql'
 import { futureTransactionsTag, recentTransactionsTag } from '@/lib/cache-tags'
@@ -94,6 +94,15 @@ export function finaisDoFiltro(opts?: Pick<TransactionFilterOpts, 'cardDigits'>)
 
 export function buildTransactionConditions(orgId: string, opts?: TransactionFilterOpts) {
   const conditions = [eq(transactions.orgId, orgId)]
+
+  // A previsão já conciliada some da lista: quem a cumpriu é o realizado do
+  // Open Finance, e mostrar os dois polui o extrato com o mesmo lançamento
+  // duas vezes. A previsão continua existindo (é o vínculo que "desconciliar"
+  // desfaz), só não aparece mais aqui — nem na contagem, nem no total, porque
+  // os dois leem esta mesma condição. O saldo não precisa de ajuste: uma
+  // previsão com `matched_transaction_id` já não soma (`sqlPrevisaoAindaPorVencer`
+  // em `balance-sql.ts`), então tirá-la da lista não move nenhum número.
+  conditions.push(isNull(transactions.matchedTransactionId))
 
   const contas = contasDoFiltro(opts)
   if (contas.length > 0) conditions.push(condicaoDeConta(transactions.accountId, contas))
