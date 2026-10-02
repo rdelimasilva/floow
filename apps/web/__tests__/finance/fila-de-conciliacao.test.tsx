@@ -30,6 +30,7 @@ const PROPOSTA = {
   contaNome: 'Itaú',
   diasDeDiferenca: 2,
   diferencaCents: 0,
+  substitui: null as null | { id: string; date: string; description: string; amountCents: number },
 }
 
 function renderFila(propostas = [PROPOSTA]) {
@@ -52,6 +53,20 @@ describe('fila de conciliação', () => {
     within(cartao).getByText('Aluguel')
     within(cartao).getByText('Pagamento de boleto HANNI DAVID')
     within(cartao).getByText('Itaú')
+  })
+
+  it('troca: diz a que lançamento a previsão está presa hoje e que aprovar troca', () => {
+    renderFila([{
+      ...PROPOSTA,
+      previsao: { id: 'j10', date: '2026-10-01', description: 'Jussara - Diarista (10/61)', amountCents: -360000 },
+      realizado: { id: 'ted', date: '2026-10-01', description: 'TED enviada jussara', amountCents: -358300 },
+      substitui: { id: 'unimed', date: '2026-09-21', description: 'Unimed Cnu', amountCents: -331417 },
+    }])
+
+    const cartao = screen.getByTestId('proposta-prop-1')
+    within(cartao).getByText(/hoje vinculada a/i)
+    within(cartao).getByText('Unimed Cnu')
+    within(cartao).getByRole('button', { name: /trocar/i })
   })
 
   it('mostra o porquê do par', () => {

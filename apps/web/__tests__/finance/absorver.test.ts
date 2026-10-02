@@ -5,6 +5,7 @@ import { absorverNoBanco } from '@/lib/finance/conciliacao/absorver'
 let retornosDoUpdate: unknown[][] = []
 let retornosDoSelect: unknown[][] = []
 const sets: Record<string, unknown>[] = []
+const inserts: { values: Record<string, unknown>; conflito: Record<string, unknown> | null }[] = []
 
 function chain(result: unknown[]): any {
   const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve(result).then(r) }
@@ -12,6 +13,13 @@ function chain(result: unknown[]): any {
   return c
 }
 const db: any = {
+  insert: () => ({
+    values: (values: Record<string, unknown>) => {
+      const registro = { values, conflito: null as Record<string, unknown> | null }
+      inserts.push(registro)
+      return { onConflictDoUpdate: (c: Record<string, unknown>) => { registro.conflito = c; return chain([]) } }
+    },
+  }),
   update: () => ({ set: (p: Record<string, unknown>) => { sets.push(p); return chain(retornosDoUpdate.shift() ?? []) } }),
   // Devolve só as colunas pedidas, como o banco: o código tem de pedir o que usa.
   select: (campos: Record<string, unknown>) =>
@@ -20,7 +28,7 @@ const db: any = {
 
 const EXTRATO_PENDENTE = { reviewState: 'pending', categoryId: null, isAutoCategorized: false }
 
-beforeEach(() => { retornosDoUpdate = []; retornosDoSelect = []; sets.length = 0 })
+beforeEach(() => { retornosDoUpdate = []; retornosDoSelect = []; sets.length = 0; inserts.length = 0 })
 
 describe('absorverNoBanco', () => {
   it(':transfer-dest do caso de 28/09: vínculo na perna e o extrato vira transferência vinda do Itaú', async () => {
@@ -33,11 +41,22 @@ describe('absorverNoBanco', () => {
     expect(sets[1]).not.toHaveProperty('transferGroupId')
   })
 
+  it('absorver deixa registro: proposta aprovada pelo motor (00073 recusa vínculo sem ela)', async () => {
+    retornosDoUpdate = [[{ id: 'm', origem: 'manual', categoryId: null, description: 'Feira', transferAccountId: null, transferGroupId: null }]]
+    retornosDoSelect = [[EXTRATO_PENDENTE]]
+    await absorverNoBanco(db, 'org-1', { aguardandoId: 'm', extratoId: 'e' })
+    expect(inserts).toHaveLength(1)
+    expect(inserts[0].values).toMatchObject({ orgId: 'org-1', forecastTransactionId: 'm', realizedTransactionId: 'e', status: 'approved', decisao: 'automatico' })
+    expect(inserts[0].values.decidedAt).toBeInstanceOf(Date)
+    expect(inserts[0].conflito?.set).toMatchObject({ status: 'approved', decisao: 'automatico' })
+  })
+
   it('outro sync ganhou a corrida (UPDATE condicional não pegou nada): não toca no extrato', async () => {
     retornosDoUpdate = [[]]
     const ok = await absorverNoBanco(db, 'org-1', { aguardandoId: 'a', extratoId: 'e' })
     expect(ok).toBe(false)
     expect(sets).toHaveLength(1)
+    expect(inserts).toHaveLength(0)
   })
 
   it('manual: o extrato herda categoria e descrição', async () => {

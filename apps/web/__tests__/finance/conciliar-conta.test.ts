@@ -17,6 +17,9 @@ vi.mock('@/lib/finance/duplicata-db', () => ({
 vi.mock('@/lib/finance/forecast-match-db', () => ({
   criarPropostasDeConciliacao: vi.fn(async () => { ordem.push('r3'); return 4 }),
 }))
+vi.mock('@/lib/finance/conciliacao/troca', () => ({
+  criarPropostasDeTroca: vi.fn(async () => { ordem.push('troca'); return 2 }),
+}))
 let conciliavel = true
 vi.mock('@/lib/finance/conciliacao/conta-conciliavel', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -47,19 +50,21 @@ beforeEach(() => {
 })
 
 describe('conciliarConta', () => {
-  it('trava a conta e roda reclassificar → R1 → R2 → R3, nessa ordem', async () => {
+  it('trava a conta e roda reclassificar → R1 → R2 → R3 → troca, nessa ordem', async () => {
     await conciliarConta(db, 'org-1', 'nubank')
-    expect(ordem).toEqual(['lock', 'reclassificar', 'r1', 'r2', 'r3'])
+    // Troca por último: o lançamento que R1 absorveu ou R3 propôs não é
+    // oferecido também como troca.
+    expect(ordem).toEqual(['lock', 'reclassificar', 'r1', 'r2', 'r3', 'troca'])
     expect(locks[0]).toContain('conciliar-conta:nubank')
   })
 
-  it('soma o resumo: propostas de R1 e de R3 juntas', async () => {
+  it('soma o resumo: propostas de R1, R3 e troca juntas', async () => {
     const r = await conciliarConta(db, 'org-1', 'nubank')
     expect(r).toEqual({
       reclassificadas: 2,
       estornoCents: 32300,
       absorvidas: [{ aguardandoId: 'a', extratoId: 'e' }],
-      propostasDeConciliacao: 5,
+      propostasDeConciliacao: 7,
       propostasDeDuplicata: 3,
     })
   })
@@ -72,9 +77,9 @@ describe('conciliarConta', () => {
   it('cartão Open Finance (não conciliável): pula reclassificação e R1; R2 e R3 rodam, com :transfer-par em R3', async () => {
     conciliavel = false
     const r = await conciliarConta(db, 'org-1', 'cartao')
-    expect(ordem).toEqual(['lock', 'r2', 'r3'])
+    expect(ordem).toEqual(['lock', 'r2', 'r3', 'troca'])
     expect(criarPropostasDeConciliacao).toHaveBeenCalledWith(db, 'org-1', 'cartao', { incluirPernaPrevista: true })
-    expect(r).toEqual({ reclassificadas: 0, estornoCents: 0, absorvidas: [], propostasDeConciliacao: 4, propostasDeDuplicata: 3 })
+    expect(r).toEqual({ reclassificadas: 0, estornoCents: 0, absorvidas: [], propostasDeConciliacao: 6, propostasDeDuplicata: 3 })
   })
 
   it('conta sem Open Finance vivo: não faz nada', async () => {

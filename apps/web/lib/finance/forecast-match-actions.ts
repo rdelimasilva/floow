@@ -13,9 +13,16 @@ type Db = ReturnType<typeof getDb>
  * Efetiva a conciliação proposta: a previsão passa a apontar para o lançamento
  * do banco que a cumpriu.
  *
- * Este é o ÚNICO caminho que grava `matched_transaction_id`. O sync só propõe
- * (ver `forecast-match-db.ts`), porque casar errado esconde um lançamento de
- * verdade e a decisão é do dono do dinheiro.
+ * Fora o R1 (valor igual, par único, linha que nunca esteve no saldo), este é
+ * o único caminho que grava `matched_transaction_id`. O sync só propõe (ver
+ * `forecast-match-db.ts`), porque casar errado esconde um lançamento de
+ * verdade e a decisão é do dono do dinheiro. Desde a 00073 o banco exige a
+ * proposta aprovada do par para aceitar o vínculo.
+ *
+ * Proposta de TROCA (`substituiTransactionId`): a previsão está vinculada a
+ * um lançamento que a regra de hoje não casaria, e o desta proposta casa.
+ * Aprovar solta o vínculo antigo, recusa aquele par para sempre e grava o
+ * novo. Só vale se o vínculo ainda for o que a troca substitui.
  *
  * As duas escritas vão na mesma transação de banco: meio caminho deixaria uma
  * previsão casada com a proposta ainda pendente, e a fila a mostraria de novo.
@@ -48,12 +55,14 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
         id: forecastMatchProposals.id,
         forecastTransactionId: forecastMatchProposals.forecastTransactionId,
         realizedTransactionId: forecastMatchProposals.realizedTransactionId,
+        substituiTransactionId: forecastMatchProposals.substituiTransactionId,
       })
       .from(forecastMatchProposals)
       .where(condicaoDePropostaPendenteDaOrg(propostaId, orgId))
       .limit(1)
 
     if (!proposta) return false
+    const substitui = proposta.substituiTransactionId ?? null
 
     // As duas pontas em uma consulta. `inArray` e não dois joins com alias
     // porque o que importa aqui é o estado de cada linha, e o filtro por org
@@ -94,8 +103,23 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
     // Previsão que já ganhou vínculo, previsão que virou realizada, realizado
     // marcado como ignorado: em todos, o par não existe mais como o sync o
     // propôs.
-    if (previsao.matchedTransactionId || previsao.balanceApplied || realizado.isIgnored) {
+    if ((previsao.matchedTransactionId ?? null) !== substitui || previsao.balanceApplied || realizado.isIgnored) {
       return false
+    }
+    // Troca só em previsão de recorrência: a linha que aguardava o extrato
+    // deu efeito ao extrato antigo quando foi absorvida, e isso não se desfaz
+    // aqui (é `desconciliar` que devolve).
+    if (substitui && previsao.aguardaExtrato) return false
+
+    if (substitui) {
+      await tx
+        .update(forecastMatchProposals)
+        .set({ status: 'refused', decisao: 'usuario', decidedAt: new Date() })
+        .where(and(
+          eq(forecastMatchProposals.orgId, orgId),
+          eq(forecastMatchProposals.forecastTransactionId, proposta.forecastTransactionId),
+          eq(forecastMatchProposals.realizedTransactionId, substitui),
+        ))
     }
 
     await tx
@@ -114,7 +138,7 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
 
     await tx
       .update(forecastMatchProposals)
-      .set({ status: 'approved', decidedAt: new Date() })
+      .set({ status: 'approved', decisao: 'usuario', decidedAt: new Date() })
       .where(eq(forecastMatchProposals.id, proposta.id))
 
     return true
@@ -148,7 +172,7 @@ export async function recusarProposta(propostaId: string): Promise<{ recusada: b
 
     await tx
       .update(forecastMatchProposals)
-      .set({ status: 'refused', decidedAt: new Date() })
+      .set({ status: 'refused', decisao: 'usuario', decidedAt: new Date() })
       .where(eq(forecastMatchProposals.id, proposta.id))
 
     return true
