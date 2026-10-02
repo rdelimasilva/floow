@@ -50,7 +50,7 @@ export function MatchProposalQueue({ propostas: iniciais }: { propostas: Propost
       setPropostas((prev) => prev.filter((p) => p.id !== proposta.id))
 
       if (decidiuAgora) {
-        toast(eOMesmo ? 'Conciliado' : 'Marcados como lançamentos diferentes')
+        toast(eOMesmo ? (proposta.substitui ? 'Vínculo trocado' : 'Conciliado') : 'Marcados como lançamentos diferentes')
       } else {
         toast('Esta previsão não está mais válida. A fila foi atualizada.', 'info')
       }
@@ -92,6 +92,15 @@ export function MatchProposalQueue({ propostas: iniciais }: { propostas: Propost
             </div>
           </div>
 
+          {proposta.substitui && (
+            <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-900">
+              Hoje vinculada a{' '}
+              <span className="font-medium">{proposta.substitui.description}</span>
+              {` · ${dia(proposta.substitui.date)} · ${formatBRL(proposta.substitui.amountCents)}`}
+              . Trocar solta esse vínculo, que volta a ser um lançamento comum.
+            </p>
+          )}
+
           <p className="mt-2 text-xs text-gray-500">
             {proposta.contaNome && (
               <>
@@ -110,7 +119,7 @@ export function MatchProposalQueue({ propostas: iniciais }: { propostas: Propost
 
           <div className="mt-3 flex gap-2">
             <Button type="button" disabled={decidindo !== null} onClick={() => decidir(proposta, true)}>
-              É o mesmo
+              {proposta.substitui ? 'É este, trocar' : 'É o mesmo'}
             </Button>
             <Button
               type="button"

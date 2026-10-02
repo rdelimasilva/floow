@@ -58,7 +58,7 @@ export async function desconciliarNoBanco(tx: Db, orgId: string, transactionId: 
       .values({ orgId, forecastTransactionId: previsaoId, realizedTransactionId: realizadoId, status: 'pending' })
       .onConflictDoUpdate({
         target: [forecastMatchProposals.forecastTransactionId, forecastMatchProposals.realizedTransactionId],
-        set: { status: 'pending', decidedAt: null },
+        set: { status: 'pending', decidedAt: null, decisao: null, substituiTransactionId: null },
       })
     // Absorção (R1 ou aprovação de linha que aguardava o extrato): o extrato
     // perde o efeito que ganhou. Com a proposta reaberta o motor não absorve

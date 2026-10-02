@@ -11,7 +11,7 @@ type Db = ReturnType<typeof getDb>
  * janela de `matchForecast` de propósito: a query traz o candidato e a função
  * pura decide. Filtrar apertado aqui esconderia caso da lógica testada.
  */
-const JANELA_BUSCA_DIAS = 10
+export const JANELA_BUSCA_DIAS = 10
 
 const DIA_EM_MS = 24 * 60 * 60 * 1000
 
@@ -121,6 +121,38 @@ export function condicaoDeRealizadoSemVinculo() {
 }
 
 /**
+ * O lançamento do banco desta conta, na janela, que pode cumprir uma previsão.
+ *
+ * Realizado é o que veio do banco: tem `external_id` e não nasceu de
+ * template. `isIgnored` fora porque lançamento marcado como errado não
+ * cumpriu previsão nenhuma, e realizado já reivindicado por outra previsão
+ * também fora — propor de novo geraria proposta impossível de aprovar.
+ * Usado pela proposta comum e pela de troca (`conciliacao/troca.ts`).
+ */
+export function condicaoDeRealizadoLivre(orgId: string, accountId: string, inicio: Date, fim: Date) {
+  return and(
+    eq(transactions.orgId, orgId),
+    eq(transactions.accountId, accountId),
+    isNotNull(transactions.externalId),
+    isNull(transactions.recurringTemplateId),
+    // A perna prevista também tem `external_id` (para dedupe), mas é
+    // previsão: jamais pode cumprir outra previsão.
+    condicaoNaoEPernaPrevista(),
+    // Linha que aguarda o extrato não é realizado: é o outro lado de R1.
+    eq(transactions.aguardaExtrato, false),
+    // Linha com grupo já é ponta de um par (origem de transferência, ou a
+    // perna real de destino manual). Em OF↔OF com as duas contrapartes
+    // confirmadas, casar a origem de um lado com a perna prevista do outro
+    // daria dois pares para o mesmo dinheiro.
+    isNull(transactions.transferGroupId),
+    eq(transactions.isIgnored, false),
+    gte(transactions.date, inicio),
+    lte(transactions.date, fim),
+    condicaoDeRealizadoSemVinculo(),
+  )
+}
+
+/**
  * Propõe, nesta conta, o par previsto×realizado que o casamento encontrar.
  *
  * Antes esta função GRAVAVA o vínculo (`matched_transaction_id`) e a previsão
@@ -179,10 +211,6 @@ export async function criarPropostasDeConciliacao(
   const inicio = new Date(Math.min(...datas) - JANELA_BUSCA_DIAS * DIA_EM_MS)
   const fim = new Date(Math.max(...datas) + JANELA_BUSCA_DIAS * DIA_EM_MS)
 
-  // Realizado é o que veio do banco: tem `external_id` e não nasceu de
-  // template. `isIgnored` fora porque lançamento marcado como errado não
-  // cumpriu previsão nenhuma, e realizado já reivindicado por outra previsão
-  // também fora — propor de novo geraria proposta impossível de aprovar.
   const realizados = await db
     .select({
       id: transactions.id,
@@ -191,28 +219,7 @@ export async function criarPropostasDeConciliacao(
       description: transactions.description,
     })
     .from(transactions)
-    .where(
-      and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.accountId, accountId),
-        isNotNull(transactions.externalId),
-        isNull(transactions.recurringTemplateId),
-        // A perna prevista também tem `external_id` (para dedupe), mas é
-        // previsão: jamais pode cumprir outra previsão.
-        condicaoNaoEPernaPrevista(),
-        // Linha que aguarda o extrato não é realizado: é o outro lado de R1.
-        eq(transactions.aguardaExtrato, false),
-        // Linha com grupo já é ponta de um par (origem de transferência, ou a
-        // perna real de destino manual). Em OF↔OF com as duas contrapartes
-        // confirmadas, casar a origem de um lado com a perna prevista do outro
-        // daria dois pares para o mesmo dinheiro.
-        isNull(transactions.transferGroupId),
-        eq(transactions.isIgnored, false),
-        gte(transactions.date, inicio),
-        lte(transactions.date, fim),
-        condicaoDeRealizadoSemVinculo(),
-      ),
-    )
+    .where(condicaoDeRealizadoLivre(orgId, accountId, inicio, fim))
 
   if (realizados.length === 0) return 0
 

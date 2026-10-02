@@ -2,6 +2,7 @@ import { and, eq, isNull, ne } from 'drizzle-orm'
 import { transactions, type getDb, type OrigemDaTransacao } from '@floow/db'
 import { efeitoDaAbsorcao, type ParConciliado } from '@floow/core-finance'
 import { condicaoDaTransacaoDaOrg } from '@/lib/finance/forecast-match-db'
+import { registrarVinculo } from './registro'
 
 type Db = ReturnType<typeof getDb>
 
@@ -82,6 +83,8 @@ export async function aplicarEfeitoDaAbsorcao(
  * aprovação na fila, um sync que furou o lock), não pega nada e devolve
  * `false` — nada muda no extrato. Não mexe em saldo: a provisória nunca
  * esteve nele, e o extrato já está.
+ *
+ * Deixa o registro do vínculo, decidido pelo motor (`registrarVinculo`).
  */
 export async function absorverNoBanco(db: Db, orgId: string, par: ParConciliado): Promise<boolean> {
   const [provisoria] = await db
@@ -98,6 +101,7 @@ export async function absorverNoBanco(db: Db, orgId: string, par: ParConciliado)
     .returning(colunasDaProvisoria)
 
   if (!provisoria) return false
+  await registrarVinculo(db, orgId, par.aguardandoId, par.extratoId, 'automatico')
   await aplicarEfeitoDaAbsorcao(db, orgId, provisoria, par.extratoId)
   return true
 }
