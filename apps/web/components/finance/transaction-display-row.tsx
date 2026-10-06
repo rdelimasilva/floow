@@ -119,8 +119,7 @@ function SeloDeParcela({ tx }: { tx: TransactionRowData }) {
  * Agora a previsão nunca entra em `accounts.balance_cents`, e a vencida sem
  * par sai também do saldo projetado da listagem. Ela não soma em lugar
  * nenhum — então precisa aparecer, porque depende de uma decisão do usuário.
- * Daí o âmbar do "previsto" (informativo, vai acontecer) contra o vermelho do
- * "não conciliado" (pendente, exige ação).
+ * Aparece como previsão: linha apagada, sem cor, com o selo "não confirmado".
  */
 function ForecastBadge({ tx }: { tx: TransactionRowData }) {
   if (tx.balanceApplied !== false) return null
@@ -168,7 +167,7 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
   if (!contaNoSaldoProjetado(tx, new Date(), { incluirInvestimento: true })) {
     return (
       <span
-        className="inline-flex shrink-0 items-center rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
+        className="inline-flex shrink-0 items-center rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500"
         title="A data chegou e o banco não trouxe o lançamento correspondente. Não entra em saldo nenhum até ser confirmada."
       >
         não confirmado
@@ -191,13 +190,26 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
 }
 
 /**
- * A previsao pesa menos que o lancamento de verdade — menos a que exige acao.
- * Apagar a linha "nao conciliada" seria por selo vermelho em texto desbotado.
+ * Previsao vencida que o extrato nao confirmou: nao soma em saldo nenhum.
+ * Fica apagada e sem cor, como toda previsao — quem a distingue e o selo.
  */
+function naoConfirmada(tx: TransactionRowData): boolean {
+  return (
+    tx.balanceApplied === false &&
+    !tx.matchedTransactionId &&
+    !tx.hasPendingMatchProposal &&
+    !tx.aguardaExtrato &&
+    !contaNoSaldoProjetado(tx, new Date(), { incluirInvestimento: true })
+  )
+}
+
+/** A previsao pesa menos que o lancamento de verdade. */
 function classeDeOpacidade(tx: TransactionRowData): string {
-  if (tx.balanceApplied !== false) return ''
-  if (!tx.matchedTransactionId && !contaNoSaldoProjetado(tx, new Date(), { incluirInvestimento: true })) return ''
-  return 'opacity-60'
+  return tx.balanceApplied === false ? 'opacity-60' : ''
+}
+
+function corDoValor(tx: TransactionRowData): string {
+  return naoConfirmada(tx) ? 'text-gray-500' : amountColorClass(tx.amountCents)
 }
 
 function AcquiredAssetBadge({ assetId, assetName }: { assetId: string; assetName: string }) {
@@ -249,7 +261,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
           </div>
         </div>
         <div className="text-right shrink-0">
-          <p className={`text-sm font-semibold ${amountColorClass(tx.amountCents)}`}>
+          <p className={`text-sm font-semibold ${corDoValor(tx)}`}>
             {tx.amountCents >= 0 ? '+' : ''}{formatBRL(tx.amountCents)}
           </p>
           <p className={`text-xs ${balance >= 0 ? 'text-gray-500' : 'text-red-500'}`}>
@@ -323,7 +335,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
         )}
       </td>
       <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-500">{TYPE_LABELS[tx.type]}</td>
-      <td className={`whitespace-nowrap px-4 py-3 text-right text-sm font-semibold ${amountColorClass(tx.amountCents)}`}>
+      <td className={`whitespace-nowrap px-4 py-3 text-right text-sm font-semibold ${corDoValor(tx)}`}>
         {tx.amountCents >= 0 ? '+' : ''}{formatBRL(tx.amountCents)}
       </td>
       <td className={`hidden lg:table-cell whitespace-nowrap px-4 py-3 text-right text-sm font-medium ${balance >= 0 ? 'text-gray-700' : 'text-red-600'}`}>

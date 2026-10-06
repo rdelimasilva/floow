@@ -141,13 +141,13 @@ describe('selo de nao confirmado', () => {
 })
 
 /**
- * A linha de previsao e desenhada com `opacity-60`, para o previsto futuro
- * pesar menos que o lancamento de verdade. Aplicar a mesma opacidade na
- * previsao NAO CONCILIADA apagaria justamente a linha que exige acao — selo
- * vermelho em texto desbotado.
+ * Toda previsao que nao soma no saldo fica apagada: a futura e a nao
+ * conciliada. A nao conciliada tambem perde a cor — valor e selo em cinza —
+ * para nao parecer lancamento de verdade nem alerta. O que a distingue e o
+ * texto do selo, "nao confirmado".
  */
 describe('opacidade da linha', () => {
-  function classesDaLinha(extra: Record<string, unknown>) {
+  function linha(extra: Record<string, unknown>) {
     const { container } = render(
       React.createElement(
         'table',
@@ -165,14 +165,20 @@ describe('opacidade da linha', () => {
         ),
       ),
     )
-    return container.querySelector('tr')!.className
+    return container.querySelector('tr')!
   }
 
   it('previsao futura fica apagada', () => {
-    expect(classesDaLinha({ balanceApplied: false, date: '2026-10-15' })).toContain('opacity-60')
+    expect(linha({ balanceApplied: false, date: '2026-10-15' }).className).toContain('opacity-60')
   })
 
-  it('previsao nao conciliada NAO fica apagada', () => {
-    expect(classesDaLinha({ balanceApplied: false, date: '2026-08-15' })).not.toContain('opacity-60')
+  it('previsao nao conciliada fica apagada', () => {
+    expect(linha({ balanceApplied: false, date: '2026-08-15' }).className).toContain('opacity-60')
+  })
+
+  it('previsao nao conciliada nao tem cor: nem no valor, nem no selo', () => {
+    const tr = linha({ balanceApplied: false, date: '2026-08-15' })
+    expect(tr.innerHTML).not.toMatch(/text-(red|green|emerald)-/)
+    expect(tr.innerHTML).not.toMatch(/(bg|border)-red-/)
   })
 })
