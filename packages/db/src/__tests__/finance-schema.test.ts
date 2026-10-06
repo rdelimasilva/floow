@@ -158,3 +158,17 @@ describe('transactions.vinculo_revisado_em', () => {
     expect(col.notNull).toBe(false)
   })
 })
+
+describe('validacoes', () => {
+  it('tem as colunas do evento', async () => {
+    const { validacoes } = await import('../schema/validacoes')
+    const cols = validacoes as any
+    expect(cols.transactionId.name).toBe('transaction_id')
+    expect(cols.counterpartyId.notNull).toBe(false)
+    expect(cols.userId.notNull).toBe(false)
+    expect(cols.acao.notNull).toBe(true)
+    expect(cols.sugestaoCategoriaId.name).toBe('sugestao_categoria_id')
+    expect(cols.natureza.notNull).toBe(true)
+    expect(cols.categoriaId.notNull).toBe(false)
+  })
+})
