@@ -165,7 +165,10 @@ describe('corrigirRegra', () => {
     const r = await corrigirRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: CORRETORA, aplicarAoHistorico: true })
 
     expect(r).toEqual({ reprocessados: 1, ignorados: 0 })
-    expect(registrarDecisoes).toHaveBeenCalled()
+    // user_id nulo e ação fixa 'edicao': o palpite da regra antiga não entra
+    // no acerto da regra nova, e esta tela não mostra sugestão (achado 2 da
+    // revisão final).
+    expect(registrarDecisoes).toHaveBeenCalledWith(expect.anything(), ORG, expect.objectContaining({ counterpartyId: CP }), null, 'edicao')
     const escritas = ops.filter((o) => o.op !== 'select').map((o) => `${o.op}:${o.table}`)
     expect(escritas).toEqual([
       'update:accounts', // estorno XP

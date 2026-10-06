@@ -23,19 +23,25 @@ describe('acaoDoUsuario', () => {
 
 describe('capturarPendentes', () => {
   it('lê o palpite da contraparte e os pendentes', async () => {
-    selectQueue.push([{ categoriaId: 'cat-1', origem: 'historico' }], [{ id: 't1' }, { id: 't2' }])
+    selectQueue.push([{ categoriaId: 'cat-1', origem: 'historico' }], [{ id: 't1', type: 'expense' }, { id: 't2', type: 'expense' }])
     expect(await capturarPendentes(tx, 'org-1', 'cp-1')).toEqual({
-      counterpartyId: 'cp-1', sugestao: { categoriaId: 'cat-1', origem: 'historico' }, ids: ['t1', 't2'],
+      counterpartyId: 'cp-1', sugestao: { categoriaId: 'cat-1', origem: 'historico' }, ids: ['t1', 't2'], semPalpite: [],
     })
   })
   it('contraparte sem palpite', async () => {
-    selectQueue.push([{ categoriaId: null, origem: null }], [{ id: 't1' }])
+    selectQueue.push([{ categoriaId: null, origem: null }], [{ id: 't1', type: 'expense' }])
     expect((await capturarPendentes(tx, 'org-1', 'cp-1')).sugestao).toEqual({ categoriaId: null, origem: null })
+  })
+  it('pendente de transferência entra em semPalpite: o card não mostra palpite pra ela', async () => {
+    selectQueue.push([{ categoriaId: 'cat-1', origem: 'historico' }], [{ id: 't1', type: 'expense' }, { id: 't2', type: 'transfer' }])
+    const captura = await capturarPendentes(tx, 'org-1', 'cp-1')
+    expect(captura.ids).toEqual(['t1', 't2'])
+    expect(captura.semPalpite).toEqual(['t2'])
   })
 })
 
 describe('registrarDecisoes', () => {
-  const captura = { counterpartyId: 'cp-1', sugestao: { categoriaId: 'cat-1', origem: 'claude' as const }, ids: ['t1', 't2', 't3'] }
+  const captura = { counterpartyId: 'cp-1', sugestao: { categoriaId: 'cat-1', origem: 'claude' as const }, ids: ['t1', 't2', 't3'], semPalpite: [] }
   it('um evento por lançamento que saiu confirmado, com a categoria final de cada um', async () => {
     // t3 continua pendente (clique duplo, ou ficou fora do lote): sem evento.
     selectQueue.push([
@@ -55,6 +61,23 @@ describe('registrarDecisoes', () => {
   })
   it('captura vazia: nem consulta', async () => {
     expect(await registrarDecisoes(tx, 'org-1', { ...captura, ids: [] }, 'user-1')).toBe(0)
+  })
+
+  it('id em semPalpite: sugestão nula mesmo com a contraparte tendo palpite (transferência)', async () => {
+    selectQueue.push([{ id: 't2', type: 'transfer', categoryId: null }])
+    const comTransferencia = { ...captura, ids: ['t2'], semPalpite: ['t2'] }
+    expect(await registrarDecisoes(tx, 'org-1', comTransferencia, 'user-1')).toBe(1)
+    expect(inserts[0]).toEqual([
+      expect.objectContaining({ transactionId: 't2', acao: 'corrigir', sugestaoCategoriaId: null, sugestaoOrigem: null, natureza: 'transfer' }),
+    ])
+  })
+
+  it('acaoFixa (corrigirRegra): ignora o palpite capturado, grava a ação fixa com sugestão nula e sem usuário', async () => {
+    selectQueue.push([{ id: 't1', type: 'expense', categoryId: 'cat-9' }])
+    expect(await registrarDecisoes(tx, 'org-1', captura, null, 'edicao')).toBe(1)
+    expect(inserts[0]).toEqual([
+      expect.objectContaining({ transactionId: 't1', acao: 'edicao', sugestaoCategoriaId: null, sugestaoOrigem: null, userId: null, categoriaId: 'cat-9' }),
+    ])
   })
 })
 

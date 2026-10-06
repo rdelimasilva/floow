@@ -362,11 +362,33 @@ describe('updateTransaction e a medição', () => {
   })
 })
 
+/**
+ * `bulkCategorizeTransactions` lê a categoria ANTIGA antes do UPDATE (achado
+ * 3 da revisão final): sem isso, todo lançamento do lote virava `edicao`,
+ * pendente incluído — e pendente não tem palpite nenhum pra comparar.
+ */
 describe('bulkCategorizeTransactions e a medição', () => {
-  it('registra uma edicao por lançamento', async () => {
-    updateReturningQueue.push([
-      { id: 'a', counterpartyId: 'cp-1', type: 'expense' },
-      { id: 'b', counterpartyId: null, type: 'expense' },
+  it('pendente: o UPDATE aplica, mas não registra — sem palpite pra comparar', async () => {
+    selectQueue.push([{ id: 'a', counterpartyId: 'cp-1', type: 'expense', categoryId: 'cat-1', reviewState: 'pending' }])
+
+    await bulkCategorizeTransactions(['a'], 'cat-5')
+
+    expect(ops.some((o) => o.op === 'update' && o.table === 'transactions')).toBe(true)
+    expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [])
+  })
+
+  it('confirmado, mesma categoria de antes: não é decisão nova, não registra', async () => {
+    selectQueue.push([{ id: 'a', counterpartyId: 'cp-1', type: 'expense', categoryId: 'cat-5', reviewState: 'confirmed' }])
+
+    await bulkCategorizeTransactions(['a'], 'cat-5')
+
+    expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [])
+  })
+
+  it('registra uma edicao por lançamento confirmado com categoria de fato trocada', async () => {
+    selectQueue.push([
+      { id: 'a', counterpartyId: 'cp-1', type: 'expense', categoryId: 'cat-1', reviewState: 'confirmed' },
+      { id: 'b', counterpartyId: null, type: 'expense', categoryId: 'cat-2', reviewState: 'confirmed' },
     ])
 
     await bulkCategorizeTransactions(['a', 'b'], 'cat-5')
@@ -374,6 +396,20 @@ describe('bulkCategorizeTransactions e a medição', () => {
     expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [
       { transactionId: 'a', counterpartyId: 'cp-1', natureza: 'expense', categoriaId: 'cat-5' },
       { transactionId: 'b', counterpartyId: null, natureza: 'expense', categoriaId: 'cat-5' },
+    ])
+  })
+
+  it('lote misto: só quem é confirmado e mudou de categoria entra na medição', async () => {
+    selectQueue.push([
+      { id: 'a', counterpartyId: 'cp-1', type: 'expense', categoryId: 'cat-1', reviewState: 'confirmed' }, // muda: entra
+      { id: 'b', counterpartyId: 'cp-2', type: 'income', categoryId: 'cat-5', reviewState: 'confirmed' }, // mesma categoria: fora
+      { id: 'c', counterpartyId: 'cp-3', type: 'expense', categoryId: 'cat-1', reviewState: 'pending' }, // pendente: fora
+    ])
+
+    await bulkCategorizeTransactions(['a', 'b', 'c'], 'cat-5')
+
+    expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [
+      { transactionId: 'a', counterpartyId: 'cp-1', natureza: 'expense', categoriaId: 'cat-5' },
     ])
   })
 })

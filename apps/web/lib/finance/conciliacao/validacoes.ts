@@ -19,6 +19,8 @@ export type Captura = {
   counterpartyId: string
   sugestao: { categoriaId: string | null; origem: 'historico' | 'claude' | null }
   ids: string[]
+  /** Pendentes de transferência: o card não mostra palpite pra eles (fila.ts), e a medição não pode contar como erro. */
+  semPalpite: string[]
 }
 
 /**
@@ -33,33 +35,58 @@ export async function capturarPendentes(tx: Db, orgId: string, counterpartyId: s
     .limit(1)
   const condicoes = [eq(transactions.orgId, orgId), eq(transactions.counterpartyId, counterpartyId), eq(transactions.reviewState, 'pending')]
   if (somenteIds) condicoes.push(inArray(transactions.id, somenteIds))
-  const pendentes = somenteIds?.length === 0 ? [] : await tx.select({ id: transactions.id }).from(transactions).where(and(...condicoes))
+  const pendentes = somenteIds?.length === 0
+    ? []
+    : await tx.select({ id: transactions.id, type: transactions.type }).from(transactions).where(and(...condicoes))
   return {
     counterpartyId,
     sugestao: { categoriaId: cp?.categoriaId ?? null, origem: cp?.origem ?? null },
     ids: pendentes.map((p) => p.id),
+    semPalpite: pendentes.filter((p) => p.type === 'transfer').map((p) => p.id),
   }
 }
 
-/** Um evento por lançamento capturado que saiu confirmado, com a categoria final DELE (exceções do lote incluídas). */
-export async function registrarDecisoes(tx: Db, orgId: string, captura: Captura, userId: string | null): Promise<number> {
+/**
+ * Um evento por lançamento capturado que saiu confirmado, com a categoria
+ * final DELE (exceções do lote incluídas).
+ *
+ * `acaoFixa` é para quem reaplica uma regra já corrigida (`corrigirRegra`):
+ * o palpite capturado é da regra ANTIGA, e o card de correção nem mostra
+ * sugestão — usá-lo poluiria o acerto. Com `acaoFixa`, todo evento sai com
+ * essa ação e sugestão nula, não a calculada a partir do palpite capturado.
+ */
+export async function registrarDecisoes(
+  tx: Db,
+  orgId: string,
+  captura: Captura,
+  userId: string | null,
+  acaoFixa?: 'edicao',
+): Promise<number> {
   if (captura.ids.length === 0) return 0
   const decididos = await tx
     .select({ id: transactions.id, type: transactions.type, categoryId: transactions.categoryId })
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), inArray(transactions.id, captura.ids), eq(transactions.reviewState, 'confirmed')))
   if (decididos.length === 0) return 0
-  await tx.insert(validacoes).values(decididos.map((d) => ({
-    orgId,
-    transactionId: d.id,
-    counterpartyId: captura.counterpartyId,
-    userId,
-    acao: acaoDoUsuario(captura.sugestao.categoriaId, d.categoryId),
-    sugestaoCategoriaId: captura.sugestao.categoriaId,
-    sugestaoOrigem: captura.sugestao.origem,
-    natureza: d.type as Natureza,
-    categoriaId: d.categoryId,
-  })))
+  const semPalpite = new Set(captura.semPalpite)
+  await tx.insert(validacoes).values(decididos.map((d) => {
+    // Sem palpite: ação fixa (regra reaplicada) ou transferência no lote
+    // capturado — nenhum dos dois casos tem sugestão pra comparar.
+    const temPalpite = !acaoFixa && !semPalpite.has(d.id)
+    const sugestaoCategoriaId = temPalpite ? captura.sugestao.categoriaId : null
+    const sugestaoOrigem = temPalpite ? captura.sugestao.origem : null
+    return {
+      orgId,
+      transactionId: d.id,
+      counterpartyId: captura.counterpartyId,
+      userId,
+      acao: acaoFixa ?? acaoDoUsuario(sugestaoCategoriaId, d.categoryId),
+      sugestaoCategoriaId,
+      sugestaoOrigem,
+      natureza: d.type as Natureza,
+      categoriaId: d.categoryId,
+    }
+  }))
   return decididos.length
 }
 

@@ -141,7 +141,11 @@ export async function corrigirRegra(
         contasParaConciliar,
         reaplicar,
       )
-      await registrarDecisoes(tx, orgId, captura, userId)
+      // O palpite capturado é da regra ANTIGA, e esta tela nem mostra
+      // sugestão: `acaoFixa` descarta o que `capturarPendentes` trouxe, sem
+      // poluir o acerto da regra nova. `user_id` nulo por ser reaplicação da
+      // regra, não decisão no card (spec 2026-10-06 §user_id).
+      await registrarDecisoes(tx, orgId, captura, null, 'edicao')
     }
     return { reprocessados, ignorados }
   })

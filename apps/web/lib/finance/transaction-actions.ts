@@ -178,6 +178,9 @@ export async function updateTransaction(formData: FormData) {
   }
 
   const transferGroupId = convertendoEmTransferencia ? crypto.randomUUID() : null
+  // Transferência não tem categoria — o próprio schema da fila de
+  // contrapartes já trata as duas coisas como mutuamente exclusivas.
+  const categoriaNova = convertendoEmTransferencia ? null : (input.categoryId ?? null)
 
   await db.transaction(async (tx) => {
     await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
@@ -219,9 +222,7 @@ export async function updateTransaction(formData: FormData) {
       .update(transactions)
       .set({
         accountId: input.accountId,
-        // Transferência não tem categoria — o próprio schema da fila de
-        // contrapartes já trata as duas coisas como mutuamente exclusivas.
-        categoryId: convertendoEmTransferencia ? null : (input.categoryId ?? null),
+        categoryId: categoriaNova,
         type: input.type,
         amountCents: newSignedAmount,
         description: input.description,
@@ -233,7 +234,6 @@ export async function updateTransaction(formData: FormData) {
       .where(and(eq(transactions.id, input.id), eq(transactions.orgId, orgId)))
 
     // Edição de categoria é decisão do usuário: entra na medição.
-    const categoriaNova = convertendoEmTransferencia ? null : (input.categoryId ?? null)
     if (oldTx.reviewState === 'confirmed' && oldTx.categoryId !== categoriaNova) {
       await registrarEventos(tx as unknown as Db, orgId, 'edicao', null, [
         { transactionId: input.id, counterpartyId: oldTx.counterpartyId, natureza: input.type, categoriaId: categoriaNova },
@@ -372,16 +372,32 @@ export async function bulkCategorizeTransactions(ids: string[], categoryId: stri
   const orgId = await getOrgId()
   const db = getDb()
 
-  const editados = await db
-    .update(transactions)
-    .set({ categoryId, isAutoCategorized: false })
-    .where(and(inArray(transactions.id, ids), eq(transactions.orgId, orgId)))
-    .returning({ id: transactions.id, counterpartyId: transactions.counterpartyId, type: transactions.type })
+  await db.transaction(async (dbTx) => {
+    const tx = dbTx as unknown as Db
+    // Categoria ANTIGA antes do UPDATE: sem ela, todo id do lote vira
+    // `edicao` — pendente incluído, e pendente não tem palpite pra comparar
+    // (achado 3 da revisão final). O UPDATE aplica em todos os ids pedidos,
+    // igual antes; só a medição filtra.
+    const antigos = await tx
+      .select({
+        id: transactions.id, counterpartyId: transactions.counterpartyId,
+        type: transactions.type, categoryId: transactions.categoryId, reviewState: transactions.reviewState,
+      })
+      .from(transactions)
+      .where(and(inArray(transactions.id, ids), eq(transactions.orgId, orgId)))
 
-  // Edição de categoria é decisão do usuário: entra na medição, uma por lançamento.
-  await registrarEventos(db, orgId, 'edicao', null, editados.map((e) => ({
-    transactionId: e.id, counterpartyId: e.counterpartyId, natureza: e.type, categoriaId: categoryId,
-  })))
+    await tx
+      .update(transactions)
+      .set({ categoryId, isAutoCategorized: false })
+      .where(and(inArray(transactions.id, ids), eq(transactions.orgId, orgId)))
+
+    // Edição de categoria é decisão do usuário: só entra na medição quem já
+    // estava confirmado e teve a categoria de fato trocada.
+    const editados = antigos.filter((a) => a.reviewState === 'confirmed' && a.categoryId !== categoryId)
+    await registrarEventos(tx, orgId, 'edicao', null, editados.map((e) => ({
+      transactionId: e.id, counterpartyId: e.counterpartyId, natureza: e.type, categoriaId: categoryId,
+    })))
+  })
 
   revalidateTransactionData(orgId)
 }

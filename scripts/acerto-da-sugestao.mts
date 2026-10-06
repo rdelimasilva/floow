@@ -15,11 +15,12 @@ const dias = Number(process.argv[2] ?? 30)
 const sql = postgres(databaseUrl(), { max: 1 })
 
 const porOrigem = await sql`
-  select o.name org, coalesce(v.sugestao_origem, 'sem palpite') origem,
+  select o.name org, v.sugestao_origem origem,
          count(*)::int decisoes,
          count(*) filter (where v.acao = 'confirmar')::int aceitas
   from validacoes v join orgs o on o.id = v.org_id
-  where v.acao in ('confirmar','corrigir') and v.created_at >= now() - make_interval(days => ${dias})
+  where v.acao in ('confirmar','corrigir') and v.sugestao_categoria_id is not null
+    and v.created_at >= now() - make_interval(days => ${dias})
   group by 1, 2 order by 1, 3 desc`
 
 const porContraparte = await sql`
