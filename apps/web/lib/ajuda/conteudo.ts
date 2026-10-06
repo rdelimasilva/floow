@@ -27,7 +27,7 @@ export const PERGUNTAS: Pergunta[] = [
     id: 'filas',
     pergunta: 'O que é "Conciliar"?',
     resposta:
-      'É a tela, dentro de Transações, com tudo o que veio do banco e pede uma decisão sua: remover lançamentos que o banco mandou duas vezes, classificar os que o floow ainda não sabe classificar (você decide uma vez e vale para os próximos) e confirmar previsões que parecem já ter acontecido. Nada trava o app, e nada muda sem você aprovar.',
+      'É a tela, dentro de Transações, que mostra um lançamento do banco por vez: repetido para descartar, previsão parecida para vincular ou lançamento para classificar (você decide uma vez e vale para os próximos). Atalhos: Enter confirma, 1-3 escolhe entre os parecidos, N diz que nenhum é, → pula para o próximo. Nada trava o app, nada muda sem você aprovar, e as regras já confirmadas ficam em "Regras".',
   },
   {
     id: 'recorrentes',

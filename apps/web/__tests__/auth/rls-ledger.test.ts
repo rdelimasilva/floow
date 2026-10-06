@@ -75,6 +75,12 @@ const PENDENTES = [
   // `corrigir-regra-actions.ts` gravam — `transactions`, `accounts.balance_cents`
   // e `forecast_match_proposals` — com a mesma dívida de policy de ESCRITA.
   'lib/finance/desconciliar-actions.ts',
+  // Vincular grava o vínculo em `transactions` (vincularNoBanco) e o status em
+  // `forecast_match_proposals` (vincularNoBanco, marcarSemVinculo) — as duas
+  // tabelas cuja policy de ESCRITA ainda não está no ar, a mesma dívida de
+  // `forecast-match-actions.ts`/`duplicata-actions.ts`. Sai junto com elas — a
+  // leitura (`procurarPrevisoes`, `fila-db.ts`) já nasceu em `withUserDb`.
+  'lib/finance/conciliacao/vincular-actions.ts',
   'lib/finance/import-actions.ts',
   // Saiu de `import-actions.ts` (a gravação das linhas do arquivo e a chamada
   // ao motor de conciliação): o mesmo código em outro arquivo, com a mesma

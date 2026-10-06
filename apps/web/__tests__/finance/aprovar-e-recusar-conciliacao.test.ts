@@ -35,6 +35,13 @@ const tx = {
     ops.push(op)
     return chain([{ id: 'x' }], op)
   },
+  // `registrarVinculo`: o registro do par que a 00073 exige.
+  insert: (table: unknown) => ({
+    values: (payload: Record<string, unknown>) => {
+      ops.push({ op: `insert:${(table as { _?: { name?: string } })?._?.name}`, payload })
+      return { onConflictDoUpdate: () => Promise.resolve() }
+    },
+  }),
 }
 
 vi.mock('@floow/db', () => ({
@@ -61,6 +68,8 @@ const PENDENTE = {
 /** As duas pontas como estavam quando a proposta nasceu. */
 const PREVISAO_ABERTA = {
   id: 'prev-1',
+  accountId: 'nubank',
+  amountCents: 15000,
   matchedTransactionId: null,
   balanceApplied: false,
   isIgnored: false,
@@ -69,6 +78,8 @@ const PREVISAO_ABERTA = {
 }
 const REALIZADO_VALENDO = {
   id: 'real-1',
+  accountId: 'nubank',
+  amountCents: 15000,
   matchedTransactionId: null,
   balanceApplied: true,
   isIgnored: false,
@@ -90,8 +101,10 @@ describe('aprovarProposta', () => {
     expect(efetivada).toBe(true)
     const naPrevisao = ops.find((o) => o.op === 'update:transactions')
     expect(naPrevisao?.payload).toMatchObject({ matchedTransactionId: 'real-1' })
-    const naProposta = ops.find((o) => o.op === 'update:forecast_match_proposals')
-    expect(naProposta?.payload).toMatchObject({ status: 'approved', decisao: 'usuario' })
+    const naProposta = ops.find((o) => o.op === 'insert:forecast_match_proposals')
+    expect(naProposta?.payload).toMatchObject({
+      forecastTransactionId: 'prev-1', realizedTransactionId: 'real-1', status: 'approved', decisao: 'usuario',
+    })
     expect(naProposta?.payload?.decidedAt).toBeInstanceOf(Date)
   })
 
@@ -107,7 +120,8 @@ describe('aprovarProposta', () => {
       expect(efetivada).toBe(true)
       const naProposta = ops.filter((o) => o.op === 'update:forecast_match_proposals').map((o) => o.payload)
       expect(naProposta[0]).toMatchObject({ status: 'refused', decisao: 'usuario' })
-      expect(naProposta.at(-1)).toMatchObject({ status: 'approved', decisao: 'usuario' })
+      expect(ops.find((o) => o.op === 'insert:forecast_match_proposals')?.payload)
+        .toMatchObject({ realizedTransactionId: 'real-1', status: 'approved', decisao: 'usuario' })
       const naPrevisao = ops.filter((o) => o.op === 'update:transactions').map((o) => o.payload)
       expect(naPrevisao).toEqual([{ matchedTransactionId: 'real-1' }])
     })
@@ -142,6 +156,8 @@ describe('aprovarProposta', () => {
       },
       { ...REALIZADO_VALENDO, externalId: 'pix-nubank', transferAccountId: null },
     ])
+    // Ninguém reivindicou este realizado ainda (o SELECT de "realizado já reivindicado" de `vincularNoBanco`).
+    selectQueue.push([])
     // Estado do extrato, lido por `aplicarEfeitoDaAbsorcao`.
     selectQueue.push([{ reviewState: 'pending', categoryId: null, isAutoCategorized: false }])
 
@@ -164,6 +180,8 @@ describe('aprovarProposta', () => {
       { ...PREVISAO_ABERTA, aguardaExtrato: true, origem: 'manual', categoryId: 'cat-feira', description: 'Feira', transferGroupId: null },
       REALIZADO_VALENDO,
     ])
+    // Ninguém reivindicou este realizado ainda (o SELECT de "realizado já reivindicado" de `vincularNoBanco`).
+    selectQueue.push([])
     selectQueue.push([{ reviewState: 'pending', categoryId: null, isAutoCategorized: false }])
 
     const { efetivada } = await aprovarProposta('prop-1')
@@ -175,9 +193,23 @@ describe('aprovarProposta', () => {
 
   it('previsão recorrente: a ponta real não muda de natureza', async () => {
     selectQueue.push([PENDENTE])
-    selectQueue.push(PONTAS_ELEGIVEIS)
+    // Realizado já confirmado: `reviewState: 'confirmed'` explícito, para que
+    // o título continue verdadeiro mesmo com o novo comportamento de herdar
+    // categoria de `vincularNoBanco` (que só mexe no realizado `pending`).
+    selectQueue.push([PREVISAO_ABERTA, { ...REALIZADO_VALENDO, reviewState: 'confirmed' }])
     await aprovarProposta('prop-1')
     expect(ops.filter((o) => o.op === 'update:transactions')).toHaveLength(1)
+  })
+
+  it('previsão recorrente com categoria classifica o realizado pendente', async () => {
+    selectQueue.push([PENDENTE])
+    selectQueue.push([
+      { ...PREVISAO_ABERTA, type: 'expense', categoryId: 'cat-mercado' },
+      { ...REALIZADO_VALENDO, reviewState: 'pending' },
+    ])
+    await aprovarProposta('prop-1')
+    const escritas = ops.filter((o) => o.op === 'update:transactions').map((o) => o.payload)
+    expect(escritas).toContainEqual({ type: 'expense', categoryId: 'cat-mercado', reviewState: 'confirmed' })
   })
 
   it('realizado marcado como ignorado na janela não é efetivado', async () => {

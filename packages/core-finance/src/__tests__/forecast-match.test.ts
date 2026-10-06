@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchForecast, type ForecastCandidate, type RealizedTransaction } from '../forecast-match'
+import { matchForecast, temPalavraEmComum, type ForecastCandidate, type RealizedTransaction } from '../forecast-match'
 
 /**
  * Casamento de lançamento previsto com o realizado que o banco trouxe.
@@ -121,5 +121,14 @@ describe('matchForecast', () => {
     }
 
     expect(matchForecast(real, [previsto])?.id).toBe('prev-x')
+  })
+})
+
+describe('temPalavraEmComum', () => {
+  it('ignora acento, caixa, palavra curta, número e palavra vazia', () => {
+    expect(temPalavraEmComum('PIX JUSSARA SILVA', 'Jussara - Diarista (7/61)')).toBe(true)
+    expect(temPalavraEmComum('Condomínio', 'CONDOMINIO ED')).toBe(true)
+    expect(temPalavraEmComum('SP TJ', 'Jussara - Diarista (7/61)')).toBe(false)
+    expect(temPalavraEmComum('PIX 1234', 'Pix 1234')).toBe(false)
   })
 })

@@ -258,6 +258,12 @@ export const transactions = pgTable(
      * (`matched_transaction_id`). Ver `lib/finance/conciliacao/`.
      */
     aguardaExtrato: boolean('aguarda_extrato').notNull().default(false),
+    /**
+     * Quando o usuário disse "não é nenhum" na tela Conciliar: este lançamento
+     * do banco não cumpre previsão nenhuma. Tira o item da fila por candidatas
+     * (spec 2026-10-01 §5.2); classificação e repetido continuam valendo.
+     */
+    vinculoRevisadoEm: timestamp('vinculo_revisado_em', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

@@ -12,10 +12,14 @@
 export const FILTERS_COOKIE = 'tx-filters'
 
 export type PeriodKey =
+  | 'lastMonth' | 'last3Months' | 'lastYear'
   | 'today' | 'month' | 'quarter' | 'semester' | 'year'
   | 'nextMonth' | 'next3Months' | 'nextSemester' | 'nextYear'
 
 export const PERIOD_LABELS: Record<PeriodKey, string> = {
+  lastMonth: 'Último mês',
+  last3Months: 'Últimos 3 meses',
+  lastYear: 'Último ano',
   today: 'Hoje',
   month: 'Este mês',
   quarter: 'Este trimestre',
@@ -28,14 +32,16 @@ export const PERIOD_LABELS: Record<PeriodKey, string> = {
 }
 
 /**
- * A tela mostra os atalhos em dois grupos: o calendário corrente e o que vem
- * pela frente. Os futuros são blocos de calendário inteiros, a começar no mês
- * seguinte — "Próximo semestre" em setembro é jan–jun, não os 6 meses a partir
- * de hoje —, do mesmo jeito que os atuais.
+ * A tela mostra os atalhos em três grupos: passado, presente e futuro. Tanto
+ * os passados quanto os futuros são blocos de calendário inteiros, terminando
+ * (passado) ou começando (futuro) no mês anterior/seguinte ao atual —
+ * "Último ano" em outubro de 2026 é jan–dez de 2025, "Próximo semestre" em
+ * setembro é jan–jun do ano seguinte —, nunca uma janela móvel a partir de hoje.
  */
 export const PERIOD_GROUPS: { label: string; keys: PeriodKey[] }[] = [
-  { label: 'Período', keys: ['today', 'month', 'quarter', 'semester', 'year'] },
-  { label: 'Próximos', keys: ['nextMonth', 'next3Months', 'nextSemester', 'nextYear'] },
+  { label: 'Passado', keys: ['lastMonth', 'last3Months', 'lastYear'] },
+  { label: 'Presente', keys: ['today', 'month'] },
+  { label: 'Futuro', keys: ['nextMonth', 'next3Months', 'nextSemester', 'nextYear'] },
 ]
 
 const PERIOD_KEYS = Object.keys(PERIOD_LABELS) as PeriodKey[]
@@ -60,6 +66,12 @@ export function getPeriodDates(key: PeriodKey, hoje: string = hojeEmSaoPaulo()):
   const [y, m1] = hoje.split('-').map(Number)
   const m = m1 - 1
   switch (key) {
+    case 'lastMonth':
+      return { startDate: dia(y, m - 1, 1), endDate: dia(y, m, 0) }
+    case 'last3Months':
+      return { startDate: dia(y, m - 3, 1), endDate: dia(y, m, 0) }
+    case 'lastYear':
+      return { startDate: dia(y - 1, 0, 1), endDate: dia(y - 1, 11, 31) }
     case 'today':
       return { startDate: hoje, endDate: hoje }
     case 'month':

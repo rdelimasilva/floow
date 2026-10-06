@@ -1,6 +1,6 @@
 import { and, asc, count, eq, sql } from 'drizzle-orm'
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
-import { accounts, duplicateProposals, transactions } from '@floow/db'
+import { accounts, duplicateProposals, transactions, type RlsTx } from '@floow/db'
 import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 
 export interface LadoDaDuplicata {
@@ -54,51 +54,54 @@ const MINUTOS_POR_HORA = 60
  * de verdade, e é ele que precisa da decisão antes.
  */
 export async function getDuplicatasPendentes(orgId: string): Promise<DuplicataPendente[]> {
-  return withUserDb(async (db) => {
-    const manter = alias(transactions, 'manter')
-    const duplicata = alias(transactions, 'duplicata')
+  return withUserDb((db) => lerDuplicatasPendentes(db, orgId))
+}
 
-    const rows = await db
-      .select({
-        id: duplicateProposals.id,
-        minutosEntreEmissoes: duplicateProposals.minutosEntreEmissoes,
-        manterId: manter.id,
-        manterDate: manter.date,
-        manterDescription: manter.description,
-        manterAmount: manter.amountCents,
-        duplicataId: duplicata.id,
-        duplicataDate: duplicata.date,
-        duplicataDescription: duplicata.description,
-        duplicataAmount: duplicata.amountCents,
-        contaNome: accounts.name,
-      })
-      .from(duplicateProposals)
-      .innerJoin(manter, eq(manter.id, duplicateProposals.manterTransactionId))
-      .innerJoin(duplicata, eq(duplicata.id, duplicateProposals.duplicataTransactionId))
-      .leftJoin(accounts, eq(accounts.id, duplicata.accountId))
-      .where(condicaoDeDuplicataAberta(orgId, duplicata))
-      .orderBy(sql`abs(${duplicata.amountCents}) desc`, asc(duplicateProposals.proposedAt))
+/** O corpo de `getDuplicatasPendentes`, para quem já está numa transação RLS (a fila). */
+export async function lerDuplicatasPendentes(db: RlsTx, orgId: string): Promise<DuplicataPendente[]> {
+  const manter = alias(transactions, 'manter')
+  const duplicata = alias(transactions, 'duplicata')
 
-    const iso = (d: Date | string) => (d instanceof Date ? d.toISOString() : String(d))
+  const rows = await db
+    .select({
+      id: duplicateProposals.id,
+      minutosEntreEmissoes: duplicateProposals.minutosEntreEmissoes,
+      manterId: manter.id,
+      manterDate: manter.date,
+      manterDescription: manter.description,
+      manterAmount: manter.amountCents,
+      duplicataId: duplicata.id,
+      duplicataDate: duplicata.date,
+      duplicataDescription: duplicata.description,
+      duplicataAmount: duplicata.amountCents,
+      contaNome: accounts.name,
+    })
+    .from(duplicateProposals)
+    .innerJoin(manter, eq(manter.id, duplicateProposals.manterTransactionId))
+    .innerJoin(duplicata, eq(duplicata.id, duplicateProposals.duplicataTransactionId))
+    .leftJoin(accounts, eq(accounts.id, duplicata.accountId))
+    .where(condicaoDeDuplicataAberta(orgId, duplicata))
+    .orderBy(sql`abs(${duplicata.amountCents}) desc`, asc(duplicateProposals.proposedAt))
 
-    return rows.map((row) => ({
-      id: row.id,
-      manter: {
-        id: row.manterId,
-        date: iso(row.manterDate),
-        description: row.manterDescription,
-        amountCents: row.manterAmount,
-      },
-      duplicata: {
-        id: row.duplicataId,
-        date: iso(row.duplicataDate),
-        description: row.duplicataDescription,
-        amountCents: row.duplicataAmount,
-      },
-      contaNome: row.contaNome,
-      horasEntreEmissoes: row.minutosEntreEmissoes / MINUTOS_POR_HORA,
-    }))
-  })
+  const iso = (d: Date | string) => (d instanceof Date ? d.toISOString() : String(d))
+
+  return rows.map((row) => ({
+    id: row.id,
+    manter: {
+      id: row.manterId,
+      date: iso(row.manterDate),
+      description: row.manterDescription,
+      amountCents: row.manterAmount,
+    },
+    duplicata: {
+      id: row.duplicataId,
+      date: iso(row.duplicataDate),
+      description: row.duplicataDescription,
+      amountCents: row.duplicataAmount,
+    },
+    contaNome: row.contaNome,
+    horasEntreEmissoes: row.minutosEntreEmissoes / MINUTOS_POR_HORA,
+  }))
 }
 
 /**

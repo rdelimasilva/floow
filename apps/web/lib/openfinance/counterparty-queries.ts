@@ -1,5 +1,5 @@
 import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm'
-import { transactions, counterparties, accounts } from '@floow/db'
+import { transactions, counterparties, accounts, type RlsTx } from '@floow/db'
 import { withUserDb } from '@/lib/db/rls'
 import { condicaoForaDeParDeTransferenciaPendente } from '@/lib/finance/forecast-match-db'
 import { carregarHashesDoTitular, ehCpfProprio } from '@/lib/openfinance/cpf-proprio'
@@ -85,90 +85,92 @@ export async function contarLancamentosAClassificar(orgId: string): Promise<numb
  * "R$ 92 mil" move o usuário, "12 lançamentos" não.
  */
 export async function getPendingCounterpartyGroups(orgId: string): Promise<PendingGroup[]> {
-  return withUserDb(async (db) => {
+  return withUserDb((db) => lerGruposPendentes(db, orgId))
+}
 
-    const rows = await db
-      .select({
-        counterpartyId: transactions.counterpartyId,
-        displayName: counterparties.displayName,
-        keyType: counterparties.keyType,
-        keyValue: counterparties.keyValue,
-        suggestedCategoryId: counterparties.suggestedCategoryId,
-        suggestionSource: counterparties.suggestionSource,
-        id: transactions.id,
-        date: transactions.date,
-        description: transactions.description,
-        amountCents: transactions.amountCents,
-        accountId: transactions.accountId,
-        type: transactions.type,
-        polpType: transactions.polpType,
-        cardLastDigits: transactions.cardLastDigits,
-        installmentNumber: transactions.installmentNumber,
-        installmentTotal: transactions.installmentTotal,
-      })
-      .from(transactions)
-      .innerJoin(counterparties, eq(counterparties.id, transactions.counterpartyId))
-      .where(and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.reviewState, 'pending'),
-        // Ponta com par de transferência pendente decide-se em Confirmar previsões.
-        condicaoForaDeParDeTransferenciaPendente(),
-      ))
-      .orderBy(transactions.date)
-
-    const groups = new Map<string, PendingGroup>()
-    for (const row of rows) {
-      if (!row.counterpartyId) continue
-      let group = groups.get(row.counterpartyId)
-      if (!group) {
-        group = {
-          counterpartyId: row.counterpartyId,
-          displayName: row.displayName,
-          keyType: row.keyType,
-          count: 0,
-          totalCents: 0,
-          items: [],
-          ehCpfProprio: false,
-          suggestedCategoryId: row.suggestedCategoryId,
-          suggestionSource: row.suggestionSource,
-        }
-        groups.set(row.counterpartyId, group)
-      }
-      group.count++
-      group.totalCents += row.amountCents
-      group.items.push({
-        id: row.id,
-        date: row.date instanceof Date ? row.date.toISOString() : String(row.date),
-        description: row.description,
-        amountCents: row.amountCents,
-        accountId: row.accountId,
-        type: row.type,
-        sugestaoContaId: null,
-        polpType: row.polpType,
-        cardLastDigits: row.cardLastDigits,
-        installmentNumber: row.installmentNumber,
-        installmentTotal: row.installmentTotal,
-      })
-    }
-
-    // Pix para o próprio CPF: a conta certa é a do lançamento espelhado, nunca
-    // uma regra fixa por contraparte (spec §6) — por isso a sugestão é
-    // preenchida por lançamento, depois de os grupos já estarem montados.
-    const hashes = await carregarHashesDoTitular(db, orgId)
-    const chaves = new Map(rows.map((r) => [r.counterpartyId, { keyType: r.keyType, keyValue: r.keyValue }]))
-    const doTitular = [...groups.values()].filter((g) => {
-      const k = chaves.get(g.counterpartyId)
-      return k?.keyType === 'tax_id' && ehCpfProprio(k.keyValue, hashes)
+/** O corpo de `getPendingCounterpartyGroups`, para quem já está numa transação RLS (a fila). */
+export async function lerGruposPendentes(db: RlsTx, orgId: string): Promise<PendingGroup[]> {
+  const rows = await db
+    .select({
+      counterpartyId: transactions.counterpartyId,
+      displayName: counterparties.displayName,
+      keyType: counterparties.keyType,
+      keyValue: counterparties.keyValue,
+      suggestedCategoryId: counterparties.suggestedCategoryId,
+      suggestionSource: counterparties.suggestionSource,
+      id: transactions.id,
+      date: transactions.date,
+      description: transactions.description,
+      amountCents: transactions.amountCents,
+      accountId: transactions.accountId,
+      type: transactions.type,
+      polpType: transactions.polpType,
+      cardLastDigits: transactions.cardLastDigits,
+      installmentNumber: transactions.installmentNumber,
+      installmentTotal: transactions.installmentTotal,
     })
-    const itensDoTitular = doTitular.flatMap((g) => g.items)
-    const candidatos = await carregarCandidatosDePar(db, orgId, itensDoTitular)
-    for (const g of doTitular) {
-      g.ehCpfProprio = true
-      for (const item of g.items) item.sugestaoContaId = sugerirContaDoPar(item, candidatos)
-    }
+    .from(transactions)
+    .innerJoin(counterparties, eq(counterparties.id, transactions.counterpartyId))
+    .where(and(
+      eq(transactions.orgId, orgId),
+      eq(transactions.reviewState, 'pending'),
+      // Ponta com par de transferência pendente decide-se em Confirmar previsões.
+      condicaoForaDeParDeTransferenciaPendente(),
+    ))
+    .orderBy(transactions.date)
 
-    return [...groups.values()].sort((a, b) => Math.abs(b.totalCents) - Math.abs(a.totalCents))
+  const groups = new Map<string, PendingGroup>()
+  for (const row of rows) {
+    if (!row.counterpartyId) continue
+    let group = groups.get(row.counterpartyId)
+    if (!group) {
+      group = {
+        counterpartyId: row.counterpartyId,
+        displayName: row.displayName,
+        keyType: row.keyType,
+        count: 0,
+        totalCents: 0,
+        items: [],
+        ehCpfProprio: false,
+        suggestedCategoryId: row.suggestedCategoryId,
+        suggestionSource: row.suggestionSource,
+      }
+      groups.set(row.counterpartyId, group)
+    }
+    group.count++
+    group.totalCents += row.amountCents
+    group.items.push({
+      id: row.id,
+      date: row.date instanceof Date ? row.date.toISOString() : String(row.date),
+      description: row.description,
+      amountCents: row.amountCents,
+      accountId: row.accountId,
+      type: row.type,
+      sugestaoContaId: null,
+      polpType: row.polpType,
+      cardLastDigits: row.cardLastDigits,
+      installmentNumber: row.installmentNumber,
+      installmentTotal: row.installmentTotal,
+    })
+  }
+
+  // Pix para o próprio CPF: a conta certa é a do lançamento espelhado, nunca
+  // uma regra fixa por contraparte (spec §6) — por isso a sugestão é
+  // preenchida por lançamento, depois de os grupos já estarem montados.
+  const hashes = await carregarHashesDoTitular(db, orgId)
+  const chaves = new Map(rows.map((r) => [r.counterpartyId, { keyType: r.keyType, keyValue: r.keyValue }]))
+  const doTitular = [...groups.values()].filter((g) => {
+    const k = chaves.get(g.counterpartyId)
+    return k?.keyType === 'tax_id' && ehCpfProprio(k.keyValue, hashes)
   })
+  const itensDoTitular = doTitular.flatMap((g) => g.items)
+  const candidatos = await carregarCandidatosDePar(db, orgId, itensDoTitular)
+  for (const g of doTitular) {
+    g.ehCpfProprio = true
+    for (const item of g.items) item.sugestaoContaId = sugerirContaDoPar(item, candidatos)
+  }
+
+  return [...groups.values()].sort((a, b) => Math.abs(b.totalCents) - Math.abs(a.totalCents))
 }
 
 export interface ConfirmedCounterparty {

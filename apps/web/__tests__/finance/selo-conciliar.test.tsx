@@ -61,11 +61,11 @@ describe('selo da previsão vencida', () => {
     screen.getByText('confirmado')
   })
 
-  it('o selo de confirmar leva à seção Confirmar da tela Conciliar', () => {
+  it('o selo de confirmar leva à tela Conciliar', () => {
     renderRow({ hasPendingMatchProposal: true })
 
     expect(screen.getByRole('link', { name: 'confirmar?' }).getAttribute('href'))
-      .toBe('/transactions/conciliar#confirmar')
+      .toBe('/transactions/conciliar')
   })
 })
 

@@ -5,12 +5,12 @@ interface Props {
 }
 
 /**
- * Classificar virou uma seção de /transactions/conciliar. A rota fica para
- * links salvos, WhatsApp e e-mails já enviados, e `?regra=` ("Corrigir regra")
- * continua abrindo a regra em edição.
+ * Classificar virou o modo foco em /transactions/conciliar. A rota fica para
+ * links salvos, WhatsApp e e-mails já enviados, e `?regra=` ("Corrigir
+ * regra") continua abrindo a regra em edição, agora em /conciliar/regras.
  */
 export default async function ReviewPage({ searchParams }: Props) {
   const { regra } = await searchParams
-  const query = regra ? `?regra=${encodeURIComponent(regra)}` : ''
-  redirect(`/transactions/conciliar${query}#classificar`)
+  if (regra) redirect(`/transactions/conciliar/regras?regra=${encodeURIComponent(regra)}`)
+  redirect('/transactions/conciliar')
 }
