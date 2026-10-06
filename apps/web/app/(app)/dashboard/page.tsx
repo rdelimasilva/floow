@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
-import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getLatestSnapshot, hasAnyTransaction } from '@/lib/finance/queries'
+import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getLatestSnapshot } from '@/lib/finance/queries'
 import { refreshSnapshot } from '@/lib/finance/account-actions'
 import { AccountSummaryRow } from '@/components/finance/account-summary-row'
 import { QuickStatsRow } from '@/components/finance/quick-stats-row'
@@ -16,21 +16,13 @@ import { getBudgetGoals, getSpendingByCategory, getInvestmentContributions, getA
 import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { sumBudgetedSpending } from '@/lib/finance/budgeted-spending'
 import { WelcomeCard } from '@/components/finance/welcome-card'
+import { getEstadoDoCadastro } from '@/lib/onboarding/estado-do-cadastro'
 // import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
 
 // -- Async sub-components for Suspense streaming ----------------------------
 
 async function OnboardingSection({ orgId }: { orgId: string }) {
-  const [userAccounts, hasTransactions] = await Promise.all([
-    getAccounts(orgId),
-    hasAnyTransaction(orgId),
-  ])
-  return (
-    <WelcomeCard
-      hasAccounts={userAccounts.length > 0}
-      hasTransactions={hasTransactions}
-    />
-  )
+  return <WelcomeCard estado={await getEstadoDoCadastro(orgId)} />
 }
 
 async function AccountSection({ orgId }: { orgId: string }) {

@@ -81,13 +81,18 @@ export default async function AccountsPage() {
       {/* Account grid */}
       {accounts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
-          <p className="text-gray-500">Nenhuma conta encontrada.</p>
-          <p className="mt-1 text-sm text-gray-400">
-            Crie sua primeira conta para começar.
+          <p className="text-gray-500">Nenhuma conta cadastrada ainda.</p>
+          <p className="mt-1 max-w-sm text-sm text-gray-400">
+            O passo a passo mostra o que cadastrar e o que preencher em cada conta.
           </p>
-          <Button asChild variant="primary" className="mt-4">
-            <Link href="/accounts/new">Criar Conta</Link>
-          </Button>
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
+            <Button asChild variant="primary">
+              <Link href="/accounts/primeiros-passos">Começar passo a passo</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/accounts/new">Criar conta direto</Link>
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="space-y-8">

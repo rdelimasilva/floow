@@ -1,6 +1,7 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -35,8 +36,23 @@ const newAccountSchema = z.object({
 type NewAccountForm = z.infer<typeof newAccountSchema>
 
 
+const TIPOS = newAccountSchema.shape.type.options
+
+/** useSearchParams exige Suspense acima dele para a página poder ser pré-renderizada. */
 export default function NewAccountPage() {
+  return (
+    <Suspense>
+      <NovaConta />
+    </Suspense>
+  )
+}
+
+function NovaConta() {
   const router = useRouter()
+  const params = useSearchParams()
+  // Vindo do passo a passo: o tipo já chega escolhido e, ao salvar, volta-se ao guia.
+  const tipoInicial = TIPOS.find((t) => t === params.get('tipo'))
+  const destino = params.get('volta') === 'guia' ? '/accounts/primeiros-passos' : '/accounts'
   const {
     register,
     handleSubmit,
@@ -45,6 +61,7 @@ export default function NewAccountPage() {
     formState: { errors, isSubmitting, isDirty },
   } = useForm<NewAccountForm>({
     resolver: zodResolver(newAccountSchema),
+    defaultValues: { type: tipoInicial },
   })
 
   useUnsavedChanges(isDirty)
@@ -66,14 +83,14 @@ export default function NewAccountPage() {
     }
 
     await createAccount(formData)
-    router.push('/accounts')
+    router.push(destino)
   }
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div className="flex items-center gap-2">
-        <Link href="/accounts" className="text-sm text-gray-500 hover:text-gray-700">
-          &larr; Contas
+        <Link href={destino} className="text-sm text-gray-500 hover:text-gray-700">
+          &larr; {destino === '/accounts' ? 'Contas' : 'Primeiros passos'}
         </Link>
       </div>
 
@@ -119,7 +136,7 @@ export default function NewAccountPage() {
             {/* Type */}
             <div className="space-y-1.5">
               <Label htmlFor="type">Tipo</Label>
-              <Select onValueChange={(val) => setValue('type', val as NewAccountForm['type'])}>
+              <Select value={tipo ?? ''} onValueChange={(val) => setValue('type', val as NewAccountForm['type'])}>
                 <SelectTrigger id="type">
                   <SelectValue placeholder="Selecione o tipo de conta" />
                 </SelectTrigger>
@@ -164,13 +181,18 @@ export default function NewAccountPage() {
                 />
               </div>
               <p className="text-xs text-gray-500">
-                Para cartão de crédito, use valor negativo para representar dívida já existente
-                (ex: <code>-1500,00</code>).
+                {tipo === 'credit_card' ? (
+                  <>
+                    Fatura em aberto entra como valor negativo (ex: <code>-1500,00</code>).
+                  </>
+                ) : (
+                  'Informe o saldo de hoje, como aparece no extrato. Daqui para frente, os lançamentos mexem nele.'
+                )}
               </p>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" onClick={() => router.push('/accounts')}>
+              <Button type="button" variant="outline" onClick={() => router.push(destino)}>
                 Cancelar
               </Button>
               <Button type="submit" variant="primary" disabled={isSubmitting}>
