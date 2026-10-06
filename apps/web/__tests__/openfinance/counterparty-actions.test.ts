@@ -65,6 +65,13 @@ vi.mock('@/lib/finance/conciliacao/conciliar-conta', () => ({
   conciliarContas: (...args: unknown[]) => criarPropostas(...args),
 }))
 
+vi.mock('@/lib/finance/conciliacao/validacoes', () => ({
+  capturarPendentes: vi.fn(async (_tx: unknown, _org: string, counterpartyId: string, somenteIds?: string[]) => ({
+    counterpartyId, sugestao: { categoriaId: null, origem: null }, ids: somenteIds ?? ['pendente-1'],
+  })),
+  registrarDecisoes: vi.fn(async () => 1),
+}))
+
 vi.mock('@floow/db', async () => {
   const actual = await vi.importActual<typeof import('@floow/db')>('@floow/db')
   return {
@@ -95,6 +102,8 @@ vi.mock('@floow/db', async () => {
 
 import { confirmCounterparty } from '@/lib/openfinance/counterparty-actions'
 
+const { capturarPendentes, registrarDecisoes } = await import('@/lib/finance/conciliacao/validacoes')
+
 beforeEach(() => {
   ops.length = 0
   selectQueue.length = 0
@@ -102,6 +111,8 @@ beforeEach(() => {
   insertQueue.length = 0
   insertedValues.length = 0
   criarPropostas.mockClear()
+  vi.mocked(capturarPendentes).mockClear()
+  vi.mocked(registrarDecisoes).mockClear()
 })
 
 describe('confirmCounterparty', () => {
@@ -136,6 +147,8 @@ describe('confirmCounterparty', () => {
 
     expect(result.reclassified).toBe(2)
     expect(ops.filter((o) => o.op === 'update').map((o) => o.table)).toEqual(['counterparties', 'transactions'])
+    expect(capturarPendentes).toHaveBeenCalledWith(expect.anything(), ORG, COUNTERPARTY_ID)
+    expect(registrarDecisoes).toHaveBeenCalledWith(expect.anything(), ORG, expect.objectContaining({ counterpartyId: COUNTERPARTY_ID }), expect.any(String))
   })
 
   it('contraparte de outra org não é encontrada', async () => {

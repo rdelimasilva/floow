@@ -55,6 +55,7 @@ vi.mock('@/lib/finance/revalidate', () => ({
   revalidateSnapshotData: vi.fn(),
   revalidateCategoryData: vi.fn(),
 }))
+vi.mock('@/lib/finance/conciliacao/validacoes', () => ({ registrarEventos: vi.fn(async () => {}) }))
 
 const { aprovarProposta, recusarProposta } = await import('@/lib/finance/forecast-match-actions')
 

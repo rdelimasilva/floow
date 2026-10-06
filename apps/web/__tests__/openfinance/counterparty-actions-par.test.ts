@@ -66,6 +66,13 @@ vi.mock('@/lib/finance/conciliacao/conciliar-conta', () => ({
   conciliarContas: (...args: unknown[]) => criarPropostas(...args),
 }))
 
+vi.mock('@/lib/finance/conciliacao/validacoes', () => ({
+  capturarPendentes: vi.fn(async (_tx: unknown, _org: string, counterpartyId: string, somenteIds?: string[]) => ({
+    counterpartyId, sugestao: { categoriaId: null, origem: null }, ids: somenteIds ?? ['pendente-1'],
+  })),
+  registrarDecisoes: vi.fn(async () => 1),
+}))
+
 vi.mock('@floow/db', async () => {
   const actual = await vi.importActual<typeof import('@floow/db')>('@floow/db')
   return {

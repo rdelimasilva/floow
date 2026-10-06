@@ -24,6 +24,8 @@ interface Op {
 
 const ops: Op[] = []
 const selectQueue: unknown[][] = []
+// O que o `.returning()` de um UPDATE devolve — só o bulkCategorize usa.
+const updateReturningQueue: unknown[][] = []
 const dialect = new PgDialect()
 
 function chain(result: unknown[], current?: Op): any {
@@ -58,7 +60,7 @@ const api = {
   update: (t: unknown) => {
     const op: Op = { op: 'update', table: tabela(t) }
     ops.push(op)
-    return chain([], op)
+    return chain(updateReturningQueue.shift() ?? [], op)
   },
 }
 
@@ -82,8 +84,10 @@ vi.mock('@/lib/finance/revalidate', () => ({
   revalidateSnapshotData: vi.fn(),
   revalidateCategoryData: vi.fn(),
 }))
+vi.mock('@/lib/finance/conciliacao/validacoes', () => ({ registrarEventos: vi.fn(async () => {}) }))
 
-const { updateTransaction, toggleIgnoreTransaction } = await import('@/lib/finance/transaction-actions')
+const { updateTransaction, toggleIgnoreTransaction, bulkCategorizeTransactions } = await import('@/lib/finance/transaction-actions')
+const { registrarEventos } = await import('@/lib/finance/conciliacao/validacoes')
 
 const TX = '44444444-4444-4444-8444-444444444444'
 const CONTA = '11111111-1111-4111-8111-111111111111'
@@ -119,6 +123,8 @@ const deltaDe = (o: Op) => dialect.sqlToQuery(o.payload!.balanceCents as never).
 beforeEach(() => {
   ops.length = 0
   selectQueue.length = 0
+  updateReturningQueue.length = 0
+  vi.mocked(registrarEventos).mockClear()
 })
 
 async function editar(linha: typeof LINHA, date: string) {
@@ -315,5 +321,95 @@ describe('toggleIgnoreTransaction e o saldo', () => {
     await toggleIgnoreTransaction(formIgnorar())
 
     expect(updatesEmContas().map(deltaDe)).toEqual([[-45916]])
+  })
+})
+
+/**
+ * Edição de categoria fora da fila também é uma decisão do usuário: entra na
+ * medição como evento `edicao`, sem palpite a comparar (spec 2026-10-06).
+ * Só dispara para lançamento confirmado que teve a categoria trocada —
+ * mudar valor ou data sozinhos não é decisão de categoria.
+ */
+describe('updateTransaction e a medição', () => {
+  const CAT_1 = '33333333-3333-4333-8333-333333333331'
+  const CAT_2 = '33333333-3333-4333-8333-333333333332'
+  const CONFIRMADA = { ...LINHA, reviewState: 'confirmed', categoryId: CAT_1, counterpartyId: 'cp-1' }
+
+  function formComCategoria(categoryId: string) {
+    const fd = formEdicao('2026-01-10')
+    fd.append('categoryId', categoryId)
+    return fd
+  }
+
+  it('trocar a categoria de um lançamento confirmado registra edicao', async () => {
+    selectQueue.push([CONFIRMADA]) // oldTx
+    selectQueue.push([{ id: CONTA }]) // posse da conta
+
+    await updateTransaction(formComCategoria(CAT_2))
+
+    expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [
+      { transactionId: TX, counterpartyId: 'cp-1', natureza: 'expense', categoriaId: CAT_2 },
+    ])
+  })
+
+  it('mudar só valor ou data não registra', async () => {
+    selectQueue.push([CONFIRMADA]) // oldTx
+    selectQueue.push([{ id: CONTA }]) // posse da conta
+
+    await updateTransaction(formComCategoria(CAT_1))
+
+    expect(registrarEventos).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * `bulkCategorizeTransactions` lê a categoria ANTIGA antes do UPDATE (achado
+ * 3 da revisão final): sem isso, todo lançamento do lote virava `edicao`,
+ * pendente incluído — e pendente não tem palpite nenhum pra comparar.
+ */
+describe('bulkCategorizeTransactions e a medição', () => {
+  it('pendente: o UPDATE aplica, mas não registra — sem palpite pra comparar', async () => {
+    selectQueue.push([{ id: 'a', counterpartyId: 'cp-1', type: 'expense', categoryId: 'cat-1', reviewState: 'pending' }])
+
+    await bulkCategorizeTransactions(['a'], 'cat-5')
+
+    expect(ops.some((o) => o.op === 'update' && o.table === 'transactions')).toBe(true)
+    expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [])
+  })
+
+  it('confirmado, mesma categoria de antes: não é decisão nova, não registra', async () => {
+    selectQueue.push([{ id: 'a', counterpartyId: 'cp-1', type: 'expense', categoryId: 'cat-5', reviewState: 'confirmed' }])
+
+    await bulkCategorizeTransactions(['a'], 'cat-5')
+
+    expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [])
+  })
+
+  it('registra uma edicao por lançamento confirmado com categoria de fato trocada', async () => {
+    selectQueue.push([
+      { id: 'a', counterpartyId: 'cp-1', type: 'expense', categoryId: 'cat-1', reviewState: 'confirmed' },
+      { id: 'b', counterpartyId: null, type: 'expense', categoryId: 'cat-2', reviewState: 'confirmed' },
+    ])
+
+    await bulkCategorizeTransactions(['a', 'b'], 'cat-5')
+
+    expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [
+      { transactionId: 'a', counterpartyId: 'cp-1', natureza: 'expense', categoriaId: 'cat-5' },
+      { transactionId: 'b', counterpartyId: null, natureza: 'expense', categoriaId: 'cat-5' },
+    ])
+  })
+
+  it('lote misto: só quem é confirmado e mudou de categoria entra na medição', async () => {
+    selectQueue.push([
+      { id: 'a', counterpartyId: 'cp-1', type: 'expense', categoryId: 'cat-1', reviewState: 'confirmed' }, // muda: entra
+      { id: 'b', counterpartyId: 'cp-2', type: 'income', categoryId: 'cat-5', reviewState: 'confirmed' }, // mesma categoria: fora
+      { id: 'c', counterpartyId: 'cp-3', type: 'expense', categoryId: 'cat-1', reviewState: 'pending' }, // pendente: fora
+    ])
+
+    await bulkCategorizeTransactions(['a', 'b', 'c'], 'cat-5')
+
+    expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [
+      { transactionId: 'a', counterpartyId: 'cp-1', natureza: 'expense', categoriaId: 'cat-5' },
+    ])
   })
 })

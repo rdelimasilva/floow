@@ -2,6 +2,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getDb, accounts, transactions } from '@floow/db'
 import { matchCategory, type CategoryRule } from '@floow/core-finance'
+import { registrarEventos } from '@/lib/finance/conciliacao/validacoes'
 import type { ResolvedTransaction } from './resolve-counterparty'
 import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transfer-leg'
 import { acharPernaPrevistaAberta } from './perna-prevista-aberta'
@@ -275,7 +276,16 @@ export async function persistPage(
       .insert(transactions)
       .values(toInsert)
       .onConflictDoNothing()
-      .returning({ id: transactions.id, amountCents: transactions.amountCents, applied: transactions.balanceApplied })
+      .returning({
+        id: transactions.id, amountCents: transactions.amountCents, applied: transactions.balanceApplied,
+        counterpartyId: transactions.counterpartyId, reviewState: transactions.reviewState,
+        type: transactions.type, categoryId: transactions.categoryId,
+      })
+
+    // Contraparte confirmada decidiu sozinha: a regra do usuário, aplicada.
+    await registrarEventos(dbTx as unknown as Db, input.orgId, 'regra', null, inserted
+      .filter((r) => r.counterpartyId !== null && r.reviewState === 'confirmed')
+      .map((r) => ({ transactionId: r.id, counterpartyId: r.counterpartyId, natureza: r.type, categoriaId: r.categoryId })))
 
     // Só o que entrou de fato move o saldo — o que colidiu já estava contado.
     const realDelta = inserted

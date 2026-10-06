@@ -42,10 +42,12 @@ vi.mock('@/lib/finance/revalidate', () => ({
 vi.mock('@/lib/finance/conciliacao/absorver', () => ({ aplicarEfeitoDaAbsorcao: vi.fn() }))
 vi.mock('@/lib/db/rls', () => ({ withUserDb: vi.fn() }))
 vi.mock('@/lib/finance/conciliacao/registro', () => ({ registrarVinculo: vi.fn() }))
+vi.mock('@/lib/finance/conciliacao/validacoes', () => ({ registrarEventos: vi.fn(async () => {}) }))
 
 const { vincularPrevisao } = await import('@/lib/finance/conciliacao/vincular-actions')
 const { aplicarEfeitoDaAbsorcao } = await import('@/lib/finance/conciliacao/absorver')
 const { registrarVinculo } = await import('@/lib/finance/conciliacao/registro')
+const { registrarEventos } = await import('@/lib/finance/conciliacao/validacoes')
 
 const PREV = { id: 'prev-1', accountId: 'itau', amountCents: -15000, matchedTransactionId: null, balanceApplied: false, isIgnored: false, aguardaExtrato: false, type: 'expense', categoryId: 'cat-9', origem: 'recorrencia' }
 const REAL = { id: 'real-1', accountId: 'itau', amountCents: -15000, matchedTransactionId: null, balanceApplied: true, isIgnored: false, reviewState: 'pending', origem: 'extrato' }
@@ -66,6 +68,10 @@ describe('vincularPrevisao', () => {
     // As concorrentes são recusadas; o par ganha o registro que a 00073 exige.
     expect(updates.filter((o) => o.op === 'update:forecast_match_proposals')).toHaveLength(1)
     expect(registrarVinculo).toHaveBeenCalledWith(tx, 'org-1', 'prev-1', 'real-1', 'usuario')
+    // O realizado pendente herdou a categoria da previsão: vira evento de validação.
+    expect(registrarEventos).toHaveBeenCalledWith(tx, 'org-1', 'vinculo', null, [
+      { transactionId: 'real-1', counterpartyId: null, natureza: 'expense', categoriaId: 'cat-9' },
+    ])
   })
   it('troca pelo card: previsão presa a outro lançamento, com proposta de troca pendente do par, solta o vínculo antigo', async () => {
     selectQueue.push([{ ...PREV, matchedTransactionId: 'unimed' }, REAL], [{ id: 'prop-troca' }], [])
@@ -98,6 +104,7 @@ describe('vincularPrevisao', () => {
   it('realizado já confirmado: nada a classificar', async () => {
     selectQueue.push([{ ...PREV, categoryId: null }, { ...REAL, reviewState: 'confirmed' }], [])
     expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
+    expect(registrarEventos).not.toHaveBeenCalled()
   })
   it('previsão comum de outra conta, mesmo sinal, ainda vincula (Procurar previsão é entre contas)', async () => {
     selectQueue.push([{ ...PREV, accountId: 'nubank' }, REAL], [])

@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import { sumAppliedDeltasByAccount } from '@/lib/openfinance/persist-page'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { persistPage, sumAppliedDeltasByAccount } from '@/lib/openfinance/persist-page'
+import type { ResolvedTransaction } from '@/lib/openfinance/resolve-counterparty'
+
+vi.mock('@/lib/finance/conciliacao/validacoes', () => ({ registrarEventos: vi.fn(async () => {}) }))
+const { registrarEventos } = await import('@/lib/finance/conciliacao/validacoes')
 
 /**
  * `persistPage` não é exportada (é interna a sync.ts) e o resto da função
@@ -76,5 +80,92 @@ describe('sumAppliedDeltasByAccount', () => {
     expect(delta.get('conta-1')).toBe(70000)
     expect(delta.get('conta-2')).toBe(-1000)
     expect(delta.size).toBe(2)
+  })
+})
+
+/**
+ * `persistPage` registra evento de validação (Task 4, spec 2026-10-06) para
+ * cada linha nova cuja contraparte confirmada decidiu a categoria sozinha —
+ * é a regra do usuário, aplicada no sync. Linha pendente (contraparte ainda
+ * não decidiu) não entra: ela segue para a fila de classificar.
+ */
+describe('persistPage — regra aplicada no sync grava evento de validação', () => {
+  const ORG = 'org-1'
+
+  function linha(over: Partial<ResolvedTransaction> = {}): ResolvedTransaction {
+    return {
+      externalId: 'ext-1',
+      date: '2026-09-10',
+      amountCents: -5000,
+      type: 'expense',
+      natureConfirmed: false,
+      counterpartyTaxId: null,
+      counterpartyName: null,
+      description: 'MERCADO',
+      categoryRef: null,
+      polpType: null,
+      payeeMcc: null,
+      billPostDate: null,
+      billForecastMonth: null,
+      installmentNumber: null,
+      installmentTotal: null,
+      purchaseDate: null,
+      settlement: 'settled',
+      foreign: null,
+      reviewState: 'pending',
+      counterpartyId: null,
+      categoryId: null,
+      transferAccountId: null,
+      ...over,
+    } as ResolvedTransaction
+  }
+
+  const input = (normalized: ResolvedTransaction[]) => ({
+    orgId: ORG, accountId: 'nubank', normalized, categoryByRef: new Map<string, string>(), rules: [],
+  })
+
+  function chain(result: unknown[]): any {
+    const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve(result).then(r) }
+    for (const m of ['from', 'where', 'limit', 'set', 'onConflictDoNothing']) c[m] = () => c
+    return c
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('registra evento só para a linha com contraparte confirmada; a pendente fica de fora', async () => {
+    const selectQueue: unknown[][] = []
+    selectQueue.push([]) // existentes: nenhuma
+
+    const db: any = {
+      select: () => chain(selectQueue.shift() ?? []),
+      update: () => chain([]),
+      insert: () => ({
+        values: (v: any[]) => ({
+          onConflictDoNothing: () => ({
+            returning: () => Promise.resolve(v.map((row, i) => ({
+              id: `novo-${i}`,
+              amountCents: row.amountCents,
+              applied: row.balanceApplied,
+              counterpartyId: row.counterpartyId,
+              reviewState: row.reviewState,
+              type: row.type,
+              categoryId: row.categoryId,
+            }))),
+          }),
+        }),
+      }),
+      transaction: async (fn: (t: unknown) => unknown) => fn(db),
+    }
+
+    const confirmada = linha({ externalId: 'ext-confirmada', counterpartyId: 'cp-1', categoryId: 'cat-1', reviewState: 'confirmed', type: 'expense' })
+    const pendente = linha({ externalId: 'ext-pendente', counterpartyId: 'cp-2', categoryId: null, reviewState: 'pending' })
+
+    await persistPage(db, input([confirmada, pendente]))
+
+    expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), ORG, 'regra', null, [
+      { transactionId: expect.any(String), counterpartyId: 'cp-1', natureza: 'expense', categoriaId: 'cat-1' },
+    ])
   })
 })

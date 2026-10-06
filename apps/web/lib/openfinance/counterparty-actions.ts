@@ -10,6 +10,7 @@ import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarDecisaoAosPendentes, camposDaRegra, contaQueARegraGrava, ehRegraDoTitular, exceptionSchema } from './aplicar-regra'
+import { capturarPendentes, registrarDecisoes } from '@/lib/finance/conciliacao/validacoes'
 export type { ConfirmCounterpartyException } from './aplicar-regra'
 
 /**
@@ -75,6 +76,9 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
 
     if (!row) throw new Error('Contraparte não encontrada.')
 
+    // O palpite e os pendentes antes de a decisão sobrescrevê-los.
+    const captura = await capturarPendentes(tx as unknown as Db, orgId, input.counterpartyId)
+
     const cpfProprio = await ehRegraDoTitular(tx as unknown as Db, orgId, row)
     const contaDaRegra = contaQueARegraGrava({ nature: input.nature, transferAccountId: input.transferAccountId, cpfProprio })
 
@@ -106,6 +110,8 @@ export async function confirmCounterparty(raw: ConfirmCounterpartyInput): Promis
       { counterpartyId: input.counterpartyId, nature: input.nature, categoryId: input.categoryId, transferAccountId: input.transferAccountId, exceptions: input.exceptions },
       contasParaConciliar,
     )
+
+    await registrarDecisoes(tx as unknown as Db, orgId, captura, userId)
 
     return reclassifiedCount
   })
