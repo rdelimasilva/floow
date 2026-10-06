@@ -83,14 +83,14 @@ export default async function AccountsPage() {
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <p className="text-gray-500">Nenhuma conta cadastrada ainda.</p>
           <p className="mt-1 max-w-sm text-sm text-gray-400">
-            O passo a passo mostra o que cadastrar e o que preencher em cada conta.
+            Conecte seu banco pelo Open Finance e as contas, os cartões e os lançamentos entram sozinhos.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             <Button asChild variant="primary">
               <Link href="/accounts/primeiros-passos">Começar passo a passo</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/accounts/new">Criar conta direto</Link>
+              <Link href="/accounts/connect">Conectar banco</Link>
             </Button>
           </div>
         </div>

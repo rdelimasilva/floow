@@ -19,7 +19,7 @@ export default async function PrimeirosPassosPage() {
       </Link>
       <PageHeader
         title="Primeiros passos"
-        description="Cadastre suas contas em poucos minutos. Cada passo explica o que preencher; os opcionais podem ser pulados."
+        description="Conecte seus bancos pelo Open Finance e suas contas, cartões e lançamentos entram sozinhos. Os passos opcionais podem ser pulados."
       />
       <GuiaPrimeirosPassos estado={estado} />
     </div>

@@ -4,7 +4,7 @@ import React from 'react'
 import { GuiaPrimeirosPassos } from '@/components/onboarding/guia-primeiros-passos'
 import { CHAVE_PULADOS } from '@/lib/onboarding/primeiros-passos'
 
-const novo = { tiposDeConta: [], temConexao: false, temLancamento: false }
+const novo = { tiposDeConta: [], bancosConectados: 0, temLancamento: false }
 
 describe('guia de primeiros passos', () => {
   // O localStorage do Node atropela o do jsdom e não funciona sem arquivo.
@@ -21,35 +21,33 @@ describe('guia de primeiros passos', () => {
   it('abre o passo atual com as dicas e o botão de ação', () => {
     render(<GuiaPrimeirosPassos estado={novo} />)
 
-    screen.getByText(/0 de 5 concluídos/i)
+    screen.getByText(/0 de 4 concluídos/i)
     expect(screen.getByRole('link', { name: 'Conectar banco' }).getAttribute('href')).toBe('/accounts/connect')
     screen.getByText(/acesso é só de leitura/i)
   })
 
-  it('pular avança para o próximo passo e fica guardado', () => {
+  it('conectar o banco não tem botão de pular', () => {
     render(<GuiaPrimeirosPassos estado={novo} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Prefiro cadastrar à mão' }))
-
-    screen.getByText(/1 de 5 concluídos/i)
-    expect(screen.getByRole('link', { name: 'Cadastrar conta corrente' }).getAttribute('href')).toBe(
-      '/accounts/new?tipo=checking&volta=guia',
-    )
-    expect(JSON.parse(localStorage.getItem(CHAVE_PULADOS)!)).toEqual(['banco'])
+    expect(screen.queryByRole('button', { name: /só uso|não tenho|prefiro/i })).toBeNull()
   })
 
-  it('passo obrigatório não tem botão de pular', () => {
-    localStorage.setItem(CHAVE_PULADOS, JSON.stringify(['banco']))
-    render(<GuiaPrimeirosPassos estado={novo} />)
+  it('pular avança para o próximo passo e fica guardado', () => {
+    render(<GuiaPrimeirosPassos estado={{ ...novo, bancosConectados: 1 }} />)
 
-    screen.getByRole('link', { name: 'Cadastrar conta corrente' })
-    expect(screen.queryByRole('button', { name: /pular|prefiro|não/i })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Só uso um banco' }))
+
+    screen.getByText(/2 de 4 concluídos/i)
+    expect(screen.getByRole('link', { name: 'Cadastrar dinheiro' }).getAttribute('href')).toBe(
+      '/accounts/new?tipo=cash&volta=guia',
+    )
+    expect(JSON.parse(localStorage.getItem(CHAVE_PULADOS)!)).toEqual(['outros-bancos'])
   })
 
   it('com tudo concluído, mostra o fechamento e o caminho para o dashboard', () => {
     render(
       <GuiaPrimeirosPassos
-        estado={{ tiposDeConta: ['checking', 'credit_card', 'savings'], temConexao: true, temLancamento: true }}
+        estado={{ tiposDeConta: ['checking', 'cash'], bancosConectados: 2, temLancamento: true }}
       />,
     )
 

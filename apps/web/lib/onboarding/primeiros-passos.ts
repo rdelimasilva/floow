@@ -1,20 +1,22 @@
 import type { AccountType } from '@/lib/finance/account-types'
 
 /**
- * Passo a passo de quem acabou de chegar: cadastrar as contas e começar a
- * lançar. O estado vem dos dados (tipo de conta existe, há conexão, há
- * lançamento) e não de um "marcar como feito": quem cadastra o cartão pela
- * tela de Contas, sem passar pelo guia, também vê o passo concluído.
+ * Passo a passo de quem acabou de chegar. O caminho é o Open Finance: contas,
+ * cartões, investimentos e lançamentos entram pela conexão, então o guia não
+ * ensina cadastro à mão de corrente e cartão, nem importação de extrato. À
+ * mão fica só o que o banco não informa, como dinheiro em espécie.
  *
- * Só o "pular" fica com o usuário, porque "não tenho cartão" não aparece nos
- * dados.
+ * O estado vem dos dados (conexão autorizada, conta, lançamento) e não de um
+ * "marcar como feito". Só o "pular" fica com o usuário, porque "só uso um
+ * banco" não aparece nos dados.
  */
-export type PassoId = 'banco' | 'corrente' | 'cartao' | 'reservas' | 'lancamentos'
+export type PassoId = 'banco' | 'outros-bancos' | 'fora-do-banco' | 'lancamentos'
 export type Situacao = 'feito' | 'pulado' | 'pendente'
 
 export interface EstadoDoCadastro {
   tiposDeConta: AccountType[]
-  temConexao: boolean
+  /** Instituições distintas com consentimento autorizado. */
+  bancosConectados: number
   temLancamento: boolean
   pulados: string[]
 }
@@ -36,69 +38,54 @@ export function hrefDeNovaConta(tipo: AccountType) {
 
 type Definicao = Omit<Passo, 'situacao'> & { feito: (e: EstadoDoCadastro) => boolean }
 
-const tem = (e: EstadoDoCadastro, ...tipos: AccountType[]) => e.tiposDeConta.some((t) => tipos.includes(t))
-
 const DEFINICOES: Definicao[] = [
   {
     id: 'banco',
-    titulo: 'Conecte seu banco',
+    titulo: 'Conecte seu banco principal',
     explicacao:
-      'Pelo Open Finance, contas, cartões e lançamentos entram sozinhos e continuam atualizados. É o caminho mais rápido.',
+      'Pelo Open Finance, contas, cartões, investimentos e lançamentos entram sozinhos e continuam atualizados. Você não digita nada.',
     dicas: [
-      'Você escolhe o banco, informa o CPF e autoriza no app do próprio banco.',
+      'Escolha o banco, informe o CPF e autorize no app do próprio banco.',
       'O acesso é só de leitura: o floow não movimenta dinheiro.',
-      'As contas que vierem do banco já contam nos próximos passos.',
     ],
     acao: { rotulo: 'Conectar banco', href: '/accounts/connect' },
-    pular: 'Prefiro cadastrar à mão',
-    feito: (e) => e.temConexao,
+    feito: (e) => e.bancosConectados > 0,
   },
   {
-    id: 'corrente',
-    titulo: 'Cadastre sua conta corrente',
-    explicacao: 'É por ela que passa o dia a dia: salário, contas pagas, transferências.',
+    id: 'outros-bancos',
+    titulo: 'Conecte os outros bancos e cartões',
+    explicacao:
+      'Cada instituição é uma conexão. Conta, cartão ou investimento em outro banco só aparece se ele também for conectado.',
     dicas: [
-      'Use um nome que identifique o banco, como "Itaú — corrente".',
-      'No saldo inicial, informe o saldo de hoje, como está no extrato.',
-      'Tem mais de uma conta? Cadastre todas; o guia avança na primeira.',
+      'Pense em todos: conta salário, cartão de outro banco, corretora.',
+      'Quanto mais completo, mais certo fica o saldo e o fluxo de caixa.',
     ],
-    acao: { rotulo: 'Cadastrar conta corrente', href: hrefDeNovaConta('checking') },
-    feito: (e) => tem(e, 'checking'),
+    acao: { rotulo: 'Conectar outro banco', href: '/accounts/connect' },
+    pular: 'Só uso um banco',
+    feito: (e) => e.bancosConectados > 1,
   },
   {
-    id: 'cartao',
-    titulo: 'Cadastre seus cartões de crédito',
-    explicacao: 'Cada cartão vira uma conta própria, com a fatura separada da conta corrente.',
+    id: 'fora-do-banco',
+    titulo: 'Cadastre o que fica fora do banco',
+    explicacao: 'O Open Finance só traz o que está em instituição financeira. O resto você cadastra à mão.',
     dicas: [
-      'Informe o dia de fechamento e o de vencimento: é por eles que cada compra cai na fatura certa.',
-      'Se já existe fatura em aberto, lance o valor como saldo negativo (ex: -1500,00).',
+      'Dinheiro em espécie, como a carteira ou um cofre em casa.',
+      'Informe o valor de hoje; a partir daí você lança as saídas.',
     ],
-    acao: { rotulo: 'Cadastrar cartão', href: hrefDeNovaConta('credit_card') },
-    pular: 'Não uso cartão',
-    feito: (e) => tem(e, 'credit_card'),
-  },
-  {
-    id: 'reservas',
-    titulo: 'Poupança, investimentos e dinheiro',
-    explicacao: 'O que está guardado também é patrimônio. Cadastrar aqui completa a visão do quanto você tem.',
-    dicas: [
-      'Poupança e dinheiro em espécie ficam junto das contas correntes.',
-      'Investimento (CDB, corretora, previdência) fica num bloco próprio.',
-      'Basta o saldo atual; o rendimento você ajusta depois.',
-    ],
-    acao: { rotulo: 'Cadastrar reserva', href: hrefDeNovaConta('savings') },
-    pular: 'Não tenho por agora',
-    feito: (e) => tem(e, 'savings', 'brokerage', 'cash'),
+    acao: { rotulo: 'Cadastrar dinheiro', href: hrefDeNovaConta('cash') },
+    pular: 'Não tenho',
+    feito: (e) => e.tiposDeConta.includes('cash'),
   },
   {
     id: 'lancamentos',
-    titulo: 'Registre seus lançamentos',
-    explicacao: 'Com as contas prontas, falta o movimento: o que entrou e o que saiu.',
+    titulo: 'Confira seus lançamentos',
+    explicacao:
+      'Depois da conexão, os lançamentos chegam sozinhos. A primeira sincronização pode levar alguns minutos.',
     dicas: [
-      'Importe o extrato (OFX ou CSV) do banco para não digitar um a um.',
-      'Ou lance à mão as despesas do mês; o dashboard se atualiza na hora.',
+      'Revise as categorias sugeridas e corrija o que vier errado.',
+      'O que aparecer como repetido ou sem par vai para a tela Conciliar.',
     ],
-    acao: { rotulo: 'Ir para lançamentos', href: '/transactions' },
+    acao: { rotulo: 'Ver lançamentos', href: '/transactions' },
     feito: (e) => e.temLancamento,
   },
 ]

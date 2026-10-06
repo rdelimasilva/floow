@@ -12,7 +12,7 @@ export async function getEstadoDoCadastro(orgId: string): Promise<Omit<EstadoDoC
   ])
   return {
     tiposDeConta: Array.from(new Set(contas.map((c) => c.type))),
-    temConexao: conexoes.length > 0,
+    bancosConectados: new Set(conexoes.filter((c) => c.status === 'AUTHORISED').map((c) => c.institutionId)).size,
     temLancamento,
   }
 }
