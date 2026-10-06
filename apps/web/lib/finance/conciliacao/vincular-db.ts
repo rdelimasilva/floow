@@ -2,6 +2,7 @@ import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { and, eq, inArray, ne, or } from 'drizzle-orm'
 import { aplicarEfeitoDaAbsorcao } from './absorver'
 import { registrarVinculo } from './registro'
+import { registrarEventos } from './validacoes'
 import { condicaoDaTransacaoDaOrg } from '@/lib/finance/forecast-match-db'
 
 type Db = ReturnType<typeof getDb>
@@ -35,6 +36,7 @@ export async function vincularNoBanco(
       aguardaExtrato: transactions.aguardaExtrato, origem: transactions.origem, categoryId: transactions.categoryId,
       description: transactions.description, transferGroupId: transactions.transferGroupId, type: transactions.type,
       reviewState: transactions.reviewState, accountId: transactions.accountId, amountCents: transactions.amountCents,
+      counterpartyId: transactions.counterpartyId,
     })
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), inArray(transactions.id, [previsaoId, realizadoId])))
@@ -113,6 +115,9 @@ export async function vincularNoBanco(
     await tx.update(transactions)
       .set({ type: previsao.type, categoryId: previsao.categoryId, reviewState: 'confirmed' })
       .where(condicaoDaTransacaoDaOrg(realizadoId, orgId))
+    await registrarEventos(tx, orgId, 'vinculo', null, [
+      { transactionId: realizadoId, counterpartyId: realizado.counterpartyId ?? null, natureza: previsao.type, categoriaId: previsao.categoryId },
+    ])
   }
 
   // As outras propostas abertas das duas pontas perdem o sentido. O par em si
