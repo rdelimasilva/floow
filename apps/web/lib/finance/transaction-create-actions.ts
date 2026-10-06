@@ -207,8 +207,13 @@ export async function createTransaction(formData: FormData) {
 /**
  * Server action: create a recurring transaction series.
  * Generates all installments in batch within a single db.transaction().
- * Future transactions (date > today) have balance_applied = false.
  * A recurring_templates record is created as metadata for cancellation/tracking.
+ *
+ * Toda parcela nasce como previsao (`balance_applied = false`), inclusive a de
+ * data passada, e o saldo da conta nao muda — a mesma regra de
+ * `createRecurringTemplate`. Antes a vencida nascia aplicada: entrava em
+ * `accounts.balance_cents` e no saldo da listagem sem selo de "nao
+ * confirmado", e nenhum extrato a conciliava. Quem soma e o realizado.
  */
 export async function createRecurringTransactions(formData: FormData) {
   const orgId = await getOrgId()
@@ -259,10 +264,6 @@ export async function createRecurringTransactions(formData: FormData) {
     }
   }
 
-  // Calculate "today" in Brazil timezone for balance_applied determination
-  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const today = new Date(todayStr)
-
   const result = await db.transaction(async (tx) => {
     // Verify account ownership and active status
     await assertAccountOwnership(tx as unknown as Db, input.accountId, orgId)
@@ -312,16 +313,12 @@ export async function createRecurringTransactions(formData: FormData) {
       .returning()
 
     // Build transaction rows
-    let sourceBalanceDelta = 0
-    let destBalanceDelta = 0
-
     if (input.type === 'transfer' && input.destinationAccountId) {
       // Transfer: batch insert pairs
       const sourceRows = []
       const destRows = []
       for (let i = 0; i < dates.length; i++) {
         const installDate = dates[i]
-        const isApplied = installDate <= today
         const transferGroupId = crypto.randomUUID()
         const desc = `${input.description} (${i + 1}/${total})`
 
@@ -336,7 +333,7 @@ export async function createRecurringTransactions(formData: FormData) {
           transferGroupId,
           recurringTemplateId: template.id,
           origem: 'recorrencia' as const,
-          balanceApplied: isApplied,
+          balanceApplied: false,
           installmentNumber: i + 1,
           installmentTotal: total,
           isAutoCategorized: false,
@@ -353,41 +350,20 @@ export async function createRecurringTransactions(formData: FormData) {
           transferGroupId,
           recurringTemplateId: template.id,
           origem: 'recorrencia' as const,
-          balanceApplied: isApplied,
+          balanceApplied: false,
           installmentNumber: i + 1,
           installmentTotal: total,
           isAutoCategorized: false,
         })
-
-        if (isApplied) {
-          sourceBalanceDelta += -input.amountCents
-          destBalanceDelta += input.amountCents
-        }
       }
 
       await tx.insert(transactions).values(sourceRows)
       await tx.insert(transactions).values(destRows)
-
-      // Update balances
-      if (sourceBalanceDelta !== 0) {
-        await tx
-          .update(accounts)
-          .set({ balanceCents: sql`balance_cents + ${sourceBalanceDelta}` })
-          .where(eq(accounts.id, input.accountId))
-      }
-      if (destBalanceDelta !== 0) {
-        await tx
-          .update(accounts)
-          .set({ balanceCents: sql`balance_cents + ${destBalanceDelta}` })
-          .where(eq(accounts.id, input.destinationAccountId))
-      }
     } else {
       // Income or expense — batch insert
       const signedAmount = input.type === 'income' ? input.amountCents : -input.amountCents
 
       const rows = dates.map((installDate, i) => {
-        const isApplied = installDate <= today
-        if (isApplied) sourceBalanceDelta += signedAmount
         return {
           orgId,
           accountId: input.accountId,
@@ -398,7 +374,7 @@ export async function createRecurringTransactions(formData: FormData) {
           date: installDate,
           recurringTemplateId: template.id,
           origem: 'recorrencia' as const,
-          balanceApplied: isApplied,
+          balanceApplied: false,
           installmentNumber: i + 1,
           installmentTotal: total,
           isAutoCategorized,
@@ -406,14 +382,6 @@ export async function createRecurringTransactions(formData: FormData) {
       })
 
       await tx.insert(transactions).values(rows)
-
-      // Update balance
-      if (sourceBalanceDelta !== 0) {
-        await tx
-          .update(accounts)
-          .set({ balanceCents: sql`balance_cents + ${sourceBalanceDelta}` })
-          .where(eq(accounts.id, input.accountId))
-      }
     }
 
     return template
