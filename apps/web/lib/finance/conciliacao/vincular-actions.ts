@@ -9,6 +9,8 @@ import { accountsTag, invalidateTag } from '@/lib/cache-tags'
 import { assertAccountOwnership } from '@/lib/finance/account-actions'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarDecisaoAosPendentes } from '@/lib/openfinance/aplicar-regra'
+import { capturarPendentes, registrarDecisoes } from '@/lib/finance/conciliacao/validacoes'
+import { requireIdentity } from '@/lib/auth/session'
 import { withUserDb } from '@/lib/db/rls'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 import { temPalavraEmComum } from '@floow/core-finance/src/forecast-match'
@@ -59,6 +61,7 @@ export async function classificarSoEste(raw: z.input<typeof soEsteSchema>): Prom
   const input = parsed.data
   const orgId = await getOrgId()
   const db = getDb()
+  const { userId } = await requireIdentity()
   const contasParaConciliar = new Set<string>()
 
   let aplicados: number
@@ -77,11 +80,14 @@ export async function classificarSoEste(raw: z.input<typeof soEsteSchema>): Prom
           throw new Error('A conta escolhida não pertence a esta organização.')
         }
       }
-      return aplicarDecisaoAosPendentes(
+      const captura = await capturarPendentes(tx as unknown as Db, orgId, input.counterpartyId, [input.transactionId])
+      const n = await aplicarDecisaoAosPendentes(
         tx as unknown as Db, orgId,
         { counterpartyId: input.counterpartyId, nature: input.nature, categoryId: input.categoryId, transferAccountId: input.transferAccountId, exceptions: [] },
         contasParaConciliar, [input.transactionId],
       )
+      await registrarDecisoes(tx as unknown as Db, orgId, captura, userId)
+      return n
     })
   } catch (error) {
     // `assertAccountOwnership` e `aplicarDecisaoAosPendentes` lançam em vez de

@@ -10,6 +10,7 @@ import { revalidateSnapshotData, revalidateTransactionData } from '@/lib/finance
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarDecisaoAosPendentes, camposDaRegra, contaQueARegraGrava, ehRegraDoTitular } from './aplicar-regra'
+import { capturarPendentes, registrarDecisoes } from '@/lib/finance/conciliacao/validacoes'
 import { analisarPar, desfazerParDaRegra } from './desfazer-par'
 import { selecionarLancamentosDaRegra, somarPrevia, type PreviaCorrecao } from './previa-correcao'
 import { contarNaContaNova, mensagemNaContaNova, MSG_CONTA_DA_REGRA } from './mesma-conta'
@@ -131,13 +132,16 @@ export async function corrigirRegra(
       // pendentes em Classificar, onde a conta é escolhida um a um.
       // Só o que foi desfeito aqui é reaplicado; o realizado devolvido pela
       // forma 2 fica em Classificar, como a prévia mostrou.
+      const reaplicar = desfeitos.filter((id) => !devolvidos.has(id))
+      const captura = await capturarPendentes(tx, orgId, input.counterpartyId, reaplicar)
       await aplicarDecisaoAosPendentes(
         tx,
         orgId,
         { counterpartyId: input.counterpartyId, nature: input.nature, categoryId: input.categoryId, transferAccountId: conta, exceptions: [] },
         contasParaConciliar,
-        desfeitos.filter((id) => !devolvidos.has(id)),
+        reaplicar,
       )
+      await registrarDecisoes(tx, orgId, captura, userId)
     }
     return { reprocessados, ignorados }
   })

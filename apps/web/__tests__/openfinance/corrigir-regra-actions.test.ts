@@ -76,6 +76,13 @@ vi.mock('@/lib/openfinance/transfer-leg', async () => {
   return { ...actual, isOpenFinanceLinkedAccount: vi.fn(async () => false) }
 })
 
+vi.mock('@/lib/finance/conciliacao/validacoes', () => ({
+  capturarPendentes: vi.fn(async (_tx: unknown, _org: string, counterpartyId: string, somenteIds?: string[]) => ({
+    counterpartyId, sugestao: { categoriaId: null, origem: null }, ids: somenteIds ?? ['pendente-1'],
+  })),
+  registrarDecisoes: vi.fn(async () => 1),
+}))
+
 function fakeSelect() {
   const op: Op = { op: 'select', table: '' }
   ops.push(op)
@@ -114,6 +121,8 @@ vi.mock('@floow/db', async () => {
 
 import { corrigirRegra, previaCorrecaoDeRegra } from '@/lib/openfinance/corrigir-regra-actions'
 
+const { registrarDecisoes } = await import('@/lib/finance/conciliacao/validacoes')
+
 const REGRA = {
   id: CP,
   nature: 'transfer' as const,
@@ -130,6 +139,7 @@ beforeEach(() => {
   ops.length = 0
   selectQueue.length = 0
   criarPropostas.mockClear()
+  vi.mocked(registrarDecisoes).mockClear()
 })
 
 describe('corrigirRegra', () => {
@@ -155,6 +165,7 @@ describe('corrigirRegra', () => {
     const r = await corrigirRegra({ counterpartyId: CP, nature: 'transfer', categoryId: null, transferAccountId: CORRETORA, aplicarAoHistorico: true })
 
     expect(r).toEqual({ reprocessados: 1, ignorados: 0 })
+    expect(registrarDecisoes).toHaveBeenCalled()
     const escritas = ops.filter((o) => o.op !== 'select').map((o) => `${o.op}:${o.table}`)
     expect(escritas).toEqual([
       'update:accounts', // estorno XP

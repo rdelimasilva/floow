@@ -48,11 +48,19 @@ vi.mock('@/lib/openfinance/aplicar-regra', () => ({ aplicarDecisaoAosPendentes: 
 vi.mock('@/lib/finance/account-actions', () => ({ assertAccountOwnership: vi.fn() }))
 vi.mock('@/lib/finance/conciliacao/conciliar-conta', () => ({ conciliarContas: vi.fn() }))
 vi.mock('@/lib/cache-tags', () => ({ accountsTag: () => 't', invalidateTag: vi.fn() }))
+vi.mock('@/lib/auth/session', () => ({ requireIdentity: async () => ({ userId: 'user-1' }) }))
+vi.mock('@/lib/finance/conciliacao/validacoes', () => ({
+  capturarPendentes: vi.fn(async (_tx: unknown, _org: string, counterpartyId: string, somenteIds?: string[]) => ({
+    counterpartyId, sugestao: { categoriaId: null, origem: null }, ids: somenteIds ?? ['pendente-1'],
+  })),
+  registrarDecisoes: vi.fn(async () => 1),
+}))
 
 const { marcarSemVinculo, classificarSoEste } = await import('@/lib/finance/conciliacao/vincular-actions')
 const { aplicarDecisaoAosPendentes } = await import('@/lib/openfinance/aplicar-regra')
 const { conciliarContas } = await import('@/lib/finance/conciliacao/conciliar-conta')
 const { assertAccountOwnership } = await import('@/lib/finance/account-actions')
+const { capturarPendentes, registrarDecisoes } = await import('@/lib/finance/conciliacao/validacoes')
 
 beforeEach(() => {
   ops.length = 0
@@ -76,6 +84,8 @@ describe('classificarSoEste', () => {
     expect(r).toEqual({ ok: true })
     expect(vi.mocked(aplicarDecisaoAosPendentes).mock.calls[0][4]).toEqual(['00000000-0000-4000-8000-000000000001'])
     expect(ops.some((o) => o.op === 'update:counterparties')).toBe(false)
+    expect(capturarPendentes).toHaveBeenCalledWith(expect.anything(), 'org-1', expect.any(String), [expect.any(String)])
+    expect(registrarDecisoes).toHaveBeenCalled()
   })
   it('natureza incoerente com o destino devolve { error }', async () => {
     const r = await classificarSoEste({ transactionId: '00000000-0000-4000-8000-000000000001', counterpartyId: '00000000-0000-4000-8000-000000000002', nature: 'transfer', categoryId: null, transferAccountId: null })
