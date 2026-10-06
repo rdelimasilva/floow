@@ -9,6 +9,7 @@ import { deveAplicarSaldoNaEdicao } from './saldo-na-edicao'
 import { aguardaExtratoNaConta } from './conciliacao/aguarda-extrato'
 import { conciliarContas } from './conciliacao/conciliar-conta'
 import { devolverExtratoAbsorvido } from './conciliacao/desfazer-absorcao'
+import { registrarEventos } from './conciliacao/validacoes'
 import {
   revalidateAccountData,
   revalidateSnapshotData,
@@ -231,6 +232,14 @@ export async function updateTransaction(formData: FormData) {
       })
       .where(and(eq(transactions.id, input.id), eq(transactions.orgId, orgId)))
 
+    // Edição de categoria é decisão do usuário: entra na medição.
+    const categoriaNova = convertendoEmTransferencia ? null : (input.categoryId ?? null)
+    if (oldTx.reviewState === 'confirmed' && oldTx.categoryId !== categoriaNova) {
+      await registrarEventos(tx as unknown as Db, orgId, 'edicao', null, [
+        { transactionId: input.id, counterpartyId: oldTx.counterpartyId, natureza: input.type, categoriaId: categoriaNova },
+      ])
+    }
+
     if (convertendoEmTransferencia) {
       // Segunda perna: valor invertido na conta de destino, mesmo grupo.
       // Destino Open Finance: a perna aguarda o extrato de lá, fora do saldo.
@@ -363,10 +372,16 @@ export async function bulkCategorizeTransactions(ids: string[], categoryId: stri
   const orgId = await getOrgId()
   const db = getDb()
 
-  await db
+  const editados = await db
     .update(transactions)
     .set({ categoryId, isAutoCategorized: false })
     .where(and(inArray(transactions.id, ids), eq(transactions.orgId, orgId)))
+    .returning({ id: transactions.id, counterpartyId: transactions.counterpartyId, type: transactions.type })
+
+  // Edição de categoria é decisão do usuário: entra na medição, uma por lançamento.
+  await registrarEventos(db, orgId, 'edicao', null, editados.map((e) => ({
+    transactionId: e.id, counterpartyId: e.counterpartyId, natureza: e.type, categoriaId: categoryId,
+  })))
 
   revalidateTransactionData(orgId)
 }
