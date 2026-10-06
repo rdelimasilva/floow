@@ -41,9 +41,11 @@ vi.mock('@/lib/finance/revalidate', () => ({
 }))
 vi.mock('@/lib/finance/conciliacao/absorver', () => ({ aplicarEfeitoDaAbsorcao: vi.fn() }))
 vi.mock('@/lib/db/rls', () => ({ withUserDb: vi.fn() }))
+vi.mock('@/lib/finance/conciliacao/registro', () => ({ registrarVinculo: vi.fn() }))
 
 const { vincularPrevisao } = await import('@/lib/finance/conciliacao/vincular-actions')
 const { aplicarEfeitoDaAbsorcao } = await import('@/lib/finance/conciliacao/absorver')
+const { registrarVinculo } = await import('@/lib/finance/conciliacao/registro')
 
 const PREV = { id: 'prev-1', accountId: 'itau', amountCents: -15000, matchedTransactionId: null, balanceApplied: false, isIgnored: false, aguardaExtrato: false, type: 'expense', categoryId: 'cat-9', origem: 'recorrencia' }
 const REAL = { id: 'real-1', accountId: 'itau', amountCents: -15000, matchedTransactionId: null, balanceApplied: true, isIgnored: false, reviewState: 'pending', origem: 'extrato' }
@@ -61,7 +63,21 @@ describe('vincularPrevisao', () => {
     const updates = ops.filter((o) => o.op.startsWith('update'))
     expect(updates[0]).toMatchObject({ op: 'update:transactions', payload: { matchedTransactionId: 'real-1' } })
     expect(updates[1]).toMatchObject({ op: 'update:transactions', payload: { type: 'expense', categoryId: 'cat-9', reviewState: 'confirmed' } })
-    expect(updates.filter((o) => o.op === 'update:forecast_match_proposals')).toHaveLength(2)
+    // As concorrentes são recusadas; o par ganha o registro que a 00073 exige.
+    expect(updates.filter((o) => o.op === 'update:forecast_match_proposals')).toHaveLength(1)
+    expect(registrarVinculo).toHaveBeenCalledWith(tx, 'org-1', 'prev-1', 'real-1', 'usuario')
+  })
+  it('troca pelo card: previsão presa a outro lançamento, com proposta de troca pendente do par, solta o vínculo antigo', async () => {
+    selectQueue.push([{ ...PREV, matchedTransactionId: 'unimed' }, REAL], [{ id: 'prop-troca' }], [])
+    expect((await vincularPrevisao('real-1', 'prev-1')).efetivada).toBe(true)
+    const updates = ops.filter((o) => o.op.startsWith('update'))
+    expect(updates[0]).toMatchObject({ op: 'update:forecast_match_proposals', payload: { status: 'refused', decisao: 'usuario' } })
+    expect(updates[1]).toMatchObject({ op: 'update:transactions', payload: { matchedTransactionId: 'real-1' } })
+  })
+  it('previsão presa a outro lançamento sem proposta de troca: não vincula', async () => {
+    selectQueue.push([{ ...PREV, matchedTransactionId: 'unimed' }, REAL], [])
+    expect((await vincularPrevisao('real-1', 'prev-1')).efetivada).toBe(false)
+    expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
   })
   it('previsão de transferência que aguarda extrato segue o efeito da absorção', async () => {
     vi.mocked(aplicarEfeitoDaAbsorcao).mockResolvedValue(true)

@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lte, ne } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNull, lte, ne, or } from 'drizzle-orm'
 import { accounts, categories, forecastMatchProposals, openfinanceConnections, openfinanceResources, transactions, type RlsTx } from '@floow/db'
 import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 import { lerDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
@@ -21,6 +21,9 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
   const propostas = await lerPropostasPendentes(db, orgId)
   const grupos = await lerGruposPendentes(db, orgId)
 
+  // Proposta de troca: a previsão está presa a outro lançamento, mas segue
+  // candidata do realizado da proposta — vincular solta o vínculo de hoje.
+  const previsoesDeTroca = propostas.filter((p) => p.substitui).map((p) => p.previsao.id)
   const desde = new Date(hoje.getTime() - JANELA_FILA_DIAS * DIA_EM_MS)
   const recentes = await db
     .select({
@@ -42,7 +45,10 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
     .innerJoin(accounts, eq(accounts.id, transactions.accountId))
     .leftJoin(categories, eq(categories.id, transactions.categoryId))
     .where(and(
-      eq(transactions.orgId, orgId), eq(transactions.balanceApplied, false), isNull(transactions.matchedTransactionId),
+      eq(transactions.orgId, orgId), eq(transactions.balanceApplied, false),
+      previsoesDeTroca.length > 0
+        ? or(isNull(transactions.matchedTransactionId), inArray(transactions.id, previsoesDeTroca))
+        : isNull(transactions.matchedTransactionId),
       eq(transactions.isIgnored, false), ne(transactions.origem, 'extrato'),
       gte(transactions.date, new Date(desde.getTime() - JANELA_BUSCA_DIAS * DIA_EM_MS)),
       lte(transactions.date, new Date(hoje.getTime() + JANELA_BUSCA_DIAS * DIA_EM_MS)),

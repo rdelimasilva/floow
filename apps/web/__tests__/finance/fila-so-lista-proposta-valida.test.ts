@@ -72,6 +72,13 @@ describe('a fila só lista proposta que ainda pode ser aprovada', () => {
     expect(sql).toContain('"previsao"."matched_transaction_id" is null')
   })
 
+  it('troca só aparece enquanto a previsão ainda estiver presa ao vínculo que ela substitui', async () => {
+    const sql = await condicaoDaFila()
+
+    expect(sql).toContain('"forecast_match_proposals"."substitui_transaction_id" is null')
+    expect(sql).toMatch(/"previsao"."matched_transaction_id" = "forecast_match_proposals"."substitui_transaction_id"/)
+  })
+
   it('não lista proposta cuja previsão virou realizada', async () => {
     const sql = await condicaoDaFila()
 

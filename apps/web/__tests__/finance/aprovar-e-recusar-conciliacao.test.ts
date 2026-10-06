@@ -35,12 +35,19 @@ const tx = {
     ops.push(op)
     return chain([{ id: 'x' }], op)
   },
+  // `registrarVinculo`: o registro do par que a 00073 exige.
+  insert: (table: unknown) => ({
+    values: (payload: Record<string, unknown>) => {
+      ops.push({ op: `insert:${(table as { _?: { name?: string } })?._?.name}`, payload })
+      return { onConflictDoUpdate: () => Promise.resolve() }
+    },
+  }),
 }
 
 vi.mock('@floow/db', () => ({
   getDb: () => ({ transaction: async (fn: (t: typeof tx) => unknown) => fn(tx) }),
   transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', matchedTransactionId: 'matched_transaction_id', balanceApplied: 'balance_applied', isIgnored: 'is_ignored', externalId: 'external_id', transferAccountId: 'transfer_account_id', type: 'type', categoryId: 'category_id', reviewState: 'review_state', aguardaExtrato: 'aguarda_extrato', origem: 'origem', description: 'description', transferGroupId: 'transfer_group_id', accountId: 'account_id', isAutoCategorized: 'is_auto_categorized' },
-  forecastMatchProposals: { _: { name: 'forecast_match_proposals' }, id: 'id', orgId: 'org_id', status: 'status', decidedAt: 'decided_at', forecastTransactionId: 'forecast_transaction_id', realizedTransactionId: 'realized_transaction_id' },
+  forecastMatchProposals: { _: { name: 'forecast_match_proposals' }, id: 'id', orgId: 'org_id', status: 'status', decidedAt: 'decided_at', forecastTransactionId: 'forecast_transaction_id', realizedTransactionId: 'realized_transaction_id', substituiTransactionId: 'substitui_transaction_id', decisao: 'decisao' },
 }))
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: () => Promise.resolve('org-1') }))
 vi.mock('@/lib/finance/revalidate', () => ({
@@ -94,9 +101,50 @@ describe('aprovarProposta', () => {
     expect(efetivada).toBe(true)
     const naPrevisao = ops.find((o) => o.op === 'update:transactions')
     expect(naPrevisao?.payload).toMatchObject({ matchedTransactionId: 'real-1' })
-    const naProposta = ops.find((o) => o.op === 'update:forecast_match_proposals')
-    expect(naProposta?.payload).toMatchObject({ status: 'approved' })
+    const naProposta = ops.find((o) => o.op === 'insert:forecast_match_proposals')
+    expect(naProposta?.payload).toMatchObject({
+      forecastTransactionId: 'prev-1', realizedTransactionId: 'real-1', status: 'approved', decisao: 'usuario',
+    })
     expect(naProposta?.payload?.decidedAt).toBeInstanceOf(Date)
+  })
+
+  describe('troca (a previsão está presa a um lançamento que a regra não casaria)', () => {
+    const TROCA = { ...PENDENTE, substituiTransactionId: 'unimed' }
+
+    it('caso de 01/10: solta a Unimed, recusa esse par para sempre e grava a TED', async () => {
+      selectQueue.push([TROCA])
+      selectQueue.push([{ ...PREVISAO_ABERTA, matchedTransactionId: 'unimed' }, REALIZADO_VALENDO])
+
+      const { efetivada } = await aprovarProposta('prop-1')
+
+      expect(efetivada).toBe(true)
+      const naProposta = ops.filter((o) => o.op === 'update:forecast_match_proposals').map((o) => o.payload)
+      expect(naProposta[0]).toMatchObject({ status: 'refused', decisao: 'usuario' })
+      expect(ops.find((o) => o.op === 'insert:forecast_match_proposals')?.payload)
+        .toMatchObject({ realizedTransactionId: 'real-1', status: 'approved', decisao: 'usuario' })
+      const naPrevisao = ops.filter((o) => o.op === 'update:transactions').map((o) => o.payload)
+      expect(naPrevisao).toEqual([{ matchedTransactionId: 'real-1' }])
+    })
+
+    it('o vínculo mudou na janela (não é mais o que a troca substitui): não efetiva', async () => {
+      selectQueue.push([TROCA])
+      selectQueue.push([{ ...PREVISAO_ABERTA, matchedTransactionId: 'outro' }, REALIZADO_VALENDO])
+      expect((await aprovarProposta('prop-1')).efetivada).toBe(false)
+      expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
+    })
+
+    it('a previsão foi desvinculada na janela: não efetiva (a proposta comum nasce no próximo sync)', async () => {
+      selectQueue.push([TROCA])
+      selectQueue.push(PONTAS_ELEGIVEIS)
+      expect((await aprovarProposta('prop-1')).efetivada).toBe(false)
+      expect(ops.some((o) => o.op.startsWith('update'))).toBe(false)
+    })
+
+    it('linha que aguarda o extrato não entra em troca: o efeito da absorção antiga não se desfaz aqui', async () => {
+      selectQueue.push([TROCA])
+      selectQueue.push([{ ...PREVISAO_ABERTA, matchedTransactionId: 'unimed', aguardaExtrato: true }, REALIZADO_VALENDO])
+      expect((await aprovarProposta('prop-1')).efetivada).toBe(false)
+    })
   })
 
   it('perna prevista de transferência: a ponta real vira transferência confirmada, sem categoria', async () => {
@@ -226,7 +274,7 @@ describe('recusarProposta', () => {
     expect(recusada).toBe(true)
     expect(ops.some((o) => o.op === 'update:transactions')).toBe(false)
     expect(ops.find((o) => o.op === 'update:forecast_match_proposals')?.payload)
-      .toMatchObject({ status: 'refused' })
+      .toMatchObject({ status: 'refused', decisao: 'usuario' })
   })
 
   it('proposta já decidida não faz nada', async () => {

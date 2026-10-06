@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, eq, isNull, or, sql } from 'drizzle-orm'
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { accounts, forecastMatchProposals, transactions, type RlsTx } from '@floow/db'
 import { withUserDb, withUserDbFor } from '@/lib/db/rls'
@@ -19,6 +19,11 @@ export interface PropostaPendente {
   diasDeDiferenca: number
   /** Diferença absoluta de valor, em centavos. */
   diferencaCents: number
+  /**
+   * Proposta de troca: o lançamento ao qual a previsão está vinculada hoje,
+   * que a regra não casaria. Aprovar solta esse vínculo.
+   */
+  substitui: LadoDoPar | null
 }
 
 const DIA_EM_MS = 24 * 60 * 60 * 1000
@@ -53,8 +58,12 @@ export function condicaoDePropostaAprovavel(
     eq(forecastMatchProposals.status, 'pending'),
     // Realizado ignorado já saiu do saldo da conta.
     eq(realizado.isIgnored, false),
-    // Previsão que ganhou vínculo por outro caminho já está conciliada.
-    isNull(previsao.matchedTransactionId),
+    // Previsão que ganhou vínculo por outro caminho já está conciliada. A
+    // troca é o contrário: vale enquanto o vínculo for o que ela substitui.
+    or(
+      and(isNull(forecastMatchProposals.substituiTransactionId), isNull(previsao.matchedTransactionId)),
+      eq(previsao.matchedTransactionId, forecastMatchProposals.substituiTransactionId),
+    ),
     // Previsão que virou realizada não é mais previsão.
     eq(previsao.balanceApplied, false),
   )
@@ -79,6 +88,7 @@ export async function getPropostasPendentes(orgId: string): Promise<PropostaPend
 export async function lerPropostasPendentes(db: RlsTx, orgId: string): Promise<PropostaPendente[]> {
   const previsao = alias(transactions, 'previsao')
   const realizado = alias(transactions, 'realizado')
+  const substituido = alias(transactions, 'substituido')
 
   const rows = await db
     .select({
@@ -91,11 +101,16 @@ export async function lerPropostasPendentes(db: RlsTx, orgId: string): Promise<P
       realizadoDate: realizado.date,
       realizadoDescription: realizado.description,
       realizadoAmount: realizado.amountCents,
+      substituidoId: substituido.id,
+      substituidoDate: substituido.date,
+      substituidoDescription: substituido.description,
+      substituidoAmount: substituido.amountCents,
       contaNome: accounts.name,
     })
     .from(forecastMatchProposals)
     .innerJoin(previsao, eq(previsao.id, forecastMatchProposals.forecastTransactionId))
     .innerJoin(realizado, eq(realizado.id, forecastMatchProposals.realizedTransactionId))
+    .leftJoin(substituido, eq(substituido.id, forecastMatchProposals.substituiTransactionId))
     .leftJoin(accounts, eq(accounts.id, realizado.accountId))
     .where(condicaoDePropostaAprovavel(orgId, previsao, realizado))
     .orderBy(sql`abs(${realizado.amountCents}) desc`, asc(forecastMatchProposals.proposedAt))
@@ -117,6 +132,14 @@ export async function lerPropostasPendentes(db: RlsTx, orgId: string): Promise<P
       amountCents: row.realizadoAmount,
     },
     contaNome: row.contaNome,
+    substitui: row.substituidoId
+      ? {
+          id: row.substituidoId,
+          date: iso(row.substituidoDate!),
+          description: row.substituidoDescription!,
+          amountCents: row.substituidoAmount!,
+        }
+      : null,
     diasDeDiferenca: Math.round(
       Math.abs(new Date(row.previsaoDate).getTime() - new Date(row.realizadoDate).getTime()) / DIA_EM_MS,
     ),

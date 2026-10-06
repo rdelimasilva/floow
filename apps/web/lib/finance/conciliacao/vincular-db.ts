@@ -1,6 +1,7 @@
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
 import { and, eq, inArray, ne, or } from 'drizzle-orm'
 import { aplicarEfeitoDaAbsorcao } from './absorver'
+import { registrarVinculo } from './registro'
 import { condicaoDaTransacaoDaOrg } from '@/lib/finance/forecast-match-db'
 
 type Db = ReturnType<typeof getDb>
@@ -22,7 +23,11 @@ const NAO_VALE: ResultadoDoVinculo = { efetivada: false, classificou: false }
  * saber sozinha (perna de transferência sem categoria classifica; previsão
  * com a categoria apagada, não).
  */
-export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string, previsaoId: string): Promise<ResultadoDoVinculo> {
+export async function vincularNoBanco(
+  tx: Db, orgId: string, realizadoId: string, previsaoId: string,
+  /** Proposta de TROCA: o realizado a que a previsão está presa hoje. */
+  substitui: string | null = null,
+): Promise<ResultadoDoVinculo> {
   const pontas = await tx
     .select({
       id: transactions.id, matchedTransactionId: transactions.matchedTransactionId, balanceApplied: transactions.balanceApplied,
@@ -37,7 +42,28 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
   const previsao = pontas.find((p) => p.id === previsaoId)
   const realizado = pontas.find((p) => p.id === realizadoId)
   if (!previsao || !realizado) return NAO_VALE
-  if (previsao.matchedTransactionId || previsao.balanceApplied || previsao.isIgnored || previsao.origem === 'extrato') return NAO_VALE
+  // Pelo card a troca chega sem `substitui`: ela vale se houver proposta de
+  // troca pendente deste par apontando para o vínculo de hoje.
+  if (substitui === null && previsao.matchedTransactionId) {
+    const [troca] = await tx
+      .select({ id: forecastMatchProposals.id })
+      .from(forecastMatchProposals)
+      .where(and(
+        eq(forecastMatchProposals.orgId, orgId), eq(forecastMatchProposals.status, 'pending'),
+        eq(forecastMatchProposals.forecastTransactionId, previsaoId), eq(forecastMatchProposals.realizedTransactionId, realizadoId),
+        eq(forecastMatchProposals.substituiTransactionId, previsao.matchedTransactionId),
+      ))
+      .limit(1)
+    if (troca) substitui = previsao.matchedTransactionId
+  }
+  // A previsão tem de estar livre — ou, na troca, ainda presa ao vínculo que a
+  // troca substitui.
+  if ((previsao.matchedTransactionId ?? null) !== substitui) return NAO_VALE
+  if (previsao.balanceApplied || previsao.isIgnored || previsao.origem === 'extrato') return NAO_VALE
+  // Troca só em previsão de recorrência: a linha que aguardava o extrato deu
+  // efeito ao extrato antigo quando foi absorvida, e isso não se desfaz aqui
+  // (é `desconciliar` que devolve).
+  if (substitui && previsao.aguardaExtrato) return NAO_VALE
   if (realizado.isIgnored) return NAO_VALE
 
   // O "realizado" tem de ser lançamento de verdade, já aplicado no saldo da
@@ -65,6 +91,17 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
     .limit(1)
   if (reivindicado) return NAO_VALE
 
+  // Troca: o par antigo fica recusado para sempre.
+  if (substitui) {
+    await tx.update(forecastMatchProposals)
+      .set({ status: 'refused', decisao: 'usuario', decidedAt: new Date() })
+      .where(and(
+        eq(forecastMatchProposals.orgId, orgId),
+        eq(forecastMatchProposals.forecastTransactionId, previsaoId),
+        eq(forecastMatchProposals.realizedTransactionId, substitui),
+      ))
+  }
+
   await tx.update(transactions).set({ matchedTransactionId: realizadoId }).where(condicaoDaTransacaoDaOrg(previsaoId, orgId))
 
   let classificou = realizado.reviewState !== 'pending'
@@ -78,13 +115,14 @@ export async function vincularNoBanco(tx: Db, orgId: string, realizadoId: string
       .where(condicaoDaTransacaoDaOrg(realizadoId, orgId))
   }
 
+  // As outras propostas abertas das duas pontas perdem o sentido. O par em si
+  // ganha o registro que a 00073 exige — com ou sem proposta prévia.
   const pendente = and(eq(forecastMatchProposals.orgId, orgId), eq(forecastMatchProposals.status, 'pending'))
-  const doPar = and(eq(forecastMatchProposals.forecastTransactionId, previsaoId), eq(forecastMatchProposals.realizedTransactionId, realizadoId))
-  await tx.update(forecastMatchProposals).set({ status: 'approved', decidedAt: new Date() }).where(and(pendente, doPar))
-  await tx.update(forecastMatchProposals).set({ status: 'refused', decidedAt: new Date() }).where(and(
+  await tx.update(forecastMatchProposals).set({ status: 'refused', decisao: 'usuario', decidedAt: new Date() }).where(and(
     pendente,
     or(eq(forecastMatchProposals.forecastTransactionId, previsaoId), eq(forecastMatchProposals.realizedTransactionId, realizadoId)),
     or(ne(forecastMatchProposals.forecastTransactionId, previsaoId), ne(forecastMatchProposals.realizedTransactionId, realizadoId)),
   ))
+  await registrarVinculo(tx, orgId, previsaoId, realizadoId, 'usuario')
   return { efetivada: true, classificou }
 }

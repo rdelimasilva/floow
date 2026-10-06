@@ -13,9 +13,16 @@ type Db = ReturnType<typeof getDb>
  * Efetiva a conciliação proposta: a previsão passa a apontar para o lançamento
  * do banco que a cumpriu.
  *
- * Este é o ÚNICO caminho que grava `matched_transaction_id`. O sync só propõe
- * (ver `forecast-match-db.ts`), porque casar errado esconde um lançamento de
- * verdade e a decisão é do dono do dinheiro.
+ * Fora o R1 (valor igual, par único, linha que nunca esteve no saldo), este é
+ * o único caminho que grava `matched_transaction_id`. O sync só propõe (ver
+ * `forecast-match-db.ts`), porque casar errado esconde um lançamento de
+ * verdade e a decisão é do dono do dinheiro. Desde a 00073 o banco exige a
+ * proposta aprovada do par para aceitar o vínculo.
+ *
+ * Proposta de TROCA (`substituiTransactionId`): a previsão está vinculada a
+ * um lançamento que a regra de hoje não casaria, e o desta proposta casa.
+ * Aprovar solta o vínculo antigo, recusa aquele par para sempre e grava o
+ * novo. Só vale se o vínculo ainda for o que a troca substitui.
  *
  * As duas escritas vão na mesma transação de banco: meio caminho deixaria uma
  * previsão casada com a proposta ainda pendente, e a fila a mostraria de novo.
@@ -51,14 +58,18 @@ export async function aprovarProposta(propostaId: string): Promise<{ efetivada: 
         id: forecastMatchProposals.id,
         forecastTransactionId: forecastMatchProposals.forecastTransactionId,
         realizedTransactionId: forecastMatchProposals.realizedTransactionId,
+        substituiTransactionId: forecastMatchProposals.substituiTransactionId,
       })
       .from(forecastMatchProposals)
       .where(condicaoDePropostaPendenteDaOrg(propostaId, orgId))
       .limit(1)
 
     if (!proposta) return false
+    const substitui = proposta.substituiTransactionId ?? null
 
-    const { efetivada } = await vincularNoBanco(tx as unknown as Db, orgId, proposta.realizedTransactionId, proposta.forecastTransactionId)
+    const { efetivada } = await vincularNoBanco(
+      tx as unknown as Db, orgId, proposta.realizedTransactionId, proposta.forecastTransactionId, substitui,
+    )
     return efetivada
   })
 
@@ -90,7 +101,7 @@ export async function recusarProposta(propostaId: string): Promise<{ recusada: b
 
     await tx
       .update(forecastMatchProposals)
-      .set({ status: 'refused', decidedAt: new Date() })
+      .set({ status: 'refused', decisao: 'usuario', decidedAt: new Date() })
       .where(eq(forecastMatchProposals.id, proposta.id))
 
     return true

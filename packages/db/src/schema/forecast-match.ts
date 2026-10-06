@@ -31,6 +31,13 @@ export const forecastMatchProposals = pgTable(
     status: text('status').$type<'pending' | 'approved' | 'refused'>().notNull().default('pending'),
     proposedAt: timestamp('proposed_at', { withTimezone: true }).defaultNow().notNull(),
     decidedAt: timestamp('decided_at', { withTimezone: true }),
+    /** Quem decidiu (00073). Nulo enquanto pendente. */
+    decisao: text('decisao').$type<'usuario' | 'automatico' | 'legado'>(),
+    /**
+     * Proposta de troca (00073): o realizado ao qual a previsão está vinculada
+     * hoje. Aprovar solta esse vínculo e grava o da proposta.
+     */
+    substituiTransactionId: uuid('substitui_transaction_id').references(() => transactions.id, { onDelete: 'cascade' }),
   },
   (table) => ({
     idxOrgStatus: index('idx_fmp_org_status').on(table.orgId, table.status),

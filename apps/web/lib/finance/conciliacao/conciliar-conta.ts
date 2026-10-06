@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import type { getDb } from '@floow/db'
 import type { ParConciliado } from '@floow/core-finance'
 import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
+import { criarPropostasDeTroca } from './troca'
 import { criarPropostasDeDuplicata } from '@/lib/finance/duplicata-db'
 import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
 import { inicioDoExtrato, reclassificarConta } from './reclassificar-conta'
@@ -24,7 +25,9 @@ type Db = ReturnType<typeof getDb>
  *  0. reclassifica o que ainda conta no saldo sem ser extrato (idempotente);
  *  1. R1 — extrato × aguardando: absorve o par único, propõe o ambíguo;
  *  2. R2 — extrato × extrato: duplicata reemitida pela fonte, proposta;
- *  3. R3 — previsão de recorrência × extrato, proposta.
+ *  3. R3 — previsão de recorrência × extrato, proposta;
+ *  4. troca — previsão presa a um vínculo que a regra não faria × extrato
+ *     que ela faz, proposta (`troca.ts`).
  * R1 antes de R3: o extrato absorvido por uma perna não pode ser proposto
  * também contra uma recorrência.
  *
@@ -69,11 +72,12 @@ export async function conciliarConta(db: Db, orgId: string, accountId: string): 
     }
     const propostasDeDuplicata = await criarPropostasDeDuplicata(tx, orgId, accountId)
     const propostasR3 = await criarPropostasDeConciliacao(tx, orgId, accountId, { incluirPernaPrevista: !conciliavel })
+    const propostasDeTroca = await criarPropostasDeTroca(tx, orgId, accountId)
 
     return {
       ...reclassificacao,
       absorvidas: r1.absorvidas,
-      propostasDeConciliacao: r1.propostas + propostasR3,
+      propostasDeConciliacao: r1.propostas + propostasR3 + propostasDeTroca,
       propostasDeDuplicata,
     }
   })
