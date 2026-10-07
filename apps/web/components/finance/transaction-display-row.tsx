@@ -119,7 +119,8 @@ function SeloDeParcela({ tx }: { tx: TransactionRowData }) {
  * Agora a previsão nunca entra em `accounts.balance_cents`, e a vencida sem
  * par sai também do saldo projetado da listagem. Ela não soma em lugar
  * nenhum — então precisa aparecer, porque depende de uma decisão do usuário.
- * Aparece como previsão: linha apagada, sem cor, com o selo "não confirmado".
+ * Aparece como previsão (linha apagada, valor sem verde/vermelho), mas em tom
+ * laranja — fundo e selo "não confirmado" — porque exige ação.
  */
 function ForecastBadge({ tx }: { tx: TransactionRowData }) {
   if (tx.balanceApplied !== false) return null
@@ -167,7 +168,7 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
   if (!contaNoSaldoProjetado(tx, new Date(), { incluirInvestimento: true })) {
     return (
       <span
-        className="inline-flex shrink-0 items-center rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500"
+        className="inline-flex shrink-0 items-center rounded border border-orange-300 bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700"
         title="A data chegou e o banco não trouxe o lançamento correspondente. Não entra em saldo nenhum até ser confirmada."
       >
         não confirmado
@@ -191,7 +192,7 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
 
 /**
  * Previsao vencida que o extrato nao confirmou: nao soma em saldo nenhum.
- * Fica apagada e sem cor, como toda previsao — quem a distingue e o selo.
+ * Apagada como toda previsao, mas em tom laranja: exige acao.
  */
 function naoConfirmada(tx: TransactionRowData): boolean {
   return (
@@ -203,9 +204,13 @@ function naoConfirmada(tx: TransactionRowData): boolean {
   )
 }
 
-/** A previsao pesa menos que o lancamento de verdade. */
+/**
+ * A previsao pesa menos que o lancamento de verdade. A nao confirmada, alem de
+ * apagada, ganha fundo laranja: exige acao.
+ */
 function classeDeOpacidade(tx: TransactionRowData): string {
-  return tx.balanceApplied === false ? 'opacity-60' : ''
+  if (tx.balanceApplied !== false) return ''
+  return naoConfirmada(tx) ? 'opacity-60 bg-orange-50' : 'opacity-60'
 }
 
 function corDoValor(tx: TransactionRowData): string {

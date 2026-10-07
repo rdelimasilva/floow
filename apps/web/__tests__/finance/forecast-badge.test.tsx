@@ -142,9 +142,9 @@ describe('selo de nao confirmado', () => {
 
 /**
  * Toda previsao que nao soma no saldo fica apagada: a futura e a nao
- * conciliada. A nao conciliada tambem perde a cor — valor e selo em cinza —
- * para nao parecer lancamento de verdade nem alerta. O que a distingue e o
- * texto do selo, "nao confirmado".
+ * conciliada. O valor da nao conciliada fica sem verde/vermelho, para nao
+ * parecer lancamento de verdade, mas a linha ganha um tom laranja — no fundo
+ * e no selo — porque exige acao do usuario.
  */
 describe('opacidade da linha', () => {
   function linha(extra: Record<string, unknown>) {
@@ -176,9 +176,14 @@ describe('opacidade da linha', () => {
     expect(linha({ balanceApplied: false, date: '2026-08-15' }).className).toContain('opacity-60')
   })
 
-  it('previsao nao conciliada nao tem cor: nem no valor, nem no selo', () => {
+  it('previsao nao conciliada: valor sem verde/vermelho, linha em laranja', () => {
     const tr = linha({ balanceApplied: false, date: '2026-08-15' })
     expect(tr.innerHTML).not.toMatch(/text-(red|green|emerald)-/)
-    expect(tr.innerHTML).not.toMatch(/(bg|border)-red-/)
+    expect(tr.className).toContain('bg-orange-50')
+    expect(screen.getByText('não confirmado').className).toContain('text-orange-700')
+  })
+
+  it('previsao futura nao ganha o tom laranja', () => {
+    expect(linha({ balanceApplied: false, date: '2026-10-15' }).className).not.toContain('bg-orange-50')
   })
 })
