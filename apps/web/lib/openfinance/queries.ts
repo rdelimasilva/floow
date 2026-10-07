@@ -127,6 +127,27 @@ export async function getLastTransactionDateByAccount(
  * travado no banco (migração 00055); a tela de contas usa isto para nem
  * oferecer a troca.
  */
+/**
+ * Contas com recurso Open Finance vivo (conta corrente, poupança ou cartão): o
+ * saldo delas é a soma do extrato, e a tela não oferece "Ajustar saldo". Mesmo
+ * critério de `isOpenFinanceLinkedAccount`, que o servidor usa para recusar.
+ */
+export async function getContasConectadasAoBanco(orgId: string): Promise<Set<string>> {
+  return withUserDb(async (db) => {
+    const rows = await db
+      .selectDistinct({ accountId: openfinanceResources.accountId })
+      .from(openfinanceResources)
+      .where(
+        and(
+          eq(openfinanceResources.orgId, orgId),
+          eq(openfinanceResources.status, 'AVAILABLE'),
+          isNotNull(openfinanceResources.accountId),
+        ),
+      )
+    return new Set(rows.map((r) => r.accountId!))
+  })
+}
+
 export async function getContasDeInvestimentoOpenFinance(orgId: string): Promise<Set<string>> {
   return withUserDb(async (db) => {
     const rows = await db

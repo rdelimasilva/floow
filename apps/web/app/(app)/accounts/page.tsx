@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { getAccounts, getOrgId, getSaldosDoBanco } from '@/lib/finance/queries'
 import { BankDivergenceAlert } from '@/components/finance/bank-divergence-alert'
 import { AccountCard } from '@/components/finance/account-card'
-import { getContasDeInvestimentoOpenFinance, getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
+import { getContasConectadasAoBanco, getContasDeInvestimentoOpenFinance, getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
 import { getLogosDasContas } from '@/lib/openfinance/logos-das-contas'
 import { formatBRL } from '@floow/core-finance'
 import { agruparPorBloco } from '@/lib/finance/account-types'
@@ -14,9 +14,9 @@ export default async function AccountsPage() {
   // O saldo aqui e derivado da soma dos lancamentos; o banco tem o proprio
   // numero. Conferir os dois e o que pega o lancamento duplicado, o que
   // faltou, e o erro nosso — sem precisar saber de antemao qual foi.
-  const [accounts, saldosDoBanco, contasDeInvestimento, valorDasPosicoes, logos] = await Promise.all([
+  const [accounts, saldosDoBanco, contasDeInvestimento, valorDasPosicoes, logos, conectadas] = await Promise.all([
     getAccounts(orgId), getSaldosDoBanco(orgId), getContasDeInvestimentoOpenFinance(orgId),
-    getValorDasContasDeInvestimento(orgId), getLogosDasContas(orgId),
+    getValorDasContasDeInvestimento(orgId), getLogosDasContas(orgId), getContasConectadasAoBanco(orgId),
   ])
   const conferidas = accounts.map((a) => ({
     accountId: a.id,
@@ -109,6 +109,7 @@ export default async function AccountsPage() {
                       account={account}
                       logoUrl={logos.get(account.id)}
                       tipoTravado={contasDeInvestimento.has(account.id)}
+                      conectadaAoBanco={conectadas.has(account.id)}
                       valorDasPosicoesCents={contasDeInvestimento.has(account.id) ? (valorDasPosicoes.get(account.id) ?? 0) : undefined}
                     />
                   ))}

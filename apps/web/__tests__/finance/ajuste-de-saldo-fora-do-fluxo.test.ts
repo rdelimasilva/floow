@@ -27,6 +27,9 @@ vi.mock('@floow/db', async (importOriginal) => ({
 }))
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: () => Promise.resolve('org-1') }))
 vi.mock('@/lib/investments/queries', () => ({ getPositions: vi.fn() }))
+// Conta manual: a conectada ao banco nem aceita ajuste
+// (`ajuste-bloqueado-em-conta-conectada.test.ts`).
+vi.mock('@/lib/openfinance/transfer-leg', () => ({ isOpenFinanceLinkedAccount: () => Promise.resolve(false) }))
 vi.mock('@/lib/finance/revalidate', () => ({
   revalidateAccountData: vi.fn(),
   revalidateSnapshotData: vi.fn(),

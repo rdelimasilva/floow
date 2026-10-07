@@ -32,9 +32,14 @@ interface AccountCardProps {
   valorDasPosicoesCents?: number
   /** Logo do banco, só para conta vinda do Open Finance. */
   logoUrl?: string
+  /**
+   * Conta com Open Finance vivo: o saldo é a soma do extrato, sem "Ajustar
+   * saldo" (o servidor também recusa).
+   */
+  conectadaAoBanco?: boolean
 }
 
-export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCents, logoUrl }: AccountCardProps) {
+export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCents, logoUrl, conectadaAoBanco = false }: AccountCardProps) {
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -97,6 +102,10 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
       if (adjustDate) formData.append('date', adjustDate)
       if (adjustNote.trim()) formData.append('description', adjustNote.trim())
       const result = await adjustAccountBalance(formData)
+      if ('error' in result && result.error) {
+        toast(result.error, 'error')
+        return
+      }
       if (result.adjusted) {
         toast(`Saldo ajustado (${result.delta >= 0 ? '+' : ''}${formatBRL(result.delta)})`)
       } else {
@@ -189,9 +198,15 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
                     {formatBRL(account.balanceCents)}
                   </p>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => { setShowAdjust(true); setAdjustNewBalance('') }}>
-                  Ajustar saldo
-                </Button>
+                {conectadaAoBanco ? (
+                  <p className="max-w-[14rem] text-right text-xs text-gray-500">
+                    Conta conectada ao banco: o saldo vem do extrato. Se não bater com o banco, algum lançamento está errado.
+                  </p>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => { setShowAdjust(true); setAdjustNewBalance('') }}>
+                    Ajustar saldo
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-3 rounded-md bg-blue-50/50 p-3">

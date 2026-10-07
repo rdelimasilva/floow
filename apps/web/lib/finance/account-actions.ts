@@ -6,6 +6,7 @@ import { computeSnapshot } from '@floow/core-finance'
 import { eq, sql, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { getPositions } from '@/lib/investments/queries'
+import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
 import {
   revalidateAccountData,
   revalidateSnapshotData,
@@ -127,6 +128,20 @@ export async function adjustAccountBalance(formData: FormData) {
   }
 
   await assertAccountOwnership(db, accountId, orgId)
+
+  // Conta conectada ao banco: o saldo e a soma do que o extrato trouxe. Se nao
+  // bate com o banco, ha lancamento errado a achar — forcar com ajuste esconde
+  // o erro e cria outro, porque o ajuste e um valor congelado: o lancamento
+  // que o Open Finance traz depois, com data anterior, conta duas vezes (TIM
+  // de 22/09 no Itau, chegou em 27/09). `{ error }` e nao throw: em producao o
+  // Next troca a mensagem do throw por uma generica.
+  if (await isOpenFinanceLinkedAccount(db, orgId, accountId)) {
+    return {
+      adjusted: false as const,
+      delta: 0,
+      error: 'Conta conectada ao banco: o saldo vem do extrato e não pode ser ajustado à mão. Se não bate com o banco, algum lançamento está errado.',
+    }
+  }
 
   const [current] = await db
     .select({ balanceCents: accounts.balanceCents })
