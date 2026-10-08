@@ -3,6 +3,7 @@ import { and, eq, inArray, ne, or } from 'drizzle-orm'
 import { aplicarEfeitoDaAbsorcao } from './absorver'
 import { registrarVinculo } from './registro'
 import { registrarEventos } from './validacoes'
+import { realinharSerie } from './realinhar-serie'
 import { condicaoDaTransacaoDaOrg } from '@/lib/finance/forecast-match-db'
 
 type Db = ReturnType<typeof getDb>
@@ -36,7 +37,7 @@ export async function vincularNoBanco(
       aguardaExtrato: transactions.aguardaExtrato, origem: transactions.origem, categoryId: transactions.categoryId,
       description: transactions.description, transferGroupId: transactions.transferGroupId, type: transactions.type,
       reviewState: transactions.reviewState, accountId: transactions.accountId, amountCents: transactions.amountCents,
-      counterpartyId: transactions.counterpartyId,
+      counterpartyId: transactions.counterpartyId, date: transactions.date, recurringTemplateId: transactions.recurringTemplateId,
     })
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), inArray(transactions.id, [previsaoId, realizadoId])))
@@ -129,5 +130,9 @@ export async function vincularNoBanco(
     or(ne(forecastMatchProposals.forecastTransactionId, previsaoId), ne(forecastMatchProposals.realizedTransactionId, realizadoId)),
   ))
   await registrarVinculo(tx, orgId, previsaoId, realizadoId, 'usuario')
+  // O dia em que o banco cobrou vira o dia da série: a próxima parcela já
+  // casa sozinha em vez de contar em dobro (`realinhar-serie.ts`).
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  await realinharSerie(tx, orgId, previsao, realizado.date, hoje)
   return { efetivada: true, classificou }
 }

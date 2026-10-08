@@ -30,7 +30,8 @@ const tx = {
 
 vi.mock('@floow/db', () => ({
   getDb: () => ({ transaction: async (fn: (t: typeof tx) => unknown) => fn(tx) }),
-  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', matchedTransactionId: 'matched_transaction_id', balanceApplied: 'balance_applied', isIgnored: 'is_ignored', externalId: 'external_id', transferAccountId: 'transfer_account_id', type: 'type', categoryId: 'category_id', reviewState: 'review_state', aguardaExtrato: 'aguarda_extrato', origem: 'origem', description: 'description', transferGroupId: 'transfer_group_id', accountId: 'account_id', isAutoCategorized: 'is_auto_categorized' },
+  transactions: { _: { name: 'transactions' }, id: 'id', orgId: 'org_id', matchedTransactionId: 'matched_transaction_id', balanceApplied: 'balance_applied', isIgnored: 'is_ignored', externalId: 'external_id', transferAccountId: 'transfer_account_id', type: 'type', categoryId: 'category_id', reviewState: 'review_state', aguardaExtrato: 'aguarda_extrato', origem: 'origem', description: 'description', transferGroupId: 'transfer_group_id', accountId: 'account_id', isAutoCategorized: 'is_auto_categorized', date: 'date', recurringTemplateId: 'recurring_template_id' },
+  recurringTemplates: { _: { name: 'recurring_templates' }, id: 'id', orgId: 'org_id', frequency: 'frequency', nextDueDate: 'next_due_date' },
   forecastMatchProposals: { _: { name: 'forecast_match_proposals' }, id: 'id', orgId: 'org_id', status: 'status', decidedAt: 'decided_at', forecastTransactionId: 'forecast_transaction_id', realizedTransactionId: 'realized_transaction_id' },
 }))
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: () => Promise.resolve('org-1') }))
@@ -59,6 +60,27 @@ beforeEach(() => {
 })
 
 describe('vincularPrevisao', () => {
+  it('previsão de recorrência cobrada em outro dia: as parcelas em aberto da série vão para o dia da cobrança', async () => {
+    selectQueue.push(
+      [{ ...PREV, recurringTemplateId: 'tpl-livelo', date: new Date('2026-09-15T00:00:00Z') }, { ...REAL, date: new Date('2026-09-16T00:00:00Z') }],
+      [],
+      [{ frequency: 'monthly', nextDueDate: new Date('2027-09-01T00:00:00Z') }],
+      [{ id: 'p2', date: new Date('2026-10-01T00:00:00Z') }, { id: 'p3', date: new Date('2026-11-01T00:00:00Z') }],
+    )
+    expect((await vincularPrevisao('real-1', 'prev-1')).efetivada).toBe(true)
+    const datas = ops
+      .filter((o) => o.payload && ('date' in o.payload || 'nextDueDate' in o.payload))
+      .map((o) => ((o.payload!.date ?? o.payload!.nextDueDate) as Date).toISOString().slice(0, 10))
+    expect(datas).toEqual(['2026-10-16', '2026-11-16', '2027-09-16'])
+  })
+
+  it('previsão avulsa (sem recorrência) não mexe em mais nada', async () => {
+    selectQueue.push([{ ...PREV, date: new Date('2026-09-15T00:00:00Z') }, { ...REAL, date: new Date('2026-09-16T00:00:00Z') }], [])
+    await vincularPrevisao('real-1', 'prev-1')
+    expect(ops.some((o) => o.op === 'update:recurring_templates')).toBe(false)
+    expect(ops.filter((o) => o.payload && 'date' in o.payload)).toHaveLength(0)
+  })
+
   it('grava o vínculo, herda a categoria da previsão e decide as propostas', async () => {
     selectQueue.push([PREV, REAL], [])
     expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
