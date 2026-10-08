@@ -7,13 +7,14 @@ import { LoginForm } from './login-form'
 import { SignupForm } from './signup-form'
 import { MagicLinkForm } from './magic-link-form'
 import { ForgotPasswordForm } from './forgot-password-form'
+import type { AuthTab } from './auth-tab'
 
-export function AuthTabs() {
+export function AuthTabs({ defaultTab = 'login' }: { defaultTab?: AuthTab }) {
   const [showMagicLink, setShowMagicLink] = useState(false)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
 
   return (
-    <Tabs defaultValue="login" className="w-full" onValueChange={() => { setShowMagicLink(false); setShowForgotPassword(false) }}>
+    <Tabs defaultValue={defaultTab} className="w-full" onValueChange={() => { setShowMagicLink(false); setShowForgotPassword(false) }}>
       <TabsList className="grid w-full grid-cols-2 mb-6">
         <TabsTrigger value="login">Entrar</TabsTrigger>
         <TabsTrigger value="signup">Registrar</TabsTrigger>
