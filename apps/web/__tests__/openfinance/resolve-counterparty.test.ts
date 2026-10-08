@@ -29,6 +29,7 @@ function normalizedTx(overrides: Partial<{
     payeeMcc: null,
     billPostDate: null,
     billForecastMonth: null,
+    billId: null,
     installmentNumber: null,
     installmentTotal: null,
     purchaseDate: null,

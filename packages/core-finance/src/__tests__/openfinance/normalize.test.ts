@@ -389,6 +389,12 @@ describe('normalizeCardTransaction — parcelas', () => {
     expect(n.date).toBe('2026-12-01')
   })
 
+  it('guarda o bill_id da fatura que o banco fechou', () => {
+    expect(normalizeCardTransaction(cardTx({ bill_id: 'fatura-123' })).billId).toBe('fatura-123')
+    expect(normalizeCardTransaction(cardTx({ bill_id: null })).billId).toBeNull()
+    expect(normalizeCardTransaction(cardTx({ bill_id: '' })).billId).toBeNull()
+  })
+
   it('compra à vista continua na data da compra, sem purchaseDate', () => {
     const n = normalizeCardTransaction(cardTx({
       transaction_date_time: '2026-09-12T10:00:00-03:00',

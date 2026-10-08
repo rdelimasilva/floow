@@ -218,6 +218,8 @@ export const transactions = pgTable(
     billPostDate: date('bill_post_date', { mode: 'date' }),
     /** Mês/ano de faturamento previsto (AAAA-MM), inclusive para parcelas futuras. */
     billForecastMonth: text('bill_forecast_month'),
+    /** Fatura em que o banco fechou o lançamento (migration 00075). NULL na fatura aberta. */
+    billId: text('bill_id'),
     /** Merchant Category Code, desempate quando category_ref é genérico. */
     payeeMcc: integer('payee_mcc'),
     /** Quatro últimos dígitos do cartão da compra (titular, adicional, virtual). Nunca o PAN. */

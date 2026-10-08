@@ -130,6 +130,7 @@ export async function persistPage(
           cardLastDigits: tx.cardLastDigits,
           billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
           billForecastMonth: tx.billForecastMonth,
+          billId: tx.billId,
           installmentNumber: tx.installmentNumber,
           installmentTotal: tx.installmentTotal,
           purchaseDate,
@@ -187,6 +188,7 @@ export async function persistPage(
           extras: {
             billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
             billForecastMonth: tx.billForecastMonth,
+          billId: tx.billId,
             categoryRef: tx.categoryRef,
             payeeMcc: tx.payeeMcc,
             cardLastDigits: tx.cardLastDigits,
@@ -266,6 +268,7 @@ export async function persistPage(
       cardLastDigits: tx.cardLastDigits,
       billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
       billForecastMonth: tx.billForecastMonth,
+          billId: tx.billId,
       installmentNumber: tx.installmentNumber,
       installmentTotal: tx.installmentTotal,
       purchaseDate,

@@ -141,3 +141,24 @@ describe('previsão vencida', () => {
     expect(totais.get('2026-10-08')).toBe(-300000)
   })
 })
+
+describe('fatura fechada pelo banco (bill_id)', () => {
+  // Fatura de setembro do Master Black: o banco fechou no dia 7, o cadastro
+  // diz 8. Com o bill_id, todos os lançamentos daquela fatura vão juntos para
+  // o fechamento em que a maioria deles cai pelo ciclo cadastrado.
+  const l = (date: string, amountCents: number, billId: string | null) => ({
+    date, amountCents, billId, purchaseDate: null, installmentTotal: null,
+    type: 'expense', isIgnored: false, matchedTransactionId: null,
+  })
+
+  it('lançamentos do mesmo bill_id ficam na mesma fatura', () => {
+    const totais = totaisPorFatura([
+      l('2026-08-20', -1000, 'fatura-set'),
+      l('2026-09-01', -2000, 'fatura-set'),
+      l('2026-09-08', -300, 'fatura-set'),
+      l('2026-09-09', -400, 'fatura-out'),
+    ], 7)
+    expect(totais.get('2026-09-07')).toBe(-3300)
+    expect(totais.get('2026-10-07')).toBe(-400)
+  })
+})

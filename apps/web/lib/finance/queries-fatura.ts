@@ -58,6 +58,7 @@ export async function getFaturasDoExtrato(
       purchaseDate: transactions.purchaseDate,
       installmentTotal: transactions.installmentTotal,
       billForecastMonth: transactions.billForecastMonth,
+      billId: transactions.billId,
       recurringTemplateId: transactions.recurringTemplateId,
       isInstallmentForecast: transactions.isInstallmentForecast,
       balanceApplied: transactions.balanceApplied,

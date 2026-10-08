@@ -51,6 +51,8 @@ export interface NormalizedPolpTransaction {
   billPostDate: string | null
   /** AAAA-MM. Mês de faturamento, inclusive de parcela ainda não lançada. */
   billForecastMonth: string | null
+  /** Fatura em que o banco fechou o lançamento. NULL na fatura ainda aberta. */
+  billId: string | null
   installmentNumber: number | null
   installmentTotal: number | null
   /**
@@ -269,6 +271,7 @@ export function normalizeAccountTransaction(tx: PolpAccountTransaction): Normali
     payeeMcc: null,
     billPostDate: null,
     billForecastMonth: null,
+    billId: null,
     installmentNumber: null,
     installmentTotal: null,
     purchaseDate: null,
@@ -312,6 +315,7 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
     payeeMcc: tx.payee_mcc ?? null,
     billPostDate,
     billForecastMonth,
+    billId: tx.bill_id?.trim() || null,
     ...parcelas,
     purchaseDate: ehParcela ? competencia : null,
     settlement: 'settled',

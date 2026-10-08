@@ -98,6 +98,8 @@ export interface LancamentoDaFatura extends LancamentoNoCiclo {
   /** Previsão de recorrência ou de parcela, não lançamento real. */
   ehPrevisao?: boolean
   balanceApplied?: boolean
+  /** Fatura em que o banco fechou o lançamento. */
+  billId?: string | null
 }
 
 /**
@@ -122,11 +124,30 @@ export function totaisPorFatura(
   closingDay: number,
   opts: { dueDay?: number | null; hoje?: string | null } = {},
 ): Map<string, number> {
-  const totais = new Map<string, number>()
-  for (const l of lancamentos) {
-    if (!entraNaFatura(l, opts.hoje ?? null)) continue
-    const f = fechamentoDoLancamento(l, closingDay, opts.dueDay ?? null)
-    totais.set(f, (totais.get(f) ?? 0) + l.amountCents)
+  const entram = lancamentos.filter((l) => entraNaFatura(l, opts.hoje ?? null))
+  const fechamentos = entram.map((l) => fechamentoDoLancamento(l, closingDay, opts.dueDay ?? null))
+
+  // Fatura que o banco já fechou (`bill_id`): todos os lançamentos dela vão
+  // juntos para o fechamento em que a maioria cai pelo ciclo cadastrado. O
+  // dia real de fechamento varia (fim de semana, feriado, o banco muda) e a
+  // compra perto da virada iria para a fatura errada; o bill_id não erra.
+  const votos = new Map<string, Map<string, number>>()
+  entram.forEach((l, i) => {
+    if (!l.billId) return
+    const v = votos.get(l.billId) ?? new Map<string, number>()
+    v.set(fechamentos[i], (v.get(fechamentos[i]) ?? 0) + 1)
+    votos.set(l.billId, v)
+  })
+  const fechamentoDaFatura = new Map<string, string>()
+  for (const [billId, v] of votos) {
+    const [melhor] = [...v.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    fechamentoDaFatura.set(billId, melhor[0])
   }
+
+  const totais = new Map<string, number>()
+  entram.forEach((l, i) => {
+    const f = (l.billId && fechamentoDaFatura.get(l.billId)) || fechamentos[i]
+    totais.set(f, (totais.get(f) ?? 0) + l.amountCents)
+  })
   return totais
 }
