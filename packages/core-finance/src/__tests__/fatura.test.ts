@@ -104,3 +104,40 @@ describe('totaisPorFatura', () => {
     expect(totais.get('2026-11-05')).toBe(-50)
   })
 })
+
+describe('fatura informada pelo banco', () => {
+  // Master Black: fechamento cadastrado no dia 8, vencimento 15. O banco
+  // fechou no dia 7 e mandou o SACOLAO de 08/09 já na fatura de outubro.
+  const sacolao = { date: '2026-09-08', purchaseDate: null, installmentTotal: null, billForecastMonth: '2026-10' }
+
+  it('o mês de fatura do banco vale mais que o dia de fechamento cadastrado', () => {
+    expect(fechamentoDoLancamento(sacolao, 8, 15)).toBe('2026-10-08')
+  })
+  it('vencimento antes do fechamento no mês: a fatura fechou no mês anterior', () => {
+    expect(fechamentoDoLancamento({ ...sacolao, billForecastMonth: '2026-11' }, 25, 5)).toBe('2026-10-25')
+  })
+  it('sem dia de vencimento cadastrado, segue o dia de fechamento', () => {
+    expect(fechamentoDoLancamento(sacolao, 8, null)).toBe('2026-09-08')
+  })
+})
+
+describe('previsão vencida', () => {
+  const l = (extra: object) => ({
+    date: '2026-10-01', amountCents: -300000, purchaseDate: null, installmentTotal: null,
+    type: 'expense', isIgnored: false, matchedTransactionId: null, ...extra,
+  })
+
+  it('previsão que venceu sem se confirmar não soma: o gasto real já está no extrato', () => {
+    const totais = totaisPorFatura([
+      l({ ehPrevisao: true, balanceApplied: false }),
+      l({ ehPrevisao: true, balanceApplied: false, date: '2026-10-16', amountCents: -45916 }),
+      l({ amountCents: -20000 }),
+    ], 8, { dueDay: 15, hoje: '2026-10-08' })
+    expect(totais.get('2026-10-08')).toBe(-20000)
+    expect(totais.get('2026-11-08')).toBe(-45916)
+  })
+  it('previsão confirmada (aplicada) continua somando', () => {
+    const totais = totaisPorFatura([l({ ehPrevisao: true, balanceApplied: true })], 8, { dueDay: 15, hoje: '2026-10-08' })
+    expect(totais.get('2026-10-08')).toBe(-300000)
+  })
+})

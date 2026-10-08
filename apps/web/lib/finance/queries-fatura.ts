@@ -57,6 +57,10 @@ export async function getFaturasDoExtrato(
       matchedTransactionId: transactions.matchedTransactionId,
       purchaseDate: transactions.purchaseDate,
       installmentTotal: transactions.installmentTotal,
+      billForecastMonth: transactions.billForecastMonth,
+      recurringTemplateId: transactions.recurringTemplateId,
+      isInstallmentForecast: transactions.isInstallmentForecast,
+      balanceApplied: transactions.balanceApplied,
     })
     .from(transactions)
     .where(and(
@@ -66,12 +70,20 @@ export async function getFaturasDoExtrato(
       lte(transactions.date, new Date(`${ate}T00:00:00Z`)),
     )))
 
+  // Previsão vencida sem confirmação sai da soma (`entraNaFatura`).
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   return cartoes.flatMap((c) => {
     const totais = totaisPorFatura(
       linhas
         .filter((l) => l.accountId === c.id)
-        .map((l) => ({ ...l, date: iso(l.date)!, purchaseDate: iso(l.purchaseDate) })),
+        .map((l) => ({
+          ...l,
+          date: iso(l.date)!,
+          purchaseDate: iso(l.purchaseDate),
+          ehPrevisao: l.recurringTemplateId != null || l.isInstallmentForecast,
+        })),
       c.closingDay,
+      { dueDay: c.dueDay, hoje },
     )
     return c.fechamentos.map((fechamento) => ({
       accountId: c.id,

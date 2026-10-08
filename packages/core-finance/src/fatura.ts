@@ -50,6 +50,8 @@ export interface LancamentoNoCiclo {
   date: string
   purchaseDate: string | null
   installmentTotal: number | null
+  /** Mês de vencimento da fatura em que o banco pôs o lançamento (AAAA-MM). */
+  billForecastMonth?: string | null
 }
 
 /**
@@ -63,7 +65,14 @@ export interface LancamentoNoCiclo {
  * seguinte; o fechamento dela é o último ANTES da data. Parcela manual não tem
  * `purchaseDate` e segue a regra comum.
  */
-export function fechamentoDoLancamento(l: LancamentoNoCiclo, closingDay: number): string {
+export function fechamentoDoLancamento(l: LancamentoNoCiclo, closingDay: number, dueDay: number | null = null): string {
+  // O banco já disse em que fatura o lançamento está: vale mais que o dia de
+  // fechamento cadastrado, que é aproximado (o Master Black cadastrado no dia
+  // 8 fechou no dia 7, e a compra do dia 8 foi para a fatura seguinte).
+  if (l.billForecastMonth && dueDay != null) {
+    const [a, m] = anoMes(l.billForecastMonth)
+    return dueDay > closingDay ? fechamentoNoMes(a, m, closingDay) : fechamentoNoMes(a, m - 1, closingDay)
+  }
   const [ano, mes] = anoMes(l.date)
   const noMes = fechamentoNoMes(ano, mes, closingDay)
   const ehParcelaDoBanco = l.purchaseDate != null && (l.installmentTotal ?? 0) > 1
@@ -86,28 +95,37 @@ export interface LancamentoDaFatura extends LancamentoNoCiclo {
   type: string
   isIgnored: boolean
   matchedTransactionId: string | null
+  /** Previsão de recorrência ou de parcela, não lançamento real. */
+  ehPrevisao?: boolean
+  balanceApplied?: boolean
 }
 
 /**
  * Transferência fica fora: no cartão ela é o pagamento da fatura anterior, e
  * somá-la zeraria o total. Previsão já conciliada fica fora porque o realizado
- * que a cumpriu já está na soma.
+ * que a cumpriu já está na soma. Previsão que venceu sem se confirmar também:
+ * ou o gasto real já está no extrato com outro nome (a meta de R$ 3.000 de
+ * supermercado contava junto com as compras do supermercado), ou não houve.
  */
 export function entraNaFatura(
-  l: Pick<LancamentoDaFatura, 'type' | 'isIgnored' | 'matchedTransactionId'>,
+  l: Pick<LancamentoDaFatura, 'type' | 'isIgnored' | 'matchedTransactionId' | 'ehPrevisao' | 'balanceApplied' | 'date'>,
+  hoje: string | null = null,
 ): boolean {
-  return l.type !== 'transfer' && !l.isIgnored && l.matchedTransactionId == null
+  if (l.type === 'transfer' || l.isIgnored || l.matchedTransactionId != null) return false
+  if (hoje && l.ehPrevisao && !l.balanceApplied && l.date < hoje) return false
+  return true
 }
 
 /** Total por fechamento, em centavos com sinal (despesa negativa). */
 export function totaisPorFatura(
   lancamentos: readonly LancamentoDaFatura[],
   closingDay: number,
+  opts: { dueDay?: number | null; hoje?: string | null } = {},
 ): Map<string, number> {
   const totais = new Map<string, number>()
   for (const l of lancamentos) {
-    if (!entraNaFatura(l)) continue
-    const f = fechamentoDoLancamento(l, closingDay)
+    if (!entraNaFatura(l, opts.hoje ?? null)) continue
+    const f = fechamentoDoLancamento(l, closingDay, opts.dueDay ?? null)
     totais.set(f, (totais.get(f) ?? 0) + l.amountCents)
   }
   return totais
