@@ -6,6 +6,7 @@ import { registrarEventos } from '@/lib/finance/conciliacao/validacoes'
 import type { ResolvedTransaction } from './resolve-counterparty'
 import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transfer-leg'
 import { acharPernaPrevistaAberta } from './perna-prevista-aberta'
+import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
 import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, ocuparPrevisao } from './parcelas-previstas'
 
 /**
@@ -116,8 +117,9 @@ export async function persistPage(
       // Só o enriquecimento é atualizado. Valor e tipo ficam como entraram:
       // mexer neles depois exigiria desfazer o efeito no saldo, e errar isso
       // deixa o saldo errado em silêncio, que é o pior desfecho possível num
-      // app de finanças. A data é a única exceção, e só muda enquanto a
-      // linha está fora do saldo (ver o CASE WHEN abaixo).
+      // app de finanças. A data é a única exceção: muda direto enquanto a
+      // linha está fora do saldo (CASE WHEN abaixo); na parcela já aplicada,
+      // por `corrigirDataDaParcelaAplicada`, que acerta o saldo junto.
       await db
         .update(transactions)
         .set({
@@ -131,8 +133,8 @@ export async function persistPage(
           installmentNumber: tx.installmentNumber,
           installmentTotal: tx.installmentTotal,
           purchaseDate,
-          // A data só corrige enquanto a linha está fora do saldo — uma vez
-          // aplicada, mexer nela exigiria desfazer o efeito já contado.
+          // Linha aplicada fica onde está aqui; a parcela aplicada é
+          // corrigida logo abaixo, com o efeito no saldo.
           date: sql`CASE WHEN ${transactions.balanceApplied} THEN ${transactions.date} ELSE ${dataFinal}::date END`,
           // Categoria manual do usuário nunca é sobrescrita (mesma regra da
           // v1.1), e transferência nunca tem categoria — inclusive a ponta
@@ -145,6 +147,15 @@ export async function persistPage(
         // e defesa em profundidade — no caminho do app o RLS nao vale, porque a
         // conexao usa o role dono do banco.
         .where(and(eq(transactions.id, existingId), eq(transactions.orgId, input.orgId)))
+
+      // Parcela já no saldo cuja data correta mudou: o CASE acima a deixou
+      // onde estava; aqui ela vai para a data certa (e sai do saldo se a
+      // nova data ainda não chegou). Sem fatura nem mês previsto não há data melhor que a gravada.
+      if (purchaseDate && (tx.billPostDate || tx.billForecastMonth)) {
+        await corrigirDataDaParcelaAplicada(db, {
+          orgId: input.orgId, accountId: input.accountId, transactionId: existingId, dataFinal, hoje,
+        })
+      }
 
       updated++
       continue

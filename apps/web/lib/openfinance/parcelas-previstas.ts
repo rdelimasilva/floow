@@ -59,7 +59,17 @@ export async function carregarDiaDeVencimento(db: Db, orgId: string, accountId: 
   const rows = await db
     .select({ d: transactions.billPostDate })
     .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), eq(transactions.accountId, accountId), isNotNull(transactions.billPostDate)))
+    .where(
+      and(
+        eq(transactions.orgId, orgId),
+        eq(transactions.accountId, accountId),
+        isNotNull(transactions.billPostDate),
+        // Fatura "fechada" no dia da compra é a data falsa da Polp (ver
+        // `faturaFechadaDeVerdade`); gravada antes da correção, ela puxaria a
+        // moda para o dia das compras.
+        sql`${transactions.billPostDate} <> coalesce(${transactions.purchaseDate}, ${transactions.date})`,
+      ),
+    )
     .orderBy(desc(transactions.billPostDate))
     .limit(200)
   return diaDeVencimentoMaisComum(rows.map((r) => (r.d as Date).toISOString().slice(0, 10)))
