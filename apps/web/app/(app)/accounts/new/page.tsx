@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ACCOUNT_TYPE_OPTIONS } from '@/lib/finance/account-types'
-import { DiasDoCartaoFields } from '@/components/finance/dias-do-cartao-fields'
+import { DiasDoCartaoFields, erroDoCicloDoCartao } from '@/components/finance/dias-do-cartao-fields'
 
 const newAccountSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100),
@@ -31,12 +31,16 @@ const newAccountSchema = z.object({
   initialBalance: z.string().optional(),
   closingDay: z.string().optional(),
   dueDay: z.string().optional(),
+}).superRefine((d, ctx) => {
+  if (d.type !== 'credit_card') return
+  const erro = erroDoCicloDoCartao(d.closingDay ?? '', d.dueDay ?? '')
+  if (erro) ctx.addIssue({ code: 'custom', path: ['closingDay'], message: erro })
 })
 
 type NewAccountForm = z.infer<typeof newAccountSchema>
 
 
-const TIPOS = newAccountSchema.shape.type.options
+const TIPOS = ['checking', 'savings', 'brokerage', 'credit_card', 'cash'] as const
 
 /** useSearchParams exige Suspense acima dele para a página poder ser pré-renderizada. */
 export default function NewAccountPage() {
@@ -159,6 +163,7 @@ function NovaConta() {
                 dueDay={watch('dueDay') ?? ''}
                 onClosingDayChange={(v) => setValue('closingDay', v, { shouldDirty: true })}
                 onDueDayChange={(v) => setValue('dueDay', v, { shouldDirty: true })}
+                erro={errors.closingDay?.message}
               />
             )}
 

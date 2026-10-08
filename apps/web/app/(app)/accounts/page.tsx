@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getAccounts, getOrgId, getSaldosDoBanco } from '@/lib/finance/queries'
 import { BankDivergenceAlert } from '@/components/finance/bank-divergence-alert'
 import { AccountCard } from '@/components/finance/account-card'
+import { CicloDoCartaoPendente } from '@/components/finance/ciclo-do-cartao-pendente'
 import { getContasConectadasAoBanco, getContasDeInvestimentoOpenFinance, getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
 import { getLogosDasContas } from '@/lib/openfinance/logos-das-contas'
 import { formatBRL } from '@floow/core-finance'
@@ -57,6 +58,9 @@ export default async function AccountsPage() {
           <Link href="/accounts/new">Nova Conta</Link>
         </Button>
       </PageHeader>
+      <CicloDoCartaoPendente
+        cartoes={accounts.filter((a) => a.type === 'credit_card' && (a.closingDay == null || a.dueDay == null)).map((a) => ({ id: a.id, name: a.name }))}
+      />
       {accounts.length > 0 && (
         <div className="-mt-2 flex flex-wrap gap-x-10 gap-y-3">
           {blocos.map((b) => (

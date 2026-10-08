@@ -8,14 +8,27 @@ interface Props {
   dueDay: string
   onClosingDayChange: (v: string) => void
   onDueDayChange: (v: string) => void
+  erro?: string | null
+}
+
+function diaValido(v: string): boolean {
+  const n = Number(v)
+  return v.trim() !== '' && Number.isInteger(n) && n >= 1 && n <= 31
+}
+
+/** O que falta no ciclo do cartão, ou null quando os dois dias estão certos. */
+export function erroDoCicloDoCartao(closingDay: string, dueDay: string): string | null {
+  if (!diaValido(closingDay) && !diaValido(dueDay)) return 'Informe o dia do fechamento e o do vencimento da fatura (1 a 31).'
+  if (!diaValido(closingDay)) return 'Informe o dia do fechamento da fatura (1 a 31).'
+  if (!diaValido(dueDay)) return 'Informe o dia do vencimento da fatura (1 a 31).'
+  return null
 }
 
 /**
- * Fechamento e vencimento do cartão. Com o fechamento cadastrado, o extrato
- * do cartão mostra a linha com o total da fatura — ver
- * `packages/core-finance/src/fatura.ts`.
+ * Fechamento e vencimento do cartão, obrigatórios em todo cartão: a fatura e
+ * a data das parcelas saem deles — ver `packages/core-finance/src/fatura.ts`.
  */
-export function DiasDoCartaoFields({ closingDay, dueDay, onClosingDayChange, onDueDayChange }: Props) {
+export function DiasDoCartaoFields({ closingDay, dueDay, onClosingDayChange, onDueDayChange, erro }: Props) {
   return (
     <div className="space-y-1.5">
       <div className="grid grid-cols-2 gap-3">
@@ -34,10 +47,14 @@ export function DiasDoCartaoFields({ closingDay, dueDay, onClosingDayChange, onD
           />
         </div>
       </div>
-      <p className="text-xs text-gray-500">
-        Com o fechamento preenchido, Transações mostra o total de cada fatura. É só leitura:
-        não entra no saldo nem no fluxo de caixa.
-      </p>
+      {erro ? (
+        <p className="text-xs text-red-600">{erro}</p>
+      ) : (
+        <p className="text-xs text-gray-500">
+          Os dias que aparecem na fatura do cartão. Definem em que fatura cai cada compra e
+          quando vence cada parcela.
+        </p>
+      )}
     </div>
   )
 }

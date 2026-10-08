@@ -13,7 +13,7 @@ import { updateAccount, deleteAccount, adjustAccountBalance } from '@/lib/financ
 import { useToast } from '@/components/ui/toast'
 import type { Account } from '@floow/db'
 import { ACCOUNT_TYPE_CONFIG, ACCOUNT_TYPE_OPTIONS } from '@/lib/finance/account-types'
-import { DiasDoCartaoFields } from './dias-do-cartao-fields'
+import { DiasDoCartaoFields, erroDoCicloDoCartao } from './dias-do-cartao-fields'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 const ACCOUNT_TYPES = ACCOUNT_TYPE_OPTIONS
@@ -67,6 +67,11 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
   const isNegative = valorExibidoCents < 0
 
   async function handleUpdate() {
+    const erroDoCiclo = type === 'credit_card' ? erroDoCicloDoCartao(closingDay, dueDay) : null
+    if (erroDoCiclo) {
+      toast(erroDoCiclo, 'error')
+      return
+    }
     setLoading(true)
     try {
       const formData = new FormData()
@@ -176,6 +181,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             <DiasDoCartaoFields
               closingDay={closingDay} dueDay={dueDay}
               onClosingDayChange={setClosingDay} onDueDayChange={setDueDay}
+              erro={erroDoCicloDoCartao(closingDay, dueDay)}
             />
           )}
           <div className="flex gap-2">

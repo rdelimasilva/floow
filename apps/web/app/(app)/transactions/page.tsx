@@ -7,6 +7,7 @@ import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
 import { contasParaLancamento, contasDeTransferencia } from '@/lib/finance/account-options'
 import { contasDoFiltro } from '@/lib/finance/queries-transactions'
 import { getFaturasDoExtrato } from '@/lib/finance/queries-fatura'
+import { CicloDoCartaoPendente } from '@/components/finance/ciclo-do-cartao-pendente'
 import { getFinaisDoCartao } from '@/lib/finance/queries-final-do-cartao'
 import { intervaloDaPagina } from '@/lib/finance/intercalar-faturas'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
@@ -188,6 +189,10 @@ export default async function TransactionsPage({ searchParams }: Props) {
         accounts={accountOptions}
         transferAccounts={contasDeTransferencia(accounts)}
         categories={categoryOptions}
+      />
+
+      <CicloDoCartaoPendente
+        cartoes={accounts.filter((a) => a.type === 'credit_card' && (a.closingDay == null || a.dueDay == null)).map((a) => ({ id: a.id, name: a.name }))}
       />
 
       {/* Uma linha com o total para conciliar, e nao item no menu: item fixo

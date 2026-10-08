@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { accounts, transactions } from '@floow/db'
-import { acharPrevisao, camposDaOcupacao, dataFinalDaParcela, ocuparPrevisao } from '@/lib/openfinance/parcelas-previstas'
+import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, ocuparPrevisao } from '@/lib/openfinance/parcelas-previstas'
 
 const dialect = new PgDialect()
 
@@ -175,5 +175,20 @@ describe('acharPrevisao', () => {
     const { sql: sqlGerado, params } = dialect.sqlToQuery(ordem as never)
     expect(sqlGerado.toLowerCase()).toMatch(/abs\("transactions"\."amount_cents" - \$1\)/)
     expect(params).toEqual([-28000])
+  })
+})
+
+describe('carregarDiaDeVencimento', () => {
+  // O vencimento vem do cadastro do cartão, nunca deduzido dos lançamentos.
+  const dbCom = (linhas: unknown[]) => {
+    const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve(linhas).then(r) }
+    c.from = c.where = c.limit = () => c
+    return { select: () => c } as any
+  }
+  it('usa o dia de vencimento cadastrado', async () => {
+    expect(await carregarDiaDeVencimento(dbCom([{ dueDay: 15 }]), 'org-1', 'cartao')).toBe(15)
+  })
+  it('sem cadastro, não inventa um dia', async () => {
+    expect(await carregarDiaDeVencimento(dbCom([{ dueDay: null }]), 'org-1', 'cartao')).toBeNull()
   })
 })

@@ -1,7 +1,7 @@
 // apps/web/lib/openfinance/parcelas-previstas.ts
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { accounts, transactions } from '@floow/db'
-import { dataDaParcela, diaDeVencimentoMaisComum } from '@floow/core-finance'
+import { dataDaParcela } from '@floow/core-finance'
 import type { Db } from './persist-page'
 
 /**
@@ -55,24 +55,20 @@ export function camposDaOcupacao(
   }
 }
 
+/**
+ * O dia de vencimento do cadastro do cartão. Não se deduz dos lançamentos: o
+ * cliente informa o ciclo (`exigirCicloDoCartao`), e cartão sem ele aparece
+ * no aviso de ciclo pendente. Enquanto isso, a parcela sem fatura fechada
+ * fica no dia 1 do mês previsto e vai para o dia certo no sync seguinte ao
+ * cadastro.
+ */
 export async function carregarDiaDeVencimento(db: Db, orgId: string, accountId: string): Promise<number | null> {
-  const rows = await db
-    .select({ d: transactions.billPostDate })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.accountId, accountId),
-        isNotNull(transactions.billPostDate),
-        // Fatura "fechada" no dia da compra é a data falsa da Polp (ver
-        // `faturaFechadaDeVerdade`); gravada antes da correção, ela puxaria a
-        // moda para o dia das compras.
-        sql`${transactions.billPostDate} <> coalesce(${transactions.purchaseDate}, ${transactions.date})`,
-      ),
-    )
-    .orderBy(desc(transactions.billPostDate))
-    .limit(200)
-  return diaDeVencimentoMaisComum(rows.map((r) => (r.d as Date).toISOString().slice(0, 10)))
+  const [conta] = await db
+    .select({ dueDay: accounts.dueDay })
+    .from(accounts)
+    .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
+    .limit(1)
+  return conta?.dueDay ?? null
 }
 
 export async function acharPrevisao(

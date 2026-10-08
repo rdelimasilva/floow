@@ -1,5 +1,16 @@
 import { z } from 'zod'
 
+/**
+ * Todo cartão de crédito tem fechamento e vencimento informados pelo cliente:
+ * a fatura e a data das parcelas saem desses dois dias, e o app não adivinha
+ * o ciclo de ninguém.
+ */
+function exigirCicloDoCartao(c: { type: string; closingDay?: number; dueDay?: number }, ctx: z.RefinementCtx) {
+  if (c.type !== 'credit_card') return
+  if (c.closingDay == null) ctx.addIssue({ code: 'custom', path: ['closingDay'], message: 'Informe o dia do fechamento da fatura' })
+  if (c.dueDay == null) ctx.addIssue({ code: 'custom', path: ['dueDay'], message: 'Informe o dia do vencimento da fatura' })
+}
+
 export const createAccountSchema = z.object({
   name: z.string().min(1).max(100),
   type: z.enum(['checking', 'savings', 'brokerage', 'credit_card', 'cash']),
@@ -9,7 +20,7 @@ export const createAccountSchema = z.object({
   /** Só cartão de crédito. Ver `accounts.closing_day` (migration 00057). */
   closingDay: z.number().int().min(1).max(31).optional(),
   dueDay: z.number().int().min(1).max(31).optional(),
-})
+}).superRefine(exigirCicloDoCartao)
 
 export const createTransactionSchema = z.object({
   accountId: z.string().uuid(),
@@ -29,7 +40,7 @@ export const updateAccountSchema = z.object({
   accountNumber: z.string().max(30).optional(),
   closingDay: z.number().int().min(1).max(31).optional(),
   dueDay: z.number().int().min(1).max(31).optional(),
-})
+}).superRefine(exigirCicloDoCartao)
 
 export const updateTransactionSchema = z.object({
   id: z.string().uuid(),
