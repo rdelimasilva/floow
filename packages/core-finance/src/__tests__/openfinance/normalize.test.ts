@@ -350,6 +350,45 @@ describe('normalizeCardTransaction — parcelas', () => {
     expect(n.purchaseDate).toBe('2026-09-12')
   })
 
+  it('fatura "fechada" igual à data da compra é falsa: cada parcela vai para o mês previsto', () => {
+    // Visto em produção (Adidas 8x, 01/10/2026): as oito parcelas chegaram
+    // com bill_post_date = data da compra e só o mês previsto andando.
+    const parcelas = [1, 2, 8].map((n, i) =>
+      normalizeCardTransaction(cardTx({
+        transaction_date_time: '2026-10-01T10:00:00-03:00',
+        bill_post_date: '2026-10-01',
+        bill_forecast_date: ['2026-10', '2026-11', '2027-05'][i],
+        charge_identificator: n,
+        charge_number: 8,
+      })),
+    )
+    expect(parcelas.map((p) => p.date)).toEqual(['2026-10-01', '2026-11-01', '2027-05-01'])
+    expect(parcelas.every((p) => p.billPostDate === null)).toBe(true)
+  })
+
+  it('fatura "fechada" em mês anterior ao previsto é falsa', () => {
+    const n = normalizeCardTransaction(cardTx({
+      transaction_date_time: '2026-09-25T10:00:00-03:00',
+      bill_post_date: '2026-09-26',
+      bill_forecast_date: '2026-11',
+      charge_identificator: 2,
+      charge_number: 2,
+    }))
+    expect(n.billPostDate).toBeNull()
+    expect(n.date).toBe('2026-11-01')
+  })
+
+  it('vencimento que andou para o mês seguinte no fim de semana continua valendo', () => {
+    const n = normalizeCardTransaction(cardTx({
+      transaction_date_time: '2026-09-12T10:00:00-03:00',
+      bill_post_date: '2026-12-01',
+      bill_forecast_date: '2026-11',
+      charge_identificator: 3,
+      charge_number: 10,
+    }))
+    expect(n.date).toBe('2026-12-01')
+  })
+
   it('compra à vista continua na data da compra, sem purchaseDate', () => {
     const n = normalizeCardTransaction(cardTx({
       transaction_date_time: '2026-09-12T10:00:00-03:00',

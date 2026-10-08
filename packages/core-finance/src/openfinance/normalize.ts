@@ -171,6 +171,23 @@ function billPostDateOrNull(raw: string): string | null {
   return raw
 }
 
+/**
+ * A Polp às vezes manda em `bill_post_date` a data da compra, não o
+ * vencimento: as oito parcelas da Adidas 8x chegaram todas com 01/10, só o
+ * mês previsto andando, e caíram juntas no dia da compra e no saldo. Fatura
+ * que "fecha" no dia da compra ou antes do mês previsto não é fatura. Depois
+ * do mês previsto vale — é o vencimento que andou no fim de semana.
+ */
+function faturaFechadaDeVerdade(
+  billPostDate: string | null,
+  compra: string,
+  billForecastMonth: string | null,
+): string | null {
+  if (!billPostDate || billPostDate === compra) return null
+  if (billForecastMonth && billPostDate.slice(0, 7) < billForecastMonth) return null
+  return billPostDate
+}
+
 function forecastMonthOrNull(raw: string | null | undefined): string | null {
   return raw && /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) ? raw : null
 }
@@ -274,8 +291,8 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
       : null
 
   const competencia = toCompetenceDate(tx.transaction_date_time)
-  const billPostDate = billPostDateOrNull(tx.bill_post_date)
   const billForecastMonth = forecastMonthOrNull(tx.bill_forecast_date)
+  const billPostDate = faturaFechadaDeVerdade(billPostDateOrNull(tx.bill_post_date), competencia, billForecastMonth)
   const parcelas = installments(tx.charge_identificator, tx.charge_number)
   const ehParcela = parcelas.installmentTotal !== null
 
