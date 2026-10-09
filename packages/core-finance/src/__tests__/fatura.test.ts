@@ -74,7 +74,7 @@ describe('vencimentoDaFatura', () => {
 })
 
 describe('entraNaFatura', () => {
-  const base = { type: 'expense', isIgnored: false, matchedTransactionId: null }
+  const base = { date: '2026-10-01', type: 'expense', isIgnored: false, matchedTransactionId: null }
   it('despesa e estorno entram', () => {
     expect(entraNaFatura(base)).toBe(true)
     expect(entraNaFatura({ ...base, type: 'income' })).toBe(true)
