@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
+import { canonicalRedirect } from '@/lib/canonical-host'
 
 /**
  * Next.js middleware — runs on every matched request before the page renders.
@@ -9,6 +10,7 @@ import { updateSession } from '@/lib/supabase/middleware'
  *     valid, non-expired JWT from cookies (required by @supabase/ssr).
  *  2. Redirect unauthenticated users away from protected routes to /auth.
  *  3. Redirect already-authenticated users away from /auth back to /dashboard.
+ *  4. Send floow-web.vercel.app to app.floowapp.com.br (see canonical-host.ts).
  *
  * Public routes listed below are accessible without authentication.
  * All other routes are protected by default.
@@ -33,6 +35,9 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  const canonical = canonicalRedirect(new URL(request.url))
+  if (canonical) return NextResponse.redirect(canonical, 308)
+
   const { supabaseResponse, userId } = await updateSession(request)
 
   const { pathname } = request.nextUrl
