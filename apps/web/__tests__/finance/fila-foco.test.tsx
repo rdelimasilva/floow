@@ -32,7 +32,12 @@ const conta = { id: 'itau', nome: 'Conta Itaú', tipo: 'checking', instituicao: 
 const base = { date: '2026-09-12', amountCents: -150000, cardLastDigits: null, importedAt: '2026-09-13T10:00:00Z', meio: null, conta, repetido: null, classificacao: null, candidatas: [] }
 const cand = (id: string, extra = {}) => ({ id, accountId: 'itau', contaNome: 'Conta Itaú', date: '2026-09-10', amountCents: -150000, description: `Prev ${id}`, categoriaNome: 'Aluguel', diasDeDiferenca: 2, diferencaCents: 0, outraConta: false, propostaId: null, nomeParecido: false, ...extra })
 const classificacao = { counterpartyId: 'cp-1', displayName: 'NETFLIX.COM', nature: 'expense' as const, categoryId: 'cat-1', suggestionSource: 'historico' as const, sugestaoContaId: null, ehCpfProprio: false, outrosNaFila: 2 }
-const repetido = { propostaId: 'd-1', outro: { id: 'm', date: '2026-09-12', description: 'UBER *TRIP', amountCents: -2340 }, horasEntreEmissoes: 3 }
+const repetido = {
+  propostaId: 'd-1',
+  outro: { id: 'm', date: '2026-09-12', description: 'UBER *TRIP', amountCents: -2340, categoria: 'Transporte', importadoEm: '2026-09-19T18:28:00Z' },
+  este: { id: 'a', date: '2026-09-12', description: 'UBER', amountCents: -2340, categoria: null, importadoEm: '2026-10-13T11:01:00Z' },
+  horasEntreEmissoes: 697,
+}
 const opts = { categoryOptions: [{ id: 'cat-1', label: 'Assinaturas', type: 'expense' }] as CategoryOption[], accountOptions: [{ id: 'itau', name: 'Conta Itaú' }, { id: 'nu', name: 'Nubank' }] }
 const LANCAR = { name: /Lançar como novo/ }
 
@@ -154,9 +159,13 @@ describe('FilaFoco', () => {
   it('repetido decide antes; "não é repetido" segue no mesmo lançamento', async () => {
     montar([{ ...base, id: 'a', description: 'UBER', repetido, classificacao }])
     expect(screen.getByText('Veio do banco')).toBeInTheDocument()
-    expect(screen.getByText('O banco parece ter mandado isto duas vezes')).toBeInTheDocument()
+    expect(screen.getByText('Chegou duas vezes')).toBeInTheDocument()
+    // A prova na tela: quando cada um chegou, e a categoria dos dois lados.
+    expect(screen.getByText('A compra de 12/09 já estava aqui desde 19/09. Em 13/10 o banco mandou de novo.')).toBeInTheDocument()
+    expect(screen.getByText('Transporte')).toBeInTheDocument()
+    expect(screen.getByText('Sem categoria')).toBeInTheDocument()
     expect(screen.queryByRole('button', LANCAR)).not.toBeInTheDocument()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Não é repetido/ })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /São duas compras/ })) })
     expect(recusarDuplicata).toHaveBeenCalledWith('d-1')
     expect(screen.getByRole('button', LANCAR)).toBeInTheDocument()
   })

@@ -1,5 +1,5 @@
 import type { Candidata } from '@/lib/finance/conciliacao/candidatos'
-import type { DuplicataPendente } from '@/lib/finance/duplicata-queries'
+import type { DuplicataPendente, LadoDaDuplicata } from '@/lib/finance/duplicata-queries'
 import type { PendingGroup } from '@/lib/openfinance/counterparty-queries'
 
 export const LOTE_DA_FILA = 50
@@ -16,7 +16,10 @@ export interface ContaDoItem {
 
 export interface Repetido {
   propostaId: string
-  outro: { id: string; date: string; description: string; amountCents: number }
+  /** O que já estava no floow e fica. */
+  outro: LadoDaDuplicata
+  /** Este lançamento — a cópia — com categoria e chegada, para comparar lado a lado. */
+  este: LadoDaDuplicata
   horasEntreEmissoes: number
 }
 
@@ -64,7 +67,7 @@ type Parametros = {
  */
 export function montarFila({ lancamentos, candidatas, duplicatas, grupos }: Parametros): ItemDaFila[] {
   const repetidos = new Map(duplicatas.map((d) => [d.duplicata.id, {
-    propostaId: d.id, outro: d.manter, horasEntreEmissoes: d.horasEntreEmissoes,
+    propostaId: d.id, outro: d.manter, este: d.duplicata, horasEntreEmissoes: d.horasEntreEmissoes,
   }]))
   const classificacoes = new Map<string, Classificacao>()
   for (const g of grupos) {

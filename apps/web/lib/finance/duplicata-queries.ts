@@ -1,6 +1,6 @@
 import { and, asc, count, eq, sql } from 'drizzle-orm'
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
-import { accounts, duplicateProposals, transactions, type RlsTx } from '@floow/db'
+import { accounts, categories, duplicateProposals, transactions, type RlsTx } from '@floow/db'
 import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 
 export interface LadoDaDuplicata {
@@ -8,6 +8,10 @@ export interface LadoDaDuplicata {
   date: string
   description: string
   amountCents: number
+  /** Nome da categoria: os dois lados iguais até nisso reforçam o repetido. */
+  categoria: string | null
+  /** Quando entrou no floow. A cópia chega semanas depois do fato; é a prova na tela. */
+  importadoEm: string
 }
 
 export interface DuplicataPendente {
@@ -61,6 +65,8 @@ export async function getDuplicatasPendentes(orgId: string): Promise<DuplicataPe
 export async function lerDuplicatasPendentes(db: RlsTx, orgId: string): Promise<DuplicataPendente[]> {
   const manter = alias(transactions, 'manter')
   const duplicata = alias(transactions, 'duplicata')
+  const catManter = alias(categories, 'cat_manter')
+  const catDuplicata = alias(categories, 'cat_duplicata')
 
   const rows = await db
     .select({
@@ -70,16 +76,22 @@ export async function lerDuplicatasPendentes(db: RlsTx, orgId: string): Promise<
       manterDate: manter.date,
       manterDescription: manter.description,
       manterAmount: manter.amountCents,
+      manterCategoria: catManter.name,
+      manterImportadoEm: manter.createdAt,
       duplicataId: duplicata.id,
       duplicataDate: duplicata.date,
       duplicataDescription: duplicata.description,
       duplicataAmount: duplicata.amountCents,
+      duplicataCategoria: catDuplicata.name,
+      duplicataImportadoEm: duplicata.createdAt,
       contaNome: accounts.name,
     })
     .from(duplicateProposals)
     .innerJoin(manter, eq(manter.id, duplicateProposals.manterTransactionId))
     .innerJoin(duplicata, eq(duplicata.id, duplicateProposals.duplicataTransactionId))
     .leftJoin(accounts, eq(accounts.id, duplicata.accountId))
+    .leftJoin(catManter, eq(catManter.id, manter.categoryId))
+    .leftJoin(catDuplicata, eq(catDuplicata.id, duplicata.categoryId))
     .where(condicaoDeDuplicataAberta(orgId, duplicata))
     .orderBy(sql`abs(${duplicata.amountCents}) desc`, asc(duplicateProposals.proposedAt))
 
@@ -92,12 +104,16 @@ export async function lerDuplicatasPendentes(db: RlsTx, orgId: string): Promise<
       date: iso(row.manterDate),
       description: row.manterDescription,
       amountCents: row.manterAmount,
+      categoria: row.manterCategoria,
+      importadoEm: iso(row.manterImportadoEm),
     },
     duplicata: {
       id: row.duplicataId,
       date: iso(row.duplicataDate),
       description: row.duplicataDescription,
       amountCents: row.duplicataAmount,
+      categoria: row.duplicataCategoria,
+      importadoEm: iso(row.duplicataImportadoEm),
     },
     contaNome: row.contaNome,
     horasEntreEmissoes: row.minutosEntreEmissoes / MINUTOS_POR_HORA,

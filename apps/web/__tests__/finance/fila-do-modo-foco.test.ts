@@ -11,7 +11,7 @@ const grupo = (counterpartyId: string, ids: string[]) => ({
   suggestedCategoryId: 'cat-1', suggestionSource: 'historico' as const,
   items: ids.map((id) => ({ id, date: '2026-09-12', description: id, amountCents: -1, accountId: 'itau', type: 'expense' as const, sugestaoContaId: null })),
 })
-const dup = (duplicataId: string) => ({ id: `d-${duplicataId}`, manter: { id: 'm', date: '2026-09-12', description: 'm', amountCents: -1 }, duplicata: { id: duplicataId, date: '2026-09-12', description: duplicataId, amountCents: -1 }, contaNome: 'Itaú', horasEntreEmissoes: 3 })
+const dup = (duplicataId: string) => ({ id: `d-${duplicataId}`, manter: { id: 'm', date: '2026-09-12', description: 'm', amountCents: -1, categoria: null, importadoEm: '2026-09-19T18:28:00Z' }, duplicata: { id: duplicataId, date: '2026-09-12', description: duplicataId, amountCents: -1, categoria: null, importadoEm: '2026-10-13T11:01:00Z' }, contaNome: 'Itaú', horasEntreEmissoes: 3 })
 
 describe('montarFila', () => {
   it('sem decisão aberta não entra', () => {
