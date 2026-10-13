@@ -38,28 +38,34 @@ export function LinhaDaFila({
   const { titulo, detalhe } = rotuloDaConta(item.conta, item.cardLastDigits)
   return (
     <li className="border-b border-gray-100 last:border-b-0">
-      <div className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-gray-50" onClick={onAbrir}>
+      {/* Colunas fixas no desktop: data, valor e palpite alinhados linha a linha. No
+          celular, descrição/data/valor em cima e o palpite embaixo (`sm:contents`
+          solta os blocos na grade). */}
+      <div
+        className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-2.5 hover:bg-gray-50 sm:grid-cols-[auto_minmax(0,1.3fr)_3rem_6.5rem_minmax(0,1fr)_6rem]"
+        onClick={onAbrir}
+      >
         <input
           type="checkbox"
           aria-label={`Marcar ${item.description}`}
-          className="h-4 w-4 shrink-0 rounded border-gray-300 disabled:opacity-30"
+          className="h-4 w-4 rounded border-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
           checked={marcado}
           disabled={!palpite.marcavel}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => onMarcar(e.target.checked)}
         />
-        <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
-          <div className="flex min-w-0 items-baseline gap-3 sm:w-1/2">
-            <span className="min-w-0 flex-1 truncate font-medium text-gray-900">{item.description}</span>
+        <div className="min-w-0 sm:contents">
+          <div className="flex min-w-0 items-baseline gap-3 sm:contents">
+            <span className="min-w-0 flex-1 truncate font-medium text-gray-900" title={item.description}>{item.description}</span>
             <span className="shrink-0 text-sm text-gray-500">{diaMes(item.date)}</span>
-            <span className="w-24 shrink-0 text-right text-sm font-medium tabular-nums text-gray-900">{valorComSinal(item.amountCents)}</span>
+            <span className="shrink-0 text-right text-sm font-medium tabular-nums text-gray-900">{valorComSinal(item.amountCents)}</span>
           </div>
-          <p className="min-w-0 truncate text-sm text-gray-600 sm:flex-1">{palpite.frase}</p>
+          <p className="min-w-0 truncate text-sm text-gray-600" title={palpite.frase}>{palpite.frase}</p>
         </div>
         <Button
           size="sm"
           variant={palpite.acao === 'escolher' ? 'outline' : 'primary'}
-          className="shrink-0"
+          className="w-24 sm:w-full"
           onClick={(e) => { e.stopPropagation(); onPalpite() }}
         >
           {palpite.botao}
