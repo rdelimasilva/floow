@@ -117,6 +117,11 @@ export const openfinanceResources = pgTable(
     detailKeys: text('detail_keys').array(),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
     /**
+     * Versão do sync que leu o histórico (`VERSAO_DO_SYNC`). Abaixo da atual,
+     * a próxima passada relê tudo para preencher campo novo nas linhas antigas.
+     */
+    syncVersion: integer('sync_version').notNull().default(0),
+    /**
      * Saldo que o BANCO informou na ultima sincronizacao, para conferir contra
      * o nosso `accounts.balance_cents`, que e derivado da soma dos lancamentos.
      *

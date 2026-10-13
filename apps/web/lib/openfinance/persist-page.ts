@@ -8,6 +8,7 @@ import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transf
 import { acharPernaPrevistaAberta } from './perna-prevista-aberta'
 import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
 import { ocuparNaFaturaFechada } from './fatura-fechada'
+import { camposDeEnriquecimento } from './releitura'
 import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, ocuparPrevisao } from './parcelas-previstas'
 
 /**
@@ -124,17 +125,8 @@ export async function persistPage(
       await db
         .update(transactions)
         .set({
-          description: tx.description,
-          categoryRef: tx.categoryRef,
-          polpType: tx.polpType,
-          payeeMcc: tx.payeeMcc,
-          cardLastDigits: tx.cardLastDigits,
-          billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
-          billForecastMonth: tx.billForecastMonth,
-          billId: tx.billId,
-          installmentNumber: tx.installmentNumber,
-          installmentTotal: tx.installmentTotal,
-          purchaseDate,
+          // Campo novo entra lá e sobe `VERSAO_DO_SYNC`: o histórico se relê.
+          ...camposDeEnriquecimento(tx),
           // Linha aplicada fica onde está aqui; a parcela aplicada é
           // corrigida logo abaixo, com o efeito no saldo.
           date: sql`CASE WHEN ${transactions.balanceApplied} THEN ${transactions.date} ELSE ${dataFinal}::date END`,

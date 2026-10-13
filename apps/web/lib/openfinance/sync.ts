@@ -23,6 +23,7 @@ import { persistPage, type Db } from './persist-page'
 import { sugerirCategoriasDaFila } from './sugestao-da-fila'
 import { sugestaoDaFilaDeps } from './sugestao-da-fila-deps'
 import { completarParcelas } from './completar-parcelas'
+import { VERSAO_DO_SYNC, precisaReler, relerHistorico } from './releitura'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarRedirecionamentos } from '@/lib/finance/polp-redirect'
 
@@ -89,6 +90,11 @@ export async function syncConnectionTransactions(
     }
 
     const contasComPernaPrevista = new Set<string>()
+
+    // Campo novo do sync chega também às linhas que a Polp não altera mais.
+    if (precisaReler(resource)) {
+      summary.updated += await relerHistorico(db, client, connection.orgId, resource.accountId, resource)
+    }
 
     // Primeira sincronização puxa tudo; as seguintes pedem só o que mudou
     // desde a última. `fromUpdatedAt` e não `fromDate` de propósito: a
@@ -192,7 +198,8 @@ export async function syncConnectionTransactions(
     if (rejectedHere === 0) {
       await db
         .update(openfinanceResources)
-        .set({ lastSyncedAt: startedAt, updatedAt: new Date() })
+        // A primeira passada já leu tudo com o sync atual.
+        .set({ lastSyncedAt: startedAt, syncVersion: VERSAO_DO_SYNC, updatedAt: new Date() })
         .where(eq(openfinanceResources.id, resource.id))
     }
   }
