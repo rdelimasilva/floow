@@ -1,3 +1,4 @@
+import type React from 'react'
 import Link from 'next/link'
 import { Button } from './button'
 import { PaginationJump } from './pagination-jump'
@@ -31,27 +32,24 @@ export function Pagination({ currentPage, totalPages, baseUrl, searchParams }: P
           totalPages={totalPages}
           hrefBase={buildUrl(currentPage)}
         />
-        {currentPage > 1 && (
-          <>
-            <Button asChild variant="outline" size="sm">
-              <Link href={buildUrl(1)}>Primeira</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href={buildUrl(currentPage - 1)}>Anterior</Link>
-            </Button>
-          </>
-        )}
-        {currentPage < totalPages && (
-          <>
-            <Button asChild variant="outline" size="sm">
-              <Link href={buildUrl(currentPage + 1)}>Próxima</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href={buildUrl(totalPages)}>Última</Link>
-            </Button>
-          </>
-        )}
+        {/* Os quatro ficam sempre no lugar; sem destino, desativam. Sumir com
+            "Próxima" na última página — onde a lista abre — parecia defeito. */}
+        <NavButton href={buildUrl(1)} disabled={currentPage <= 1}>Primeira</NavButton>
+        <NavButton href={buildUrl(currentPage - 1)} disabled={currentPage <= 1}>Anterior</NavButton>
+        <NavButton href={buildUrl(currentPage + 1)} disabled={currentPage >= totalPages}>Próxima</NavButton>
+        <NavButton href={buildUrl(totalPages)} disabled={currentPage >= totalPages}>Última</NavButton>
       </div>
     </div>
+  )
+}
+
+function NavButton({ href, disabled, children }: { href: string; disabled: boolean; children: React.ReactNode }) {
+  if (disabled) {
+    return <Button variant="outline" size="sm" disabled>{children}</Button>
+  }
+  return (
+    <Button asChild variant="outline" size="sm">
+      <Link href={href}>{children}</Link>
+    </Button>
   )
 }

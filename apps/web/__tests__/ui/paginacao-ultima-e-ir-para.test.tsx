@@ -42,15 +42,19 @@ describe('paginação', () => {
     expect(hrefDe('Primeira').searchParams.get('page')).toBe('1')
   })
 
-  it('nas pontas, o botão da própria ponta some', () => {
+  it('nas pontas, os botões sem destino continuam no lugar, desativados', () => {
     const { unmount } = renderPagina(12)
     expect(screen.queryByRole('link', { name: 'Última' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Próxima' })).toBeNull()
+    expect((screen.getByRole('button', { name: 'Próxima' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Última' }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByRole('link', { name: 'Primeira' })).toBeTruthy()
     unmount()
 
     renderPagina(1)
     expect(screen.queryByRole('link', { name: 'Primeira' })).toBeNull()
+    expect((screen.getByRole('button', { name: 'Anterior' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole('link', { name: 'Próxima' })).toBeTruthy()
   })
 
   it('Ir para navega à página digitada, com os filtros', () => {
