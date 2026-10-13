@@ -42,7 +42,7 @@ describe('filtros lembrados na tela de transações', () => {
   it('a pílula de período preenche os campos de data com as datas dela', async () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Último ano' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Ano passado' }))
     })
 
     const { startDate, endDate } = getPeriodDates('lastYear')
@@ -89,7 +89,7 @@ describe('filtros lembrados na tela de transações', () => {
     params = new URLSearchParams({ types: 'expense', categoryIds: 'c1', minAmount: '100', sortBy: 'amount', sortDir: 'desc' })
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Último mês' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Mês passado' }))
     })
     const url = urlDoUltimoReplace().searchParams
     expect(url.get('types')).toBe('expense')
@@ -105,9 +105,10 @@ describe('filtros lembrados na tela de transações', () => {
     expect(screen.getAllByRole('group', { name: 'Passado' }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('group', { name: 'Presente' }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('group', { name: 'Futuro' }).length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: 'Último mês' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Mês passado' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Últimos 3 meses' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Último ano' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Últimos 12 meses' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Ano passado' })).toBeTruthy()
     // O toggle de futuro continua existindo (desktop + versão mobile colapsável).
     expect(screen.getAllByRole('button', { name: 'Lançamentos futuros' }).length).toBeGreaterThan(0)
   })
@@ -115,7 +116,7 @@ describe('filtros lembrados na tela de transações', () => {
   it('a pílula de período passado também preenche os campos de data e grava relativo', async () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Último mês' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Mês passado' }))
     })
 
     const { startDate, endDate } = getPeriodDates('lastMonth')

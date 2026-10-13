@@ -12,39 +12,44 @@
 export const FILTERS_COOKIE = 'tx-filters'
 
 export type PeriodKey =
-  | 'lastMonth' | 'last3Months' | 'lastYear'
-  | 'today' | 'month' | 'quarter' | 'semester' | 'year'
-  | 'nextMonth' | 'next3Months' | 'nextSemester' | 'nextYear'
+  | 'lastMonth' | 'last3Months' | 'last12Months' | 'lastYear'
+  | 'today' | 'month' | 'year'
+  | 'nextMonth' | 'next3Months' | 'next6Months' | 'nextYear'
 
 export const PERIOD_LABELS: Record<PeriodKey, string> = {
-  lastMonth: 'Último mês',
+  lastMonth: 'Mês passado',
   last3Months: 'Últimos 3 meses',
-  lastYear: 'Último ano',
+  last12Months: 'Últimos 12 meses',
+  lastYear: 'Ano passado',
   today: 'Hoje',
   month: 'Este mês',
-  quarter: 'Este trimestre',
-  semester: 'Este semestre',
   year: 'Este ano',
   nextMonth: 'Próximo mês',
   next3Months: 'Próximos 3 meses',
-  nextSemester: 'Próximo semestre',
+  next6Months: 'Próximos 6 meses',
   nextYear: 'Próximo ano',
 }
 
 /**
- * A tela mostra os atalhos em três grupos: passado, presente e futuro. Tanto
- * os passados quanto os futuros são blocos de calendário inteiros, terminando
- * (passado) ou começando (futuro) no mês anterior/seguinte ao atual —
- * "Último ano" em outubro de 2026 é jan–dez de 2025, "Próximo semestre" em
- * setembro é jan–jun do ano seguinte —, nunca uma janela móvel a partir de hoje.
+ * A tela mostra os atalhos em três grupos: passado, presente e futuro.
+ *
+ * - "Mês passado", "Ano passado", "Próximo mês" e "Próximo ano" são blocos de
+ *   calendário inteiros: em out/2026, "Ano passado" é jan–dez de 2025.
+ * - "Últimos N meses" e "Próximos N meses" contam o mês atual e param em hoje:
+ *   em 13/10, "Últimos 3 meses" é 01/08–13/10 e "Próximos 3 meses" é 13/10–31/12.
+ *   Quem pede os últimos 3 meses quer ver o que já gastou neste mês também.
  */
 export const PERIOD_GROUPS: { label: string; keys: PeriodKey[] }[] = [
-  { label: 'Passado', keys: ['lastMonth', 'last3Months', 'lastYear'] },
-  { label: 'Presente', keys: ['today', 'month'] },
-  { label: 'Futuro', keys: ['nextMonth', 'next3Months', 'nextSemester', 'nextYear'] },
+  { label: 'Passado', keys: ['lastMonth', 'last3Months', 'last12Months', 'lastYear'] },
+  { label: 'Presente', keys: ['today', 'month', 'year'] },
+  { label: 'Futuro', keys: ['nextMonth', 'next3Months', 'next6Months', 'nextYear'] },
 ]
 
-const PERIOD_KEYS = Object.keys(PERIOD_LABELS) as PeriodKey[]
+// Ordem de desempate do `detectActivePeriod`: o presente primeiro, para que em
+// 31/12 o intervalo jan–dez acenda "Este ano" e não "Últimos 12 meses".
+const PERIOD_KEYS: PeriodKey[] = [
+  ...PERIOD_GROUPS[1].keys, ...PERIOD_GROUPS[0].keys, ...PERIOD_GROUPS[2].keys,
+]
 
 // Tudo que é recorte. `page`/`pageSize` ficam de fora de propósito.
 const FILTER_KEYS = [
@@ -69,31 +74,23 @@ export function getPeriodDates(key: PeriodKey, hoje: string = hojeEmSaoPaulo()):
     case 'lastMonth':
       return { startDate: dia(y, m - 1, 1), endDate: dia(y, m, 0) }
     case 'last3Months':
-      return { startDate: dia(y, m - 3, 1), endDate: dia(y, m, 0) }
+      return { startDate: dia(y, m - 2, 1), endDate: hoje }
+    case 'last12Months':
+      return { startDate: dia(y, m - 11, 1), endDate: hoje }
     case 'lastYear':
       return { startDate: dia(y - 1, 0, 1), endDate: dia(y - 1, 11, 31) }
     case 'today':
       return { startDate: hoje, endDate: hoje }
     case 'month':
       return { startDate: dia(y, m, 1), endDate: dia(y, m + 1, 0) }
-    case 'quarter': {
-      const q = Math.floor(m / 3)
-      return { startDate: dia(y, q * 3, 1), endDate: dia(y, q * 3 + 3, 0) }
-    }
-    case 'semester': {
-      const s = m < 6 ? 0 : 1
-      return { startDate: dia(y, s * 6, 1), endDate: dia(y, s * 6 + 6, 0) }
-    }
     case 'year':
       return { startDate: dia(y, 0, 1), endDate: dia(y, 11, 31) }
     case 'nextMonth':
       return { startDate: dia(y, m + 1, 1), endDate: dia(y, m + 2, 0) }
     case 'next3Months':
-      return { startDate: dia(y, m + 1, 1), endDate: dia(y, m + 4, 0) }
-    case 'nextSemester': {
-      const s = m < 6 ? 1 : 2
-      return { startDate: dia(y, s * 6, 1), endDate: dia(y, s * 6 + 6, 0) }
-    }
+      return { startDate: hoje, endDate: dia(y, m + 3, 0) }
+    case 'next6Months':
+      return { startDate: hoje, endDate: dia(y, m + 6, 0) }
     case 'nextYear':
       return { startDate: dia(y + 1, 0, 1), endDate: dia(y + 1, 11, 31) }
   }
