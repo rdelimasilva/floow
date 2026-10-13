@@ -45,7 +45,9 @@ async function StatsSection({ orgId }: { orgId: string }) {
 }
 
 async function ChartSection({ orgId }: { orgId: string }) {
-  const cashFlowData = await getMonthlyCashFlowSummary(orgId, 6)
+  // A consulta devolve do mais novo para o mais antigo; o gráfico lê da esquerda
+  // para a direita, como a tela Fluxo de Caixa (que ordena do mesmo jeito).
+  const cashFlowData = [...(await getMonthlyCashFlowSummary(orgId, 6))].sort((a, b) => a.month.localeCompare(b.month))
   return (
     <Card>
       <CardHeader>
