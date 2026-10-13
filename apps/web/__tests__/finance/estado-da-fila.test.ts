@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { faseDe, reduzir, soRestamPulados } from '@/components/finance/conciliar/estado-da-fila'
+import { faseDe, reduzir } from '@/components/finance/conciliar/estado-da-fila'
 
 const it_ = (id: string, p: Record<string, unknown> = {}) =>
   ({ id, candidatas: [], repetido: null, classificacao: null, ...p }) as any
@@ -16,7 +16,7 @@ describe('faseDe', () => {
 })
 
 describe('reduzir', () => {
-  const inicial = (itens: any[]) => ({ itens, pulados: [], feitos: 0 })
+  const inicial = (itens: any[]) => ({ itens, feitos: 0 })
   it('resolvido tira o item e conta feito', () => {
     const e = reduzir(inicial([it_('a'), it_('b')]), { tipo: 'resolvido', id: 'a' })
     expect(e.itens.map((i) => i.id)).toEqual(['b'])
@@ -74,19 +74,5 @@ describe('reduzir', () => {
     e = reduzir(e, { tipo: 'candidataRecusada', id: 'a', previsaoId: 'p2' })
     expect(e.itens.map((i) => i.id)).toEqual(['b'])
     expect(e.feitos).toBe(1)
-  })
-  it('lote anexado entra antes dos pulados, sem repetir quem já está e sem perder os pulados', () => {
-    let e = reduzir(inicial([it_('a', { classificacao: cls('x') })]), { tipo: 'pulado', id: 'a' })
-    e = reduzir(e, { tipo: 'loteAnexado', itens: [it_('a', { classificacao: cls('x') }), it_('b', { classificacao: cls('y') })] })
-    expect(e.itens.map((i) => i.id)).toEqual(['b', 'a'])
-    expect(e.pulados).toEqual(['a'])
-    expect(soRestamPulados(e)).toBe(false)
-  })
-  it('pular manda para o fim; só pulados → oferece revisar', () => {
-    let e = reduzir(inicial([it_('a'), it_('b')]), { tipo: 'pulado', id: 'a' })
-    expect(e.itens.map((i) => i.id)).toEqual(['b', 'a'])
-    e = reduzir(e, { tipo: 'pulado', id: 'b' })
-    expect(soRestamPulados(e)).toBe(true)
-    expect(soRestamPulados(reduzir(e, { tipo: 'revisarPulados' }))).toBe(false)
   })
 })

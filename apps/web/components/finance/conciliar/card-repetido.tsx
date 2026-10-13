@@ -3,11 +3,7 @@ import type { Repetido } from '@/lib/finance/conciliacao/fila'
 import type { LadoDaDuplicata } from '@/lib/finance/duplicata-queries'
 import { Button } from '@/components/ui/button'
 import { diaMes } from './card-conta'
-
-/** "19/09" no fuso do usuário: `importadoEm` é instante, não data. */
-function diaDaChegada(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })
-}
+import { diaDaChegada } from './palpite'
 
 /**
  * O porquê em uma frase. A prova que convence é a chegada: compra nova não
@@ -41,7 +37,7 @@ export function CardRepetido({ repetido, ocupado, onDescartar, onNaoERepetido, o
   ocupado: boolean
   onDescartar: () => void
   onNaoERepetido: () => void
-  onPular: () => void
+  onPular?: () => void
 }) {
   const { outro, este } = repetido
   return (
@@ -59,7 +55,7 @@ export function CardRepetido({ repetido, ocupado, onDescartar, onNaoERepetido, o
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" size="sm" disabled={ocupado} onClick={onDescartar}>Descartar a cópia</Button>
         <Button variant="outline" size="sm" disabled={ocupado} onClick={onNaoERepetido}>São duas compras</Button>
-        <Button variant="outline" size="sm" disabled={ocupado} onClick={onPular}>Pular</Button>
+        {onPular && <Button variant="outline" size="sm" disabled={ocupado} onClick={onPular}>Pular</Button>}
       </div>
     </div>
   )

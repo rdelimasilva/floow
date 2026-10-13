@@ -3,11 +3,10 @@ import { render, screen } from '@testing-library/react'
 import React from 'react'
 
 /**
- * O modo foco mostra um lançamento do banco por vez (spec 2026-10-01). Aqui
+ * A lista mostra uma linha por lançamento do banco (spec 2026-10-13). Aqui
  * fica o que é da página: carregar a fila, o link para Regras, `?regra=`
  * indo direto para lá e o "Tudo conciliado" quando não sobra nada. O
- * comportamento da fila em si (atalhos, fases, progresso) está em
- * fila-foco.test.tsx.
+ * comportamento da lista em si está em lista-conciliar.test.tsx.
  */
 
 const carregarFila = vi.fn()
@@ -22,10 +21,10 @@ vi.mock('@/lib/finance/queries', () => ({
   getAccounts: async () => [],
 }))
 vi.mock('next/navigation', () => ({ redirect }))
-vi.mock('@/components/finance/conciliar/fila-foco', async () => {
+vi.mock('@/components/finance/conciliar/lista-conciliar', async () => {
   const React = await import('react')
   return {
-    FilaFoco: ({ total }: { total: number }) =>
+    ListaConciliar: ({ total }: { total: number }) =>
       React.createElement('div', { 'data-testid': 'fila', 'data-total': total }),
   }
 })

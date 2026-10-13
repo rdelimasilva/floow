@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { getOrgId, getCategories, getAccounts } from '@/lib/finance/queries'
 import { carregarFila } from '@/lib/finance/conciliacao/fila-db'
 import { toCategoryOptions } from '@/lib/finance/category-options'
-import { FilaFoco } from '@/components/finance/conciliar/fila-foco'
+import { ListaConciliar } from '@/components/finance/conciliar/lista-conciliar'
 import { TudoConciliado } from '@/components/finance/conciliar/tudo-conciliado'
 import { PageHeader } from '@/components/ui/page-header'
 import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
@@ -11,8 +11,8 @@ import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 interface Props { searchParams: Promise<{ regra?: string }> }
 
 /**
- * Um lançamento do banco por vez, com tudo que se decide sobre ele (spec
- * 2026-10-01). Nada aqui tranca o app; quem traz até aqui é a faixa e o botão
+ * Uma linha por lançamento do banco, com o palpite do floow (spec
+ * 2026-10-13). Nada aqui tranca o app; quem traz até aqui é a faixa e o botão
  * de Transações, o selo da linha e o assistente de conexão.
  */
 export default async function ConciliarPage({ searchParams }: Props) {
@@ -25,14 +25,14 @@ export default async function ConciliarPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Conciliar" description="Um lançamento do banco por vez. Nada muda sem você aprovar.">
+      <PageHeader title="Conciliar" description="O que veio do banco e o que o floow acha. Nada muda sem você aprovar.">
         <Link href="/transactions/conciliar/regras" className="text-sm text-gray-600 underline">Regras</Link>
         <LinkDeAjuda topico="filas" />
       </PageHeader>
       {total === 0 ? (
         <TudoConciliado />
       ) : (
-        <FilaFoco itens={itens} total={total} categoryOptions={categoryOptions} accountOptions={accounts.map((a) => ({ id: a.id, name: a.name }))} />
+        <ListaConciliar itens={itens} total={total} categoryOptions={categoryOptions} accountOptions={accounts.map((a) => ({ id: a.id, name: a.name }))} />
       )}
     </div>
   )

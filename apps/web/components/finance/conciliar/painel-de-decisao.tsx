@@ -21,7 +21,7 @@ export function PainelDeDecisao({
   onVincular: (c: Candidata) => void
   onLancar: () => void
   onNenhum: () => void
-  onPular: () => void
+  onPular?: () => void
 }) {
   const temCandidatas = item.candidatas.length > 0
   return (
@@ -48,7 +48,7 @@ export function PainelDeDecisao({
         {!item.classificacao && temCandidatas && (
           <Button variant="outline" size="sm" disabled={ocupado} onClick={onNenhum}>Não é nenhum</Button>
         )}
-        <Button variant="outline" size="sm" disabled={ocupado} onClick={onPular}>Pular</Button>
+        {onPular && <Button variant="outline" size="sm" disabled={ocupado} onClick={onPular}>Pular</Button>}
       </div>
     </div>
   )
