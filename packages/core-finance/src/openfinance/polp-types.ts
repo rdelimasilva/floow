@@ -136,6 +136,8 @@ export interface PolpCardBill {
   due_date: string
   bill_closing_date: string
   bill_total_amount: PolpAmount
+  /** Pagamentos que o banco abateu desta fatura, inclusive os antecipados. */
+  payments?: { amount: string; currency: string; paymentDate: string }[] | null
   created_at: string
   updated_at: string
 }

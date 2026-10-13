@@ -12,7 +12,7 @@ import { normalizeBatch } from './normalize-batch'
 import type { Db } from './persist-page'
 import { carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, parcelaSemDataDaFatura } from './parcelas-previstas'
 import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
-import { completarMesDaFatura } from './mes-da-fatura'
+import { completarMesDaFatura } from './faturas-do-banco'
 
 /**
  * Releitura do histórico quando o sync passa a gravar um campo novo.

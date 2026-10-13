@@ -24,7 +24,8 @@ import { sugerirCategoriasDaFila } from './sugestao-da-fila'
 import { sugestaoDaFilaDeps } from './sugestao-da-fila-deps'
 import { completarParcelas } from './completar-parcelas'
 import { VERSAO_DO_SYNC, precisaReler, relerHistorico } from './releitura'
-import { carregarMesesDasFaturas, completarMesDaFatura } from './mes-da-fatura'
+import { carregarFaturasDoBanco, completarMesDaFatura, gravarFaturasDoBanco, mesesDasFaturas as mesesPorBill, pagamentosDoBanco } from './faturas-do-banco'
+import { reclassificarPagamentosDeFatura } from './pagamento-de-fatura'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarRedirecionamentos } from '@/lib/finance/polp-redirect'
 
@@ -83,6 +84,9 @@ export async function syncConnectionTransactions(
   ])
 
   const summary: SyncSummary = { imported: 0, updated: 0, skippedUnlinked: 0, rejected: 0, propostasDeConciliacao: 0, propostasDeDuplicata: 0 }
+  // Cartão → pagamentos que o banco abateu, para reconhecer o antecipado
+  // depois que todas as contas da conexão tiverem entrado.
+  const pagamentosPorCartao = new Map<string, ReturnType<typeof pagamentosDoBanco>>()
 
   for (const resource of recursosDeConta(resources)) {
     if (!resource.accountId) {
@@ -93,7 +97,12 @@ export async function syncConnectionTransactions(
     const contasComPernaPrevista = new Set<string>()
 
     const isCard = resource.resourceType === 'CREDIT_CARD_ACCOUNT'
-    const mesesDasFaturas = isCard ? await carregarMesesDasFaturas(client, resource.polpResourceId) : new Map<string, string>()
+    const faturas = isCard ? await carregarFaturasDoBanco(client, resource.polpResourceId) : []
+    const mesesDasFaturas = mesesPorBill(faturas)
+    if (isCard) {
+      await gravarFaturasDoBanco(db, connection.orgId, resource.accountId, faturas)
+      pagamentosPorCartao.set(resource.accountId, pagamentosDoBanco(faturas))
+    }
 
     // Campo novo do sync chega também às linhas que a Polp não altera mais.
     if (precisaReler(resource)) {
@@ -205,6 +214,17 @@ export async function syncConnectionTransactions(
         // A primeira passada já leu tudo com o sync atual.
         .set({ lastSyncedAt: startedAt, syncVersion: VERSAO_DO_SYNC, updatedAt: new Date() })
         .where(eq(openfinanceResources.id, resource.id))
+    }
+  }
+
+  // Pagamento antecipado no cartão: a saída da conta corrente pode ter
+  // entrado nesta mesma passada, depois do cartão. Falha aqui não derruba o
+  // sync — o crédito fica como estava e a próxima passada tenta de novo.
+  for (const [accountId, pagamentos] of pagamentosPorCartao) {
+    try {
+      await reclassificarPagamentosDeFatura(db, connection.orgId, accountId, pagamentos)
+    } catch (error) {
+      console.error('[sync] falha ao reconhecer pagamento de fatura:', error)
     }
   }
 

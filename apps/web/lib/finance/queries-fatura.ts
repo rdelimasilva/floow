@@ -1,4 +1,4 @@
-import { transactions } from '@floow/db'
+import { faturasDoBanco, transactions } from '@floow/db'
 import { withUserDb } from '@/lib/db/rls'
 import { and, eq, gte, inArray, lte } from 'drizzle-orm'
 import { fechamentoNoMes, totaisPorFatura, vencimentoDaFatura } from '@floow/core-finance/src/fatura'
@@ -71,6 +71,17 @@ export async function getFaturasDoExtrato(
       lte(transactions.date, new Date(`${ate}T00:00:00Z`)),
     )))
 
+  // Fatura fechada vale o total que o banco informou (`totaisPorFatura`).
+  const doBanco = await withUserDb((db) => db
+    .select({
+      accountId: faturasDoBanco.accountId,
+      fechamento: faturasDoBanco.fechamento,
+      vencimento: faturasDoBanco.vencimento,
+      totalCents: faturasDoBanco.totalCents,
+    })
+    .from(faturasDoBanco)
+    .where(and(eq(faturasDoBanco.orgId, orgId), inArray(faturasDoBanco.accountId, cartoes.map((c) => c.id)))))
+
   // Previsão vencida sem confirmação sai da soma (`entraNaFatura`).
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   return cartoes.flatMap((c) => {
@@ -84,7 +95,7 @@ export async function getFaturasDoExtrato(
           ehPrevisao: l.recurringTemplateId != null || l.isInstallmentForecast,
         })),
       c.closingDay,
-      { dueDay: c.dueDay, hoje },
+      { dueDay: c.dueDay, hoje, faturasDoBanco: doBanco.filter((f) => f.accountId === c.id) },
     )
     return c.fechamentos.map((fechamento) => ({
       accountId: c.id,
