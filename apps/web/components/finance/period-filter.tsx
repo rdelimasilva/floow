@@ -64,7 +64,7 @@ export function PeriodFilter({ active, custom, onChange }: PeriodFilterProps) {
       </button>
 
       {open && (
-        <div className="absolute left-0 z-20 mt-1 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+        <div className="absolute left-0 z-20 mt-1 w-[34rem] rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
           <button
             type="button"
             onClick={() => escolher(null)}
@@ -77,7 +77,7 @@ export function PeriodFilter({ active, custom, onChange }: PeriodFilterProps) {
           <div className="my-1 h-px bg-gray-100" />
           <div className="grid grid-cols-3 gap-2">
             {PERIOD_GROUPS.map((group) => (
-              <div key={group.label} role="group" aria-label={group.label} className="w-40">
+              <div key={group.label} role="group" aria-label={group.label} className="min-w-0">
                 <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">
                   {group.label}
                 </p>
@@ -88,7 +88,7 @@ export function PeriodFilter({ active, custom, onChange }: PeriodFilterProps) {
                     aria-pressed={active === key}
                     onClick={() => escolher(active === key ? null : key)}
                     title={active === key ? 'Clique para remover este período' : undefined}
-                    className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm ${
+                    className={`flex w-full items-center justify-between whitespace-nowrap rounded px-2 py-1.5 text-left text-sm ${
                       active === key ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
