@@ -128,6 +128,18 @@ export interface PolpCardTransaction {
   updated_at: string
 }
 
+/** GET /credit-cards/{creditCard}/bills — faturas já fechadas do cartão. */
+export interface PolpCardBill {
+  id: string
+  credit_card_id: string
+  /** Meia-noite de São Paulo em UTC: '2026-10-16T03:00:00.000000Z'. */
+  due_date: string
+  bill_closing_date: string
+  bill_total_amount: PolpAmount
+  created_at: string
+  updated_at: string
+}
+
 /** Envelope de listagem paginada por cursor (500 itens por página). */
 export interface PolpPage<T> {
   data: T[]

@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { openfinanceResources, transactions } from '@floow/db'
 import {
   normalizeAccountTransaction,
@@ -10,6 +10,9 @@ import {
 } from '@floow/core-finance'
 import { normalizeBatch } from './normalize-batch'
 import type { Db } from './persist-page'
+import { carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo } from './parcelas-previstas'
+import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
+import { completarMesDaFatura } from './mes-da-fatura'
 
 /**
  * Releitura do histórico quando o sync passa a gravar um campo novo.
@@ -24,11 +27,13 @@ import type { Db } from './persist-page'
  * Cada recurso guarda a versão do sync que o leu. Abaixo da atual, a próxima
  * passada relê o histórico inteiro uma vez e atualiza só o enriquecimento das
  * linhas que já existem: não insere (não ressuscita o que o usuário apagou)
- * nem mexe em valor, data ou saldo.
+ * nem mexe em valor. A data só muda na parcela, pelo mesmo caminho do sync
+ * normal, que acerta o saldo junto (`corrigirDataDaParcelaAplicada`).
  *
  * Campo novo no sync: entra em `camposDeEnriquecimento` e sobe a versão.
  */
-export const VERSAO_DO_SYNC = 1 // 1: bill_id
+// 1: bill_id. 2: mês da fatura pelo bill_id na parcela que chega sem data.
+export const VERSAO_DO_SYNC = 2
 
 type Enriquecivel = Pick<
   NormalizedPolpTransaction,
@@ -87,6 +92,7 @@ export async function relerHistorico(
   orgId: string,
   accountId: string,
   recurso: RecursoLido,
+  mesesDasFaturas: ReadonlyMap<string, string> = new Map(),
 ): Promise<number> {
   const isCard = recurso.resourceType === 'CREDIT_CARD_ACCOUNT'
   // Mesmo corte da primeira sincronização: antes dele a conta tem outra origem.
@@ -95,6 +101,8 @@ export async function relerHistorico(
     ? client.streamCardTransactions(recurso.polpResourceId, query)
     : client.streamAccountTransactions(recurso.polpResourceId, query)
 
+  const hoje = hojeEmSaoPaulo()
+  const diaDeVencimento = isCard ? await carregarDiaDeVencimento(db, orgId, accountId) : null
   let atualizadas = 0
   for await (const page of pages as AsyncGenerator<unknown[]>) {
     const { ok } = normalizeBatch(page, (tx) =>
@@ -102,10 +110,18 @@ export async function relerHistorico(
         ? normalizeCardTransaction(tx as PolpCardTransaction)
         : normalizeAccountTransaction(tx as PolpAccountTransaction),
     )
-    for (const tx of ok) {
+    for (const recebida of ok) {
+      const tx = completarMesDaFatura(recebida, mesesDasFaturas)
+      const ehParcela = tx.purchaseDate != null
+      const dataFinal = dataFinalDaParcela(tx, diaDeVencimento)
       const linhas = await db
         .update(transactions)
-        .set(camposDeEnriquecimento(tx))
+        .set({
+          ...camposDeEnriquecimento(tx),
+          // Parcela fora do saldo vai direto para a data certa; a aplicada,
+          // logo abaixo, com o saldo junto.
+          ...(ehParcela ? { date: sql`CASE WHEN ${transactions.balanceApplied} THEN ${transactions.date} ELSE ${dataFinal}::date END` } : {}),
+        })
         .where(and(
           eq(transactions.orgId, orgId),
           eq(transactions.accountId, accountId),
@@ -113,6 +129,9 @@ export async function relerHistorico(
         ))
         .returning({ id: transactions.id })
       atualizadas += linhas.length
+      if (ehParcela && linhas[0] && (tx.billPostDate || tx.billForecastMonth)) {
+        await corrigirDataDaParcelaAplicada(db, { orgId, accountId, transactionId: linhas[0].id, dataFinal, hoje })
+      }
     }
   }
 

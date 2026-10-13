@@ -24,6 +24,7 @@ import { sugerirCategoriasDaFila } from './sugestao-da-fila'
 import { sugestaoDaFilaDeps } from './sugestao-da-fila-deps'
 import { completarParcelas } from './completar-parcelas'
 import { VERSAO_DO_SYNC, precisaReler, relerHistorico } from './releitura'
+import { carregarMesesDasFaturas, completarMesDaFatura } from './mes-da-fatura'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarRedirecionamentos } from '@/lib/finance/polp-redirect'
 
@@ -91,9 +92,12 @@ export async function syncConnectionTransactions(
 
     const contasComPernaPrevista = new Set<string>()
 
+    const isCard = resource.resourceType === 'CREDIT_CARD_ACCOUNT'
+    const mesesDasFaturas = isCard ? await carregarMesesDasFaturas(client, resource.polpResourceId) : new Map<string, string>()
+
     // Campo novo do sync chega também às linhas que a Polp não altera mais.
     if (precisaReler(resource)) {
-      summary.updated += await relerHistorico(db, client, connection.orgId, resource.accountId, resource)
+      summary.updated += await relerHistorico(db, client, connection.orgId, resource.accountId, resource, mesesDasFaturas)
     }
 
     // Primeira sincronização puxa tudo; as seguintes pedem só o que mudou
@@ -110,7 +114,6 @@ export async function syncConnectionTransactions(
         : {}
 
     const startedAt = new Date()
-    const isCard = resource.resourceType === 'CREDIT_CARD_ACCOUNT'
     const pages = isCard
       ? client.streamCardTransactions(resource.polpResourceId, query)
       : client.streamAccountTransactions(resource.polpResourceId, query)
@@ -138,7 +141,8 @@ export async function syncConnectionTransactions(
       // paralelo, ou as duas tentam criar a linha ao mesmo tempo.
       const resolved = []
       for (const tx of ok) {
-        resolved.push(await resolveCounterparty(db, connection.orgId, resource.accountId, tx, counterpartyIndex))
+        const comMes = completarMesDaFatura(tx, mesesDasFaturas)
+        resolved.push(await resolveCounterparty(db, connection.orgId, resource.accountId, comMes, counterpartyIndex))
       }
 
       const result = await persistPage(db, {

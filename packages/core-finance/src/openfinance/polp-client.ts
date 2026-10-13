@@ -19,6 +19,7 @@
  */
 import type {
   PolpAccountTransaction,
+  PolpCardBill,
   PolpCardTransaction,
   PolpConsent,
   PolpInstitution,
@@ -140,6 +141,8 @@ export interface PolpClient {
   /** Páginas de 500 itens, buscadas sob demanda. */
   streamAccountTransactions(accountId: string, query?: TransactionQuery): AsyncGenerator<PolpAccountTransaction[]>
   streamCardTransactions(creditCardId: string, query?: TransactionQuery): AsyncGenerator<PolpCardTransaction[]>
+  /** Faturas fechadas do cartão, com vencimento e total que o banco informa. */
+  listCardBills(creditCardId: string): Promise<PolpCardBill[]>
   /** Investimentos do consentimento, com `balance` embutido. Páginas de 15. */
   streamInvestments(consentId: string, kind: PolpInvestmentKind): AsyncGenerator<unknown[]>
   /** Movimentações de um investimento. Páginas de 500. */
@@ -336,6 +339,10 @@ export function createPolpClient(config: PolpClientConfig): PolpClient {
       return paginate<PolpCardTransaction>(`/credit-cards/${encodeURIComponent(creditCardId)}/transactions`, {
         ...query,
       })
+    },
+
+    listCardBills(creditCardId) {
+      return collect<PolpCardBill>(`/credit-cards/${encodeURIComponent(creditCardId)}/bills`)
     },
 
     async *streamInvestments(consentId, kind) {

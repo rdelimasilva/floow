@@ -4,6 +4,8 @@ vi.mock('drizzle-orm', async (orig) => ({
   eq: (_col: unknown, valor: unknown) => valor,
   and: (...partes: unknown[]) => partes,
 }))
+const { corrigir } = vi.hoisted(() => ({ corrigir: vi.fn(async (..._a: unknown[]) => 'saiu_do_saldo') }))
+vi.mock('@/lib/openfinance/parcela-aplicada', () => ({ corrigirDataDaParcelaAplicada: corrigir }))
 
 import { VERSAO_DO_SYNC, precisaReler, relerHistorico } from '@/lib/openfinance/releitura'
 
@@ -53,6 +55,12 @@ function montar(paginas: unknown[][], existentes: Set<string>) {
       return u
     },
     insert: () => { throw new Error('releitura não insere') },
+    // Dia de vencimento cadastrado no cartão.
+    select: () => {
+      const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve([{ dueDay: 15 }]).then(r) }
+      for (const m of ['from', 'where', 'limit']) c[m] = () => c
+      return c
+    },
   }
   const client: any = {
     async *streamCardTransactions(_id: string, q: unknown) { queries.push(q); for (const p of paginas) yield p },
@@ -121,5 +129,49 @@ describe('relerHistorico', () => {
     const { db, client } = montar([[{ lixo: true }, polpTx()]], new Set(['01a0870d-aaaa']))
 
     expect(await relerHistorico(db, client, 'org', 'conta', recurso)).toBe(1)
+  })
+})
+
+describe('parcela que chega sem data, só com o bill_id', () => {
+  // Airbnb 3/6: bill_post_date igual à compra (falsa) e sem mês previsto.
+  const airbnb = polpTx({
+    id: '01a0870d-airbnb',
+    transaction_name: 'AIRBNB * HMR5PP9B903/06',
+    transaction_date_time: '2026-07-27T16:12:30.000Z',
+    bill_post_date: '2026-07-27',
+    bill_forecast_date: null,
+    bill_id: '01a13333-b1c6-738a-a903-410d2753f7b7',
+    payment_type: 'A_PRAZO',
+    charge_identificator: 3,
+    charge_number: 6,
+  })
+  const meses = new Map([['01a13333-b1c6-738a-a903-410d2753f7b7', '2026-10']])
+
+  it('vai para o vencimento da fatura do bill_id, não para o dia da compra', async () => {
+    corrigir.mockClear()
+    const { db, client, updates } = montar([[airbnb]], new Set(['01a0870d-airbnb']))
+
+    await relerHistorico(db, client, 'org', 'conta', recurso, meses)
+
+    expect(updates[0].set.billForecastMonth).toBe('2026-10')
+    expect(corrigir).toHaveBeenCalledWith(db, expect.objectContaining({ transactionId: 'x', dataFinal: '2026-10-15' }))
+  })
+
+  it('sem a fatura na Polp, a data fica como está', async () => {
+    corrigir.mockClear()
+    const { db, client, updates } = montar([[airbnb]], new Set(['01a0870d-airbnb']))
+
+    await relerHistorico(db, client, 'org', 'conta', recurso, new Map())
+
+    expect(updates[0].set.billForecastMonth).toBeNull()
+    expect(corrigir).not.toHaveBeenCalled()
+  })
+
+  it('compra à vista não tem a data mexida', async () => {
+    const { db, client, updates } = montar([[polpTx()]], new Set(['01a0870d-aaaa']))
+
+    await relerHistorico(db, client, 'org', 'conta', recurso, meses)
+
+    expect(updates[0].set).not.toHaveProperty('date')
   })
 })
