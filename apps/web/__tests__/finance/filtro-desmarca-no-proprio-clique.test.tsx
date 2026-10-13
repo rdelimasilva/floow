@@ -48,6 +48,7 @@ describe('filtros de transações', () => {
     })
 
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
+    fireEvent.click(screen.getByRole('button', { name: 'Período: Este mês' }))
     expect(screen.getByRole('button', { name: 'Este mês' }).getAttribute('aria-pressed')).toBe('true')
 
     await clicar('Este mês')
@@ -90,7 +91,6 @@ describe('filtros de transações', () => {
   it('o toggle do futuro se chama "Lançamentos futuros"', () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
 
-    // Um no painel do celular, outro na linha de pílulas do desktop; o CSS mostra um só.
     expect(screen.getAllByRole('button', { name: 'Lançamentos futuros' }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /previs/i })).toBeNull()
   })

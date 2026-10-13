@@ -29,6 +29,13 @@ const cookieSalvo = () => {
   const m = document.cookie.match(new RegExp(`(?:^|; )${FILTERS_COOKIE}=([^;]*)`))
   return m ? new URLSearchParams(decodeURIComponent(m[1])) : null
 }
+/** No desktop os atalhos ficam atrás do botão "Período: …". */
+const escolherPeriodo = async (nome: string) => {
+  fireEvent.click(screen.getByRole('button', { name: /^Período:/ }))
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: nome }))
+  })
+}
 const dataInicial = () => (screen.getByLabelText('Data inicial') as HTMLInputElement).value
 const dataFinal = () => (screen.getByLabelText('Data final') as HTMLInputElement).value
 
@@ -41,9 +48,7 @@ beforeEach(() => {
 describe('filtros lembrados na tela de transações', () => {
   it('a pílula de período preenche os campos de data com as datas dela', async () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Ano passado' }))
-    })
+    await escolherPeriodo('Ano passado')
 
     const { startDate, endDate } = getPeriodDates('lastYear')
     expect(dataInicial()).toBe(startDate)
@@ -70,9 +75,7 @@ describe('filtros lembrados na tela de transações', () => {
 
   it('grava a seleção no cookie antes de navegar, com o período como relativo', async () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Este mês' }))
-    })
+    await escolherPeriodo('Este mês')
     expect(cookieSalvo()?.get('period')).toBe('month')
   })
 
@@ -88,9 +91,7 @@ describe('filtros lembrados na tela de transações', () => {
   it('trocar o período não leva embora filtros de coluna nem a ordenação', async () => {
     params = new URLSearchParams({ types: 'expense', categoryIds: 'c1', minAmount: '100', sortBy: 'amount', sortDir: 'desc' })
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Mês passado' }))
-    })
+    await escolherPeriodo('Mês passado')
     const url = urlDoUltimoReplace().searchParams
     expect(url.get('types')).toBe('expense')
     expect(url.get('categoryIds')).toBe('c1')
@@ -105,6 +106,7 @@ describe('filtros lembrados na tela de transações', () => {
     expect(screen.getAllByRole('group', { name: 'Passado' }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('group', { name: 'Presente' }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('group', { name: 'Futuro' }).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: /^Período:/ }))
     expect(screen.getByRole('button', { name: 'Mês passado' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Últimos 3 meses' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Últimos 12 meses' })).toBeTruthy()
@@ -115,9 +117,7 @@ describe('filtros lembrados na tela de transações', () => {
 
   it('a pílula de período passado também preenche os campos de data e grava relativo', async () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter />)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Mês passado' }))
-    })
+    await escolherPeriodo('Mês passado')
 
     const { startDate, endDate } = getPeriodDates('lastMonth')
     expect(dataInicial()).toBe(startDate)
@@ -127,9 +127,7 @@ describe('filtros lembrados na tela de transações', () => {
 
   it('a página da conta não mexe na memória da tela de transações', async () => {
     render(<TransactionFilters accounts={[]} hideAccountFilter baseUrl="/accounts/acc-1" />)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Este mês' }))
-    })
+    await escolherPeriodo('Este mês')
     expect(cookieSalvo()).toBeNull()
   })
 })
