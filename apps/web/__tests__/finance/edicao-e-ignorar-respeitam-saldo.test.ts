@@ -172,6 +172,12 @@ describe('updateTransaction e o saldo', () => {
     expect(updateDaLinha().balanceApplied).toBe(true)
   })
 
+  it('lançamento ignorado editado não mexe no saldo: já está fora dele', async () => {
+    await editar({ ...LINHA, externalId: 'polp-1', balanceApplied: true, isIgnored: true }, '2026-01-10')
+
+    expect(updatesEmContas()).toEqual([])
+  })
+
   describe('linha que aguarda o extrato', () => {
     const AGUARDANDO = { ...LINHA, balanceApplied: false, aguardaExtrato: true, origem: 'manual' }
 

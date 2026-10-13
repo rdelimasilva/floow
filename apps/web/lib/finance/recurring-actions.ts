@@ -298,6 +298,7 @@ export async function deleteRecurringTemplate(formData: FormData) {
         accountId: transactions.accountId,
         amountCents: transactions.amountCents,
         balanceApplied: transactions.balanceApplied,
+        isIgnored: transactions.isIgnored,
       })
       .from(transactions)
       .where(and(eq(transactions.orgId, orgId), eq(transactions.recurringTemplateId, id)))
@@ -305,7 +306,8 @@ export async function deleteRecurringTemplate(formData: FormData) {
     // Aggregate applied amount per account (signed amount already on row)
     const reversalByAccount = new Map<string, number>()
     for (const row of linked) {
-      if (row.balanceApplied) {
+      // Ignorado já saiu do saldo quando foi marcado.
+      if (row.balanceApplied && !row.isIgnored) {
         reversalByAccount.set(
           row.accountId,
           (reversalByAccount.get(row.accountId) ?? 0) + row.amountCents,

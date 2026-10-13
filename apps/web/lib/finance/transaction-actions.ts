@@ -19,6 +19,16 @@ import {
 type Db = ReturnType<typeof getDb>
 
 /**
+ * O lançamento está no saldo da conta: aplicado e não ignorado. Ignorado já
+ * saiu do saldo quando foi marcado (`toggleIgnoreTransaction`); excluí-lo e
+ * estornar de novo tirava o valor duas vezes (perna do pagamento de setembro
+ * do Master Black, excluída ignorada em 13/10: -R$ 11.685,40 no cartão).
+ */
+function estaNoSaldo(l: { balanceApplied: boolean; isIgnored: boolean }): boolean {
+  return l.balanceApplied && !l.isIgnored
+}
+
+/**
  * Server action: delete a transaction and reverse its balance impact.
  * For transfers, deletes both legs and reverses both balance changes.
  * Wrapped in a db.transaction for atomicity.
@@ -49,8 +59,8 @@ export async function deleteTransaction(formData: FormData) {
         // Perna que o extrato da outra conta absorveu: sem o par, o extrato
         // não pode seguir como transferência para cá.
         await devolverExtratoAbsorvido(dbTx as unknown as Db, orgId, leg)
-        // Only reverse balance if it was already applied
-        if (leg.balanceApplied) {
+        // Só estorna o que está no saldo.
+        if (estaNoSaldo(leg)) {
           await dbTx
             .update(accounts)
             .set({ balanceCents: sql`balance_cents + ${-leg.amountCents}` })
@@ -64,8 +74,8 @@ export async function deleteTransaction(formData: FormData) {
     } else {
       // Manual/arquivo absorvido pelo extrato: o extrato volta a pendente.
       await devolverExtratoAbsorvido(dbTx as unknown as Db, orgId, tx)
-      // Only reverse balance if it was already applied
-      if (tx.balanceApplied) {
+      // Só estorna o que está no saldo.
+      if (estaNoSaldo(tx)) {
         await dbTx
           .update(accounts)
           .set({ balanceCents: sql`balance_cents + ${-tx.amountCents}` })
@@ -190,8 +200,8 @@ export async function updateTransaction(formData: FormData) {
       await assertAccountOwnership(tx as unknown as Db, input.destAccountId!, orgId)
     }
 
-    // Reverse old balance impact only if it was applied
-    if (oldTx.balanceApplied) {
+    // Desfaz o valor antigo só se ele estava no saldo.
+    if (estaNoSaldo(oldTx)) {
       await tx
         .update(accounts)
         .set({ balanceCents: sql`balance_cents + ${-oldTx.amountCents}` })
@@ -210,7 +220,9 @@ export async function updateTransaction(formData: FormData) {
     const aguardaOrigem = await aguardaExtratoNaConta(tx as unknown as Db, orgId, input.accountId, oldTx.origem, dataEditada)
     const balanceAppliedValue = deveAplicarSaldoNaEdicao({ ...oldTx, aguardaExtrato: aguardaOrigem }, dataEditada, hoje)
 
-    if (balanceAppliedValue) {
+    // Ignorado continua fora do saldo; `balanceApplied` fica gravado para
+    // quando o usuário deixar de ignorar.
+    if (balanceAppliedValue && !oldTx.isIgnored) {
       await tx
         .update(accounts)
         .set({ balanceCents: sql`balance_cents + ${newSignedAmount}` })
@@ -326,7 +338,7 @@ export async function bulkDeleteTransactions(ids: string[]) {
         .where(and(eq(transactions.transferGroupId, groupId), eq(transactions.orgId, orgId)))
 
       for (const leg of legs) {
-        if (leg.balanceApplied) {
+        if (estaNoSaldo(leg)) {
           await dbTx.update(accounts)
             .set({ balanceCents: sql`balance_cents + ${-leg.amountCents}` })
             .where(eq(accounts.id, leg.accountId))
@@ -339,7 +351,7 @@ export async function bulkDeleteTransactions(ids: string[]) {
 
     // Handle standalone transactions
     if (standaloneIds.length > 0) {
-      const standalone = txRows.filter((t) => !t.transferGroupId && t.balanceApplied)
+      const standalone = txRows.filter((t) => !t.transferGroupId && estaNoSaldo(t))
       // Reverse balances grouped by account
       const deltaByAccount = new Map<string, number>()
       for (const t of standalone) {
