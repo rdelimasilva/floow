@@ -10,7 +10,7 @@ import {
 } from '@floow/core-finance'
 import { normalizeBatch } from './normalize-batch'
 import type { Db } from './persist-page'
-import { carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo } from './parcelas-previstas'
+import { carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, parcelaSemDataDaFatura } from './parcelas-previstas'
 import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
 import { completarMesDaFatura } from './mes-da-fatura'
 
@@ -112,7 +112,8 @@ export async function relerHistorico(
     )
     for (const recebida of ok) {
       const tx = completarMesDaFatura(recebida, mesesDasFaturas)
-      const ehParcela = tx.purchaseDate != null
+      // Só parcela com data da fatura muda de data; sem ela, a gravada fica.
+      const ehParcela = tx.purchaseDate != null && !parcelaSemDataDaFatura(tx)
       const dataFinal = dataFinalDaParcela(tx, diaDeVencimento)
       const linhas = await db
         .update(transactions)
@@ -129,7 +130,7 @@ export async function relerHistorico(
         ))
         .returning({ id: transactions.id })
       atualizadas += linhas.length
-      if (ehParcela && linhas[0] && (tx.billPostDate || tx.billForecastMonth)) {
+      if (ehParcela && linhas[0]) {
         await corrigirDataDaParcelaAplicada(db, { orgId, accountId, transactionId: linhas[0].id, dataFinal, hoje })
       }
     }

@@ -164,6 +164,8 @@ describe('parcela que chega sem data, só com o bill_id', () => {
     await relerHistorico(db, client, 'org', 'conta', recurso, new Map())
 
     expect(updates[0].set.billForecastMonth).toBeNull()
+    // A data gravada pode ser a da previsão ocupada: a da compra não a troca.
+    expect(updates[0].set).not.toHaveProperty('date')
     expect(corrigir).not.toHaveBeenCalled()
   })
 

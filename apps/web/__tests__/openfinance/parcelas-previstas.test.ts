@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { accounts, transactions } from '@floow/db'
-import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, ocuparPrevisao } from '@/lib/openfinance/parcelas-previstas'
+import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataDaOcupacao, dataFinalDaParcela, ocuparPrevisao, parcelaSemDataDaFatura } from '@/lib/openfinance/parcelas-previstas'
 
 const dialect = new PgDialect()
 
@@ -171,7 +171,7 @@ describe('acharPrevisao', () => {
       amountCents: -28000,
     })
 
-    expect(id).toBe('previsao-b')
+    expect(id?.id).toBe('previsao-b')
     const { sql: sqlGerado, params } = dialect.sqlToQuery(ordem as never)
     expect(sqlGerado.toLowerCase()).toMatch(/abs\("transactions"\."amount_cents" - \$1\)/)
     expect(params).toEqual([-28000])
@@ -190,5 +190,40 @@ describe('carregarDiaDeVencimento', () => {
   })
   it('sem cadastro, não inventa um dia', async () => {
     expect(await carregarDiaDeVencimento(dbCom([{ dueDay: null }]), 'org-1', 'cartao')).toBeNull()
+  })
+})
+
+describe('dataDaOcupacao', () => {
+  // Airbnb 3/6: a previsão estava em 16/10; a real chegou sem fatura nem mês
+  // e com a data da compra, 27/07, e levou a linha para julho.
+  const semData = { date: '2026-07-27', billPostDate: null, billForecastMonth: null }
+
+  it('parcela real sem fatura nem mês fica na data da previsão', () => {
+    expect(dataDaOcupacao(semData, '2026-10-16')).toBe('2026-10-16')
+  })
+
+  it('com mês previsto, vale a data calculada da real', () => {
+    expect(dataDaOcupacao({ ...semData, date: '2026-10-15', billForecastMonth: '2026-10' }, '2026-10-16')).toBe('2026-10-15')
+  })
+
+  it('com fatura fechada, vale a data da fatura', () => {
+    expect(dataDaOcupacao({ ...semData, date: '2026-10-09', billPostDate: '2026-10-09' }, '2026-10-16')).toBe('2026-10-09')
+  })
+
+  it('previsão sem data conhecida não muda nada', () => {
+    expect(dataDaOcupacao(semData, null)).toBe('2026-07-27')
+  })
+})
+
+describe('parcelaSemDataDaFatura', () => {
+  it('parcela sem fatura nem mês não tem data confiável', () => {
+    expect(parcelaSemDataDaFatura({ purchaseDate: '2026-07-27', billPostDate: null, billForecastMonth: null })).toBe(true)
+  })
+  it('com fatura ou mês, tem', () => {
+    expect(parcelaSemDataDaFatura({ purchaseDate: '2026-07-27', billPostDate: '2026-10-09', billForecastMonth: null })).toBe(false)
+    expect(parcelaSemDataDaFatura({ purchaseDate: '2026-07-27', billPostDate: null, billForecastMonth: '2026-10' })).toBe(false)
+  })
+  it('compra à vista não é parcela', () => {
+    expect(parcelaSemDataDaFatura({ purchaseDate: null, billPostDate: null, billForecastMonth: null })).toBe(false)
   })
 })

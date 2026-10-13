@@ -31,6 +31,31 @@ export function hojeEmSaoPaulo(agora: Date = new Date()): string {
 }
 
 /**
+ * Parcela cuja data é só a da compra: nem fatura, nem mês previsto. A data
+ * que ela traz não vale mais que a gravada (que pode ser a da previsão).
+ */
+export function parcelaSemDataDaFatura(
+  tx: { purchaseDate: string | null; billPostDate: string | null; billForecastMonth: string | null },
+): boolean {
+  return tx.purchaseDate != null && !tx.billPostDate && !tx.billForecastMonth
+}
+
+/**
+ * A data da linha quando a parcela real ocupa a previsão.
+ *
+ * Sem fatura nem mês previsto, a data da real é só a da compra: o Airbnb 3/6
+ * levou a previsão de 16/10 para 27/07. A previsão já estava no vencimento
+ * certo, então fica a dela.
+ */
+export function dataDaOcupacao(
+  real: { date: string; billPostDate: string | null; billForecastMonth: string | null },
+  dataDaPrevisao: string | null,
+): string {
+  if (real.billPostDate || real.billForecastMonth || !dataDaPrevisao) return real.date
+  return dataDaPrevisao
+}
+
+/**
  * O que muda na linha da previsão quando a parcela real chega. A categoria
  * só vem se a real trouxer uma — a da previsão pode ter sido escolhida pelo
  * usuário.
@@ -76,11 +101,11 @@ export async function acharPrevisao(
   orgId: string,
   accountId: string,
   chave: { purchaseDate: string; installmentTotal: number; installmentNumber: number; amountCents: number },
-): Promise<string | null> {
+): Promise<{ id: string; date: string | null } | null> {
   // Duas compras no mesmo dia com o mesmo total de parcelas dividem a chave;
   // a previsão de valor mais próximo do real é a da mesma compra.
   const [row] = await db
-    .select({ id: transactions.id })
+    .select({ id: transactions.id, date: transactions.date })
     .from(transactions)
     .where(
       and(
@@ -94,7 +119,8 @@ export async function acharPrevisao(
     )
     .orderBy(sql`abs(${transactions.amountCents} - ${chave.amountCents})`)
     .limit(1)
-  return row?.id ?? null
+  if (!row) return null
+  return { id: row.id, date: row.date ? row.date.toISOString().slice(0, 10) : null }
 }
 
 /**

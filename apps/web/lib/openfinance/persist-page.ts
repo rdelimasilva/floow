@@ -9,7 +9,7 @@ import { acharPernaPrevistaAberta } from './perna-prevista-aberta'
 import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
 import { ocuparNaFaturaFechada } from './fatura-fechada'
 import { camposDeEnriquecimento } from './releitura'
-import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, ocuparPrevisao } from './parcelas-previstas'
+import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataDaOcupacao, dataFinalDaParcela, hojeEmSaoPaulo, ocuparPrevisao, parcelaSemDataDaFatura } from './parcelas-previstas'
 
 /**
  * Gravação de uma página de transações já normalizadas e resolvidas.
@@ -128,8 +128,11 @@ export async function persistPage(
           // Campo novo entra lá e sobe `VERSAO_DO_SYNC`: o histórico se relê.
           ...camposDeEnriquecimento(tx),
           // Linha aplicada fica onde está aqui; a parcela aplicada é
-          // corrigida logo abaixo, com o efeito no saldo.
-          date: sql`CASE WHEN ${transactions.balanceApplied} THEN ${transactions.date} ELSE ${dataFinal}::date END`,
+          // corrigida logo abaixo, com o efeito no saldo. Parcela sem data
+          // da fatura não troca a gravada pela da compra.
+          ...(parcelaSemDataDaFatura(tx)
+            ? {}
+            : { date: sql`CASE WHEN ${transactions.balanceApplied} THEN ${transactions.date} ELSE ${dataFinal}::date END` }),
           // Categoria manual do usuário nunca é sobrescrita (mesma regra da
           // v1.1), e transferência nunca tem categoria — inclusive a ponta
           // real que a conciliação converteu em transferência.
@@ -185,21 +188,22 @@ export async function persistPage(
     // cai para o insert normal, que o índice único (external_id, account_id)
     // protege contra duplicar.
     if (tx.purchaseDate && tx.installmentTotal && tx.installmentNumber) {
-      const previsaoId = await acharPrevisao(db, input.orgId, input.accountId, {
+      const previsao = await acharPrevisao(db, input.orgId, input.accountId, {
         purchaseDate: tx.purchaseDate,
         installmentTotal: tx.installmentTotal,
         installmentNumber: tx.installmentNumber,
         amountCents: tx.amountCents,
       })
-      if (previsaoId) {
+      if (previsao) {
+        const date = dataDaOcupacao({ ...tx, date: dataFinal }, previsao.date)
         const campos = camposDaOcupacao(
-          { externalId: tx.externalId, amountCents: tx.amountCents, description: tx.description, date: dataFinal, categoryId },
+          { externalId: tx.externalId, amountCents: tx.amountCents, description: tx.description, date, categoryId },
           new Date(),
         )
         const ocupou = await ocuparPrevisao(db, {
           orgId: input.orgId,
           accountId: input.accountId,
-          previsaoId,
+          previsaoId: previsao.id,
           campos,
           extras: {
             billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
