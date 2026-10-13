@@ -35,6 +35,10 @@ export default function PrivacidadePage() {
           compartilha e quais são os seus direitos, conforme a Lei Geral de Proteção de Dados
           (Lei nº 13.709/2018 — LGPD).
         </p>
+        <p className="text-gray-700 leading-relaxed">
+          O Floow é um produto de <strong>Limm Consultoria Ltda</strong>, CNPJ
+          54.791.649/0001-05, controladora dos dados pessoais tratados no serviço.
+        </p>
 
         <Secao titulo="1. Dados que coletamos">
           <ul className="list-disc space-y-2 pl-5">
