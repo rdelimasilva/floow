@@ -7,6 +7,7 @@ import type { ResolvedTransaction } from './resolve-counterparty'
 import { isOpenFinanceLinkedAccount, montarPernaDaTransferencia } from './transfer-leg'
 import { acharPernaPrevistaAberta } from './perna-prevista-aberta'
 import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
+import { ocuparNaFaturaFechada } from './fatura-fechada'
 import { acharPrevisao, camposDaOcupacao, carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, ocuparPrevisao } from './parcelas-previstas'
 
 /**
@@ -160,6 +161,29 @@ export async function persistPage(
 
       updated++
       continue
+    }
+
+    // Chegou na fatura fechada com id novo: ocupa a linha da fatura aberta em
+    // vez de entrar duas vezes. Parcela tem data própria e caminho próprio.
+    if (tx.billId && !tx.installmentTotal) {
+      const ocupou = await ocuparNaFaturaFechada(db, {
+        orgId: input.orgId,
+        accountId: input.accountId,
+        idsDaPagina: externalIds,
+        tx: {
+          externalId: tx.externalId,
+          billId: tx.billId,
+          billPostDate: tx.billPostDate ? new Date(`${tx.billPostDate}T12:00:00Z`) : null,
+          billForecastMonth: tx.billForecastMonth,
+          date: dataFinal,
+          amountCents: tx.amountCents,
+          counterpartyTaxId: tx.counterpartyTaxId,
+        },
+      })
+      if (ocupou) {
+        updated++
+        continue
+      }
     }
 
     // Parcela real que casa com uma previsão já gravada ocupa a linha dela
