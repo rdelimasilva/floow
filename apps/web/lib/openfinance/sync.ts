@@ -26,6 +26,8 @@ import { completarParcelas } from './completar-parcelas'
 import { VERSAO_DO_SYNC, precisaReler, relerHistorico } from './releitura'
 import { carregarFaturasDoBanco, completarMesDaFatura, gravarFaturasDoBanco, mesesDasFaturas as mesesPorBill, pagamentosDoBanco } from './faturas-do-banco'
 import { reclassificarPagamentosDeFatura } from './pagamento-de-fatura'
+import { ligarPagamentosAoCartao } from './ligar-pagamentos'
+import { realinharSaldoGravado } from './realinhar-saldo'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarRedirecionamentos } from '@/lib/finance/polp-redirect'
 
@@ -87,6 +89,7 @@ export async function syncConnectionTransactions(
   // Cartão → pagamentos que o banco abateu, para reconhecer o antecipado
   // depois que todas as contas da conexão tiverem entrado.
   const pagamentosPorCartao = new Map<string, ReturnType<typeof pagamentosDoBanco>>()
+  const contasDaConexao = new Set<string>()
 
   for (const resource of recursosDeConta(resources)) {
     if (!resource.accountId) {
@@ -96,6 +99,7 @@ export async function syncConnectionTransactions(
 
     const contasComPernaPrevista = new Set<string>()
 
+    contasDaConexao.add(resource.accountId)
     const isCard = resource.resourceType === 'CREDIT_CARD_ACCOUNT'
     const faturas = isCard ? await carregarFaturasDoBanco(client, resource.polpResourceId) : []
     const mesesDasFaturas = mesesPorBill(faturas)
@@ -217,14 +221,28 @@ export async function syncConnectionTransactions(
     }
   }
 
-  // Pagamento antecipado no cartão: a saída da conta corrente pode ter
-  // entrado nesta mesma passada, depois do cartão. Falha aqui não derruba o
-  // sync — o crédito fica como estava e a próxima passada tenta de novo.
+  // Pagamento de fatura no cartão: a saída da conta corrente pode ter
+  // entrado nesta mesma passada, depois do cartão. Primeiro o crédito que o
+  // extrato do cartão trouxe vira transferência; depois o pagamento que o
+  // extrato não trouxe ganha a perna. Falha aqui não derruba o sync — a
+  // próxima passada tenta de novo.
   for (const [accountId, pagamentos] of pagamentosPorCartao) {
     try {
       await reclassificarPagamentosDeFatura(db, connection.orgId, accountId, pagamentos)
+      await ligarPagamentosAoCartao(db, connection.orgId, accountId, pagamentos)
+      contasDaConexao.add(accountId)
     } catch (error) {
       console.error('[sync] falha ao reconhecer pagamento de fatura:', error)
+    }
+  }
+
+  // Por último: o saldo gravado de cada conta volta a ser a soma dos
+  // lançamentos (`realinhar-saldo.ts`).
+  for (const accountId of contasDaConexao) {
+    try {
+      await realinharSaldoGravado(db, connection.orgId, accountId)
+    } catch (error) {
+      console.error('[sync] falha ao realinhar o saldo gravado:', error)
     }
   }
 

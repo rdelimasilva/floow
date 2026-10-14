@@ -77,6 +77,20 @@ describe('pagamentosDoBanco', () => {
   })
 })
 
+describe('pagamentosDoBanco: fatura repetida', () => {
+  it('a mesma fatura devolvida com outro id conta uma vez', () => {
+    expect(pagamentosDoBanco([julho, { ...julho, id: 'julho-de-novo' }])).toHaveLength(3)
+  })
+
+  it('dois pagamentos iguais na mesma fatura são dois', () => {
+    const fev = fatura({ id: 'fev', bill_closing_date: '2026-02-08T03:00:00.000000Z', payments: [
+      { amount: '1998.9200', currency: 'BRL', paymentDate: '2026-02-01' },
+      { amount: '1998.9200', currency: 'BRL', paymentDate: '2026-02-01' },
+    ] })
+    expect(pagamentosDoBanco([fev])).toHaveLength(2)
+  })
+})
+
 describe('gravarFaturasDoBanco', () => {
   it('grava fechamento, vencimento e o total como dívida (negativo)', async () => {
     let gravadas: any[] = []

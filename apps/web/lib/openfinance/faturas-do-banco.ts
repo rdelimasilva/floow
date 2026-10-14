@@ -63,9 +63,20 @@ export interface PagamentoDoBanco {
   date: string
 }
 
-/** Todo pagamento abatido de alguma fatura, com valor e dia. */
+/**
+ * Todo pagamento abatido de alguma fatura, com valor e dia. O banco às vezes
+ * devolve a mesma fatura duas vezes, com ids diferentes (julho do Master
+ * Black): vale uma por fechamento. Dois pagamentos iguais na mesma fatura
+ * são dois (Visa, 01/02: duas vezes R$ 1.998,92).
+ */
 export function pagamentosDoBanco(faturas: readonly PolpCardBill[]): PagamentoDoBanco[] {
-  return faturas.flatMap((f) => (f.payments ?? []).map((p) => ({ amountCents: centavos(p.amount), date: p.paymentDate.slice(0, 10) })))
+  const porFechamento = new Map<string, PolpCardBill>()
+  for (const f of faturas) {
+    const fechamento = diaEmSaoPaulo(f.bill_closing_date)
+    if (!porFechamento.has(fechamento)) porFechamento.set(fechamento, f)
+  }
+  return [...porFechamento.values()].flatMap((f) =>
+    (f.payments ?? []).map((p) => ({ amountCents: centavos(p.amount), date: p.paymentDate.slice(0, 10) })))
 }
 
 /** Grava (ou atualiza) as faturas fechadas do cartão. */
