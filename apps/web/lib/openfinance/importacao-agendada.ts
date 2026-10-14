@@ -41,15 +41,6 @@ export interface ResumoDaImportacaoAgendada {
  * um timeout do disparo no meio deixaria extratos de outras orgs sem entrar.
  * Falha de investimento só vai para o log — não é falha de extrato.
  */
-/**
- * Orgs com a importação agendada de lançamentos pausada. Investimento segue.
- *
- * e37a3049: em 14/10 a Polp reprocessou o histórico (cartões desde out/2025,
- * ids novos na conta corrente). O código em produção duplicaria o pagamento
- * de setembro e traria as compras sem os pagamentos; pausado até a correção.
- */
-export const ORGS_COM_IMPORTACAO_PAUSADA: ReadonlySet<string> = new Set(['e37a3049-9710-4a32-ab58-4b0d1d0417b9'])
-
 export async function importarLancamentosDeTodasAsConexoes(): Promise<ResumoDaImportacaoAgendada> {
   const db = getDb()
 
@@ -72,7 +63,6 @@ export async function importarLancamentosDeTodasAsConexoes(): Promise<ResumoDaIm
   const client = getPolpClient()
 
   for (const conexao of conexoes) {
-    if (ORGS_COM_IMPORTACAO_PAUSADA.has(conexao.orgId)) continue
     try {
       const parcial = await syncConnectionTransactions(db, client, {
         id: conexao.id,

@@ -60,20 +60,6 @@ describe('importarLancamentosDeTodasAsConexoes', () => {
     expect(r.falhas).toBe(0)
   })
 
-  it('org pausada não importa lançamentos, mas sincroniza investimentos', async () => {
-    conexoesMock.mockResolvedValue([
-      { id: 'c1', orgId: 'e37a3049-9710-4a32-ab58-4b0d1d0417b9' },
-      { id: 'c2', orgId: 'org-2' },
-    ])
-    syncMock.mockResolvedValue({ ...RESUMO_VAZIO, imported: 1 })
-
-    await importarLancamentosDeTodasAsConexoes()
-
-    expect(syncMock).toHaveBeenCalledTimes(1)
-    expect(syncMock.mock.calls[0][2]).toMatchObject({ id: 'c2' })
-    expect(investimentosMock).toHaveBeenCalledTimes(2)
-  })
-
   it('uma conexão quebrada não impede as outras', async () => {
     // Banco fora do ar e rotina. Sem isso, a primeira falha deixaria todas as
     // orgs seguintes sem importacao ate o proximo disparo.
