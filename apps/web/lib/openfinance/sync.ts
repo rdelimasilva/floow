@@ -28,6 +28,8 @@ import { carregarFaturasDoBanco, completarMesDaFatura, gravarFaturasDoBanco, mes
 import { reclassificarPagamentosDeFatura } from './pagamento-de-fatura'
 import { ligarPagamentosAoCartao } from './ligar-pagamentos'
 import { realinharSaldoGravado } from './realinhar-saldo'
+import { fixarInicioDoCartao } from './fixar-inicio-do-cartao'
+import { noHistorico, pagamentosDoHistorico } from './inicio-do-cartao'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarRedirecionamentos } from '@/lib/finance/polp-redirect'
 
@@ -103,14 +105,18 @@ export async function syncConnectionTransactions(
     const isCard = resource.resourceType === 'CREDIT_CARD_ACCOUNT'
     const faturas = isCard ? await carregarFaturasDoBanco(client, resource.polpResourceId) : []
     const mesesDasFaturas = mesesPorBill(faturas)
+    // Cartão: o histórico começa no primeiro ciclo completo; antes dele nem
+    // compra nem pagamento contam (`inicio-do-cartao.ts`).
+    const inicio = isCard ? await fixarInicioDoCartao(db, client, resource, faturas) : null
     if (isCard) {
       await gravarFaturasDoBanco(db, connection.orgId, resource.accountId, faturas)
-      pagamentosPorCartao.set(resource.accountId, pagamentosDoBanco(faturas))
+      const pagamentos = pagamentosDoBanco(faturas)
+      pagamentosPorCartao.set(resource.accountId, inicio ? pagamentosDoHistorico(pagamentos, faturas, inicio) : pagamentos)
     }
 
     // Campo novo do sync chega também às linhas que a Polp não altera mais.
     if (precisaReler(resource)) {
-      summary.updated += await relerHistorico(db, client, connection.orgId, resource.accountId, resource, mesesDasFaturas)
+      summary.updated += await relerHistorico(db, client, connection.orgId, resource.accountId, { ...resource, syncFromDate: inicio ?? resource.syncFromDate }, mesesDasFaturas)
     }
 
     // Primeira sincronização puxa tudo; as seguintes pedem só o que mudou
@@ -155,6 +161,7 @@ export async function syncConnectionTransactions(
       const resolved = []
       for (const tx of ok) {
         const comMes = completarMesDaFatura(tx, mesesDasFaturas)
+        if (inicio && !noHistorico(comMes, inicio)) continue
         resolved.push(await resolveCounterparty(db, connection.orgId, resource.accountId, comMes, counterpartyIndex))
       }
 

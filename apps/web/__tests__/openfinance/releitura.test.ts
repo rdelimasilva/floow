@@ -42,6 +42,7 @@ function polpTx(over: Record<string, unknown> = {}) {
 function montar(paginas: unknown[][], existentes: Set<string>) {
   const updates: { set: any; externalId?: string }[] = []
   const queries: unknown[] = []
+  let selects = 0
   const db: any = {
     update: () => {
       const u: any = { set: (s: any) => { u.s = s; return u } }
@@ -55,9 +56,11 @@ function montar(paginas: unknown[][], existentes: Set<string>) {
       return u
     },
     insert: () => { throw new Error('releitura não insere') },
-    // Dia de vencimento cadastrado no cartão.
+    // 1ª consulta: dia de vencimento do cartão. Depois: linhas que podem
+    // ser órfãs de reemissão (nenhuma aqui; ver reemitidos.test.ts).
     select: () => {
-      const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve([{ dueDay: 15 }]).then(r) }
+      const resultado = selects++ === 0 ? [{ dueDay: 15 }] : []
+      const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve(resultado).then(r) }
       for (const m of ['from', 'where', 'limit']) c[m] = () => c
       return c
     },

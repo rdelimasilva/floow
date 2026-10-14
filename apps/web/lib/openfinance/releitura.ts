@@ -13,6 +13,7 @@ import type { Db } from './persist-page'
 import { carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, parcelaSemDataDaFatura } from './parcelas-previstas'
 import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
 import { completarMesDaFatura } from './faturas-do-banco'
+import { ocuparReemitidos, type Lancamento } from './reemitidos'
 
 /**
  * Releitura do histórico quando o sync passa a gravar um campo novo.
@@ -33,7 +34,8 @@ import { completarMesDaFatura } from './faturas-do-banco'
  * Campo novo no sync: entra em `camposDeEnriquecimento` e sobe a versão.
  */
 // 1: bill_id. 2: mês da fatura pelo bill_id na parcela que chega sem data.
-export const VERSAO_DO_SYNC = 2
+// 3: lançamento reemitido com outro id ocupa a linha antiga (`reemitidos.ts`).
+export const VERSAO_DO_SYNC = 3
 
 type Enriquecivel = Pick<
   NormalizedPolpTransaction,
@@ -104,6 +106,9 @@ export async function relerHistorico(
   const hoje = hojeEmSaoPaulo()
   const diaDeVencimento = isCard ? await carregarDiaDeVencimento(db, orgId, accountId) : null
   let atualizadas = 0
+  const idsDaPolp = new Set<string>()
+  const semLinha: Lancamento[] = []
+  let primeira: string | null = null
   for await (const page of pages as AsyncGenerator<unknown[]>) {
     const { ok } = normalizeBatch(page, (tx) =>
       isCard
@@ -130,11 +135,18 @@ export async function relerHistorico(
         ))
         .returning({ id: transactions.id })
       atualizadas += linhas.length
+      idsDaPolp.add(tx.externalId)
+      if (!primeira || tx.date < primeira) primeira = tx.date
+      if (linhas.length === 0) semLinha.push({ id: tx.externalId, amountCents: tx.amountCents, date: tx.date })
       if (ehParcela && linhas[0]) {
         await corrigirDataDaParcelaAplicada(db, { orgId, accountId, transactionId: linhas[0].id, dataFinal, hoje })
       }
     }
   }
+
+  // Antes do sync normal: o reemitido que ocupou a linha antiga chega a ele
+  // como linha conhecida, e não entra de novo.
+  if (primeira) atualizadas += await ocuparReemitidos(db, orgId, accountId, semLinha, idsDaPolp, primeira)
 
   await db
     .update(openfinanceResources)
