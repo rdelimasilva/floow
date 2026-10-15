@@ -33,6 +33,7 @@ function normalizedTx(overrides: Partial<{
     installmentNumber: null,
     installmentTotal: null,
     purchaseDate: null,
+    ocorridoEm: null,
     settlement: 'settled' as const,
     foreign: null,
     cardLastDigits: null,

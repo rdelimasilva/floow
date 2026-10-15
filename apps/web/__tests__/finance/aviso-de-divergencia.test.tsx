@@ -62,4 +62,34 @@ describe('BankDivergenceAlert', () => {
     expect(screen.queryByText(/Itaú/)).toBeNull()
     expect(screen.getByText(/NU/)).toBeDefined()
   })
+
+  it('compara só até a apuração e diz o que ficou de fora', () => {
+    render(
+      <BankDivergenceAlert
+        divergencias={[
+          {
+            accountId: 'a1', nome: 'Itaú', saldoLocalCents: 3208220, saldoBancoCents: -147538,
+            apuradoEm: new Date('2026-10-15T09:59:31Z'), chegouDepois: { quantos: 1, cents: 3204828 },
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText(/33,92/)).toBeDefined()
+    expect(screen.getByText(/1\.509,30/)).toBeDefined()
+    expect(screen.getByText(/1 lançamento que chegou depois/)).toBeDefined()
+    expect(screen.queryByText(/33\.557,58/)).toBeNull()
+  })
+
+  it('não avisa quando a diferença inteira é o que chegou depois da apuração', () => {
+    const { container } = render(
+      <BankDivergenceAlert
+        divergencias={[
+          { accountId: 'a1', nome: 'Itaú', saldoLocalCents: 3208220, saldoBancoCents: 3392, apuradoEm: null, chegouDepois: { quantos: 1, cents: 3204828 } },
+        ]}
+      />,
+    )
+
+    expect(container.innerHTML).toBe('')
+  })
 })

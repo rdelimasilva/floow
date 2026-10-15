@@ -62,6 +62,12 @@ export interface NormalizedPolpTransaction {
    */
   purchaseDate: string | null
   /**
+   * O instante da transação (`transaction_date_time`). A conferência com o
+   * saldo do banco precisa dele: o saldo é de um instante, e só o que
+   * aconteceu antes dele pode estar lá.
+   */
+  ocorridoEm: string | null
+  /**
    * `scheduled` e `processing` NÃO são gasto realizado: o primeiro é lançamento
    * agendado que ainda não aconteceu, o segundo ainda pode não se efetivar.
    * Quem decide o que fazer com eles é a ingestão; aqui só não se perde o fato.
@@ -275,6 +281,7 @@ export function normalizeAccountTransaction(tx: PolpAccountTransaction): Normali
     installmentNumber: null,
     installmentTotal: null,
     purchaseDate: null,
+    ocorridoEm: tx.transaction_date_time ?? null,
     settlement,
     foreign: null,
     cardLastDigits: null,
@@ -318,6 +325,7 @@ export function normalizeCardTransaction(tx: PolpCardTransaction): NormalizedPol
     billId: tx.bill_id?.trim() || null,
     ...parcelas,
     purchaseDate: ehParcela ? competencia : null,
+    ocorridoEm: tx.transaction_date_time ?? null,
     settlement: 'settled',
     foreign,
     cardLastDigits: lastFourDigits(tx.identification_number),

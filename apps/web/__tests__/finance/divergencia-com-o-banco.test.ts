@@ -48,4 +48,19 @@ describe('compararComOBanco', () => {
 
     expect(r.comparavel).toBe(true)
   })
+
+  it('tira da conta o que chegou depois da apuração do banco', () => {
+    // O caso real: o salário de R$ 32.048,28 entrou às 11:38 e o saldo do
+    // banco era das 06:59. Comparar os dois acusava R$ 33.557,58; a
+    // diferença de verdade era R$ 1.509,30.
+    const r = compararComOBanco({ saldoLocalCents: 3208220, saldoBancoCents: -147538, chegouDepoisCents: 3204828 })
+
+    expect(r.diferencaCents).toBe(150930)
+  })
+
+  it('bate quando a única diferença é o que chegou depois', () => {
+    const r = compararComOBanco({ saldoLocalCents: 3204828 + 3392, saldoBancoCents: 3392, chegouDepoisCents: 3204828 })
+
+    expect(r.divergente).toBe(false)
+  })
 })

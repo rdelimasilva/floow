@@ -27,7 +27,7 @@ export interface AchadosDaAuditoria {
 const TOLERANCIA_CENTS = 100
 
 export function divergenciasRelevantes(
-  contas: { accountId: string; saldoLocalCents: number; saldoBancoCents: number | null }[],
+  contas: { accountId: string; saldoLocalCents: number; saldoBancoCents: number | null; chegouDepoisCents?: number }[],
 ): { accountId: string; diferencaCents: number }[] {
   return contas
     .map((c) => ({ accountId: c.accountId, conferencia: compararComOBanco(c) }))
@@ -62,9 +62,14 @@ export async function auditarConciliacao(db: Db): Promise<AchadosDaAuditoria> {
      group by c.account_id
   `)
 
-  // 2. Divergência de saldo com o banco, com saldo do banco de até 48h.
-  const saldos = await db.execute<{ account_id: string; balance_cents: number; bank_balance_cents: number }>(sql`
-    select distinct r.account_id, a.balance_cents, r.bank_balance_cents
+  // 2. Divergência de saldo com o banco, com saldo do banco de até 48h. O
+  //    extrato que aconteceu depois da apuração fica fora: o banco não o contava.
+  const saldos = await db.execute<{ account_id: string; balance_cents: number; bank_balance_cents: number; chegou_depois_cents: number }>(sql`
+    select distinct r.account_id, a.balance_cents, r.bank_balance_cents,
+           (select coalesce(sum(t.amount_cents), 0) from transactions t
+             where t.account_id = r.account_id and t.origem = 'extrato'
+               and t.balance_applied and not t.is_ignored
+               and t.ocorrido_em > r.bank_balance_at) as chegou_depois_cents
       from openfinance_resources r
       join accounts a on a.id = r.account_id
      where r.status = 'AVAILABLE'
@@ -90,6 +95,7 @@ export async function auditarConciliacao(db: Db): Promise<AchadosDaAuditoria> {
         accountId: s.account_id,
         saldoLocalCents: Number(s.balance_cents),
         saldoBancoCents: Number(s.bank_balance_cents),
+        chegouDepoisCents: Number(s.chegou_depois_cents),
       })),
     ),
     invarianteQuebrado: invariante.map((i) => ({ accountId: i.account_id, linhas: Number(i.linhas) })),

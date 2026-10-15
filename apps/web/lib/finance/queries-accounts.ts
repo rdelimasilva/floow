@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
-import { getDb, accounts, openfinanceResources } from '@floow/db'
-import { eq, and, isNotNull } from 'drizzle-orm'
+import { getDb, accounts, openfinanceResources, transactions } from '@floow/db'
+import { eq, and, isNotNull, sql } from 'drizzle-orm'
 import { accountsTag } from '@/lib/cache-tags'
 
 /**
@@ -56,14 +56,26 @@ export const getSaldosDoBanco = cache(async function getSaldosDoBanco(orgId: str
       accountId: openfinanceResources.accountId,
       bankBalanceCents: openfinanceResources.bankBalanceCents,
       bankBalanceAt: openfinanceResources.bankBalanceAt,
+      // O extrato que aconteceu depois da apuração: o banco não podia contá-lo.
+      // Pelo instante da transação, não pelo da chegada — o débito de ontem
+      // chega hoje e já estava no saldo do banco.
+      chegouDepois: sql<{ quantos: number; cents: number }>`(
+        select json_build_object('quantos', count(*), 'cents', coalesce(sum(${transactions.amountCents}), 0))
+          from ${transactions}
+         where ${transactions.accountId} = ${openfinanceResources.accountId}
+           and ${transactions.origem} = 'extrato'
+           and ${transactions.balanceApplied} and not ${transactions.isIgnored}
+           and ${transactions.ocorridoEm} > ${openfinanceResources.bankBalanceAt}
+      )`,
     })
     .from(openfinanceResources)
     .where(and(eq(openfinanceResources.orgId, orgId), isNotNull(openfinanceResources.bankBalanceCents)))
 
-  const porConta = new Map<string, { bankBalanceCents: number; bankBalanceAt: Date | null }>()
+  const porConta = new Map<string, { bankBalanceCents: number; bankBalanceAt: Date | null; chegouDepois: { quantos: number; cents: number } }>()
   for (const l of linhas) {
     if (l.accountId === null || l.bankBalanceCents === null) continue
-    porConta.set(l.accountId, { bankBalanceCents: l.bankBalanceCents, bankBalanceAt: l.bankBalanceAt })
+    const chegouDepois = { quantos: Number(l.chegouDepois?.quantos ?? 0), cents: Number(l.chegouDepois?.cents ?? 0) }
+    porConta.set(l.accountId, { bankBalanceCents: l.bankBalanceCents, bankBalanceAt: l.bankBalanceAt, chegouDepois })
   }
   return porConta
 })

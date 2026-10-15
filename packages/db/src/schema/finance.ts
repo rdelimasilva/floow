@@ -204,6 +204,8 @@ export const transactions = pgTable(
      * mesma compra e casa a previsão com a real.
      */
     purchaseDate: date('purchase_date', { mode: 'date' }),
+    /** Instante da transação no banco (`transaction_date_time` da Polp). Só extrato. */
+    ocorridoEm: timestamp('ocorrido_em', { withTimezone: true }),
     /**
      * Parcela prevista pelo floow porque a Polp ainda não a mandou. Nunca
      * entra no saldo; a parcela real ocupa esta linha quando chega.

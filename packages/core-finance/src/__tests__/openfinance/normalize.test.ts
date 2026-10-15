@@ -148,6 +148,11 @@ describe('normalizeAccountTransaction', () => {
     expect(t.counterpartyTaxId).toBe('12345678000190')
   })
 
+  it('guarda o instante da transação, para conferir com o saldo do banco', () => {
+    const tx = normalizeAccountTransaction(accountTx({ transaction_date_time: '2026-10-15T13:37:00Z' }))
+    expect(tx.ocorridoEm).toBe('2026-10-15T13:37:00Z')
+  })
+
   it('sem contraparte, counterpartyTaxId é null', () => {
     expect(normalizeAccountTransaction(accountTx()).counterpartyTaxId).toBeNull()
   })

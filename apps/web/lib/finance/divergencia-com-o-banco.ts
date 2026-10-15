@@ -31,6 +31,12 @@ export interface ConferenciaDeSaldo {
 export function compararComOBanco(entrada: {
   saldoLocalCents: number
   saldoBancoCents: number | null
+  /**
+   * Soma do que entrou no app depois da apuração do banco. O saldo do banco é
+   * uma foto de um instante; o que chegou depois dela não pode estar nele, e
+   * compará-lo acusava o salário do dia como divergência.
+   */
+  chegouDepoisCents?: number
 }): ConferenciaDeSaldo {
   // Cartão de crédito e conta sem Open Finance caem aqui. Ausência de dado não
   // é conferência bem-sucedida — dizer "bate" seria mentir por omissão.
@@ -38,7 +44,7 @@ export function compararComOBanco(entrada: {
     return { comparavel: false, divergente: false, diferencaCents: 0 }
   }
 
-  const diferencaCents = entrada.saldoLocalCents - entrada.saldoBancoCents
+  const diferencaCents = entrada.saldoLocalCents - (entrada.chegouDepoisCents ?? 0) - entrada.saldoBancoCents
 
   return { comparavel: true, divergente: diferencaCents !== 0, diferencaCents }
 }

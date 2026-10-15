@@ -37,7 +37,8 @@ import { registrarSaldoDeAbertura } from './saldo-de-abertura'
 // 1: bill_id. 2: mês da fatura pelo bill_id na parcela que chega sem data.
 // 3: lançamento reemitido com outro id ocupa a linha antiga (`reemitidos.ts`).
 // 4: saldo da conta antes do primeiro lançamento do extrato (`saldo-de-abertura.ts`).
-export const VERSAO_DO_SYNC = 4
+// 5: instante da transação, para conferir com o saldo do banco (`ocorrido_em`).
+export const VERSAO_DO_SYNC = 5
 
 type Enriquecivel = Pick<
   NormalizedPolpTransaction,
@@ -52,6 +53,7 @@ type Enriquecivel = Pick<
   | 'installmentNumber'
   | 'installmentTotal'
   | 'purchaseDate'
+  | 'ocorridoEm'
 >
 
 /** O que a Polp acrescenta à linha sem mudar valor, data nem saldo. */
@@ -68,6 +70,7 @@ export function camposDeEnriquecimento(tx: Enriquecivel) {
     installmentNumber: tx.installmentNumber,
     installmentTotal: tx.installmentTotal,
     purchaseDate: tx.purchaseDate ? new Date(`${tx.purchaseDate}T12:00:00Z`) : null,
+    ocorridoEm: tx.ocorridoEm ? new Date(tx.ocorridoEm) : null,
   }
 }
 

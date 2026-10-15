@@ -10,6 +10,16 @@ export interface ContaConferida {
   saldoBancoCents: number | null
   /** Quando o BANCO apurou — não quando lemos. */
   apuradoEm: Date | null
+  /** O que entrou no app depois da apuração: o banco não podia contar. */
+  chegouDepois?: { quantos: number; cents: number }
+}
+
+function conferir(c: ContaConferida) {
+  return compararComOBanco({
+    saldoLocalCents: c.saldoLocalCents,
+    saldoBancoCents: c.saldoBancoCents,
+    chegouDepoisCents: c.chegouDepois?.cents ?? 0,
+  })
 }
 
 /**
@@ -22,11 +32,12 @@ export interface ContaConferida {
  * Mostra o par de números, e não só "algo está errado", porque a diferença é
  * o que permite procurar o lançamento culpado. Silencioso quando bate: alarme
  * que toca sempre vira ruído e deixa de ser lido.
+ *
+ * O saldo do banco é de um instante. O "Aqui" é o do mesmo instante: o que
+ * chegou depois fica fora, senão o salário do dia vira divergência.
  */
 export function BankDivergenceAlert({ divergencias }: { divergencias: ContaConferida[] }) {
-  const comProblema = divergencias.filter(
-    (c) => compararComOBanco({ saldoLocalCents: c.saldoLocalCents, saldoBancoCents: c.saldoBancoCents }).divergente,
-  )
+  const comProblema = divergencias.filter((c) => conferir(c).divergente)
 
   if (comProblema.length === 0) return null
 
@@ -44,17 +55,15 @@ export function BankDivergenceAlert({ divergencias }: { divergencias: ContaConfe
 
       <ul className="mt-3 space-y-2">
         {comProblema.map((c) => {
-          const { diferencaCents } = compararComOBanco({
-            saldoLocalCents: c.saldoLocalCents,
-            saldoBancoCents: c.saldoBancoCents,
-          })
+          const { diferencaCents } = conferir(c)
+          const depois = c.chegouDepois && c.chegouDepois.quantos > 0 ? c.chegouDepois : null
 
           return (
             <li key={c.accountId} className="rounded-lg bg-white/70 px-3 py-2 text-sm">
               <span className="font-medium text-gray-900">{c.nome}</span>
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-gray-700">
                 <span>
-                  Aqui: <strong>{formatBRL(c.saldoLocalCents)}</strong>
+                  Aqui: <strong>{formatBRL(c.saldoLocalCents - (depois?.cents ?? 0))}</strong>
                 </span>
                 <span>
                   No banco: <strong>{formatBRL(c.saldoBancoCents ?? 0)}</strong>
@@ -67,6 +76,15 @@ export function BankDivergenceAlert({ divergencias }: { divergencias: ContaConfe
                 <p className="mt-1 text-xs text-gray-500">
                   Saldo apurado pelo banco em{' '}
                   {c.apuradoEm.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                </p>
+              )}
+              {depois && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {depois.quantos === 1
+                    ? '1 lançamento que chegou depois'
+                    : `${depois.quantos} lançamentos que chegaram depois`}{' '}
+                  ({formatBRL(depois.cents)}) {depois.quantos === 1 ? 'ficou' : 'ficaram'} fora da conta: o banco
+                  ainda não {depois.quantos === 1 ? 'o contava' : 'os contava'}.
                 </p>
               )}
             </li>

@@ -292,6 +292,7 @@ export async function persistPage(
       installmentNumber: tx.installmentNumber,
       installmentTotal: tx.installmentTotal,
       purchaseDate,
+      ocorridoEm: tx.ocorridoEm ? new Date(tx.ocorridoEm) : null,
       counterpartyId: tx.counterpartyId,
       counterpartyTaxId: tx.counterpartyTaxId,
       counterpartyName: tx.counterpartyName,
