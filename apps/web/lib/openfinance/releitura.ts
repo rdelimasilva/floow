@@ -14,6 +14,7 @@ import { carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, parcelaSem
 import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
 import { completarMesDaFatura } from './faturas-do-banco'
 import { ocuparReemitidos, type Lancamento } from './reemitidos'
+import { registrarSaldoDeAbertura } from './saldo-de-abertura'
 
 /**
  * Releitura do histórico quando o sync passa a gravar um campo novo.
@@ -35,7 +36,8 @@ import { ocuparReemitidos, type Lancamento } from './reemitidos'
  */
 // 1: bill_id. 2: mês da fatura pelo bill_id na parcela que chega sem data.
 // 3: lançamento reemitido com outro id ocupa a linha antiga (`reemitidos.ts`).
-export const VERSAO_DO_SYNC = 3
+// 4: saldo da conta antes do primeiro lançamento do extrato (`saldo-de-abertura.ts`).
+export const VERSAO_DO_SYNC = 4
 
 type Enriquecivel = Pick<
   NormalizedPolpTransaction,
@@ -109,13 +111,18 @@ export async function relerHistorico(
   const idsDaPolp = new Set<string>()
   const semLinha: Lancamento[] = []
   let primeira: string | null = null
+  // Conta corrente: o extrato inteiro, por dia, para o saldo de abertura.
+  const somaPorDia = new Map<string, number>()
+  let rejeitados = 0
   for await (const page of pages as AsyncGenerator<unknown[]>) {
-    const { ok } = normalizeBatch(page, (tx) =>
+    const { ok, rejected } = normalizeBatch(page, (tx) =>
       isCard
         ? normalizeCardTransaction(tx as PolpCardTransaction)
         : normalizeAccountTransaction(tx as PolpAccountTransaction),
     )
+    rejeitados += rejected.length
     for (const recebida of ok) {
+      if (!isCard) somaPorDia.set(recebida.date, (somaPorDia.get(recebida.date) ?? 0) + recebida.amountCents)
       const tx = completarMesDaFatura(recebida, mesesDasFaturas)
       // Só parcela com data da fatura muda de data; sem ela, a gravada fica.
       const ehParcela = tx.purchaseDate != null && !parcelaSemDataDaFatura(tx)
@@ -147,6 +154,20 @@ export async function relerHistorico(
   // Antes do sync normal: o reemitido que ocupou a linha antiga chega a ele
   // como linha conhecida, e não entra de novo.
   if (primeira) atualizadas += await ocuparReemitidos(db, orgId, accountId, semLinha, idsDaPolp, primeira)
+
+  if (!isCard && primeira) {
+    const primeiroDia = primeira
+    await registrarSaldoDeAbertura(db, client, {
+      orgId,
+      accountId,
+      polpResourceId: recurso.polpResourceId,
+      extrato: {
+        primeiroDia,
+        incompleto: rejeitados > 0,
+        somaAte: (dia) => [...somaPorDia].reduce((soma, [d, v]) => (d <= dia ? soma + v : soma), 0),
+      },
+    }).catch((error) => console.error('[sync] falha ao registrar o saldo de abertura:', error))
+  }
 
   await db
     .update(openfinanceResources)
