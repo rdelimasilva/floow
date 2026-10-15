@@ -34,6 +34,7 @@ const BASE: LancamentoParaDedupe = {
   installmentNumber: null,
   purchaseDate: null,
   counterpartyTaxId: '60872504000123',
+  billId: null,
   externalId: uuidV7Em('2026-09-16T03:00:00Z'),
 }
 
@@ -164,6 +165,31 @@ describe('detectarDuplicatas', () => {
  * Contraparte so derruba o par quando os dois lados a declaram e discordam —
  * ai sao duas pessoas, nao um evento repetido.
  */
+describe('detectarDuplicatas e a fatura fechada', () => {
+  // O caso real: três compras de R$ 50 no Master Black em 11/07. Uma entrou
+  // em 03/09, as outras duas com o histórico do cartão em 14/10 — semanas de
+  // emissão entre elas, e a fatura do banco fechou com as três.
+  it('não propõe quando os dois já estão numa fatura fechada', () => {
+    const pares = detectarDuplicatas([
+      { ...BASE, billId: 'fatura-agosto', externalId: uuidV7Em('2026-09-03T15:11:00Z') },
+      { ...BASE, id: 'tx-2', billId: 'fatura-agosto', externalId: uuidV7Em('2026-10-14T12:34:00Z') },
+    ])
+
+    expect(pares).toEqual([])
+  })
+
+  // A cópia de verdade do Visa PDA: a versão da fatura aberta, sem bill_id,
+  // ficou para trás quando a da fechada chegou.
+  it('propõe a versão da fatura aberta que ficou para trás', () => {
+    const pares = detectarDuplicatas([
+      { ...BASE, billId: null, externalId: uuidV7Em('2026-09-12T18:00:00Z') },
+      { ...BASE, id: 'tx-2', billId: 'fatura-outubro', externalId: uuidV7Em('2026-10-13T11:01:00Z') },
+    ])
+
+    expect(pares).toHaveLength(1)
+  })
+})
+
 describe('detectarDuplicatas e a contraparte que chega depois', () => {
   it('propõe quando só a versão enriquecida trouxe o CNPJ', () => {
     const pares = detectarDuplicatas([

@@ -42,6 +42,8 @@ export interface LancamentoParaDedupe {
   /** Data da compra, AAAA-MM-DD, quando é parcela de cartão. */
   purchaseDate: string | null
   counterpartyTaxId: string | null
+  /** Fatura fechada em que o banco pôs o lançamento; null fora de cartão e na aberta. */
+  billId: string | null
   /** Id da Polp. Só UUIDv7 carrega o instante da emissão. */
   externalId: string
 }
@@ -116,6 +118,19 @@ function comprasDistintas(a: LancamentoParaDedupe, b: LancamentoParaDedupe): boo
 }
 
 /**
+ * Os dois já numa fatura fechada: o banco cobrou os dois, não é cópia.
+ *
+ * A emissão não basta quando a Polp traz o histórico do cartão: tudo dele
+ * nasce semanas depois do fato. Três compras de R$ 50 no Master Black em
+ * 11/07 viraram "o original e duas cópias", e a fatura fechou com as três —
+ * todas com o mesmo `bill_id`. A cópia de verdade tem outra cara: a versão da
+ * fatura aberta, sem `bill_id`, que ficou para trás quando a fechada chegou.
+ */
+function ambosEmFaturaFechada(a: LancamentoParaDedupe, b: LancamentoParaDedupe): boolean {
+  return a.billId !== null && b.billId !== null
+}
+
+/**
  * Qual dos dois fica.
  *
  * Manter o mais antigo seria estável e simples, mas jogaria fora justamente o
@@ -157,6 +172,7 @@ export function detectarDuplicatas(lancamentos: LancamentoParaDedupe[]): ParDupl
       if (a.amountCents !== b.amountCents) continue
       if (parcelasDistintas(a, b)) continue
       if (comprasDistintas(a, b)) continue
+      if (ambosEmFaturaFechada(a, b)) continue
       if (!contrapartesCompativeis(a, b)) continue
 
       const emissaoA = emitidoEm(a.externalId)

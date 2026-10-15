@@ -60,7 +60,24 @@ export function LinhaDaFila({
             <span className="shrink-0 text-sm text-gray-500">{diaMes(item.date)}</span>
             <span className="shrink-0 text-right text-sm font-medium tabular-nums text-gray-900">{valorComSinal(item.amountCents)}</span>
           </div>
-          <p className="min-w-0 truncate text-sm text-gray-600" title={palpite.frase}>{palpite.frase}</p>
+          {/* Repetido é decisão de dois lados: a alternativa ao "Descartar"
+              fica à vista, não escondida no detalhe — descartar compra real
+              tira do saldo dinheiro que saiu. Aberta, o card já traz os dois. */}
+          {item.repetido && !aberto ? (
+            <p className="min-w-0 truncate text-sm text-gray-600">
+              <span title={palpite.frase}>{palpite.frase}</span>
+              {' · '}
+              <button
+                type="button"
+                className="font-medium text-gray-900 underline underline-offset-2 hover:text-gray-700"
+                onClick={(e) => { e.stopPropagation(); acoes.onNaoERepetido() }}
+              >
+                São duas compras
+              </button>
+            </p>
+          ) : (
+            <p className="min-w-0 truncate text-sm text-gray-600" title={palpite.frase}>{palpite.frase}</p>
+          )}
         </div>
         <Button
           size="sm"

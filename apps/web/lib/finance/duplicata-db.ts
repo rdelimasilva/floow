@@ -44,6 +44,7 @@ export async function criarPropostasDeDuplicata(
       installmentNumber: transactions.installmentNumber,
       purchaseDate: transactions.purchaseDate,
       counterpartyTaxId: transactions.counterpartyTaxId,
+      billId: transactions.billId,
       externalId: transactions.externalId,
     })
     .from(transactions)
@@ -78,6 +79,7 @@ export async function criarPropostasDeDuplicata(
       installmentNumber: c.installmentNumber,
       purchaseDate: c.purchaseDate ? c.purchaseDate.toISOString().slice(0, 10) : null,
       counterpartyTaxId: c.counterpartyTaxId,
+      billId: c.billId ?? null,
       externalId: c.externalId,
     }
     const grupo = porGrupo.get(chave)

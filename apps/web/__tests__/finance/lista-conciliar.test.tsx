@@ -61,6 +61,12 @@ describe('ListaConciliar — o palpite de cada linha', () => {
     expect(screen.getByText('Cópia, chegou de novo em 13/10')).toBeInTheDocument()
     expect(botao('Descartar')).toBeInTheDocument()
   })
+  it('repetido: "São duas compras" na própria linha, sem abrir o detalhe', async () => {
+    montar([{ ...base, id: 'a', description: 'Facebook', amountCents: -1256, repetido: repetido('a') }])
+    await act(async () => { fireEvent.click(botao('São duas compras')) })
+    expect(recusarDuplicata).toHaveBeenCalledWith('d-a')
+    expect(aprovarDuplicata).not.toHaveBeenCalled()
+  })
   it('previsão parecida: pergunta pela melhor e Vincular', () => {
     montar([{ ...base, id: 'a', description: 'PIX JOAO', candidatas: [cand('p1'), cand('p2')] }])
     expect(screen.getByText('É "Prev p1" de 10/09?')).toBeInTheDocument()
