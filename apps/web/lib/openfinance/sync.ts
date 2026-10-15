@@ -30,6 +30,7 @@ import { ligarPagamentosAoCartao } from './ligar-pagamentos'
 import { realinharSaldoGravado } from './realinhar-saldo'
 import { fixarInicioDoCartao } from './fixar-inicio-do-cartao'
 import { noHistorico, pagamentosDoHistorico } from './inicio-do-cartao'
+import { registrarDiferencaDaFatura } from './registrar-diferenca-da-fatura'
 import { conciliarContas } from '@/lib/finance/conciliacao/conciliar-conta'
 import { aplicarRedirecionamentos } from '@/lib/finance/polp-redirect'
 
@@ -91,6 +92,7 @@ export async function syncConnectionTransactions(
   // Cartão → pagamentos que o banco abateu, para reconhecer o antecipado
   // depois que todas as contas da conexão tiverem entrado.
   const pagamentosPorCartao = new Map<string, ReturnType<typeof pagamentosDoBanco>>()
+  const faturasPorCartao = new Map<string, { faturas: Awaited<ReturnType<typeof carregarFaturasDoBanco>>; inicio: string }>()
   const contasDaConexao = new Set<string>()
 
   for (const resource of recursosDeConta(resources)) {
@@ -112,6 +114,7 @@ export async function syncConnectionTransactions(
       await gravarFaturasDoBanco(db, connection.orgId, resource.accountId, faturas)
       const pagamentos = pagamentosDoBanco(faturas)
       pagamentosPorCartao.set(resource.accountId, inicio ? pagamentosDoHistorico(pagamentos, faturas, inicio) : pagamentos)
+      if (inicio) faturasPorCartao.set(resource.accountId, { faturas, inicio })
     }
 
     // Campo novo do sync chega também às linhas que a Polp não altera mais.
@@ -240,6 +243,16 @@ export async function syncConnectionTransactions(
       contasDaConexao.add(accountId)
     } catch (error) {
       console.error('[sync] falha ao reconhecer pagamento de fatura:', error)
+    }
+  }
+
+  // Depois dos pagamentos: o que a fatura do banco cobrou e o Open Finance
+  // não informou (`diferenca-da-fatura.ts`).
+  for (const [accountId, { faturas, inicio }] of faturasPorCartao) {
+    try {
+      await registrarDiferencaDaFatura(db, connection.orgId, accountId, faturas, inicio)
+    } catch (error) {
+      console.error('[sync] falha ao registrar a diferença da fatura:', error)
     }
   }
 
