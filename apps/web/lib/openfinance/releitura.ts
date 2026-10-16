@@ -39,7 +39,20 @@ import { registrarSaldoDeAbertura, somarExtratoAte } from './saldo-de-abertura'
 // 4: saldo da conta antes do primeiro lançamento do extrato (`saldo-de-abertura.ts`).
 // 5: instante da transação, para conferir com o saldo do banco (`ocorrido_em`).
 // 6: saldo de abertura refeito pela leitura nova, cortado no instante da apuração.
-export const VERSAO_DO_SYNC = 6
+// 7: saldo de abertura refeito uma última vez; dali em diante fica (`saldo-de-abertura.ts`).
+export const VERSAO_DO_SYNC = 7
+
+/**
+ * A releitura que refaz o saldo de abertura. A 6 o refez com o extrato
+ * atrasado em relação ao banco e gravou um valor errado; a 7 corrige uma vez.
+ * Releituras de versões futuras não mexem nele. Se uma delas precisar refazer,
+ * suba este número junto com `VERSAO_DO_SYNC`.
+ */
+const VERSAO_QUE_REFAZ_A_ABERTURA = 7
+
+export function refazAbertura(syncVersionDoRecurso: number): boolean {
+  return syncVersionDoRecurso < VERSAO_QUE_REFAZ_A_ABERTURA
+}
 
 type Enriquecivel = Pick<
   NormalizedPolpTransaction,
@@ -165,6 +178,7 @@ export async function relerHistorico(
       orgId,
       accountId,
       polpResourceId: recurso.polpResourceId,
+      refazer: refazAbertura(recurso.syncVersion),
       extrato: {
         primeiroDia,
         incompleto: rejeitados > 0,

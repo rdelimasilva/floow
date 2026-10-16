@@ -7,7 +7,7 @@ vi.mock('drizzle-orm', async (orig) => ({
 const { corrigir } = vi.hoisted(() => ({ corrigir: vi.fn(async (..._a: unknown[]) => 'saiu_do_saldo') }))
 vi.mock('@/lib/openfinance/parcela-aplicada', () => ({ corrigirDataDaParcelaAplicada: corrigir }))
 
-import { VERSAO_DO_SYNC, precisaReler, relerHistorico } from '@/lib/openfinance/releitura'
+import { VERSAO_DO_SYNC, precisaReler, refazAbertura, relerHistorico } from '@/lib/openfinance/releitura'
 
 /**
  * Setembro do Master Black: a Polp atualizou a fatura em 04/10, o sync leu com
@@ -90,6 +90,18 @@ describe('precisaReler', () => {
   })
   it('não relê o recurso nunca sincronizado: a primeira passada já puxa tudo', () => {
     expect(precisaReler({ lastSyncedAt: null, syncVersion: 0 })).toBe(false)
+  })
+})
+
+describe('refazAbertura', () => {
+  // A versão 7 refaz uma vez o saldo de abertura que a 6 gravou com o extrato
+  // atrasado; daí em diante o valor fica.
+  it('refaz no recurso lido antes da versão 7', () => {
+    expect(refazAbertura(6)).toBe(true)
+  })
+  it('não refaz nas releituras seguintes', () => {
+    expect(refazAbertura(7)).toBe(false)
+    expect(refazAbertura(8)).toBe(false)
   })
 })
 

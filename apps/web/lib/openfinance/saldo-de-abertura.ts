@@ -15,13 +15,20 @@ import type { Db } from './persist-page'
  * mandou até a apuração desse saldo. Nada do que o app tem entra na conta,
  * então lançamento duplicado ou faltando continua aparecendo como diferença.
  *
- * Gravado no dia anterior ao primeiro lançamento e refeito a cada releitura
- * enquanto o extrato começar nesse dia: uma leitura do banco que não fecha com
- * o próprio extrato (R$ 33,92 contra −R$ 1.475,38 em 15/10/2026) não fica
- * para sempre. Quando a janela do Open Finance anda, o começo do extrato deixa
- * de vir e o valor congela. Só em conta cujo histórico começa no extrato —
- * linha mais antiga que ele é saldo de outra origem (OFX, lançamento manual) e
- * já cobre esse período.
+ * Gravado uma vez, no dia anterior ao primeiro lançamento. Só é refeito
+ * quando a releitura pede (`refazer`), e ela pede uma vez por versão do sync
+ * que muda a conta. Refazer a cada leitura parece robusto e não é: o extrato
+ * às vezes anda atrás do banco. Em 15/10/2026 o Itaú debitou a fatura da Visa
+ * (R$ 1.509,30) de madrugada e o extrato só a trouxe no dia seguinte,
+ * carimbada depois da apuração. A releitura daquele dia trocou os R$ 698,63
+ * certos por −R$ 810,67, e a Visa, ao chegar, contou duas vezes. Diferença que
+ * persiste é para o aviso de divergência mostrar, não para o saldo de abertura
+ * engolir.
+ *
+ * Quando a janela do Open Finance anda, o começo do extrato deixa de vir e o
+ * valor congela de vez. Só em conta cujo histórico começa no extrato — linha
+ * mais antiga que ele é saldo de outra origem (OFX, lançamento manual) e já
+ * cobre esse período.
  */
 
 export const ID_SALDO_DE_ABERTURA = 'saldo-de-abertura'
@@ -69,9 +76,16 @@ export function calcularSaldoDeAbertura(saldoDoBancoCents: number, somaDoExtrato
 export async function registrarSaldoDeAbertura(
   db: Db,
   client: PolpClient,
-  args: { orgId: string; accountId: string; polpResourceId: string; extrato: ExtratoLido },
+  args: {
+    orgId: string
+    accountId: string
+    polpResourceId: string
+    extrato: ExtratoLido
+    /** Troca o valor já gravado pela leitura de agora. Sem isso, o gravado fica. */
+    refazer: boolean
+  },
 ): Promise<number | null> {
-  const { orgId, accountId, polpResourceId, extrato } = args
+  const { orgId, accountId, polpResourceId, extrato, refazer } = args
   if (extrato.incompleto) return null
 
   const [jaTem] = await db
@@ -79,6 +93,7 @@ export async function registrarSaldoDeAbertura(
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), eq(transactions.accountId, accountId), eq(transactions.externalId, ID_SALDO_DE_ABERTURA)))
     .limit(1)
+  if (jaTem && !refazer) return null
   // A janela andou: o extrato que a soma precisa já não vem.
   if (jaTem && jaTem.date.toISOString().slice(0, 10) !== diaAnterior(extrato.primeiroDia)) return null
 

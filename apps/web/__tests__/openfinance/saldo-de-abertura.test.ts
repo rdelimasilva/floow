@@ -40,7 +40,8 @@ const extrato = (over: Partial<{ incompleto: boolean }> = {}) => ({
   somaAte: (apuracao: Date) => (apuracao >= new Date('2026-10-15T00:00:00Z') ? -23560 + 10000 : -23560),
   ...over,
 })
-const args = (db: any, client: any, e = extrato()) => [db, client, { orgId: 'org', accountId: 'itau', polpResourceId: 'r', extrato: e }] as const
+const args = (db: any, client: any, e = extrato(), refazer = false) =>
+  [db, client, { orgId: 'org', accountId: 'itau', polpResourceId: 'r', extrato: e, refazer }] as const
 
 describe('registrarSaldoDeAbertura', () => {
   it('saldo do banco menos o extrato, no dia anterior ao primeiro lançamento', async () => {
@@ -54,12 +55,22 @@ describe('registrarSaldoDeAbertura', () => {
     expect(saldoAtualizado()).toBe(1)
   })
 
-  // A leitura do banco das 08:01 de 15/10 não fechava com o próprio extrato e
-  // gravou R$ 698,63; a seguinte deu −R$ 810,67. Gravado uma vez, o erro ficava.
-  it('já gravado com a mesma janela: refaz pela leitura nova', async () => {
+  // 15/10: o Itaú debitou a fatura da Visa (R$ 1.509,30) de madrugada e o
+  // extrato só a trouxe no dia seguinte. A releitura daquele dia refez o saldo
+  // de R$ 698,63 (certo) para −R$ 810,67, e a Visa, ao chegar, contou duas vezes.
+  // Extrato atrasado em relação ao banco não é erro do saldo de abertura.
+  it('já gravado: a leitura nova não mexe', async () => {
     const { db, client, inseridas, atualizadas } = montar({ jaTem: { amountCents: 69863, date: '2025-09-07' } })
 
-    expect(await registrarSaldoDeAbertura(...args(db, client))).toBe(26952)
+    expect(await registrarSaldoDeAbertura(...args(db, client))).toBeNull()
+    expect(inseridas).toHaveLength(0)
+    expect(atualizadas).toHaveLength(0)
+  })
+
+  it('já gravado e pedido para refazer: refaz pela leitura nova', async () => {
+    const { db, client, inseridas, atualizadas } = montar({ jaTem: { amountCents: 69863, date: '2025-09-07' } })
+
+    expect(await registrarSaldoDeAbertura(...args(db, client, extrato(), true))).toBe(26952)
     expect(inseridas).toHaveLength(0)
     expect(atualizadas[0]).toMatchObject({ amountCents: 26952, type: 'income' })
     expect(atualizadas).toHaveLength(2)
@@ -67,13 +78,13 @@ describe('registrarSaldoDeAbertura', () => {
 
   it('já gravado e igual: não mexe', async () => {
     const { db, client, atualizadas } = montar({ jaTem: { amountCents: 26952, date: '2025-09-07' } })
-    expect(await registrarSaldoDeAbertura(...args(db, client))).toBeNull()
+    expect(await registrarSaldoDeAbertura(...args(db, client, extrato(), true))).toBeNull()
     expect(atualizadas).toHaveLength(0)
   })
 
   it('a janela andou: o começo do extrato não vem mais, o gravado fica', async () => {
     const { db, client, atualizadas } = montar({ jaTem: { amountCents: 69863, date: '2025-09-07' } })
-    expect(await registrarSaldoDeAbertura(...args(db, client, { ...extrato(), primeiroDia: '2025-10-20' }))).toBeNull()
+    expect(await registrarSaldoDeAbertura(...args(db, client, { ...extrato(), primeiroDia: '2025-10-20' }, true))).toBeNull()
     expect(atualizadas).toHaveLength(0)
   })
 
