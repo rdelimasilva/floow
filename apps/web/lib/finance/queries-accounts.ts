@@ -59,6 +59,9 @@ export function consultaSaldosDoBanco(db: ReturnType<typeof getDb>, orgId: strin
       // Pelo instante da transação, não pelo da chegada — o débito de ontem
       // chega hoje e já estava no saldo do banco.
       //
+      // No segundo: a apuração vem sem milésimos e é o instante do último
+      // lançamento — o salário das 13:37:24.080 já estava no saldo das 13:37:24.
+      //
       // Nomes escritos à mão, não `${coluna}`: numa consulta de tabela só o
       // Drizzle tira o nome da tabela das colunas do select, e a correlação
       // virava `"account_id" = "account_id"` — o extrato de todas as contas.
@@ -68,7 +71,7 @@ export function consultaSaldosDoBanco(db: ReturnType<typeof getDb>, orgId: strin
          where t.account_id = "openfinance_resources"."account_id"
            and t.origem = 'extrato'
            and t.balance_applied and not t.is_ignored
-           and t.ocorrido_em > "openfinance_resources"."bank_balance_at"
+           and date_trunc('second', t.ocorrido_em) > "openfinance_resources"."bank_balance_at"
       )`,
     })
     .from(openfinanceResources)

@@ -12,6 +12,14 @@ describe('consultaSaldosDoBanco', () => {
 
     expect(sql).not.toMatch(/"account_id"\s*=\s*"account_id"/)
     expect(sql).toMatch(/t\.account_id\s*=\s*"openfinance_resources"\."account_id"/)
-    expect(sql).toMatch(/t\.ocorrido_em\s*>\s*"openfinance_resources"\."bank_balance_at"/)
+  })
+
+  // O banco grava a apuração cortada no segundo, e ela é o instante do último
+  // lançamento: o salário das 13:37:24.080 contra a apuração das 13:37:24 já
+  // estava no saldo, mas comparado com os milésimos ficava "depois".
+  it('compara com a apuração no segundo, sem os milésimos', () => {
+    const { sql } = consultaSaldosDoBanco(drizzle.mock() as never, 'org-1').toSQL()
+
+    expect(sql).toMatch(/date_trunc\('second', t\.ocorrido_em\)\s*>\s*"openfinance_resources"\."bank_balance_at"/)
   })
 })

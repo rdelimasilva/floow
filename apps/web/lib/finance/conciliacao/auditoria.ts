@@ -69,7 +69,7 @@ export async function auditarConciliacao(db: Db): Promise<AchadosDaAuditoria> {
            (select coalesce(sum(t.amount_cents), 0) from transactions t
              where t.account_id = r.account_id and t.origem = 'extrato'
                and t.balance_applied and not t.is_ignored
-               and t.ocorrido_em > r.bank_balance_at) as chegou_depois_cents
+               and date_trunc('second', t.ocorrido_em) > r.bank_balance_at) as chegou_depois_cents
       from openfinance_resources r
       join accounts a on a.id = r.account_id
      where r.status = 'AVAILABLE'
