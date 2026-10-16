@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
-import { getDb, accounts, openfinanceResources, transactions } from '@floow/db'
+import { getDb, accounts, openfinanceResources } from '@floow/db'
 import { eq, and, isNotNull, sql } from 'drizzle-orm'
 import { accountsTag } from '@/lib/cache-tags'
 
@@ -49,9 +49,8 @@ export const getAccountById = cache(async function getAccountById(orgId: string,
  * So volta linha de conta com Open Finance vinculado e saldo ja lido — cartao
  * de credito nunca aparece, porque seu detalhe traz `limits` e nao `balance`.
  */
-export const getSaldosDoBanco = cache(async function getSaldosDoBanco(orgId: string) {
-  const db = getDb()
-  const linhas = await db
+export function consultaSaldosDoBanco(db: ReturnType<typeof getDb>, orgId: string) {
+  return db
     .select({
       accountId: openfinanceResources.accountId,
       bankBalanceCents: openfinanceResources.bankBalanceCents,
@@ -59,17 +58,25 @@ export const getSaldosDoBanco = cache(async function getSaldosDoBanco(orgId: str
       // O extrato que aconteceu depois da apuração: o banco não podia contá-lo.
       // Pelo instante da transação, não pelo da chegada — o débito de ontem
       // chega hoje e já estava no saldo do banco.
+      //
+      // Nomes escritos à mão, não `${coluna}`: numa consulta de tabela só o
+      // Drizzle tira o nome da tabela das colunas do select, e a correlação
+      // virava `"account_id" = "account_id"` — o extrato de todas as contas.
       chegouDepois: sql<{ quantos: number; cents: number }>`(
-        select json_build_object('quantos', count(*), 'cents', coalesce(sum(${transactions.amountCents}), 0))
-          from ${transactions}
-         where ${transactions.accountId} = ${openfinanceResources.accountId}
-           and ${transactions.origem} = 'extrato'
-           and ${transactions.balanceApplied} and not ${transactions.isIgnored}
-           and ${transactions.ocorridoEm} > ${openfinanceResources.bankBalanceAt}
+        select json_build_object('quantos', count(*), 'cents', coalesce(sum(t.amount_cents), 0))
+          from transactions t
+         where t.account_id = "openfinance_resources"."account_id"
+           and t.origem = 'extrato'
+           and t.balance_applied and not t.is_ignored
+           and t.ocorrido_em > "openfinance_resources"."bank_balance_at"
       )`,
     })
     .from(openfinanceResources)
     .where(and(eq(openfinanceResources.orgId, orgId), isNotNull(openfinanceResources.bankBalanceCents)))
+}
+
+export const getSaldosDoBanco = cache(async function getSaldosDoBanco(orgId: string) {
+  const linhas = await consultaSaldosDoBanco(getDb(), orgId)
 
   const porConta = new Map<string, { bankBalanceCents: number; bankBalanceAt: Date | null; chegouDepois: { quantos: number; cents: number } }>()
   for (const l of linhas) {
