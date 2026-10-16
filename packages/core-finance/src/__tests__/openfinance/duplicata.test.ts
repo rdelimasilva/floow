@@ -240,4 +240,44 @@ describe('detectarDuplicatas escolhe qual lançamento fica', () => {
 
     expect(pares[0].manterId).toBe('antiga')
   })
+
+  // Visa, setembro/2026: a Polp entregou cada compra do Facebook duas vezes,
+  // a da fatura aberta (sem bill_id, 14/09) e a da fechada (com bill_id,
+  // 13/10). Mesmo instante da compra, no segundo. Três pares foram recusados
+  // na fila por engano e R$ 221,18 ficaram em dobro no cartão.
+  describe('mesma compra nas duas versões da fatura', () => {
+    const aberta: LancamentoParaDedupe = {
+      ...BASE, id: 'aberta', amountCents: -17303, counterpartyTaxId: null, billId: null,
+      dateISO: '2026-09-12', ocorridoEm: '2026-09-12T14:13:22.000Z', cardLastDigits: '0912',
+      externalId: uuidV7Em('2026-09-14T01:08:13Z'),
+    }
+    const fechada: LancamentoParaDedupe = {
+      ...aberta, id: 'fechada', billId: 'fatura-10', externalId: uuidV7Em('2026-10-13T02:59:50Z'),
+    }
+
+    it('é o mesmo lançamento: não pergunta', () => {
+      const [par] = detectarDuplicatas([aberta, fechada])
+      expect(par.mesmaCompra).toBe(true)
+    })
+
+    it('instante diferente: são duas compras, continua sendo só proposta', () => {
+      const [par] = detectarDuplicatas([aberta, { ...fechada, ocorridoEm: '2026-09-12T14:19:38.000Z' }])
+      expect(par.mesmaCompra).toBe(false)
+    })
+
+    it('sem o instante de um lado, não há certeza', () => {
+      const [par] = detectarDuplicatas([aberta, { ...fechada, ocorridoEm: null }])
+      expect(par.mesmaCompra).toBe(false)
+    })
+
+    it('final de cartão diferente: são duas compras', () => {
+      const [par] = detectarDuplicatas([aberta, { ...fechada, cardLastDigits: '4411' }])
+      expect(par.mesmaCompra).toBe(false)
+    })
+
+    it('as duas sem fatura fechada: não é o caso das duas versões', () => {
+      const [par] = detectarDuplicatas([aberta, { ...fechada, billId: null }])
+      expect(par.mesmaCompra).toBe(false)
+    })
+  })
 })

@@ -1,9 +1,10 @@
 'use server'
 
-import { getDb, accounts, transactions, duplicateProposals } from '@floow/db'
-import { and, eq, sql } from 'drizzle-orm'
+import { getDb, duplicateProposals } from '@floow/db'
+import { and, eq } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { revalidateAccountData, revalidateSnapshotData, revalidateTransactionData } from './revalidate'
+import { efetivarDuplicata } from './efetivar-duplicata'
 
 /**
  * Efetiva a proposta: o lançamento reemitido pela fonte sai das somas.
@@ -47,31 +48,7 @@ export async function aprovarDuplicata(propostaId: string): Promise<{ efetivada:
 
     // A janela entre propor e aprovar é aberta por desenho — a fila não
     // bloqueia o app — e nela o usuário mexe no lançamento.
-    const [duplicata] = await tx
-      .select({
-        id: transactions.id,
-        accountId: transactions.accountId,
-        amountCents: transactions.amountCents,
-        balanceApplied: transactions.balanceApplied,
-        isIgnored: transactions.isIgnored,
-      })
-      .from(transactions)
-      .where(and(eq(transactions.id, proposta.duplicataTransactionId), eq(transactions.orgId, orgId)))
-      .limit(1)
-
-    if (!duplicata || duplicata.isIgnored) return false
-
-    await tx
-      .update(transactions)
-      .set({ isIgnored: true })
-      .where(and(eq(transactions.id, duplicata.id), eq(transactions.orgId, orgId)))
-
-    if (duplicata.balanceApplied) {
-      await tx
-        .update(accounts)
-        .set({ balanceCents: sql`balance_cents + ${-duplicata.amountCents}` })
-        .where(and(eq(accounts.id, duplicata.accountId), eq(accounts.orgId, orgId)))
-    }
+    if (!(await efetivarDuplicata(tx as never, orgId, proposta.duplicataTransactionId))) return false
 
     await tx
       .update(duplicateProposals)

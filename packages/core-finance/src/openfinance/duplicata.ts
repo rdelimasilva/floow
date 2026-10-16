@@ -46,6 +46,10 @@ export interface LancamentoParaDedupe {
   billId: string | null
   /** Id da Polp. Só UUIDv7 carrega o instante da emissão. */
   externalId: string
+  /** Instante da compra que o banco informa (`transaction_date_time`). */
+  ocorridoEm?: string | null
+  /** Final do cartão que fez a compra. */
+  cardLastDigits?: string | null
 }
 
 export interface ParDuplicado {
@@ -55,6 +59,31 @@ export interface ParDuplicado {
   duplicataId: string
   /** Distância entre as emissões: é ela que justifica a proposta na tela. */
   minutosEntreEmissoes: number
+  /** As duas versões da mesma compra (`mesmaCompra`): não é pergunta, é cópia. */
+  mesmaCompra: boolean
+}
+
+/**
+ * As duas versões da mesma compra no cartão: certeza, não suspeita.
+ *
+ * A Polp lista a compra na fatura aberta (sem `bill_id`) e de novo quando a
+ * fatura fecha (com `bill_id`), com outro id, e continua listando as duas. Em
+ * setembro/2026 foram sete compras do Visa; três pares recusados na fila por
+ * engano deixaram R$ 221,18 em dobro.
+ *
+ * O que separa a cópia de duas compras iguais é o instante da compra que o
+ * banco informa, no segundo: as duas versões trazem o mesmo; duas compras de
+ * R$ 799,90 no mesmo dia vieram com 6 minutos de distância. A parcela já foi
+ * conferida antes (parcelas da mesma compra dividem o instante). O final do
+ * cartão, quando os dois lados informam, tem de bater.
+ */
+export function mesmaCompra(a: LancamentoParaDedupe, b: LancamentoParaDedupe): boolean {
+  if (!a.ocorridoEm || !b.ocorridoEm) return false
+  const segundo = (iso: string) => Math.floor(new Date(iso).getTime() / 1000)
+  if (segundo(a.ocorridoEm) !== segundo(b.ocorridoEm)) return false
+  if ((a.billId === null) === (b.billId === null)) return false
+  if (a.cardLastDigits && b.cardLastDigits && a.cardLastDigits !== b.cardLastDigits) return false
+  return true
 }
 
 /**
@@ -183,7 +212,7 @@ export function detectarDuplicatas(lancamentos: LancamentoParaDedupe[]): ParDupl
       if (minutosEntreEmissoes <= MINUTOS_MINIMOS_ENTRE_EMISSOES) continue
 
       const [manter, duplicata] = escolherQuemFica(a, b, emissaoA, emissaoB)
-      pares.push({ manterId: manter.id, duplicataId: duplicata.id, minutosEntreEmissoes })
+      pares.push({ manterId: manter.id, duplicataId: duplicata.id, minutosEntreEmissoes, mesmaCompra: mesmaCompra(a, b) })
     }
   }
 

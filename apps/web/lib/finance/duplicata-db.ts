@@ -1,6 +1,7 @@
 import { getDb, duplicateProposals, transactions } from '@floow/db'
-import { and, eq, isNotNull, sql } from 'drizzle-orm'
-import { detectarDuplicatas, type LancamentoParaDedupe } from '@floow/core-finance'
+import { and, eq, isNotNull, ne, sql } from 'drizzle-orm'
+import { detectarDuplicatas, type LancamentoParaDedupe, type ParDuplicado } from '@floow/core-finance'
+import { efetivarDuplicata } from './efetivar-duplicata'
 
 type Db = ReturnType<typeof getDb>
 
@@ -14,6 +15,12 @@ type Db = ReturnType<typeof getDb>
  * mesmo dia, mesmo valor — são indistinguíveis de duplicata para qualquer
  * heurística, e quem sabe a diferença é o dono da conta. Esta função leva o
  * sinal até a fila; a decisão é de quem tem o extrato na mão.
+ *
+ * A exceção é certeza, não heurística: as duas versões da mesma compra no
+ * cartão (`mesmaCompra`, mesmo instante no segundo, uma com fatura fechada e
+ * a outra sem). A cópia sai na hora e a proposta fica registrada como
+ * aprovada — inclusive a que foi recusada por engano: em setembro/2026 três
+ * recusas deixaram R$ 221,18 em dobro no Visa.
  *
  * Ver `@floow/core-finance` → `duplicata.ts` para o sinal em si.
  */
@@ -46,6 +53,8 @@ export async function criarPropostasDeDuplicata(
       counterpartyTaxId: transactions.counterpartyTaxId,
       billId: transactions.billId,
       externalId: transactions.externalId,
+      ocorridoEm: transactions.ocorridoEm,
+      cardLastDigits: transactions.cardLastDigits,
     })
     .from(transactions)
     .where(
@@ -81,6 +90,8 @@ export async function criarPropostasDeDuplicata(
       counterpartyTaxId: c.counterpartyTaxId,
       billId: c.billId ?? null,
       externalId: c.externalId,
+      ocorridoEm: c.ocorridoEm ? c.ocorridoEm.toISOString() : null,
+      cardLastDigits: c.cardLastDigits ?? null,
     }
     const grupo = porGrupo.get(chave)
     if (grupo) grupo.push(linha)
@@ -92,6 +103,10 @@ export async function criarPropostasDeDuplicata(
     if (grupo.length < 2) continue
 
     for (const par of detectarDuplicatas(grupo)) {
+      if (par.mesmaCompra) {
+        await resolverMesmaCompra(db, orgId, par)
+        continue
+      }
       const inserida = await db
         .insert(duplicateProposals)
         .values({
@@ -111,4 +126,33 @@ export async function criarPropostasDeDuplicata(
   }
 
   return criadas
+}
+
+/** A cópia certa sai das somas e a proposta fica aprovada, sem passar pela fila. */
+async function resolverMesmaCompra(db: Db, orgId: string, par: ParDuplicado): Promise<void> {
+  await efetivarDuplicata(db, orgId, par.duplicataId)
+  const agora = new Date()
+  const [nova] = await db
+    .insert(duplicateProposals)
+    .values({
+      orgId,
+      manterTransactionId: par.manterId,
+      duplicataTransactionId: par.duplicataId,
+      minutosEntreEmissoes: Math.round(par.minutosEntreEmissoes),
+      status: 'approved',
+      decidedAt: agora,
+    })
+    .onConflictDoNothing()
+    .returning({ id: duplicateProposals.id })
+  if (nova) return
+  // Já havia proposta do par (pendente, ou recusada por engano).
+  await db
+    .update(duplicateProposals)
+    .set({ status: 'approved', decidedAt: agora })
+    .where(and(
+      eq(duplicateProposals.orgId, orgId),
+      eq(duplicateProposals.manterTransactionId, par.manterId),
+      eq(duplicateProposals.duplicataTransactionId, par.duplicataId),
+      ne(duplicateProposals.status, 'approved'),
+    ))
 }
