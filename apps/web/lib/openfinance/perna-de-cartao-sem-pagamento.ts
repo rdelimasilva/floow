@@ -30,16 +30,26 @@ export function pernasParaEfetivar(args: {
   return args.pernas.filter((p) => p.parDoExtratoAplicado).map((p) => p.id)
 }
 
+/**
+ * A saída da outra ponta está no saldo pelo extrato dela.
+ *
+ * Nomes escritos à mão, não `${coluna}`: numa consulta de tabela só, o Drizzle
+ * tira o nome da tabela das colunas, e a correlação virava
+ * `par.account_id <> "account_id"` — a linha do par contra ela mesma, sempre
+ * falso. Em 16/10/2026 a regra foi ao ar assim e não efetivou nada.
+ */
+export const PAR_DO_EXTRATO_APLICADO = sql<boolean>`exists (
+  select 1 from transactions par
+   where par.transfer_group_id = "transactions"."transfer_group_id"
+     and par.account_id <> "transactions"."account_id"
+     and par.origem = 'extrato' and par.balance_applied and not par.is_ignored)`
+
 /** Efetiva as pernas do cartão que o extrato dele não vai confirmar. */
 export async function efetivarPernasDeCartaoSemPagamento(db: Db, orgId: string, cartaoId: string): Promise<number> {
   const pernas = await db
     .select({
       id: transactions.id,
-      parDoExtratoAplicado: sql<boolean>`exists (
-        select 1 from transactions par
-         where par.transfer_group_id = ${transactions.transferGroupId}
-           and par.account_id <> ${transactions.accountId}
-           and par.origem = 'extrato' and par.balance_applied and not par.is_ignored)`,
+      parDoExtratoAplicado: PAR_DO_EXTRATO_APLICADO,
     })
     .from(transactions)
     .where(and(

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { pernasParaEfetivar } from '@/lib/openfinance/perna-de-cartao-sem-pagamento'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import { transactions } from '@floow/db'
+import { PAR_DO_EXTRATO_APLICADO, pernasParaEfetivar } from '@/lib/openfinance/perna-de-cartao-sem-pagamento'
 
 /**
  * Visa PDA, 16/10/2026: "Débito automático ITAU VISA PAO DE AC" (R$ 1.509,30)
@@ -20,5 +22,18 @@ describe('pernasParaEfetivar', () => {
 
   it('a saída da outra conta ainda não está no saldo: a perna espera', () => {
     expect(pernasParaEfetivar({ extratoTrazPagamento: false, pernas: [perna('prevista', false)] })).toEqual([])
+  })
+})
+
+describe('PAR_DO_EXTRATO_APLICADO', () => {
+  // Com `${coluna}` o Drizzle escrevia "account_id" sem a tabela, e o par era
+  // comparado com ele mesmo: a regra foi ao ar e não achou o débito do Itaú.
+  it('compara o par com a linha da consulta, não com ele mesmo', () => {
+    const texto = drizzle.mock()
+      .select({ id: transactions.id, par: PAR_DO_EXTRATO_APLICADO })
+      .from(transactions)
+      .toSQL().sql
+    expect(texto).toContain('par.transfer_group_id = "transactions"."transfer_group_id"')
+    expect(texto).toContain('par.account_id <> "transactions"."account_id"')
   })
 })
