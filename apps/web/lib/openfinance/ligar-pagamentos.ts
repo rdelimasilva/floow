@@ -17,6 +17,10 @@ import { buildTransferLegRow } from './transfer-leg'
  * cada um:
  *  - se o cartão já tem um crédito de transferência desse valor, até 3 dias
  *    de distância (o extrato trouxe, ou o par já existe), nada a fazer;
+ *  - se o crédito é a perna que aguarda o extrato (a regra da contraparte a
+ *    criou), ela entra no saldo: o extrato do Visa nunca a confirmaria, e em
+ *    16/10/2026 os R$ 1.509,30 ficaram fora do saldo do cartão. O crédito que
+ *    o extrato trouxe vale antes dela;
  *  - senão, a saída sem par de outra conta (não cartão), do mesmo valor, até
  *    3 dias, a mais próxima, ganha a perna no cartão. A perna entra no saldo
  *    junto com a saída: quem diz que o pagamento aconteceu é o banco.
@@ -33,25 +37,33 @@ export interface Movimento {
   id: string
   amountCents: number
   date: string
+  /** Perna que aguarda o extrato, fora do saldo. Só em crédito do cartão. */
+  aguardando?: boolean
 }
 
-/** As saídas que ganham perna, pagamento a pagamento. */
+/**
+ * Pagamento a pagamento: as saídas que ganham perna (`ligar`) e as pernas que
+ * aguardavam o extrato e entram no saldo (`efetivar`).
+ */
 export function casarPagamentos(
   pagamentos: readonly PagamentoDoBanco[],
   creditosNoCartao: readonly Movimento[],
   saidas: readonly Movimento[],
-): Movimento[] {
+): { ligar: Movimento[]; efetivar: Movimento[] } {
   const usados = new Set<string>()
   const ligar: Movimento[] = []
+  const efetivar: Movimento[] = []
+  // O que já está no saldo primeiro; depois a mais próxima.
   const maisProximo = (lista: readonly Movimento[], valor: number, data: string) =>
     lista
       .filter((m) => !usados.has(m.id) && m.amountCents === valor && distancia(m.date, data) <= JANELA_DIAS * DIA_MS)
-      .sort((a, b) => distancia(a.date, data) - distancia(b.date, data))[0]
+      .sort((a, b) => Number(Boolean(a.aguardando)) - Number(Boolean(b.aguardando)) || distancia(a.date, data) - distancia(b.date, data))[0]
 
   for (const p of [...pagamentos].sort((a, b) => a.date.localeCompare(b.date))) {
     const jaEsta = maisProximo(creditosNoCartao, p.amountCents, p.date)
     if (jaEsta) {
       usados.add(jaEsta.id)
+      if (jaEsta.aguardando) efetivar.push(jaEsta)
       continue
     }
     const saida = maisProximo(saidas, -p.amountCents, p.date)
@@ -60,7 +72,7 @@ export function casarPagamentos(
       ligar.push(saida)
     }
   }
-  return ligar
+  return { ligar, efetivar }
 }
 
 function iso(d: Date): string {
@@ -80,7 +92,13 @@ export async function ligarPagamentosAoCartao(
   const ate = new Date(Math.max(...datas) + JANELA_DIAS * DIA_MS)
 
   const creditos = (await db
-    .select({ id: transactions.id, amountCents: transactions.amountCents, date: transactions.date })
+    .select({
+      id: transactions.id,
+      amountCents: transactions.amountCents,
+      date: transactions.date,
+      aguardaExtrato: transactions.aguardaExtrato,
+      balanceApplied: transactions.balanceApplied,
+    })
     .from(transactions)
     .where(and(
       eq(transactions.orgId, orgId),
@@ -88,10 +106,17 @@ export async function ligarPagamentosAoCartao(
       eq(transactions.type, 'transfer'),
       gt(transactions.amountCents, 0),
       eq(transactions.isIgnored, false),
+      // Perna já absorvida pelo extrato do cartão: o dinheiro é o do extrato.
+      isNull(transactions.matchedTransactionId),
       gte(transactions.date, de),
       lte(transactions.date, ate),
     )))
-    .map((c) => ({ ...c, date: iso(c.date) }))
+    .map((c) => ({
+      id: c.id,
+      amountCents: c.amountCents,
+      date: iso(c.date),
+      aguardando: c.aguardaExtrato && !c.balanceApplied,
+    }))
 
   const linhasDeSaida = await db
     .select({
@@ -119,12 +144,26 @@ export async function ligarPagamentosAoCartao(
     ))
   const saidas = linhasDeSaida.map((s) => ({ ...s, date: iso(s.date) }))
 
-  const ligar = casarPagamentos(pagamentos, creditos, saidas)
-  if (ligar.length === 0) return 0
+  const { ligar, efetivar } = casarPagamentos(pagamentos, creditos, saidas)
+  if (ligar.length === 0 && efetivar.length === 0) return 0
 
   const porId = new Map(saidas.map((s) => [s.id, s]))
   await db.transaction(async (tx) => {
     let entrouNoSaldo = 0
+    for (const { id } of efetivar) {
+      // Só se ainda aguarda: outro sync pode ter efetivado.
+      const [efetivada] = await tx
+        .update(transactions)
+        .set({ aguardaExtrato: false, balanceApplied: true })
+        .where(and(
+          eq(transactions.id, id),
+          eq(transactions.orgId, orgId),
+          eq(transactions.aguardaExtrato, true),
+          eq(transactions.balanceApplied, false),
+        ))
+        .returning({ amountCents: transactions.amountCents })
+      if (efetivada) entrouNoSaldo += efetivada.amountCents
+    }
     for (const { id } of ligar) {
       const saida = porId.get(id)!
       const grupo = crypto.randomUUID()
@@ -150,5 +189,5 @@ export async function ligarPagamentosAoCartao(
         .where(and(eq(accounts.id, cartaoId), eq(accounts.orgId, orgId)))
     }
   })
-  return ligar.length
+  return ligar.length + efetivar.length
 }
