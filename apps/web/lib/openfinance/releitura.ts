@@ -14,7 +14,7 @@ import { carregarDiaDeVencimento, dataFinalDaParcela, hojeEmSaoPaulo, parcelaSem
 import { corrigirDataDaParcelaAplicada } from './parcela-aplicada'
 import { completarMesDaFatura } from './faturas-do-banco'
 import { ocuparReemitidos, type Lancamento } from './reemitidos'
-import { registrarSaldoDeAbertura } from './saldo-de-abertura'
+import { registrarSaldoDeAbertura, somarExtratoAte } from './saldo-de-abertura'
 
 /**
  * Releitura do histórico quando o sync passa a gravar um campo novo.
@@ -38,7 +38,8 @@ import { registrarSaldoDeAbertura } from './saldo-de-abertura'
 // 3: lançamento reemitido com outro id ocupa a linha antiga (`reemitidos.ts`).
 // 4: saldo da conta antes do primeiro lançamento do extrato (`saldo-de-abertura.ts`).
 // 5: instante da transação, para conferir com o saldo do banco (`ocorrido_em`).
-export const VERSAO_DO_SYNC = 5
+// 6: saldo de abertura refeito pela leitura nova, cortado no instante da apuração.
+export const VERSAO_DO_SYNC = 6
 
 type Enriquecivel = Pick<
   NormalizedPolpTransaction,
@@ -114,8 +115,8 @@ export async function relerHistorico(
   const idsDaPolp = new Set<string>()
   const semLinha: Lancamento[] = []
   let primeira: string | null = null
-  // Conta corrente: o extrato inteiro, por dia, para o saldo de abertura.
-  const somaPorDia = new Map<string, number>()
+  // Conta corrente: o extrato inteiro, para o saldo de abertura.
+  const extratoLido: { date: string; ocorridoEm: string | null; amountCents: number }[] = []
   let rejeitados = 0
   for await (const page of pages as AsyncGenerator<unknown[]>) {
     const { ok, rejected } = normalizeBatch(page, (tx) =>
@@ -125,7 +126,7 @@ export async function relerHistorico(
     )
     rejeitados += rejected.length
     for (const recebida of ok) {
-      if (!isCard) somaPorDia.set(recebida.date, (somaPorDia.get(recebida.date) ?? 0) + recebida.amountCents)
+      if (!isCard) extratoLido.push({ date: recebida.date, ocorridoEm: recebida.ocorridoEm, amountCents: recebida.amountCents })
       const tx = completarMesDaFatura(recebida, mesesDasFaturas)
       // Só parcela com data da fatura muda de data; sem ela, a gravada fica.
       const ehParcela = tx.purchaseDate != null && !parcelaSemDataDaFatura(tx)
@@ -167,7 +168,7 @@ export async function relerHistorico(
       extrato: {
         primeiroDia,
         incompleto: rejeitados > 0,
-        somaAte: (dia) => [...somaPorDia].reduce((soma, [d, v]) => (d <= dia ? soma + v : soma), 0),
+        somaAte: (apuracao) => somarExtratoAte(extratoLido, apuracao),
       },
     }).catch((error) => console.error('[sync] falha ao registrar o saldo de abertura:', error))
   }

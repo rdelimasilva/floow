@@ -15,17 +15,20 @@ import type { Db } from './persist-page'
  * mandou até a apuração desse saldo. Nada do que o app tem entra na conta,
  * então lançamento duplicado ou faltando continua aparecendo como diferença.
  *
- * Gravado uma vez, no dia anterior ao primeiro lançamento, e nunca refeito:
- * a janela do Open Finance anda, e o extrato do começo deixa de vir. Só em
- * conta cujo histórico começa no extrato — linha mais antiga que ele é saldo
- * de outra origem (OFX, lançamento manual) e já cobre esse período.
+ * Gravado no dia anterior ao primeiro lançamento e refeito a cada releitura
+ * enquanto o extrato começar nesse dia: uma leitura do banco que não fecha com
+ * o próprio extrato (R$ 33,92 contra −R$ 1.475,38 em 15/10/2026) não fica
+ * para sempre. Quando a janela do Open Finance anda, o começo do extrato deixa
+ * de vir e o valor congela. Só em conta cujo histórico começa no extrato —
+ * linha mais antiga que ele é saldo de outra origem (OFX, lançamento manual) e
+ * já cobre esse período.
  */
 
 export const ID_SALDO_DE_ABERTURA = 'saldo-de-abertura'
 
 export interface ExtratoLido {
-  /** Soma do extrato até o dia da apuração do saldo (inclusive). */
-  somaAte: (dia: string) => number
+  /** Soma do extrato até a apuração do saldo (inclusive). */
+  somaAte: (apuracao: Date) => number
   /** Primeiro dia do extrato, AAAA-MM-DD. */
   primeiroDia: string
   /** Algum item não foi lido: a soma estaria incompleta. */
@@ -42,6 +45,22 @@ function diaEmSaoPaulo(d: Date): string {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
 
+/**
+ * Soma do extrato até a apuração. Pelo instante, no segundo: a apuração vem
+ * sem milésimos e é o instante do último lançamento. Sem instante, pelo dia.
+ */
+export function somarExtratoAte(
+  itens: { date: string; ocorridoEm: string | null; amountCents: number }[],
+  apuracao: Date,
+): number {
+  const dia = diaEmSaoPaulo(apuracao)
+  const limite = Math.floor(apuracao.getTime() / 1000)
+  return itens.reduce((soma, i) => {
+    const antes = i.ocorridoEm ? Math.floor(new Date(i.ocorridoEm).getTime() / 1000) <= limite : i.date <= dia
+    return antes ? soma + i.amountCents : soma
+  }, 0)
+}
+
 /** O saldo de abertura, em centavos. */
 export function calcularSaldoDeAbertura(saldoDoBancoCents: number, somaDoExtratoCents: number): number {
   return saldoDoBancoCents - somaDoExtratoCents
@@ -56,13 +75,15 @@ export async function registrarSaldoDeAbertura(
   if (extrato.incompleto) return null
 
   const [jaTem] = await db
-    .select({ id: transactions.id })
+    .select({ id: transactions.id, amountCents: transactions.amountCents, date: transactions.date })
     .from(transactions)
     .where(and(eq(transactions.orgId, orgId), eq(transactions.accountId, accountId), eq(transactions.externalId, ID_SALDO_DE_ABERTURA)))
     .limit(1)
-  if (jaTem) return null
+  // A janela andou: o extrato que a soma precisa já não vem.
+  if (jaTem && jaTem.date.toISOString().slice(0, 10) !== diaAnterior(extrato.primeiroDia)) return null
 
-  const [anterior] = await db
+  // O próprio saldo de abertura é anterior ao extrato: só confere sem ele.
+  const [anterior] = jaTem ? [] : await db
     .select({ id: transactions.id })
     .from(transactions)
     .where(and(
@@ -79,7 +100,24 @@ export async function registrarSaldoDeAbertura(
   const apuracao = extrairApuracaoDoSaldo(detalhe)
   if (saldo == null || !apuracao) return null
 
-  const abertura = calcularSaldoDeAbertura(saldo, extrato.somaAte(diaEmSaoPaulo(apuracao)))
+  const abertura = calcularSaldoDeAbertura(saldo, extrato.somaAte(apuracao))
+
+  if (jaTem) {
+    const delta = abertura - jaTem.amountCents
+    if (delta === 0) return null
+    await db.transaction(async (tx) => {
+      await tx
+        .update(transactions)
+        .set({ amountCents: abertura, type: abertura >= 0 ? 'income' : 'expense' })
+        .where(and(eq(transactions.id, jaTem.id), eq(transactions.orgId, orgId)))
+      await tx
+        .update(accounts)
+        .set({ balanceCents: sql`balance_cents + ${delta}` })
+        .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId)))
+    })
+    return abertura
+  }
+
   if (abertura === 0) return 0
 
   await db.transaction(async (tx) => {
