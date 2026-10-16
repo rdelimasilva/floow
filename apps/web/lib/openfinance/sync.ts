@@ -27,6 +27,7 @@ import { VERSAO_DO_SYNC, precisaReler, relerHistorico } from './releitura'
 import { carregarFaturasDoBanco, completarMesDaFatura, gravarFaturasDoBanco, mesesDasFaturas as mesesPorBill, pagamentosDoBanco } from './faturas-do-banco'
 import { reclassificarPagamentosDeFatura } from './pagamento-de-fatura'
 import { ligarPagamentosAoCartao } from './ligar-pagamentos'
+import { efetivarPernasDeCartaoSemPagamento } from './perna-de-cartao-sem-pagamento'
 import { realinharSaldoGravado } from './realinhar-saldo'
 import { fixarInicioDoCartao } from './fixar-inicio-do-cartao'
 import { noHistorico, pagamentosDoHistorico } from './inicio-do-cartao'
@@ -239,6 +240,8 @@ export async function syncConnectionTransactions(
   for (const [accountId, pagamentos] of pagamentosPorCartao) {
     try {
       await reclassificarPagamentosDeFatura(db, connection.orgId, accountId, pagamentos)
+      // Antes de ligar: a perna efetivada já é o pagamento, e não ganha outra.
+      await efetivarPernasDeCartaoSemPagamento(db, connection.orgId, accountId)
       await ligarPagamentosAoCartao(db, connection.orgId, accountId, pagamentos)
       contasDaConexao.add(accountId)
     } catch (error) {
