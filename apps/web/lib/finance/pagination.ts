@@ -48,6 +48,20 @@ export function paginaQueAbre({
 }
 
 /**
+ * A lista passa de hoje? Então a última página não é "hoje" e a abertura
+ * precisa da contagem até hoje. Acontece com o toggle de futuros e também com
+ * período cuja data final está à frente — `endDate` explícito mostra o futuro
+ * (ver `buildTransactionConditions`), e o período lembrado da sessão anterior
+ * fazia a tela abrir só com os lançamentos do mês que vem.
+ */
+export function contaAteHojeParaAbrir(
+  filters: { endDate?: string; includeFuture?: boolean },
+  hoje: string,
+): boolean {
+  return Boolean(filters.includeFuture) || (!!filters.endDate && filters.endDate > hoje)
+}
+
+/**
  * Os filtros da contagem "até hoje": os mesmos da lista, sem os futuros e com
  * a data final cortada em hoje (a que já está no passado fica como está).
  */

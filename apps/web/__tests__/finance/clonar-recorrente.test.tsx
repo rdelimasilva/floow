@@ -61,7 +61,6 @@ function renderLista() {
   return render(
     <RecurringTemplateList
       templates={[aluguel]}
-      upcoming={[]}
       accounts={[
         { id: 'acc-1', name: 'Nubank' },
         { id: 'acc-2', name: 'Itaú' },

@@ -60,7 +60,6 @@ function renderLista() {
   return render(
     <RecurringTemplateList
       templates={[luz]}
-      upcoming={[]}
       accounts={[{ id: 'acc-1', name: 'Nubank' }]}
       categories={[
         { id: 'cat-moradia', name: 'Moradia', type: 'expense' },
