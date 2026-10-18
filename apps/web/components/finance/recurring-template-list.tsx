@@ -9,6 +9,7 @@ import {
 } from '@/lib/finance/recurring-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CreateRecurringDialog } from '@/components/finance/create-recurring-dialog'
+import { RecurringMonthlyTotalCard } from '@/components/finance/recurring-monthly-total-card'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import {
@@ -148,6 +149,8 @@ export function RecurringTemplateList({
 
   return (
     <div className="space-y-8">
+      <RecurringMonthlyTotalCard templates={templates} />
+
       {/* Upcoming Due Section */}
       <section>
         <h2 className="text-base font-semibold text-gray-900 mb-3">Próximas a vencer</h2>
