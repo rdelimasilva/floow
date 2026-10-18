@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  AreaChart,
+  ComposedChart,
   Area,
   XAxis,
   YAxis,
@@ -100,7 +100,7 @@ export function BudgetPacingChart({ result }: Props) {
   return (
     <div className="w-full">
       <ResponsiveContainer width="100%" height={300}>
-        <AreaChart data={chartData} margin={{ top: 16, right: 16, bottom: 4, left: 8 }}>
+        <ComposedChart data={chartData} margin={{ top: 16, right: 16, bottom: 4, left: 8 }}>
           <CartesianGrid vertical={false} stroke="#E0E0E0" strokeOpacity={0.7} />
           <XAxis
             dataKey="day"
@@ -171,7 +171,7 @@ export function BudgetPacingChart({ result }: Props) {
             connectNulls
             isAnimationActive={false}
           />
-        </AreaChart>
+        </ComposedChart>
       </ResponsiveContainer>
 
       {/* Rótulos diretos — a codificação secundária que a validação de daltonismo exige. */}
