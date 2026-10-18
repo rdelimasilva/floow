@@ -62,7 +62,7 @@ export function PlanningSummaryRow({
               <p className="text-lg font-medium text-blue-600">Simular</p>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              {retirementReadiness ?? 'Nenhum plano salvo'}
+              {retirementReadiness ?? 'Simule sua aposentadoria'}
             </p>
           </CardContent>
         </Card>

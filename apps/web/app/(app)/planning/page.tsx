@@ -3,7 +3,8 @@ import Link from 'next/link'
 import { getOrgId } from '@/lib/finance/queries'
 import { PageHeader } from '@/components/ui/page-header'
 import { getPlanningDashboardData, getPlanningPortfolioSummary } from '@/lib/planning/queries'
-import { calculateFI, SCENARIO_PRESETS } from '@floow/core-finance'
+import { SCENARIO_PRESETS } from '@floow/core-finance'
+import { progressoAteIF } from '@/lib/planning/progresso-ate-if'
 import { PlanningSummaryRow } from '@/components/planning/planning-summary-row'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BarChart3, Users } from 'lucide-react'
@@ -24,22 +25,24 @@ async function PlanningHubContent({ orgId }: { orgId: string }) {
   let fiProgressPercent: number | null = null
   let retirementReadiness: string | null = null
 
+  // O plano guardado é o que a simulação carrega ao abrir, no modo "Tenho um
+  // aporte mensal". O card faz a mesma conta, para os dois mostrarem o mesmo
+  // número. "Plano salvo" confundia com os cenários salvos da simulação.
   if (retirementPlan) {
-    retirementReadiness = 'Plano salvo'
-    const fiResult = calculateFI({
-      currentPortfolioCents,
+    const progresso = progressoAteIF({
+      mode: 'contribution',
+      portfolioCents: currentPortfolioCents,
       monthlyContributionCents: retirementPlan.monthlyContributionCents,
-      targetMonthlyPassiveIncomeCents: retirementPlan.desiredMonthlyIncomeCents,
+      desiredMonthlyIncomeCents: retirementPlan.desiredMonthlyIncomeCents,
       annualRealReturnRate: retirementPlan.baseReturnRate != null
         ? Number(retirementPlan.baseReturnRate)
         : SCENARIO_PRESETS.base.annualRealReturnRate,
       currentAge: retirementPlan.currentAge,
+      retirementAge: retirementPlan.retirementAge,
     })
-    if (fiResult.fiNumberCents > 0) {
-      fiProgressPercent = Math.min(
-        100,
-        Math.round((currentPortfolioCents / fiResult.fiNumberCents) * 100)
-      )
+    if (progresso) {
+      fiProgressPercent = progresso.percent
+      retirementReadiness = 'Cenário base da simulação'
     }
   }
 
