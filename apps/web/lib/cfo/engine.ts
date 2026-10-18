@@ -390,7 +390,14 @@ export async function runCfoEngine(
     let dailySummary: string | null = null
 
     if (insights.length > 0 && process.env.ANTHROPIC_API_KEY) {
-      const provider = createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })
+      // Mesmo modelo do chat do consultor; ~10 insights reescritos + resumo
+      // não cabem em 2000 tokens nem em 15 s (o cron tem 300 s).
+      const provider = createAnthropicProvider({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        model: process.env.CFO_CHAT_MODEL ?? 'claude-sonnet-5',
+        maxTokens: 6000,
+        timeoutMs: 90_000,
+      })
 
       // Build financial context from the inputs we already fetched
       const financialContext = {

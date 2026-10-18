@@ -10,7 +10,7 @@ interface AnthropicConfig {
 }
 
 export function createAnthropicProvider(config: AnthropicConfig): ChatProvider {
-  const model = config.model ?? 'claude-sonnet-4-20250514'
+  const model = config.model ?? 'claude-sonnet-5'
   const maxTokens = config.maxTokens ?? 2000
   const timeoutMs = config.timeoutMs ?? 15000
 
@@ -45,7 +45,8 @@ export function createAnthropicProvider(config: AnthropicConfig): ChatProvider {
         })
 
         if (!response.ok) {
-          throw new Error(`Anthropic API error: ${response.status}`)
+          const detalhe = await response.text().catch(() => '')
+          throw new Error(`Anthropic API error: ${response.status} ${detalhe.slice(0, 500)}`)
         }
 
         const data = await response.json() as { content?: { text?: string }[] }
