@@ -4,6 +4,7 @@ import { syncConnectionTransactions } from './sync'
 import { sincronizarInvestimentosDaConexao } from './sincronizar-conexao'
 import { getPolpClient } from './config'
 import { revalidateSincronizacao } from '@/lib/finance/revalidate'
+import { gravarSnapshotDoServico } from '@/lib/finance/snapshot-patrimonio'
 
 export interface ResumoDaImportacaoAgendada {
   conexoes: number
@@ -13,6 +14,8 @@ export interface ResumoDaImportacaoAgendada {
   falhas: number
   propostasDeConciliacao: number
   propostasDeDuplicata: number
+  /** Orgs com o snapshot de patrimônio do dia gravado. */
+  snapshots: number
 }
 
 /**
@@ -57,6 +60,7 @@ export async function importarLancamentosDeTodasAsConexoes(): Promise<ResumoDaIm
     falhas: 0,
     propostasDeConciliacao: 0,
     propostasDeDuplicata: 0,
+    snapshots: 0,
   }
 
   if (conexoes.length === 0) return resumo
@@ -98,7 +102,21 @@ export async function importarLancamentosDeTodasAsConexoes(): Promise<ResumoDaIm
 
   // Sem isto cada tela segue com o cache de antes do sync até ele expirar, e
   // o mesmo mês aparece com um número em cada uma.
-  for (const orgId of new Set(conexoes.map((c) => c.orgId))) revalidateSincronizacao(orgId)
+  const orgs = new Set(conexoes.map((c) => c.orgId))
+  for (const orgId of orgs) revalidateSincronizacao(orgId)
+
+  // O histórico de patrimônio (gráfico de evolução, Consultor) só nascia no
+  // clique de "Atualizar valores". Vem depois da invalidação para ler os
+  // saldos e posições que acabaram de entrar. Uma org que falha não para as
+  // outras — nem a importação, que já está gravada.
+  for (const orgId of orgs) {
+    try {
+      await gravarSnapshotDoServico(orgId)
+      resumo.snapshots++
+    } catch (error) {
+      console.error(`[openfinance] snapshot de patrimonio falhou para org=${orgId}:`, error)
+    }
+  }
 
   return resumo
 }

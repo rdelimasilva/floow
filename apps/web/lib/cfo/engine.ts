@@ -17,7 +17,6 @@ import {
   assets,
   assetPositionSnapshots,
   fixedAssets,
-  cfoInsights,
   cfoRuns,
   // Aliasado: `categories` neste arquivo ja e um local de InsightCategory[].
   categories as categoriesTable,
@@ -25,6 +24,7 @@ import {
 import { eq, and, gte, gt, desc, sql } from 'drizzle-orm'
 import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import { buildBudgetPacingInput } from './budget-pacing-input'
+import { substituirInsights } from './substituir-insights'
 import { assetDisplayName } from '@/lib/investments/asset-labels'
 import { cfoInsightsTag, invalidateTag } from '@/lib/cache-tags'
 import {
@@ -69,7 +69,7 @@ function ttlForSeverity(severity: string): Date {
  * 1. Inserts a cfo_runs row (with onConflictDoNothing for debounce).
  * 2. Fetches data for each analyzer category via direct Drizzle queries.
  * 3. Calls runAnalyzers(inputs, categories) from core-finance.
- * 4. Saves resulting insights to cfo_insights with appropriate TTL.
+ * 4. Replaces the active insights of the analyzed categories (substituirInsights).
  * 5. Updates the cfo_runs row with completion status.
  */
 export async function runCfoEngine(
@@ -85,6 +85,15 @@ export async function runCfoEngine(
   // -------------------------------------------------------------------------
 
   const runType = categories ? categories.join(',') : 'full'
+  const analyzersRun: InsightCategory[] = categories ?? [
+    'cash_flow',
+    'budget',
+    'debt',
+    'investment',
+    'patrimony',
+    'retirement',
+    'behavior',
+  ]
 
   // Debounce: skip if same (org, triggerEvent) ran in the last 5 minutes
   const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000)
@@ -111,15 +120,7 @@ export async function runCfoEngine(
       runType,
       triggerEvent,
       startedAt: now,
-      analyzersRun: categories ?? [
-        'cash_flow',
-        'budget',
-        'debt',
-        'investment',
-        'patrimony',
-        'retirement',
-        'behavior',
-      ],
+      analyzersRun,
       insightsGenerated: 0,
     })
     .returning({ id: cfoRuns.id })
@@ -425,25 +426,15 @@ export async function runCfoEngine(
     // Step 4 — Save insights
     // -----------------------------------------------------------------------
 
-    if (insights.length > 0) {
-      const generatedAt = new Date()
-      await db.insert(cfoInsights).values(
-        insights.map((insight) => ({
-          orgId,
-          type: insight.type,
-          category: insight.category,
-          severity: insight.severity,
-          title: insight.title,
-          body: insight.body,
-          metric: insight.metric,
-          suggestedActionType: insight.suggestedAction?.type ?? null,
-          suggestedActionParams: insight.suggestedAction?.params ?? null,
-          source: triggerEvent,
-          generatedAt,
-          expiresAt: ttlForSeverity(insight.severity),
-        })),
-      )
-    }
+    // Substitui (não acumula) os insights das categorias analisadas.
+    await substituirInsights(db, {
+      orgId,
+      categorias: analyzersRun,
+      insights,
+      source: triggerEvent,
+      agora: new Date(),
+      expiraEm: ttlForSeverity,
+    })
 
     // -----------------------------------------------------------------------
     // Step 5 — Update cfo_runs with completion

@@ -26,6 +26,7 @@ const h = vi.hoisted(() => {
     builder,
     invalidateTag: vi.fn(),
     runAnalyzers: vi.fn((): unknown[] => []),
+    substituirInsights: vi.fn(async (..._args: unknown[]) => undefined),
   }
 })
 
@@ -51,6 +52,7 @@ vi.mock('drizzle-orm', () => {
 })
 
 vi.mock('@/lib/finance/affects-cash-flow', () => ({ effectiveAffectsCashFlow: {} }))
+vi.mock('@/lib/cfo/substituir-insights', () => ({ substituirInsights: h.substituirInsights }))
 vi.mock('@/lib/cfo/budget-pacing-input', () => ({ buildBudgetPacingInput: async () => undefined }))
 vi.mock('@/lib/investments/asset-labels', () => ({ assetDisplayName: (a: { name: string }) => a.name }))
 vi.mock('@floow/core-finance', () => ({
@@ -71,6 +73,7 @@ describe('runCfoEngine invalida o cache da tela do consultor', () => {
     h.invalidateTag.mockClear()
     h.runAnalyzers.mockReset()
     h.runAnalyzers.mockReturnValue([])
+    h.substituirInsights.mockClear()
   })
 
   it('expira a tag dos insights ao terminar', async () => {
@@ -84,5 +87,22 @@ describe('runCfoEngine invalida o cache da tela do consultor', () => {
     })
     await expect(runCfoEngine('org-2')).rejects.toThrow('boom')
     expect(h.invalidateTag).toHaveBeenCalledWith('cfo-insights:org-2')
+  })
+
+  it('substitui os insights das categorias que rodou, mesmo sem insight novo', async () => {
+    // Sem isso cada execução empilhava uma cópia ("Viagens" do cron e do
+    // budget_changed lado a lado em 18/10).
+    await runCfoEngine('org-3', { categories: ['budget'], triggerEvent: 'budget_changed' })
+    expect(h.substituirInsights).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ orgId: 'org-3', categorias: ['budget'], insights: [], source: 'budget_changed' }),
+    )
+  })
+
+  it('execução completa responde por todas as categorias', async () => {
+    await runCfoEngine('org-4')
+    expect(h.substituirInsights.mock.calls[0][1]).toMatchObject({
+      categorias: ['cash_flow', 'budget', 'debt', 'investment', 'patrimony', 'retirement', 'behavior'],
+    })
   })
 })

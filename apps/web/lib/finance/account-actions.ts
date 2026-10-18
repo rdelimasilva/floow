@@ -1,10 +1,11 @@
 'use server'
-import { getDb, accounts, transactions, patrimonySnapshots } from '@floow/db'
+import { getDb, accounts, transactions } from '@floow/db'
 import { createAccountSchema, updateAccountSchema } from '@floow/shared'
 
 import { eq, sql, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
 import { getPatrimonioAtual } from './patrimonio-queries'
+import { gravarSnapshotDoPatrimonio } from './snapshot-patrimonio'
 import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
 import {
   revalidateAccountData,
@@ -200,25 +201,8 @@ export async function adjustAccountBalance(formData: FormData) {
  */
 export async function refreshSnapshot() {
   const orgId = await getOrgId()
-  const db = getDb()
-
   const patrimonio = await getPatrimonioAtual(orgId)
-
-  const [saved] = await db
-    .insert(patrimonySnapshots)
-    .values({
-      orgId,
-      snapshotDate: new Date(),
-      netWorthCents: patrimonio.patrimonioLiquidoCents,
-      liquidAssetsCents: patrimonio.ativosCents,
-      liabilitiesCents: patrimonio.passivosCents,
-      breakdown: JSON.stringify(Object.fromEntries(patrimonio.blocos.map((b) => [b.key, b.valorCents]))),
-    })
-    .returning()
-
-  revalidateSnapshotData(orgId)
-
-  return saved
+  return gravarSnapshotDoPatrimonio(orgId, patrimonio)
 }
 
 /**
