@@ -235,6 +235,9 @@ export async function updateTransaction(formData: FormData) {
       .set({
         accountId: input.accountId,
         categoryId: categoriaNova,
+        // Categoria trocada à mão deixa de ser palpite da máquina: o vínculo
+        // com previsão (`herancaDaPrevisao`) não a substitui.
+        ...(oldTx.categoryId !== categoriaNova ? { isAutoCategorized: false } : {}),
         type: input.type,
         amountCents: newSignedAmount,
         description: input.description,

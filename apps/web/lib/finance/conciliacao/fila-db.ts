@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lte, ne, or } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, isNull, lte, ne, or } from 'drizzle-orm'
 import { accounts, categories, forecastMatchProposals, openfinanceConnections, openfinanceResources, transactions, type RlsTx } from '@floow/db'
 import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 import { lerDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
@@ -6,7 +6,8 @@ import { lerPropostasPendentes } from '@/lib/finance/forecast-match-queries'
 import { lerGruposPendentes } from '@/lib/openfinance/counterparty-queries'
 import { condicaoDeRealizadoSemVinculo, JANELA_BUSCA_DIAS } from '@/lib/finance/forecast-match-db'
 import { meioDoLancamento } from '@/lib/openfinance/meio-do-lancamento'
-import { escolherCandidatas, type Candidata } from './candidatos'
+import { escolherCandidatas, type Candidata, type PrevisaoAberta } from './candidatos'
+import { ehPrevisaoAntiga, lerContrapartesDasSeries, lerLancamentosParaAntigas } from './previsoes-antigas'
 import { montarFila, LOTE_DA_FILA, JANELA_FILA_DIAS, type ItemDaFila, type LancamentoBase } from './fila'
 
 /**
@@ -28,7 +29,7 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
   const recentes = await db
     .select({
       id: transactions.id, accountId: transactions.accountId, date: transactions.date, amountCents: transactions.amountCents,
-      description: transactions.description,
+      description: transactions.description, counterpartyId: transactions.counterpartyId,
     })
     .from(transactions)
     .where(and(
@@ -40,6 +41,7 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
     .select({
       id: transactions.id, accountId: transactions.accountId, contaNome: accounts.name, date: transactions.date,
       amountCents: transactions.amountCents, description: transactions.description, categoriaNome: categories.name,
+      recurringTemplateId: transactions.recurringTemplateId,
     })
     .from(transactions)
     .innerJoin(accounts, eq(accounts.id, transactions.accountId))
@@ -50,10 +52,20 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
         ? or(isNull(transactions.matchedTransactionId), inArray(transactions.id, previsoesDeTroca))
         : isNull(transactions.matchedTransactionId),
       eq(transactions.isIgnored, false), ne(transactions.origem, 'extrato'),
-      gte(transactions.date, new Date(desde.getTime() - JANELA_BUSCA_DIAS * DIA_EM_MS)),
+      // Recorrência vencida sem vínculo entra de qualquer idade (#13).
+      or(gte(transactions.date, new Date(desde.getTime() - JANELA_BUSCA_DIAS * DIA_EM_MS)), isNotNull(transactions.recurringTemplateId)),
       lte(transactions.date, new Date(hoje.getTime() + JANELA_BUSCA_DIAS * DIA_EM_MS)),
     ))
-  const abertas = previsoes.map((p) => ({ ...p, date: iso(p.date)! }))
+  const datadas = previsoes.map((p) => ({ ...p, date: iso(p.date)! }))
+  const antigas = datadas.filter((p) => ehPrevisaoAntiga(p, hoje))
+  const idsAntigos = new Set(antigas.map((a) => a.id))
+  const contrapartes = await lerContrapartesDasSeries(db, orgId, [...new Set(antigas.map((p) => p.recurringTemplateId!))])
+  const abertas: PrevisaoAberta[] = datadas.map(({ recurringTemplateId, ...p }) => (
+    idsAntigos.has(p.id) ? { ...p, antiga: true, contrapartes: contrapartes.get(recurringTemplateId!) ?? [] } : p
+  ))
+  // O lançamento do banco que cumpre a previsão antiga pode ser anterior à
+  // janela da fila: entra também, só para ela.
+  const doBanco = [...recentes, ...await lerLancamentosParaAntigas(db, orgId, antigas, desde)]
 
   const recusas = await db
     .select({ previsaoId: forecastMatchProposals.forecastTransactionId, realizadoId: forecastMatchProposals.realizedTransactionId })
@@ -64,7 +76,7 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
   const propostaPor = new Map(propostas.map((p) => [p.realizado.id, { id: p.id, previsaoId: p.previsao.id }]))
 
   const candidatas = new Map<string, Candidata[]>()
-  for (const r of recentes) {
+  for (const r of doBanco) {
     const escolhidas = escolherCandidatas({ ...r, date: iso(r.date)! }, abertas, {
       proposta: propostaPor.get(r.id) ?? null, recusadas: recusadasPor.get(r.id),
     })

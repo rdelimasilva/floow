@@ -1,9 +1,11 @@
 import { getDb, transactions, forecastMatchProposals } from '@floow/db'
+import { herancaDaPrevisao } from '@floow/core-finance'
 import { and, eq, inArray, ne, or } from 'drizzle-orm'
 import { aplicarEfeitoDaAbsorcao } from './absorver'
 import { registrarVinculo } from './registro'
-import { registrarEventos } from './validacoes'
+import { categoriaDecididaPeloUsuario, registrarEventos } from './validacoes'
 import { realinharSerie } from './realinhar-serie'
+import { ancestraisDaCategoria } from './ancestrais-da-categoria'
 import { condicaoDaTransacaoDaOrg } from '@/lib/finance/forecast-match-db'
 
 type Db = ReturnType<typeof getDb>
@@ -36,7 +38,7 @@ export async function vincularNoBanco(
       isIgnored: transactions.isIgnored, externalId: transactions.externalId, transferAccountId: transactions.transferAccountId,
       aguardaExtrato: transactions.aguardaExtrato, origem: transactions.origem, categoryId: transactions.categoryId,
       description: transactions.description, transferGroupId: transactions.transferGroupId, type: transactions.type,
-      reviewState: transactions.reviewState, accountId: transactions.accountId, amountCents: transactions.amountCents,
+      reviewState: transactions.reviewState, isAutoCategorized: transactions.isAutoCategorized, accountId: transactions.accountId, amountCents: transactions.amountCents,
       counterpartyId: transactions.counterpartyId, date: transactions.date, recurringTemplateId: transactions.recurringTemplateId,
     })
     .from(transactions)
@@ -110,15 +112,25 @@ export async function vincularNoBanco(
   let classificou = realizado.reviewState !== 'pending'
   if (previsao.aguardaExtrato) {
     if (await aplicarEfeitoDaAbsorcao(tx, orgId, previsao, realizadoId)) classificou = true
-  } else if (realizado.reviewState === 'pending' && previsao.type !== 'transfer' && previsao.categoryId) {
-    classificou = true
-    // A previsão já diz o que o dinheiro é: o card não pede classificação.
-    await tx.update(transactions)
-      .set({ type: previsao.type, categoryId: previsao.categoryId, reviewState: 'confirmed' })
-      .where(condicaoDaTransacaoDaOrg(realizadoId, orgId))
-    await registrarEventos(tx, orgId, 'vinculo', null, [
-      { transactionId: realizadoId, counterpartyId: realizado.counterpartyId ?? null, natureza: previsao.type, categoriaId: previsao.categoryId },
-    ])
+  } else {
+    // A previsão já diz o que o dinheiro é: classifica o pendente e substitui
+    // a categoria automática (`herancaDaPrevisao`). Escolha do usuário fica.
+    let heranca = herancaDaPrevisao(previsao, { ...realizado, isAutoCategorized: Boolean(realizado.isAutoCategorized) })
+    // Nunca por uma mais genérica: a atual descende da alvo, fica.
+    if (heranca === 'substituir' && realizado.categoryId) {
+      const ancestrais = await ancestraisDaCategoria(tx, orgId, realizado.categoryId)
+      heranca = herancaDaPrevisao(previsao, { ...realizado, isAutoCategorized: Boolean(realizado.isAutoCategorized) }, ancestrais)
+    }
+    if (heranca === 'substituir' && await categoriaDecididaPeloUsuario(tx, orgId, realizadoId)) heranca = null
+    if (heranca && previsao.categoryId) {
+      classificou = true
+      await tx.update(transactions)
+        .set({ type: previsao.type, categoryId: previsao.categoryId, reviewState: 'confirmed', isAutoCategorized: false })
+        .where(condicaoDaTransacaoDaOrg(realizadoId, orgId))
+      await registrarEventos(tx, orgId, 'vinculo', null, [
+        { transactionId: realizadoId, counterpartyId: realizado.counterpartyId ?? null, natureza: previsao.type, categoriaId: previsao.categoryId },
+      ])
+    }
   }
 
   // As outras propostas abertas das duas pontas perdem o sentido. O par em si

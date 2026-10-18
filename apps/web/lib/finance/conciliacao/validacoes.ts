@@ -92,6 +92,29 @@ export async function registrarDecisoes(
 
 export type EventoNovo = { transactionId: string; counterpartyId: string | null; natureza: Natureza; categoriaId: string | null }
 
+/**
+ * Ações que são o usuário escolhendo a categoria daquela linha: confirmar ou
+ * corrigir na fila, editar o lançamento. `regra`, `vinculo` e `legado` (carga
+ * da 00074 de tudo que já estava confirmado) não são escolha dele.
+ */
+export const ACOES_DO_USUARIO: readonly AcaoDeValidacao[] = ['confirmar', 'corrigir', 'edicao']
+
+/**
+ * O usuário já decidiu a categoria deste lançamento. Complementa
+ * `is_auto_categorized`, que a edição do lançamento não desligava antes de
+ * 18/10/2026 — a edição já virava evento `edicao` desde 06/10.
+ */
+export async function categoriaDecididaPeloUsuario(tx: Db, orgId: string, transactionId: string): Promise<boolean> {
+  const [evento] = await tx
+    .select({ id: validacoes.id })
+    .from(validacoes)
+    .where(and(
+      eq(validacoes.orgId, orgId), eq(validacoes.transactionId, transactionId), inArray(validacoes.acao, [...ACOES_DO_USUARIO]),
+    ))
+    .limit(1)
+  return Boolean(evento)
+}
+
 /** Decisão sem palpite a comparar: regra aplicada no sync, categoria herdada da previsão, edição fora da fila. */
 export async function registrarEventos(tx: Db, orgId: string, acao: AcaoDeValidacao, userId: string | null, eventos: EventoNovo[]): Promise<void> {
   if (eventos.length === 0) return

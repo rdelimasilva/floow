@@ -356,6 +356,8 @@ describe('updateTransaction e a medição', () => {
     expect(registrarEventos).toHaveBeenCalledWith(expect.anything(), 'org-1', 'edicao', null, [
       { transactionId: TX, counterpartyId: 'cp-1', natureza: 'expense', categoriaId: CAT_2 },
     ])
+    // Escolha à mão deixa de ser categoria automática.
+    expect(updateDaLinha()).toMatchObject({ categoryId: CAT_2, isAutoCategorized: false })
   })
 
   it('mudar só valor ou data não registra', async () => {
@@ -365,6 +367,7 @@ describe('updateTransaction e a medição', () => {
     await updateTransaction(formComCategoria(CAT_1))
 
     expect(registrarEventos).not.toHaveBeenCalled()
+    expect(updateDaLinha()).not.toHaveProperty('isAutoCategorized')
   })
 })
 

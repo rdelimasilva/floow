@@ -17,6 +17,9 @@ vi.mock('@/lib/finance/duplicata-db', () => ({
 vi.mock('@/lib/finance/forecast-match-db', () => ({
   criarPropostasDeConciliacao: vi.fn(async () => { ordem.push('r3'); return 4 }),
 }))
+vi.mock('@/lib/finance/conciliacao/herdar-categoria', () => ({
+  herdarCategoriaDosVinculos: vi.fn(async () => { ordem.push('heranca'); return 1 }),
+}))
 vi.mock('@/lib/finance/conciliacao/troca', () => ({
   criarPropostasDeTroca: vi.fn(async () => { ordem.push('troca'); return 2 }),
 }))
@@ -50,11 +53,11 @@ beforeEach(() => {
 })
 
 describe('conciliarConta', () => {
-  it('trava a conta e roda reclassificar → R1 → R2 → R3 → troca, nessa ordem', async () => {
+  it('trava a conta e roda reclassificar → R1 → R2 → R3 → troca → herança, nessa ordem', async () => {
     await conciliarConta(db, 'org-1', 'nubank')
     // Troca por último: o lançamento que R1 absorveu ou R3 propôs não é
     // oferecido também como troca.
-    expect(ordem).toEqual(['lock', 'reclassificar', 'r1', 'r2', 'r3', 'troca'])
+    expect(ordem).toEqual(['lock', 'reclassificar', 'r1', 'r2', 'r3', 'troca', 'heranca'])
     expect(locks[0]).toContain('conciliar-conta:nubank')
   })
 
@@ -77,7 +80,7 @@ describe('conciliarConta', () => {
   it('cartão Open Finance (não conciliável): pula reclassificação e R1; R2 e R3 rodam, com :transfer-par em R3', async () => {
     conciliavel = false
     const r = await conciliarConta(db, 'org-1', 'cartao')
-    expect(ordem).toEqual(['lock', 'r2', 'r3', 'troca'])
+    expect(ordem).toEqual(['lock', 'r2', 'r3', 'troca', 'heranca'])
     expect(criarPropostasDeConciliacao).toHaveBeenCalledWith(db, 'org-1', 'cartao', { incluirPernaPrevista: true })
     expect(r).toEqual({ reclassificadas: 0, estornoCents: 0, absorvidas: [], propostasDeConciliacao: 6, propostasDeDuplicata: 3 })
   })

@@ -3,6 +3,7 @@ import type { getDb } from '@floow/db'
 import type { ParConciliado } from '@floow/core-finance'
 import { criarPropostasDeConciliacao } from '@/lib/finance/forecast-match-db'
 import { criarPropostasDeTroca } from './troca'
+import { herdarCategoriaDosVinculos } from './herdar-categoria'
 import { criarPropostasDeDuplicata } from '@/lib/finance/duplicata-db'
 import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
 import { inicioDoExtrato, reclassificarConta } from './reclassificar-conta'
@@ -27,7 +28,9 @@ type Db = ReturnType<typeof getDb>
  *  2. R2 — extrato × extrato: duplicata reemitida pela fonte, proposta;
  *  3. R3 — previsão de recorrência × extrato, proposta;
  *  4. troca — previsão presa a um vínculo que a regra não faria × extrato
- *     que ela faz, proposta (`troca.ts`).
+ *     que ela faz, proposta (`troca.ts`);
+ *  5. herança — lançamento já vinculado a recorrência troca a categoria
+ *     automática pela da recorrência (`herdar-categoria.ts`).
  * R1 antes de R3: o extrato absorvido por uma perna não pode ser proposto
  * também contra uma recorrência.
  *
@@ -73,6 +76,7 @@ export async function conciliarConta(db: Db, orgId: string, accountId: string): 
     const propostasDeDuplicata = await criarPropostasDeDuplicata(tx, orgId, accountId)
     const propostasR3 = await criarPropostasDeConciliacao(tx, orgId, accountId, { incluirPernaPrevista: !conciliavel })
     const propostasDeTroca = await criarPropostasDeTroca(tx, orgId, accountId)
+    await herdarCategoriaDosVinculos(tx, orgId, accountId)
 
     return {
       ...reclassificacao,

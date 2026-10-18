@@ -60,6 +60,45 @@ describe('escolherCandidatas', () => {
     expect(r.map((c) => c.id)).toEqual(['prop', 'igual'])
     expect(r[0].propostaId).toBe('fmp-1')
   })
+  describe('previsão de recorrência antiga sem vínculo (busca ampliada)', () => {
+    const PIX = { id: 'pix', accountId: 'itau', date: '2026-01-01', amountCents: -330700, description: 'Pix enviado JUSSARA LEONCIO DE ANDRADE' }
+    const JUSSARA = prev({ id: 'j1', date: '2026-01-15', amountCents: -360000, description: 'Jussara - Diarista (1/61)', antiga: true })
+
+    it('caso real: Jussara 15/01 R$ 3.600 × Pix 01/01 R$ 3.307 — 14 dias e 8% entram', () => {
+      const r = escolherCandidatas(PIX, [JUSSARA])
+      expect(r.map((c) => c.id)).toEqual(['j1'])
+      // A candidata vai para a tela: nada dos campos internos da busca.
+      expect(r[0]).not.toHaveProperty('antiga')
+      expect(r[0]).not.toHaveProperty('contrapartes')
+    })
+    it('a mesma previsão, se não fosse antiga, ficaria fora (janela de 10 dias)', () => {
+      expect(escolherCandidatas(PIX, [{ ...JUSSARA, antiga: false }])).toEqual([])
+    })
+    it('mesmo mês vale além de 20 dias', () => {
+      const r = escolherCandidatas({ ...PIX, date: '2026-01-02' }, [{ ...JUSSARA, date: '2026-01-30' }])
+      expect(r.map((c) => c.id)).toEqual(['j1'])
+    })
+    it('mais de 20 dias em outro mês não entra', () => {
+      expect(escolherCandidatas({ ...PIX, date: '2025-12-20' }, [{ ...JUSSARA, date: '2026-01-15' }])).toEqual([])
+    })
+    it('nome parecido com mais de 20% de diferença não entra', () => {
+      expect(escolherCandidatas({ ...PIX, amountCents: -200000 }, [JUSSARA])).toEqual([])
+    })
+    it('nome diferente só com valor quase igual', () => {
+      const outro = { ...PIX, description: 'Pix enviado MARIA' }
+      expect(escolherCandidatas(outro, [JUSSARA])).toEqual([])
+      expect(escolherCandidatas({ ...outro, amountCents: -358000 }, [JUSSARA]).map((c) => c.id)).toEqual(['j1'])
+    })
+    it('mesma contraparte de vínculos anteriores da série conta como nome e vem primeiro', () => {
+      const lanc = { ...PIX, description: 'TED 0001 ANDRADE', counterpartyId: 'cp-jussara' }
+      const r = escolherCandidatas(lanc, [
+        prev({ id: 'parecida', date: '2026-01-10', amountCents: -330700, description: 'Escola', antiga: true }),
+        { ...JUSSARA, contrapartes: ['cp-jussara'] },
+      ])
+      expect(r.map((c) => c.id)).toEqual(['j1', 'parecida'])
+    })
+  })
+
   it('proposta pendente que não passa no filtro não entra', () => {
     const r = escolherCandidatas(LANC, [prev({ id: 'prop', amountCents: -140000, description: 'Outro' })], {
       proposta: { id: 'fmp-1', previsaoId: 'prop' },
