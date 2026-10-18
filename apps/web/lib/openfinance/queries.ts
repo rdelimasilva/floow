@@ -1,5 +1,5 @@
 import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
-import { accounts, assetPositionSnapshots, openfinanceConnections, openfinanceResources, transactions } from '@floow/db'
+import { accounts, assetPositionSnapshots, openfinanceConnections, openfinanceResources, transactions, type RlsTx } from '@floow/db'
 import { withUserDb } from '@/lib/db/rls'
 import { concluiAoAbrir } from './auto-vinculo'
 
@@ -167,19 +167,29 @@ export async function getContasDeInvestimentoOpenFinance(orgId: string): Promise
  * que a carteira mostra: o snapshot de cada ativo da conexão.
  */
 export async function getValorDasContasDeInvestimento(orgId: string): Promise<Map<string, number>> {
-  return withUserDb(async (db) => {
-    const rows = await db
-      .select({
-        accountId: openfinanceConnections.investmentAccountId,
-        valorCents: sql<string>`coalesce(sum(${assetPositionSnapshots.currentValueCents}), 0)`,
-      })
-      .from(openfinanceConnections)
-      .innerJoin(openfinanceResources, eq(openfinanceResources.connectionId, openfinanceConnections.id))
-      .innerJoin(assetPositionSnapshots, eq(assetPositionSnapshots.assetId, openfinanceResources.assetId))
-      .where(and(eq(openfinanceConnections.orgId, orgId), isNotNull(openfinanceConnections.investmentAccountId)))
-      .groupBy(openfinanceConnections.investmentAccountId)
-    return new Map(rows.map((r) => [r.accountId!, Number(r.valorCents)]))
-  })
+  return withUserDb((db) => consultarValorDasContasDeInvestimento(db, orgId))
+}
+
+/**
+ * A mesma leitura num banco informado. Existe para o cron (snapshot do
+ * patrimônio na importação agendada), que roda sem sessão e não pode passar
+ * por `withUserDb` — o filtro por `org_id` está na própria query.
+ */
+export async function consultarValorDasContasDeInvestimento(
+  db: Pick<RlsTx, 'select'>,
+  orgId: string,
+): Promise<Map<string, number>> {
+  const rows = await db
+    .select({
+      accountId: openfinanceConnections.investmentAccountId,
+      valorCents: sql<string>`coalesce(sum(${assetPositionSnapshots.currentValueCents}), 0)`,
+    })
+    .from(openfinanceConnections)
+    .innerJoin(openfinanceResources, eq(openfinanceResources.connectionId, openfinanceConnections.id))
+    .innerJoin(assetPositionSnapshots, eq(assetPositionSnapshots.assetId, openfinanceResources.assetId))
+    .where(and(eq(openfinanceConnections.orgId, orgId), isNotNull(openfinanceConnections.investmentAccountId)))
+    .groupBy(openfinanceConnections.investmentAccountId)
+  return new Map(rows.map((r) => [r.accountId!, Number(r.valorCents)]))
 }
 
 /**

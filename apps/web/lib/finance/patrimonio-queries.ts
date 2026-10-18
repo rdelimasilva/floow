@@ -21,11 +21,17 @@ async function getValorDoImobilizado(orgId: string): Promise<number> {
 /**
  * Patrimônio de agora, com as mesmas fontes da tela Contas: saldo das contas
  * e, nas de investimento do Open Finance, o valor das posições.
+ *
+ * `lerPosicoes` troca só a leitura das posições, que por padrão passa pelo RLS
+ * do usuário da requisição: o cron, sem sessão, injeta a leitura direta.
  */
-export async function getPatrimonioAtual(orgId: string): Promise<Patrimonio> {
+export async function getPatrimonioAtual(
+  orgId: string,
+  lerPosicoes: (orgId: string) => Promise<Map<string, number>> = getValorDasContasDeInvestimento,
+): Promise<Patrimonio> {
   const [contas, valorDasPosicoes, imobilizadoCents] = await Promise.all([
     getAccounts(orgId),
-    getValorDasContasDeInvestimento(orgId),
+    lerPosicoes(orgId),
     getValorDoImobilizado(orgId),
   ])
   return calcularPatrimonio(contas, valorDasPosicoes, imobilizadoCents)
