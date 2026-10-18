@@ -192,8 +192,6 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-medium text-gray-500">Conexões</h2>
-
       <ConfirmDialog
         open={paraEncerrar !== null}
         onClose={() => setParaEncerrar(null)}

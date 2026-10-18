@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { ConnectWizard } from './connect-wizard'
 import { ConnectionList } from './connection-list'
+import { AbasDaTela } from './abas-da-tela'
 import { contasDisponiveis } from './wizard-passos'
 import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 
@@ -57,7 +58,7 @@ export default async function ConnectBankPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Importar do meu banco"
         description="Traga extrato e fatura automaticamente pelo Open Finance."
@@ -68,9 +69,11 @@ export default async function ConnectBankPage() {
         </Button>
       </PageHeader>
 
-      <ConnectWizard institutions={institutions} loadError={institutionsError} contas={contas} />
-
-      {connections.length > 0 && <ConnectionList connections={connections} />}
+      <AbasDaTela
+        totalConexoes={connections.length}
+        novaConexao={<ConnectWizard institutions={institutions} loadError={institutionsError} contas={contas} />}
+        conexoes={<ConnectionList connections={connections} />}
+      />
     </div>
   )
 }

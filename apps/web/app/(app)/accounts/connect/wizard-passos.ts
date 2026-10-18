@@ -115,7 +115,7 @@ export function resumoDaConclusao(r: Conclusao): ResumoDaConclusao {
     return {
       texto: 'A autorização não foi concluída no banco.',
       pendencia: null,
-      erro: 'O banco recusou ou o link expirou. Use "Reabrir autorização" na lista de conexões abaixo e conclua o passo no banco em seguida.',
+      erro: 'O banco recusou ou o link expirou. Use "Reabrir autorização" na aba Minhas conexões e conclua o passo no banco em seguida.',
     }
   }
   if (r.etapa === 'aguardando-contas') {
@@ -127,7 +127,7 @@ export function resumoDaConclusao(r: Conclusao): ResumoDaConclusao {
     }
   }
   if (r.etapa !== 'concluida') {
-    return { texto: 'Conexão pronta. Ela aparece na lista abaixo.', pendencia: null, erro: null }
+    return { texto: 'Conexão pronta. Ela aparece na aba Minhas conexões.', pendencia: null, erro: null }
   }
 
   const vinculadas = plural(r.vinculados, 'conta vinculada', 'contas vinculadas')
