@@ -209,3 +209,40 @@ describe('sincronizarInvestimentos', () => {
     expect(m.recalculos()).toBe(1)
   })
 })
+
+// CRI REDE D'OR na XP (02/10/2026): o mesmo lote ganhou um segundo id e a
+// carteira passou a mostrar o papel em dobro.
+const cri = (id: string, puDeCompra = '1020.4443610000') => ({
+  id, investment_type: 'CRI', debtor_name: "REDE D'OR", isin_code: 'BRRDORCRI000', due_date: '2033-08-15',
+  remuneration: { indexer: 'IPCA', post_fixed_indexer_percentage: '100' },
+  balance: {
+    reference_date_time: '2026-10-16T03:00:00Z', quantity: '9.000000', updated_unit_price: money('1090.4042080000'),
+    gross_amount: money('9813.64'), net_amount: money('9813.64'), purchase_unit_price: money(puDeCompra),
+  },
+})
+
+describe('sincronizarInvestimentos — mesmo lote com dois ids', () => {
+  it('grava só o id mais antigo, qualquer que seja a ordem da listagem', async () => {
+    for (const lista of [[cri('01a0d8e2'), cri('01a0fdd9')], [cri('01a0fdd9'), cri('01a0d8e2')]]) {
+      const m = repoEmMemoria()
+      const r = await sincronizarInvestimentos(m.repo, clienteFalso({ CREDIT_FIXED_INCOME: lista }), CONEXAO, '2026-10-18')
+      expect([...m.ativos.keys()]).toEqual(['01a0d8e2'])
+      expect(r.ativos).toBe(1)
+      expect(m.problemas.map((p) => p.reason)).toContainEqual(expect.stringMatching(/duplicata de 01a0d8e2/))
+    }
+  })
+
+  it('a cópia que já tinha virado ativo é zerada no próximo sync', async () => {
+    const m = repoEmMemoria()
+    // Gravada antes da correção, como o segundo CRI em produção.
+    await m.repo.salvarInvestimento({ orgId: 'org-a', connectionId: 'c1' }, { polpId: '01a0fdd9', kind: 'CREDIT_FIXED_INCOME', asset: {} as never, position: null })
+    await sincronizarInvestimentos(m.repo, clienteFalso({ CREDIT_FIXED_INCOME: [cri('01a0d8e2'), cri('01a0fdd9')] }), CONEXAO, '2026-10-18')
+    expect(m.zerados).toEqual([{ kind: 'CREDIT_FIXED_INCOME', assetId: 'asset-01a0fdd9', hoje: '2026-10-18' }])
+  })
+
+  it('PU de compra diferente é outro lote: grava os dois', async () => {
+    const m = repoEmMemoria()
+    await sincronizarInvestimentos(m.repo, clienteFalso({ CREDIT_FIXED_INCOME: [cri('01a0d8e2'), cri('01a0fdd9', '1055.6780840000')] }), CONEXAO, '2026-10-18')
+    expect([...m.ativos.keys()].sort()).toEqual(['01a0d8e2', '01a0fdd9'])
+  })
+})
