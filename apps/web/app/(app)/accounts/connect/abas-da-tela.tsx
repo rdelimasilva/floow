@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { Plus } from 'lucide-react'
+import { Clock, Plus } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 
@@ -43,7 +43,14 @@ export function AbasDaTela({
       <TabsContent value="conexoes" forceMount className="mt-6 space-y-4 data-[state=inactive]:hidden">
         {totalConexoes > 0 ? (
           <>
-            <div className="flex justify-end">{criar}</div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* O cron de import-transactions roda às 11h UTC (vercel.json). */}
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                <Clock className="h-3.5 w-3.5" />
+                Todas as contas são atualizadas diariamente às 8h
+              </span>
+              {criar}
+            </div>
             {conexoes}
           </>
         ) : (
