@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { getOrgId } from '@/lib/finance/queries'
 import { getPositions, getPatrimonySnapshots } from '@/lib/investments/queries'
 import { PortfolioSummaryRow } from '@/components/investments/portfolio-summary-row'
+import { posicoesDaCarteira } from '@/lib/investments/encerrados'
 import dynamic from 'next/dynamic'
 
 const AllocationChart = dynamic(() => import('@/components/investments/allocation-chart').then(m => ({ default: m.AllocationChart })), {
@@ -19,10 +20,13 @@ import { Button } from '@/components/ui/button'
 // -- Async sub-components for Suspense streaming ----------------------------
 
 async function PortfolioContent({ orgId }: { orgId: string }) {
-  const [positions, snapshots] = await Promise.all([
+  const [todas, snapshots] = await Promise.all([
     getPositions(orgId),
     getPatrimonySnapshots(orgId, 12),
   ])
+  // Mesma carteira da tabela de posições: provento de papel encerrado fica na
+  // Renda Passiva, não no total de dividendos do resumo.
+  const positions = posicoesDaCarteira(todas)
 
   const totalValueCents = positions.reduce((sum, p) => sum + p.currentValueCents, 0)
   const totalPnLCents = positions.reduce((sum, p) => sum + p.unrealizedPnLCents, 0)
