@@ -1,7 +1,6 @@
 import {
   getOrgId,
   getRecurringTemplates,
-  getUpcomingRecurring,
   getAccounts,
   getCategories,
   getDatasDasParcelas,
@@ -14,9 +13,8 @@ import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 export default async function RecurringPage() {
   const orgId = await getOrgId()
   const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const [templates, upcoming, accounts, categories, datas] = await Promise.all([
+  const [templates, accounts, categories, datas] = await Promise.all([
     getRecurringTemplates(orgId),
-    getUpcomingRecurring(orgId),
     getAccounts(orgId),
     getCategories(orgId),
     getDatasDasParcelas(orgId, hojeStr),
@@ -38,13 +36,6 @@ export default async function RecurringPage() {
           ...t,
           proximaParcela: datas.get(t.id)?.proxima ?? null,
           ultimaParcela: datas.get(t.id)?.ultima ?? null,
-          nextDueDate: t.nextDueDate instanceof Date ? t.nextDueDate.toISOString() : t.nextDueDate,
-          endDate: t.endDate instanceof Date ? t.endDate.toISOString() : t.endDate,
-          createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-          updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-        }))}
-        upcoming={upcoming.map((t) => ({
-          ...t,
           nextDueDate: t.nextDueDate instanceof Date ? t.nextDueDate.toISOString() : t.nextDueDate,
           endDate: t.endDate instanceof Date ? t.endDate.toISOString() : t.endDate,
           createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,

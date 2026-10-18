@@ -1,5 +1,5 @@
 import { getDb, recurringTemplates, transactions } from '@floow/db'
-import { eq, and, asc, lte, isNotNull, isNull, sql } from 'drizzle-orm'
+import { eq, and, asc, isNotNull, isNull, sql } from 'drizzle-orm'
 
 /**
  * Returns all recurring templates for an org, ordered by nextDueDate ASC.
@@ -13,26 +13,6 @@ export async function getRecurringTemplates(orgId: string) {
     .orderBy(asc(recurringTemplates.nextDueDate))
 }
 
-/**
- * Returns active templates due within the next 30 days, ordered by nextDueDate ASC.
- * Used for the "upcoming due" section on /transactions/recurring.
- */
-export async function getUpcomingRecurring(orgId: string) {
-  const db = getDb()
-  const thirtyDaysFromNow = new Date(Date.now() + 30 * 86400000)
-
-  return db
-    .select()
-    .from(recurringTemplates)
-    .where(
-      and(
-        eq(recurringTemplates.orgId, orgId),
-        eq(recurringTemplates.isActive, true),
-        lte(recurringTemplates.nextDueDate, thirtyDaysFromNow),
-      )
-    )
-    .orderBy(asc(recurringTemplates.nextDueDate))
-}
 
 /**
  * Por template, a próxima parcela em aberto e a última parcela gerada, como

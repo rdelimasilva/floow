@@ -23,6 +23,7 @@ import {
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { dataDeCalendario, formatarDataDeCalendario } from '@/lib/finance/recurring-dates'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { proximasAVencer, JANELA_PROXIMAS_DIAS } from '@/lib/finance/proximas-a-vencer'
 
 interface AccountOption {
   id: string
@@ -53,14 +54,13 @@ interface RecurringTemplate {
   countsAsBudget?: boolean
   createdAt: Date | string
   updatedAt: Date | string
-  // 'YYYY-MM-DD' vindos das parcelas geradas; ausentes na lista de "upcoming"
+  // 'YYYY-MM-DD' vindos das parcelas geradas (`getDatasDasParcelas`)
   proximaParcela?: string | null
   ultimaParcela?: string | null
 }
 
 interface RecurringTemplateListProps {
   templates: RecurringTemplate[]
-  upcoming: RecurringTemplate[]
   accounts: AccountOption[]
   categories: CategoryOption[]
 }
@@ -81,7 +81,6 @@ function isOverdue(date: Date | string): boolean {
 
 export function RecurringTemplateList({
   templates,
-  upcoming,
   accounts,
   categories,
 }: RecurringTemplateListProps) {
@@ -97,8 +96,9 @@ export function RecurringTemplateList({
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]))
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]))
 
-  // Upcoming due: templates from upcoming prop that are due today or overdue
-  const due = upcoming.filter((t) => isOverdue(t.nextDueDate))
+  // A próxima parcela em aberto de cada recorrência, nos próximos 30 dias.
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const due = proximasAVencer(templates, hoje)
 
   async function handleGenerate(template: RecurringTemplate) {
     setGenerating(template.id)
@@ -151,11 +151,12 @@ export function RecurringTemplateList({
     <div className="space-y-8">
       <RecurringMonthlyTotalCard templates={templates} />
 
-      {/* Upcoming Due Section */}
+      {/* Próxima parcela em aberto de cada recorrência — não `next_due_date`,
+          que aponta para depois da última parcela (ver `proximas-a-vencer.ts`). */}
       <section>
         <h2 className="text-base font-semibold text-gray-900 mb-3">Próximas a vencer</h2>
         {due.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma transação pendente.</p>
+          <p className="text-sm text-muted-foreground">Nenhuma parcela nos próximos {JANELA_PROXIMAS_DIAS} dias.</p>
         ) : (
           <div className="space-y-2">
             {due.map((t) => (
@@ -166,21 +167,14 @@ export function RecurringTemplateList({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{t.description}</p>
                   <p className="text-xs text-muted-foreground">
-                    {accountMap.get(t.accountId) ?? t.accountId} &bull; {formatarDataDeCalendario(t.nextDueDate)}
+                    {accountMap.get(t.accountId) ?? t.accountId} &bull; {formatarDataDeCalendario(t.proximaParcela)}
                   </p>
                 </div>
+                {/* Sem "Gerar agora": a parcela já existe como previsão. */}
                 <div className="flex items-center gap-3 ml-4">
                   <span className={t.type === 'income' ? 'text-sm font-semibold text-green-700' : 'text-sm font-semibold text-red-600'}>
                     {formatBRL(t.amountCents)}
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleGenerate(t)}
-                    disabled={generating === t.id}
-                  >
-                    {generating === t.id ? 'Gerando...' : 'Gerar agora'}
-                  </Button>
                 </div>
               </div>
             ))}
