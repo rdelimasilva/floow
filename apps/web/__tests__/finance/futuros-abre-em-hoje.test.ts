@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
+import { paginaQueAbre, filtrosAteHoje, contaAteHojeParaAbrir } from '@/lib/finance/pagination'
 
 /**
  * Com "Lançamentos futuros" ligado, a lista continua abrindo em hoje.
@@ -50,5 +50,31 @@ describe('filtros da contagem até hoje', () => {
 
   it('data final no passado fica como está', () => {
     expect(filtrosAteHoje({ endDate: '2026-05-31', includeFuture: true }, hoje).endDate).toBe('2026-05-31')
+  })
+})
+
+/**
+ * Período personalizado que passa de hoje (ex.: 01/09–30/11 lembrado da
+ * sessão anterior) mostra o futuro mesmo sem o toggle — `endDate` explícito
+ * manda. A lista abria na última página, só com lançamentos de novembro.
+ */
+describe('quando contar até hoje para abrir a lista', () => {
+  const hoje = '2026-10-18'
+
+  it('com futuros ligados', () => {
+    expect(contaAteHojeParaAbrir({ includeFuture: true }, hoje)).toBe(true)
+  })
+
+  it('período que termina depois de hoje, mesmo sem o toggle', () => {
+    expect(contaAteHojeParaAbrir({ endDate: '2026-11-30', includeFuture: false }, hoje)).toBe(true)
+  })
+
+  it('período que termina hoje ou antes: a última página já é a mais recente', () => {
+    expect(contaAteHojeParaAbrir({ endDate: hoje, includeFuture: false }, hoje)).toBe(false)
+    expect(contaAteHojeParaAbrir({ endDate: '2026-09-30' }, hoje)).toBe(false)
+  })
+
+  it('sem período e sem futuros: a lista já é cortada em hoje', () => {
+    expect(contaAteHojeParaAbrir({}, hoje)).toBe(false)
   })
 })

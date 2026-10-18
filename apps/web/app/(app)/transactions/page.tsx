@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getOrgId, getTransactionsWithCount, getTransactionCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
-import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
+import { paginaQueAbre, filtrosAteHoje, contaAteHojeParaAbrir } from '@/lib/finance/pagination'
 import { contasParaLancamento, contasDeTransferencia } from '@/lib/finance/account-options'
 import { contasDoFiltro } from '@/lib/finance/queries-transactions'
 import { getFaturasDoExtrato } from '@/lib/finance/queries-fatura'
@@ -91,12 +91,13 @@ export default async function TransactionsPage({ searchParams }: Props) {
   // lá que a lista abre. O total custa uma contagem a mais, e só quando a URL
   // não diz a página — navegando, ele já vem de graça na consulta das linhas.
   // Com futuros ligados a última página é a parcela mais distante (2031), então
-  // conta-se também até hoje para abrir na página de hoje.
+  // conta-se também até hoje para abrir na página de hoje. O mesmo vale para
+  // período cuja data final passa de hoje (`contaAteHojeParaAbrir`).
   const [totalParaAbrir, totalAteHoje] = params.page
     ? [0, undefined]
     : await Promise.all([
         getTransactionCount(orgId, filters),
-        filters.includeFuture
+        contaAteHojeParaAbrir(filters, hojeEmSaoPaulo())
           ? getTransactionCount(orgId, filtrosAteHoje(filters, hojeEmSaoPaulo()))
           : undefined,
       ])
