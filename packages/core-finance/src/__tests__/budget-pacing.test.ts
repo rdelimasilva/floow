@@ -337,4 +337,65 @@ describe('computeBudgetPacing', () => {
     expect(diaSeguinte.total.daysElapsed).toBe(30)
     expect(diaSeguinte.total.confidence).toBe('final')
   })
+
+  describe('parcelas a vencer (committed)', () => {
+    it('somam na projeção e no livre da categoria, sem entrar no gasto', () => {
+      // Dia 10 de 30, gastou 30000: no ritmo fecha em 90000. Mais 40000 de
+      // parcelas que vencem ainda no mês: fecha em 130000.
+      const result = computeBudgetPacing({
+        daily: [{ date: '2026-09-05', accountType: 'checking', categoryId: 'alim', cents: 30000 }],
+        budgets: [{ categoryId: 'alim', plannedCents: 120000 }],
+        committed: [{ categoryId: 'alim', cents: 40000 }],
+        monthStart: utc(2026, 9, 1),
+        today: utc(2026, 9, 10),
+      })
+
+      const c = result.byCategory[0]
+      expect(c.spentCents).toBe(30000)
+      expect(c.committedCents).toBe(40000)
+      expect(c.projectedCents).toBe(130000)
+      expect(c.status).toBe('atencao')
+      expect(result.total.spentCents).toBe(30000)
+      expect(result.total.committedCents).toBe(40000)
+      expect(result.total.projectedCents).toBe(130000)
+    })
+
+    it('parcela de categoria sem teto fica fora do total orçado', () => {
+      const result = computeBudgetPacing({
+        daily: [],
+        budgets: [{ categoryId: 'alim', plannedCents: 120000 }],
+        committed: [{ categoryId: 'lazer', cents: 40000 }],
+        monthStart: utc(2026, 9, 1),
+        today: utc(2026, 9, 10),
+      })
+
+      expect(result.total.committedCents).toBe(0)
+      expect(result.byCategory[0].committedCents).toBe(0)
+    })
+
+    it('em mês futuro a projeção é só o que já está comprometido', () => {
+      const result = computeBudgetPacing({
+        daily: [],
+        budgets: [{ categoryId: 'alim', plannedCents: 30000 }],
+        committed: [{ categoryId: 'alim', cents: 40000 }],
+        monthStart: utc(2026, 12, 1),
+        today: utc(2026, 9, 12),
+      })
+
+      expect(result.byCategory[0].projectedCents).toBe(40000)
+      expect(result.byCategory[0].status).toBe('risco')
+    })
+
+    it('sem committed, nada muda', () => {
+      const result = computeBudgetPacing({
+        daily: [{ date: '2026-09-05', accountType: 'checking', categoryId: 'alim', cents: 30000 }],
+        budgets: [{ categoryId: 'alim', plannedCents: 120000 }],
+        monthStart: utc(2026, 9, 1),
+        today: utc(2026, 9, 10),
+      })
+
+      expect(result.byCategory[0].committedCents).toBe(0)
+      expect(result.byCategory[0].projectedCents).toBe(90000)
+    })
+  })
 })

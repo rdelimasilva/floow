@@ -51,6 +51,12 @@ export interface BudgetPacingInput {
    * noite no Brasil, já é o dia seguinte).
    */
   today: Date
+  /**
+   * Gasto já certo que ainda não saiu — parcelas de cartão que vencem no mês.
+   * Não entra no gasto (não aconteceu), mas entra na projeção: vai acontecer.
+   * Quem chama sobe a categoria até a que tem teto, como em `daily`.
+   */
+  committed?: { categoryId: string; cents: number }[]
 }
 
 /**
@@ -77,6 +83,8 @@ export interface BudgetPacingResult {
     plannedCents: number
     spentCents: number
     unbudgetedCents: number
+    /** Parcelas a vencer nas categorias com teto. */
+    committedCents: number
     projectedCents: number
     confidence: Confidence
     daysElapsed: number
@@ -86,6 +94,7 @@ export interface BudgetPacingResult {
     categoryId: string
     plannedCents: number
     spentCents: number
+    committedCents: number
     projectedCents: number
     status: PacingStatus
   }[]
@@ -197,10 +206,21 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
     spentByCategory.set(row.categoryId, (spentByCategory.get(row.categoryId) ?? 0) + row.cents)
   }
 
+  const committedByCategory = new Map<string, number>()
+  for (const c of input.committed ?? []) {
+    if (!capByCategory.has(c.categoryId)) continue
+    committedByCategory.set(c.categoryId, (committedByCategory.get(c.categoryId) ?? 0) + c.cents)
+  }
+  let committedCents = 0
+  for (const cents of committedByCategory.values()) committedCents += cents
+
   const byCategory: BudgetPacingResult['byCategory'] = []
   for (const [categoryId, plannedCents] of capByCategory) {
     const spentCents = spentByCategory.get(categoryId) ?? 0
-    const projectedCents = project(spentCents)
+    const catCommitted = committedByCategory.get(categoryId) ?? 0
+    // O ritmo extrapola o que já saiu; a parcela a vencer é certa e soma por
+    // cima. Os universos não se cruzam: gasto é balance_applied, parcela não.
+    const projectedCents = project(spentCents) + catCommitted
 
     let status: PacingStatus
     if (spentCents > plannedCents) status = 'estourado'
@@ -210,7 +230,7 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
     else if (projectedCents > plannedCents) status = 'atencao'
     else status = 'ok'
 
-    byCategory.push({ categoryId, plannedCents, spentCents, projectedCents, status })
+    byCategory.push({ categoryId, plannedCents, spentCents, committedCents: catCommitted, projectedCents, status })
   }
 
   return {
@@ -219,7 +239,8 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
       plannedCents,
       spentCents: asOfToday.budgetedCum,
       unbudgetedCents: asOfToday.unbudgetedCum,
-      projectedCents: project(asOfToday.budgetedCum),
+      committedCents,
+      projectedCents: project(asOfToday.budgetedCum) + committedCents,
       confidence,
       daysElapsed,
       daysInMonth,

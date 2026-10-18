@@ -57,7 +57,7 @@ export const PERGUNTAS: Pergunta[] = [
     id: 'metas',
     pergunta: 'Como funcionam as metas de gastos e investimentos?',
     resposta:
-      'Em Plano de Gastos e Meta de Investimentos você define valores por mês. O floow compara com os gastos e aportes reais e avisa quando você se aproxima do limite.',
+      'Em Plano de Gastos e Meta de Investimentos você define valores por mês. O acompanhamento dos gastos fica no Ritmo de Gastos, que compara com o que já saiu, projeta onde o mês fecha e avisa quando uma categoria entra em risco.',
   },
   {
     id: 'consultor',

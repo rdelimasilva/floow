@@ -122,6 +122,15 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
                   </span>
                 )}
               </p>
+              {total.committedCents > 0 && (
+                <p className="mt-1 text-sm" style={{ color: '#6E6E6E' }}>
+                  + <strong className="tabular-nums" style={{ color: '#333' }}>{formatBRL(total.committedCents)}</strong>{' '}
+                  em parcelas do cartão que vencem ainda neste mês · livre:{' '}
+                  <span className="tabular-nums">
+                    {formatBRL(total.plannedCents - total.spentCents - total.committedCents)}
+                  </span>
+                </p>
+              )}
             </div>
 
             {total.plannedCents > 0 && total.daysElapsed > 0 && (
@@ -220,6 +229,8 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
                         <span className="text-sm tabular-nums" style={{ color: '#6E6E6E' }}>
                           <strong style={{ color: '#333' }}>{formatBRL(c.spentCents)}</strong> de{' '}
                           {formatBRL(c.plannedCents)}
+                          {c.committedCents > 0 && <> · {formatBRL(c.committedCents)} em parcelas a vencer</>}
+                          {' · '}livre {formatBRL(c.plannedCents - c.spentCents - c.committedCents)}
                         </span>
                       </div>
 
@@ -240,7 +251,7 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         {total.daysElapsed > 0 ? (
                           <p className="text-xs" style={{ color: '#6E6E6E' }}>
-                            No ritmo atual, fecha em{' '}
+                            No ritmo atual{c.committedCents > 0 ? ', com as parcelas' : ''}, fecha em{' '}
                             <span className="tabular-nums" style={{ color: style.fg }}>
                               {formatBRL(c.projectedCents)}
                             </span>

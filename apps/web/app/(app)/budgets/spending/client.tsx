@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Gauge } from 'lucide-react'
 import { MonthNavigator } from '@/components/finance/month-navigator'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
 import { updateBudgetEntry, deleteBudgetEntry } from '@/lib/finance/budget-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -16,12 +16,11 @@ import { RecurringEntriesList } from './recurring-entries-list'
 import { BudgetEntryDialog } from '@/components/finance/budget-entry-dialog'
 import type { LinhaDeMeta } from '@/lib/finance/recurring-budget'
 import { RecorrentesNaLinha } from './recorrentes-na-linha'
-import { livreDaCategoria, type ParcelasDaCategoria } from '@/lib/finance/parcelas-a-vencer'
+import type { ParcelasDaCategoria } from '@/lib/finance/parcelas-a-vencer'
 import { ParcelasNaLinha } from './parcelas-na-linha'
 import { BudgetGoalSuggestionsCard } from '@/components/finance/budget-goal-suggestions-card'
 import type { BudgetGoalSuggestionRow } from '@/lib/finance/budget-goal-suggestion-queries'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
-import { sumBudgetedSpending } from '@/lib/finance/budgeted-spending'
 
 interface CategoryOption {
   id: string
@@ -90,19 +89,9 @@ export function SpendingClient({
   const spendingMap = new Map(spending.map((s) => [s.categoryId, s.spent]))
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
 
-  const budgetedCategoryIds = new Set(entriesForMonth.map((e) => e.categoryId))
-  const totalSpent = sumBudgetedSpending(spending, entriesForMonth)
-
-  // Parcelas do cartão que vencem neste mês e ainda não viraram gasto: já
-  // não estão livres, mesmo sem aparecer em "Realizado" ainda.
-  const totalAVencer = entriesForMonth
-    .filter((e) => e.categoryId !== null)
-    .reduce((sum, e) => sum + (parcelasAVencer[e.categoryId as string]?.totalCents ?? 0), 0)
-
-  // O restante não some da tela: aparece como "não orçado", fora do denominador.
-  const totalUnbudgeted = spending
-    .filter((s) => s.categoryId === null || !budgetedCategoryIds.has(s.categoryId))
-    .reduce((sum, s) => sum + s.spent, 0)
+  // Realizado só como referência para calibrar a meta; a análise do mês
+  // (ritmo, projeção, alertas) fica no Ritmo de Gastos.
+  const totalSpent = entriesForMonth.reduce((sum, e) => sum + (spendingMap.get(e.categoryId) ?? 0), 0)
 
   // Categories that already have an active entry
   const usedCategoryIds = new Set(allEntries.map((e) => e.categoryId))
@@ -163,7 +152,7 @@ export function SpendingClient({
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Plano de Gastos" description="Orçado vs Realizado por categoria">
+      <PageHeader title="Plano de Gastos" description="Defina quanto quer gastar em cada categoria no mês">
         <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" /> Novo Lançamento
         </Button>
@@ -173,31 +162,24 @@ export function SpendingClient({
 
       <BudgetGoalSuggestionsCard suggestions={goalSuggestions} onCreate={handleCreateSuggestedGoal} />
 
-      {/* Summary */}
       {entriesForMonth.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Resumo — {formatMonth(selectedMonth)}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <BudgetProgressBar label="Total" currentCents={totalSpent} limitCents={totalPlanned} />
-            {totalAVencer > 0 && (
-              <p className="text-sm text-muted-foreground">
-                <strong className="text-gray-900">{formatBRL(totalAVencer)}</strong> em parcelas do cartão
-                vencem ainda neste mês; livre: {formatBRL(totalPlanned - totalSpent - totalAVencer)}.
-              </p>
-            )}
-            {totalUnbudgeted > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Mais <strong className="text-gray-900">{formatBRL(totalUnbudgeted)}</strong> em
-                categorias sem teto, fora do total acima.
-              </p>
-            )}
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Planejado para {formatMonth(selectedMonth)}</p>
+              <p className="text-2xl font-semibold text-gray-900">{formatBRL(totalPlanned)}</p>
+            </div>
+            <Link
+              href={`/budgets/pacing?month=${selectedMonth}`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#4A5899] hover:underline"
+            >
+              <Gauge className="h-4 w-4" aria-hidden /> Ver como está indo
+            </Link>
           </CardContent>
         </Card>
       )}
 
-      {/* Orçado vs Realizado */}
+      {/* Metas do mês */}
       {entriesForMonth.length > 0 ? (
         <>
           {/* Mobile: card layout */}
@@ -205,35 +187,20 @@ export function SpendingClient({
             {entriesForMonth.map((entry) => {
               const cat = categories.find((c) => c.id === entry.categoryId)
               const actual = spendingMap.get(entry.categoryId) ?? 0
-              const aVencer = entry.categoryId ? (parcelasAVencer[entry.categoryId]?.totalCents ?? 0) : 0
-              const diff = livreDaCategoria(entry.plannedCents, actual, aVencer)
-              const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
-              const isOver = diff < 0
 
               return (
                 <Card key={entry.entryId ?? `rec-${entry.categoryId}`}>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900">
-                        {cat?.color && <span className="inline-block h-2 w-2 rounded-full mr-2 align-middle" style={{ backgroundColor: cat.color }} />}
-                        {cat?.name ?? '—'}
-                        <RecorrentesNaLinha linha={entry} />
-                        <ParcelasNaLinha parcelas={entry.categoryId ? parcelasAVencer[entry.categoryId] : undefined} />
-                      </p>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pct > 100 ? 'bg-red-100 text-red-700' : pct > 80 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
-                        {pct}%
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">Orçado: {formatBRL(entry.plannedCents)}</span>
-                      <span className="font-medium text-gray-900">Gasto: {formatBRL(actual)}</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                      <div className={`h-1.5 rounded-full ${pct > 100 ? 'bg-red-500' : pct > 80 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                    </div>
-                    <p className={`text-xs font-medium text-right ${isOver ? 'text-red-600' : 'text-green-700'}`}>
-                      {isOver ? '-' : '+'}{formatBRL(Math.abs(diff))}
+                  <CardContent className="p-3 space-y-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      {cat?.color && <span className="inline-block h-2 w-2 rounded-full mr-2 align-middle" style={{ backgroundColor: cat.color }} />}
+                      {cat?.name ?? '—'}
+                      <RecorrentesNaLinha linha={entry} />
+                      <ParcelasNaLinha parcelas={entry.categoryId ? parcelasAVencer[entry.categoryId] : undefined} />
                     </p>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-gray-900">Meta: {formatBRL(entry.plannedCents)}</span>
+                      <span className="text-gray-500">Realizado: {formatBRL(actual)}</span>
+                    </div>
                   </CardContent>
                 </Card>
               )
@@ -241,8 +208,8 @@ export function SpendingClient({
             <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-gray-700">Total</span>
-                <span className={`font-bold ${totalSpent > totalPlanned ? 'text-red-600' : 'text-green-700'}`}>
-                  {formatBRL(totalSpent)} / {formatBRL(totalPlanned)} ({totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0}%)
+                <span className="font-semibold text-gray-900">
+                  {formatBRL(totalPlanned)} <span className="font-normal text-gray-500">· realizado {formatBRL(totalSpent)}</span>
                 </span>
               </div>
             </div>
@@ -251,7 +218,7 @@ export function SpendingClient({
           {/* Desktop: table layout */}
           <Card className="hidden md:block">
             <CardHeader>
-              <CardTitle className="text-base">Orçado vs Realizado</CardTitle>
+              <CardTitle className="text-base">Metas do mês</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-hidden rounded-lg border border-gray-200">
@@ -259,20 +226,14 @@ export function SpendingClient({
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Categoria</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Orçado</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Meta</th>
                       <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Realizado</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Diferença</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">%</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {entriesForMonth.map((entry) => {
                       const cat = categories.find((c) => c.id === entry.categoryId)
                       const actual = spendingMap.get(entry.categoryId) ?? 0
-                      const aVencer = entry.categoryId ? (parcelasAVencer[entry.categoryId]?.totalCents ?? 0) : 0
-                      const diff = livreDaCategoria(entry.plannedCents, actual, aVencer)
-                      const pct = entry.plannedCents > 0 ? Math.round((actual / entry.plannedCents) * 100) : 0
-                      const isOver = diff < 0
 
                       return (
                         <tr key={entry.entryId ?? `rec-${entry.categoryId}`} className="hover:bg-gray-50">
@@ -282,14 +243,8 @@ export function SpendingClient({
                             <RecorrentesNaLinha linha={entry} />
                             <ParcelasNaLinha parcelas={entry.categoryId ? parcelasAVencer[entry.categoryId] : undefined} />
                           </td>
-                          <td className="px-4 py-2.5 text-sm text-right text-gray-600">{formatBRL(entry.plannedCents)}</td>
-                          <td className="px-4 py-2.5 text-sm text-right text-gray-900 font-medium">{formatBRL(actual)}</td>
-                          <td className={`px-4 py-2.5 text-sm text-right font-medium ${isOver ? 'text-red-600' : 'text-green-700'}`}>
-                            {isOver ? '-' : '+'}{formatBRL(Math.abs(diff))}
-                          </td>
-                          <td className={`px-4 py-2.5 text-sm text-right font-medium ${pct > 100 ? 'text-red-600' : pct > 80 ? 'text-yellow-600' : 'text-green-700'}`}>
-                            {pct}%
-                          </td>
+                          <td className="px-4 py-2.5 text-sm text-right font-medium text-gray-900">{formatBRL(entry.plannedCents)}</td>
+                          <td className="px-4 py-2.5 text-sm text-right text-gray-500">{formatBRL(actual)}</td>
                         </tr>
                       )
                     })}
@@ -297,14 +252,8 @@ export function SpendingClient({
                   <tfoot className="bg-gray-50">
                     <tr>
                       <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
-                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-600">{formatBRL(totalPlanned)}</td>
-                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalSpent)}</td>
-                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned - totalSpent - totalAVencer < 0 ? 'text-red-600' : 'text-green-700'}`}>
-                        {totalPlanned - totalSpent - totalAVencer < 0 ? '-' : '+'}{formatBRL(Math.abs(totalPlanned - totalSpent - totalAVencer))}
-                      </td>
-                      <td className={`px-4 py-2.5 text-sm text-right font-semibold ${totalPlanned > 0 && Math.round((totalSpent / totalPlanned) * 100) > 100 ? 'text-red-600' : 'text-green-700'}`}>
-                        {totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0}%
-                      </td>
+                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalPlanned)}</td>
+                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-500">{formatBRL(totalSpent)}</td>
                     </tr>
                   </tfoot>
                 </table>
