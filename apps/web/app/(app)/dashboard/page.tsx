@@ -14,7 +14,8 @@ const CashFlowChart = dynamic(() => import('@/components/finance/cash-flow-chart
 })
 import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getBudgetGoals, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotalsForGoals, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
+import { getBudgetEntriesForMonth, getSpendingByCategory, getInvestmentContributions } from '@/lib/finance/budget-queries'
+import { alertasDeAporte } from '@/lib/finance/alertas-de-aporte'
 import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { sumBudgetedSpending, rollUpSpendingToBudgeted } from '@/lib/finance/budgeted-spending'
 import { WelcomeCard } from '@/components/finance/welcome-card'
@@ -85,10 +86,13 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
   const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  const [budgetEntriesData, spendingData, investingGoals, categories] = await Promise.all([
+  // Metas de aporte: as da tela Meta de Investimentos (`budget_entries`), com
+  // o aportado do mês pela mesma consulta que ela usa.
+  const [budgetEntriesData, spendingData, investingEntries, contributed, categories] = await Promise.all([
     getSpendingPlanForMonth(orgId, currentMonth, currentMonthEnd),
     getSpendingByCategory(orgId, currentMonth, currentMonthEnd),
-    getBudgetGoals(orgId, 'investing'),
+    getBudgetEntriesForMonth(orgId, currentMonth, 'investing'),
+    getInvestmentContributions(orgId, currentMonth, currentMonthEnd),
     getCategories(orgId),
   ])
 
@@ -107,37 +111,7 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
     }
   }
 
-  if (investingGoals.length === 0) {
-    return <BudgetAlertCard alerts={alerts} />
-  }
-
-  const goalsByPeriod = new Map<string, typeof investingGoals>()
-  for (const goal of investingGoals) {
-    const periodGoals = goalsByPeriod.get(goal.period) ?? []
-    periodGoals.push(goal)
-    goalsByPeriod.set(goal.period, periodGoals)
-  }
-
-  await Promise.all(
-    Array.from(goalsByPeriod.entries()).map(async ([period, goals]) => {
-      const { start, end } = getCurrentPeriodRange(period)
-      const [contributed, adjustmentTotals] = await Promise.all([
-        getInvestmentContributions(orgId, start, end),
-        getAdjustmentTotalsForGoals(orgId, goals.map((goal) => goal.id), start, end),
-      ])
-
-      for (const goal of goals) {
-        const totalContributed = contributed + (adjustmentTotals.get(goal.id) ?? 0)
-        const totalDays = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-        const elapsedDays = Math.max(1, (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-        const expectedPct = (elapsedDays / totalDays) * 100
-        const actualPct = goal.targetCents > 0 ? (totalContributed / goal.targetCents) * 100 : 0
-        if (actualPct < expectedPct * 0.8) {
-          alerts.push({ name: goal.name, currentCents: totalContributed, limitCents: goal.targetCents, href: '/budgets/investing' })
-        }
-      }
-    })
-  )
+  alerts.push(...alertasDeAporte(investingEntries, contributed, currentMonth, currentMonthEnd, now))
 
   return <BudgetAlertCard alerts={alerts} />
 }
