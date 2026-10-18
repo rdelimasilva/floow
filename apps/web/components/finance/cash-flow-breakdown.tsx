@@ -209,42 +209,40 @@ export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlow
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-gray-100">
-            <div className="max-h-[500px] overflow-y-auto">
-              <table className="min-w-full">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      {grouping === 'daily' ? 'Data' : grouping === 'monthly' ? 'Mês' : 'Período'}
-                    </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Despesas</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {rows.map((r) => (
-                    <tr key={r.key} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm text-gray-600">{r.label}</td>
-                      <td className="px-4 py-2 text-right text-sm font-medium text-green-700">{r.income > 0 ? formatBRL(r.income) : '—'}</td>
-                      <td className="px-4 py-2 text-right text-sm font-medium text-red-600">{r.expense < 0 ? formatBRL(Math.abs(r.expense)) : '—'}</td>
-                      <td className={`px-4 py-2 text-right text-sm font-bold ${r.net >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                        {formatBRL(r.net)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-gray-50 sticky bottom-0">
-                  <tr>
-                    <td className="px-4 py-2 text-sm font-medium text-gray-700">Total</td>
-                    <td className="px-4 py-2 text-right text-sm font-bold text-green-700">{formatBRL(totalIncome)}</td>
-                    <td className="px-4 py-2 text-right text-sm font-bold text-red-600">{formatBRL(totalExpense)}</td>
-                    <td className={`px-4 py-2 text-right text-sm font-bold ${totalNet >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                      {formatBRL(totalNet)}
+            <table className="min-w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {grouping === 'daily' ? 'Data' : grouping === 'monthly' ? 'Mês' : 'Período'}
+                  </th>
+                  <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Despesas</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r) => (
+                  <tr key={r.key} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm text-gray-600">{r.label}</td>
+                    <td className="px-4 py-2 text-right text-sm font-medium text-green-700">{r.income > 0 ? formatBRL(r.income) : '—'}</td>
+                    <td className="px-4 py-2 text-right text-sm font-medium text-red-600">{r.expense < 0 ? formatBRL(Math.abs(r.expense)) : '—'}</td>
+                    <td className={`px-4 py-2 text-right text-sm font-bold ${r.net >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                      {formatBRL(r.net)}
                     </td>
                   </tr>
-                </tfoot>
-              </table>
-            </div>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50">
+                <tr>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-700">Total</td>
+                  <td className="px-4 py-2 text-right text-sm font-bold text-green-700">{formatBRL(totalIncome)}</td>
+                  <td className="px-4 py-2 text-right text-sm font-bold text-red-600">{formatBRL(totalExpense)}</td>
+                  <td className={`px-4 py-2 text-right text-sm font-bold ${totalNet >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                    {formatBRL(totalNet)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
       </CardContent>
