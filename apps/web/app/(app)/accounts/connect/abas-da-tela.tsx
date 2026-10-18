@@ -1,10 +1,15 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { Plus } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+
+type Aba = 'conexoes' | 'nova'
 
 /**
- * Separa o cadastro de uma conexão nova da gestão das que já existem.
+ * Separa a gestão das conexões que já existem do cadastro de uma nova. A tela
+ * abre nas conexões; o assistente fica a um clique, pelo botão ou pela aba.
  *
  * As duas abas ficam montadas (forceMount): o assistente guarda em estado o
  * passo em andamento e a espera pela autorização no banco; trocar de aba para
@@ -19,25 +24,37 @@ export function AbasDaTela({
   conexoes: ReactNode
   totalConexoes: number
 }) {
+  const [aba, setAba] = useState<Aba>('conexoes')
+  const criar = (
+    <Button onClick={() => setAba('nova')}>
+      <Plus className="mr-1.5 h-4 w-4" />
+      Criar nova conexão
+    </Button>
+  )
+
   return (
-    <Tabs defaultValue="nova">
+    <Tabs value={aba} onValueChange={(v) => setAba(v as Aba)}>
       <TabsList>
-        <TabsTrigger value="nova">Nova conexão</TabsTrigger>
         <TabsTrigger value="conexoes">
-          Minhas conexões{totalConexoes > 0 ? ` (${totalConexoes})` : ''}
+          Minhas conexões ativas{totalConexoes > 0 ? ` (${totalConexoes})` : ''}
         </TabsTrigger>
+        <TabsTrigger value="nova">Nova conexão</TabsTrigger>
       </TabsList>
+      <TabsContent value="conexoes" forceMount className="mt-6 space-y-4 data-[state=inactive]:hidden">
+        {totalConexoes > 0 ? (
+          <>
+            <div className="flex justify-end">{criar}</div>
+            {conexoes}
+          </>
+        ) : (
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
+            <p className="text-sm text-gray-500">Nenhum banco conectado ainda.</p>
+            <div className="mt-4">{criar}</div>
+          </div>
+        )}
+      </TabsContent>
       <TabsContent value="nova" forceMount className="mt-6 data-[state=inactive]:hidden">
         {novaConexao}
-      </TabsContent>
-      <TabsContent value="conexoes" forceMount className="mt-6 data-[state=inactive]:hidden">
-        {totalConexoes > 0 ? (
-          conexoes
-        ) : (
-          <p className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
-            Nenhum banco conectado ainda.
-          </p>
-        )}
       </TabsContent>
     </Tabs>
   )
