@@ -33,8 +33,15 @@ function abrir() {
 describe('CategoryList', () => {
   it('mostra as categorias de transferência num grupo próprio', () => {
     abrir()
-    expect(screen.getByRole('heading', { name: 'Transferências' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Categorias de transferência' })).toBeTruthy()
     expect(screen.getByText('Transferências recebidas')).toBeTruthy()
+  })
+
+  it('cabeçalho de tipo não repete o nome da raiz de sistema "Receitas"', () => {
+    abrir()
+    expect(screen.getByRole('heading', { name: 'Categorias de receita' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Categorias de despesa' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Receitas' })).toBeNull()
   })
 
   it('começa com as filhas recolhidas e abre ao clicar na mãe', () => {

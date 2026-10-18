@@ -262,9 +262,9 @@ export function CategoryList({ categories }: CategoryListProps) {
               className="h-9 pl-9"
             />
           </div>
-          {renderCategoryGroup('Despesas', expenseCategories)}
-          {renderCategoryGroup('Receitas', incomeCategories)}
-          {renderCategoryGroup('Transferências', transferCategories)}
+          {renderCategoryGroup('Categorias de despesa', expenseCategories)}
+          {renderCategoryGroup('Categorias de receita', incomeCategories)}
+          {renderCategoryGroup('Categorias de transferência', transferCategories)}
           {buscando && visiveis.length === 0 && (
             <p className="text-sm text-gray-500">Nenhuma categoria encontrada.</p>
           )}
