@@ -37,18 +37,15 @@ function getPeriodDates(key: PeriodKey): { startDate: string; endDate: string } 
     }
     case 'year':
       return { startDate: fmt(new Date(y, 0, 1)), endDate: fmt(new Date(y, 11, 31)) }
-    case 'last3': {
-      const d = new Date(y, m - 3, now.getDate())
-      return { startDate: fmt(d), endDate: endToday }
-    }
-    case 'last6': {
-      const d = new Date(y, m - 6, now.getDate())
-      return { startDate: fmt(d), endDate: endToday }
-    }
-    case 'last12': {
-      const d = new Date(y, m - 12, now.getDate())
-      return { startDate: fmt(d), endDate: endToday }
-    }
+    // Últimos N meses = mês corrente + os N-1 anteriores inteiros. Começar no
+    // mesmo dia de N meses atrás atravessava N+1 meses de calendário (13
+    // barras em "Últimos 12m") e cortava o primeiro mês ao meio.
+    case 'last3':
+      return { startDate: fmt(new Date(y, m - 2, 1)), endDate: endToday }
+    case 'last6':
+      return { startDate: fmt(new Date(y, m - 5, 1)), endDate: endToday }
+    case 'last12':
+      return { startDate: fmt(new Date(y, m - 11, 1)), endDate: endToday }
   }
 }
 
