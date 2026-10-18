@@ -1,10 +1,10 @@
 'use client'
 
-import { LineChart, Line, XAxis, CartesianGrid } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { PatrimonySnapshot } from '@floow/db'
-import { formatarDia } from '@/lib/formatar-dia'
+import { serieMensalDoPatrimonio, rotuloDoEixoY } from '@/lib/investments/serie-patrimonial'
 
 const chartConfig = {
   netWorthCents: {
@@ -40,13 +40,10 @@ export function NetWorthEvolution({ snapshots }: NetWorthEvolutionProps) {
     )
   }
 
-  const chartData = snapshots.map((s) => {
-    const date = s.snapshotDate instanceof Date ? s.snapshotDate : new Date(s.snapshotDate as unknown as string)
-    return {
-      date: formatarDia(date, { month: 'short', year: '2-digit' }),
-      netWorthCents: s.netWorthCents,
-    }
-  })
+  // Um ponto por mês (o último snapshot dele); mês sem snapshot fica no eixo
+  // sem valor (a linha interrompe ali) e a reta entre meses vizinhos não
+  // inventa a curva que a suavização desenhava.
+  const chartData = serieMensalDoPatrimonio(snapshots)
 
   return (
     <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
@@ -58,6 +55,12 @@ export function NetWorthEvolution({ snapshots }: NetWorthEvolutionProps) {
           axisLine={false}
           tickMargin={8}
         />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          width={80}
+          tickFormatter={(v: number) => rotuloDoEixoY(v)}
+        />
         <ChartTooltip
           content={
             <ChartTooltipContent
@@ -66,11 +69,11 @@ export function NetWorthEvolution({ snapshots }: NetWorthEvolutionProps) {
           }
         />
         <Line
-          type="monotone"
+          type="linear"
           dataKey="netWorthCents"
           stroke="#2563eb"
           strokeWidth={2}
-          dot={false}
+          dot={{ r: 3 }}
         />
       </LineChart>
     </ChartContainer>
