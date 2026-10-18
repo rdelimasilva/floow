@@ -26,6 +26,11 @@ export interface RealizadoParaHeranca {
  * - `null`: nada muda. Categoria escolhida à mão fica; transferência e
  *   natureza diferente não são trocadas por aqui.
  *
+ * Nunca troca por uma mais genérica: se a categoria atual descende da da
+ * previsão (`ancestraisDaAtual`, pais e avós dela), a atual é mais
+ * específica e é ela que alimenta metas como "Assistente de limpeza" — fica.
+ * Saúde → Psicólogo (ida para a filha) troca.
+ *
  * `substituir` ainda depende de o usuário não ter decidido aquela linha
  * (evento em `validacoes`): `is_auto_categorized` não era desligado na
  * edição do lançamento antes de 18/10/2026. Quem chama confere.
@@ -33,11 +38,13 @@ export interface RealizadoParaHeranca {
 export function herancaDaPrevisao(
   previsao: PrevisaoParaHeranca,
   realizado: RealizadoParaHeranca,
+  ancestraisDaAtual: readonly string[] = [],
 ): 'classificar' | 'substituir' | null {
   if (previsao.type === 'transfer' || !previsao.categoryId) return null
   if (realizado.reviewState === 'pending') return 'classificar'
   if (realizado.type !== previsao.type || realizado.transferGroupId) return null
   if (realizado.categoryId === previsao.categoryId) return null
   if (realizado.categoryId !== null && !realizado.isAutoCategorized) return null
+  if (ancestraisDaAtual.includes(previsao.categoryId)) return null
   return 'substituir'
 }

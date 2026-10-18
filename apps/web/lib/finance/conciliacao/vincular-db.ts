@@ -5,6 +5,7 @@ import { aplicarEfeitoDaAbsorcao } from './absorver'
 import { registrarVinculo } from './registro'
 import { categoriaDecididaPeloUsuario, registrarEventos } from './validacoes'
 import { realinharSerie } from './realinhar-serie'
+import { ancestraisDaCategoria } from './ancestrais-da-categoria'
 import { condicaoDaTransacaoDaOrg } from '@/lib/finance/forecast-match-db'
 
 type Db = ReturnType<typeof getDb>
@@ -115,6 +116,11 @@ export async function vincularNoBanco(
     // A previsão já diz o que o dinheiro é: classifica o pendente e substitui
     // a categoria automática (`herancaDaPrevisao`). Escolha do usuário fica.
     let heranca = herancaDaPrevisao(previsao, { ...realizado, isAutoCategorized: Boolean(realizado.isAutoCategorized) })
+    // Nunca por uma mais genérica: a atual descende da alvo, fica.
+    if (heranca === 'substituir' && realizado.categoryId) {
+      const ancestrais = await ancestraisDaCategoria(tx, orgId, realizado.categoryId)
+      heranca = herancaDaPrevisao(previsao, { ...realizado, isAutoCategorized: Boolean(realizado.isAutoCategorized) }, ancestrais)
+    }
     if (heranca === 'substituir' && await categoriaDecididaPeloUsuario(tx, orgId, realizadoId)) heranca = null
     if (heranca && previsao.categoryId) {
       classificou = true

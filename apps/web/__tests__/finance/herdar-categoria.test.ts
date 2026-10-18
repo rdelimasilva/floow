@@ -29,6 +29,9 @@ describe('herdarCategoriaDosVinculos', () => {
     expect(sql).toContain('(r.is_auto_categorized or r.category_id is null)')
     expect(sql).toContain('r.transfer_group_id is null')
     expect(sql).toContain('coalesce(rt.category_id, p.category_id)')
+    // Nunca por uma mais genérica: a alvo não pode ser ancestral da atual.
+    expect(sql).toContain('coalesce(rt.category_id, p.category_id) not in (')
+    expect(sql).toMatch(/with recursive sobe[\s\S]*c\.id = r\.category_id[\s\S]*select parent_id from sobe/)
     // Idempotente: quem herda sai do recorte.
     expect(sql).toContain('is_auto_categorized = false')
   })

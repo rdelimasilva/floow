@@ -43,6 +43,8 @@ vi.mock('@/lib/finance/revalidate', () => ({
 vi.mock('@/lib/finance/conciliacao/absorver', () => ({ aplicarEfeitoDaAbsorcao: vi.fn() }))
 vi.mock('@/lib/db/rls', () => ({ withUserDb: vi.fn() }))
 vi.mock('@/lib/finance/conciliacao/registro', () => ({ registrarVinculo: vi.fn() }))
+let ancestrais: string[] = []
+vi.mock('@/lib/finance/conciliacao/ancestrais-da-categoria', () => ({ ancestraisDaCategoria: vi.fn(async () => ancestrais) }))
 let decididaPeloUsuario = false
 vi.mock('@/lib/finance/conciliacao/validacoes', () => ({
   registrarEventos: vi.fn(async () => {}),
@@ -61,6 +63,7 @@ beforeEach(() => {
   ops.length = 0
   selectQueue.length = 0
   decididaPeloUsuario = false
+  ancestrais = []
   vi.clearAllMocks()
 })
 
@@ -149,6 +152,18 @@ describe('vincularPrevisao', () => {
     expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
     expect(ops.filter((o) => o.payload && 'categoryId' in o.payload)).toHaveLength(0)
     expect(registrarEventos).not.toHaveBeenCalled()
+  })
+  it('categoria automática mais específica (filha da da previsão) fica: nunca troca por mais genérica', async () => {
+    ancestrais = ['cat-9'] // Assistente de limpeza ⊂ Casa (cat-9)
+    selectQueue.push([PREV, { ...REAL, reviewState: 'confirmed', type: 'expense', categoryId: 'assistente', isAutoCategorized: true }], [])
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
+    expect(ops.filter((o) => o.payload && 'categoryId' in o.payload)).toHaveLength(0)
+  })
+  it('categoria automática mais genérica (mãe da da previsão) troca', async () => {
+    ancestrais = [] // Saúde não descende de Psicólogo
+    selectQueue.push([PREV, { ...REAL, reviewState: 'confirmed', type: 'expense', categoryId: 'saude', isAutoCategorized: true }], [])
+    await vincularPrevisao('real-1', 'prev-1')
+    expect(ops.filter((o) => o.payload && 'categoryId' in o.payload)).toHaveLength(1)
   })
   it('categoria escolhida à mão fica', async () => {
     selectQueue.push([PREV, { ...REAL, reviewState: 'confirmed', type: 'expense', categoryId: 'minha', isAutoCategorized: false }], [])

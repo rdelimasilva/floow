@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { recurringTemplates, transactions, validacoes, type getDb } from '@floow/db'
+import { categories, recurringTemplates, transactions, validacoes, type getDb } from '@floow/db'
 import { ACOES_DO_USUARIO, registrarEventos } from './validacoes'
 
 type Db = ReturnType<typeof getDb>
@@ -14,7 +14,8 @@ type Db = ReturnType<typeof getDb>
  *
  * Mesmo recorte de `herancaDaPrevisao` no caminho 'substituir': confirmado,
  * mesma natureza, fora de transferência, categoria automática ou vazia, sem
- * decisão do usuário naquela linha (`ACOES_DO_USUARIO`).
+ * decisão do usuário naquela linha (`ACOES_DO_USUARIO`), e nunca por uma
+ * categoria mais genérica que a atual (a atual descende da alvo).
  *
  * A categoria vem do modelo da recorrência, com a da previsão como reserva:
  * a previsão já vinculada ficou de fora quando editar o modelo passou a
@@ -41,6 +42,15 @@ export async function herdarCategoriaDosVinculos(db: Db, orgId: string, accountI
          and (r.is_auto_categorized or r.category_id is null)
          and coalesce(rt.category_id, p.category_id) is not null
          and r.category_id is distinct from coalesce(rt.category_id, p.category_id)
+         -- Nunca por uma mais genérica: a atual descende da alvo, fica.
+         and coalesce(rt.category_id, p.category_id) not in (
+           with recursive sobe (parent_id, nivel) as (
+             select c.parent_id, 1 from ${categories} c where c.id = r.category_id
+             union all
+             select c.parent_id, s.nivel + 1 from ${categories} c join sobe s on c.id = s.parent_id where s.nivel < 5
+           )
+           select parent_id from sobe where parent_id is not null
+         )
          and not exists (
            select 1 from ${validacoes} v
             where v.transaction_id = r.id and v.org_id = r.org_id and v.acao in (${acoes})

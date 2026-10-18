@@ -23,6 +23,16 @@ describe('herancaDaPrevisao', () => {
     expect(herancaDaPrevisao(PREV, { ...REAL, categoryId: null, isAutoCategorized: false })).toBe('substituir')
   })
 
+  it('nunca troca por uma mais genérica: atual descendente da alvo fica (Assistente de limpeza ⊂ Casa)', () => {
+    const casa = { ...PREV, categoryId: 'casa' }
+    expect(herancaDaPrevisao(casa, { ...REAL, categoryId: 'assistente-limpeza' }, ['casa'])).toBeNull()
+    expect(herancaDaPrevisao(casa, { ...REAL, categoryId: 'faxina-extra' }, ['assistente-limpeza', 'casa'])).toBeNull()
+  })
+
+  it('ida para mais específica continua trocando (Saúde → Psicólogo)', () => {
+    expect(herancaDaPrevisao(PREV, { ...REAL, categoryId: 'saude' }, [])).toBe('substituir')
+  })
+
   it('categoria escolhida à mão fica', () => {
     expect(herancaDaPrevisao(PREV, { ...REAL, isAutoCategorized: false })).toBeNull()
   })
