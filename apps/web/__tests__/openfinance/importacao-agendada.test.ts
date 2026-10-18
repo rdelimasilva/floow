@@ -18,6 +18,7 @@ const conexoesMock = vi.fn()
 const syncMock = vi.fn()
 const investimentosMock = vi.fn()
 const revalidarMock = vi.fn()
+const snapshotMock = vi.fn()
 
 vi.mock('@floow/db', () => ({
   getDb: () => ({
@@ -29,6 +30,7 @@ vi.mock('@/lib/openfinance/sync', () => ({ syncConnectionTransactions: syncMock 
 vi.mock('@/lib/openfinance/sincronizar-conexao', () => ({ sincronizarInvestimentosDaConexao: investimentosMock }))
 vi.mock('@/lib/openfinance/config', () => ({ getPolpClient: () => ({}) }))
 vi.mock('@/lib/finance/revalidate', () => ({ revalidateSincronizacao: revalidarMock }))
+vi.mock('@/lib/finance/snapshot-patrimonio', () => ({ gravarSnapshotDoServico: snapshotMock }))
 
 const { importarLancamentosDeTodasAsConexoes } = await import('@/lib/openfinance/importacao-agendada')
 
@@ -43,6 +45,8 @@ beforeEach(() => {
   investimentosMock.mockReset()
   investimentosMock.mockResolvedValue(null)
   revalidarMock.mockReset()
+  snapshotMock.mockReset()
+  snapshotMock.mockResolvedValue({ id: 'snap' })
 })
 
 describe('importarLancamentosDeTodasAsConexoes', () => {
@@ -152,5 +156,42 @@ describe('importarLancamentosDeTodasAsConexoes', () => {
     await importarLancamentosDeTodasAsConexoes()
 
     expect(revalidarMock.mock.calls.map((c) => c[0]).sort()).toEqual(['org-1', 'org-2'])
+  })
+
+  it('grava o snapshot de patrimônio de cada org, uma vez, depois de invalidar o cache', async () => {
+    // O histórico só nascia no clique de "Atualizar valores": o último da org
+    // e37a3049 em 18/10/2026 era de 06/10, e o Consultor lia esse número.
+    conexoesMock.mockResolvedValue([
+      { id: 'c1', orgId: 'org-1' },
+      { id: 'c2', orgId: 'org-1' },
+      { id: 'c3', orgId: 'org-2' },
+    ])
+    syncMock.mockResolvedValue(RESUMO_VAZIO)
+    const ordem: string[] = []
+    revalidarMock.mockImplementation((orgId: string) => ordem.push(`revalida:${orgId}`))
+    snapshotMock.mockImplementation(async (orgId: string) => ordem.push(`snapshot:${orgId}`))
+
+    const r = await importarLancamentosDeTodasAsConexoes()
+
+    expect(snapshotMock.mock.calls.map((c) => c[0]).sort()).toEqual(['org-1', 'org-2'])
+    // Saldos e posições recém-sincronizados, não o cache de antes do sync.
+    expect(ordem.indexOf('snapshot:org-1')).toBeGreaterThan(ordem.indexOf('revalida:org-1'))
+    expect(r.snapshots).toBe(2)
+  })
+
+  it('falha no snapshot de uma org não derruba a importação nem as outras', async () => {
+    conexoesMock.mockResolvedValue([
+      { id: 'c1', orgId: 'org-1' },
+      { id: 'c2', orgId: 'org-2' },
+    ])
+    syncMock.mockResolvedValue({ ...RESUMO_VAZIO, imported: 1 })
+    snapshotMock.mockRejectedValueOnce(new Error('banco caiu')).mockResolvedValueOnce({ id: 'snap' })
+
+    const r = await importarLancamentosDeTodasAsConexoes()
+
+    expect(snapshotMock).toHaveBeenCalledTimes(2)
+    expect(r.snapshots).toBe(1)
+    expect(r.importadas).toBe(2)
+    expect(r.falhas).toBe(0)
   })
 })
