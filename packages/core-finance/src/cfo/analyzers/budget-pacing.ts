@@ -10,7 +10,7 @@ export interface BudgetPacingAnalyzerInput {
   month: string
 }
 
-const brl = (cents: number) => `R$${(cents / 100).toFixed(0)}`
+import { brl } from '../formato'
 
 /**
  * Insights de ritmo de gasto: avisam ANTES do estouro, que é o que o analyzer

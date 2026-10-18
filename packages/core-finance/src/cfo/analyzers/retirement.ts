@@ -1,4 +1,5 @@
 import type { RetirementAnalyzerInput, InsightResult } from '../types'
+import { brl } from '../formato'
 
 export function analyzeRetirement(input: RetirementAnalyzerInput): InsightResult[] {
   const insights: InsightResult[] = []
@@ -32,7 +33,7 @@ export function analyzeRetirement(input: RetirementAnalyzerInput): InsightResult
       category: 'retirement',
       severity: progressPct < 50 ? 'warning' : 'info',
       title: 'Aposentadoria abaixo da meta',
-      body: `Projeção cobre ${progressPct}% da meta. Aumente R$${(extraMonthly / 100).toFixed(0)}/mês para fechar o gap.`,
+      body: `Projeção cobre ${progressPct}% da meta. Aumente ${brl(extraMonthly)}/mês para fechar o gap.`,
       metric: { progressPct, gap, extraMonthly, yearsToGo },
       suggestedAction: { type: 'view_planning', params: {} },
     })

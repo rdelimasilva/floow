@@ -1,4 +1,5 @@
 import type { PatrimonyAnalyzerInput, InsightResult } from '../types'
+import { brl } from '../formato'
 
 const MILESTONES = [5000000, 10000000, 15000000, 20000000, 25000000, 50000000, 100000000]
 
@@ -22,8 +23,8 @@ export function analyzePatrimony(input: PatrimonyAnalyzerInput): InsightResult[]
           type: 'patrimony_milestone',
           category: 'patrimony',
           severity: 'positive',
-          title: `Patrimônio atingiu R$${(milestone / 100).toLocaleString('pt-BR')}!`,
-          body: `Seu patrimônio líquido ultrapassou a marca de R$${(milestone / 100).toLocaleString('pt-BR')}.`,
+          title: `Patrimônio atingiu ${brl(milestone)}!`,
+          body: `Seu patrimônio líquido ultrapassou a marca de ${brl(milestone)}.`,
           metric: { netWorth: current.netWorth, milestone },
         })
         break
@@ -36,7 +37,7 @@ export function analyzePatrimony(input: PatrimonyAnalyzerInput): InsightResult[]
         category: 'patrimony',
         severity: Math.abs(changePct) > 10 ? 'warning' : 'info',
         title: 'Patrimônio diminuiu',
-        body: `Seu patrimônio caiu ${Math.abs(changePct)}% (R$${(Math.abs(change) / 100).toFixed(0)}) em relação ao mês anterior.`,
+        body: `Seu patrimônio caiu ${Math.abs(changePct)}% (${brl(Math.abs(change))}) em relação ao mês anterior.`,
         metric: { current: current.netWorth, previous: previous.netWorth, changePct },
       })
     }
