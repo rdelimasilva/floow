@@ -16,6 +16,12 @@ vi.mock('@/lib/investments/queries', () => ({ getAssets, getPortfolioEvents, get
 vi.mock('@/lib/finance/queries', () => ({ getOrgId: vi.fn(async () => 'org-1'), getAccounts: vi.fn(async () => []) }))
 vi.mock('@/lib/investments/bank-position-queries', () => ({ getLatestBankPosition: vi.fn() }))
 
+// Import no topo: carregar a página dentro do teste estourava os 5 s quando
+// a suíte roda inteira em paralelo.
+const { default: PaginaDoAtivo } = await import('@/app/(app)/investments/[assetId]/page')
+const { default: EdicaoDoAtivo } = await import('@/app/(app)/investments/[assetId]/edit/page')
+const { default: EdicaoDoEvento } = await import('@/app/(app)/investments/events/[eventId]/edit/page')
+
 const UUID = '3f2b6a1e-1c2d-4e5f-8a9b-0c1d2e3f4a5b'
 
 beforeEach(() => {
@@ -27,25 +33,21 @@ beforeEach(() => {
 
 describe('rota de ativo inexistente vira 404', () => {
   it('id que não é uuid não chega a consultar o banco', async () => {
-    const { default: Page } = await import('@/app/(app)/investments/[assetId]/page')
-    await expect(Page({ params: Promise.resolve({ assetId: 'nao-existe' }) })).rejects.toThrow('NEXT_NOT_FOUND')
+    await expect(PaginaDoAtivo({ params: Promise.resolve({ assetId: 'nao-existe' }) })).rejects.toThrow('NEXT_NOT_FOUND')
     expect(getPortfolioEvents).not.toHaveBeenCalled()
   })
 
   it('uuid que não é ativo da org também é 404', async () => {
-    const { default: Page } = await import('@/app/(app)/investments/[assetId]/page')
-    await expect(Page({ params: Promise.resolve({ assetId: UUID }) })).rejects.toThrow('NEXT_NOT_FOUND')
+    await expect(PaginaDoAtivo({ params: Promise.resolve({ assetId: UUID }) })).rejects.toThrow('NEXT_NOT_FOUND')
   })
 
   it('edição de ativo inexistente é 404', async () => {
-    const { default: Page } = await import('@/app/(app)/investments/[assetId]/edit/page')
-    await expect(Page({ params: Promise.resolve({ assetId: 'abc' }) })).rejects.toThrow('NEXT_NOT_FOUND')
+    await expect(EdicaoDoAtivo({ params: Promise.resolve({ assetId: 'abc' }) })).rejects.toThrow('NEXT_NOT_FOUND')
     expect(getAssets).not.toHaveBeenCalled()
   })
 
   it('edição de evento com id que não é uuid é 404 sem consultar', async () => {
-    const { default: Page } = await import('@/app/(app)/investments/events/[eventId]/edit/page')
-    await expect(Page({ params: Promise.resolve({ eventId: 'abc' }) })).rejects.toThrow('NEXT_NOT_FOUND')
+    await expect(EdicaoDoEvento({ params: Promise.resolve({ eventId: 'abc' }) })).rejects.toThrow('NEXT_NOT_FOUND')
     expect(getPortfolioEventById).not.toHaveBeenCalled()
   })
 })
