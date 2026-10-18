@@ -26,6 +26,7 @@ import { eq, and, gte, gt, desc, sql } from 'drizzle-orm'
 import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import { buildBudgetPacingInput } from './budget-pacing-input'
 import { assetDisplayName } from '@/lib/investments/asset-labels'
+import { cfoInsightsTag, invalidateTag } from '@/lib/cache-tags'
 import {
   aggregateCashFlow,
   runAnalyzers,
@@ -169,6 +170,7 @@ export async function runCfoEngine(
         .select({
           id: accounts.id,
           name: accounts.name,
+          type: accounts.type,
           balanceCents: accounts.balanceCents,
         })
         .from(accounts)
@@ -187,6 +189,7 @@ export async function runCfoEngine(
           accountBalances: accountRows.map((a) => ({
             accountId: a.id,
             name: a.name,
+            type: a.type,
             balance: a.balanceCents,
           })),
         }
@@ -466,5 +469,10 @@ export async function runCfoEngine(
       .where(eq(cfoRuns.id, runId))
 
     throw error
+  } finally {
+    // A tela lê insights e a última execução por unstable_cache com
+    // revalidate (stale-while-revalidate): sem expirar a tag, a primeira
+    // visita depois do cron mostrava a análise de dias atrás.
+    invalidateTag(cfoInsightsTag(orgId))
   }
 }

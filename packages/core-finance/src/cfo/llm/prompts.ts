@@ -35,5 +35,6 @@ ${contextJson}
 IMPORTANTE:
 - Retorne EXATAMENTE o mesmo número de itens em prioritizedInsights que os insights de entrada, NA MESMA ORDEM.
 - Não altere severity, metric ou suggestedAction — apenas title, body e detailMarkdown.
+- Valores monetários em metric e no contexto estão em centavos (138500 = R$ 1.385,00). No texto, escreva em reais no formato brasileiro (R$ 1.234,56) e percentuais arredondados com vírgula (52% ou 52,3%), nunca com ponto decimal.
 - correlatedWith pode referenciar types de outros insights para indicar conexão.`
 }

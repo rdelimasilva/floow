@@ -1,4 +1,5 @@
 import type { DebtAnalyzerInput, InsightResult } from '../types'
+import { brl } from '../formato'
 
 export function analyzeDebt(input: DebtAnalyzerInput): InsightResult[] {
   const insights: InsightResult[] = []
@@ -13,7 +14,7 @@ export function analyzeDebt(input: DebtAnalyzerInput): InsightResult[] {
         category: 'debt',
         severity: 'critical',
         title: 'Cheque especial ativo',
-        body: `Você está usando R$${(debt.balance / 100).toFixed(2)} do cheque especial "${debt.name}". Juros de cheque especial são os mais caros do mercado.`,
+        body: `Você está usando ${brl(debt.balance, 2)} do cheque especial "${debt.name}". Juros de cheque especial são os mais caros do mercado.`,
         metric: { balance: debt.balance, interestRate: debt.interestRate },
         suggestedAction: { type: 'view_debts', params: {} },
       })
@@ -33,7 +34,7 @@ export function analyzeDebt(input: DebtAnalyzerInput): InsightResult[] {
         category: 'debt',
         severity: 'critical',
         title: 'Juros consumindo mais de 30% da renda',
-        body: `Você paga R$${(totalMonthlyInterest / 100).toFixed(0)}/mês em juros (${Math.round(interestRatio * 100)}% da receita).`,
+        body: `Você paga ${brl(totalMonthlyInterest)}/mês em juros (${Math.round(interestRatio * 100)}% da receita).`,
         metric: { totalMonthlyInterest: Math.round(totalMonthlyInterest), monthlyIncome, ratio: Math.round(interestRatio * 100) },
         suggestedAction: { type: 'view_debts', params: {} },
       })

@@ -1,4 +1,5 @@
 import type { CashFlowAnalyzerInput, InsightResult } from '../types'
+import { brl } from '../formato'
 
 export function analyzeCashFlow(input: CashFlowAnalyzerInput): InsightResult[] {
   const insights: InsightResult[] = []
@@ -19,7 +20,7 @@ export function analyzeCashFlow(input: CashFlowAnalyzerInput): InsightResult[] {
         category: 'cash_flow',
         severity: 'critical',
         title: 'Gastos maiores que a receita',
-        body: `Em ${current.month}, seus gastos (R$${(absExpense / 100).toFixed(0)}) superaram a receita (R$${(current.income / 100).toFixed(0)}).`,
+        body: `Em ${current.month}, seus gastos (${brl(absExpense)}) superaram a receita (${brl(current.income)}).`,
         metric: { income: current.income, expense: current.expense, ratio: Math.round(ratio * 100) },
         suggestedAction: { type: 'view_transactions', params: { period: current.month } },
       })
@@ -56,13 +57,15 @@ export function analyzeCashFlow(input: CashFlowAnalyzerInput): InsightResult[] {
   }
 
   for (const account of accountBalances) {
+    // Cartão tem saldo devedor por natureza: é a fatura, não cheque especial.
+    if (account.type === 'credit_card') continue
     if (account.balance < 0) {
       insights.push({
         type: 'cash_flow_negative_balance',
         category: 'cash_flow',
         severity: 'critical',
         title: `Saldo negativo: ${account.name}`,
-        body: `A conta "${account.name}" está com saldo negativo de R$${(Math.abs(account.balance) / 100).toFixed(2)}.`,
+        body: `A conta "${account.name}" está com saldo negativo de ${brl(Math.abs(account.balance), 2)}.`,
         metric: { balance: account.balance },
         suggestedAction: { type: 'view_account', params: { accountId: account.accountId } },
       })

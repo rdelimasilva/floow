@@ -60,7 +60,7 @@ describe('analyzeCashFlow', () => {
   it('returns critical when account balance is negative', () => {
     const input: CashFlowAnalyzerInput = {
       monthlyTotals: [],
-      accountBalances: [{ accountId: 'a1', name: 'Conta Corrente', balance: -5000 }],
+      accountBalances: [{ accountId: 'a1', name: 'Conta Corrente', type: 'checking', balance: -5000 }],
     }
     const results = analyzeCashFlow(input)
     const found = results.find((r) => r.type === 'cash_flow_negative_balance')
@@ -68,10 +68,21 @@ describe('analyzeCashFlow', () => {
     expect(found!.severity).toBe('critical')
   })
 
+  it('fatura aberta de cartão não é saldo negativo', () => {
+    const input: CashFlowAnalyzerInput = {
+      monthlyTotals: [],
+      accountBalances: [
+        { accountId: 'c1', name: 'Master Black', type: 'credit_card', balance: -472236 },
+        { accountId: 'c2', name: 'Visa PDA', type: 'credit_card', balance: -35605 },
+      ],
+    }
+    expect(analyzeCashFlow(input).find((r) => r.type === 'cash_flow_negative_balance')).toBeUndefined()
+  })
+
   it('returns no insights when finances are healthy', () => {
     const input: CashFlowAnalyzerInput = {
       monthlyTotals: [{ month: '2026-03', income: 500000, expense: -200000 }],
-      accountBalances: [{ accountId: 'a1', name: 'Conta Corrente', balance: 100000 }],
+      accountBalances: [{ accountId: 'a1', name: 'Conta Corrente', type: 'checking', balance: 100000 }],
     }
     expect(analyzeCashFlow(input)).toEqual([])
   })

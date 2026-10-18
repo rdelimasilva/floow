@@ -29,7 +29,11 @@ export interface InsightResult {
 
 export interface CashFlowAnalyzerInput {
   monthlyTotals: { month: string; income: number; expense: number }[]
-  accountBalances: { accountId: string; name: string; balance: number }[]
+  /**
+   * `type` é o `accounts.type`. Obrigatório: sem ele o analyzer não distingue
+   * o saldo devedor do cartão (fatura) de uma conta no negativo.
+   */
+  accountBalances: { accountId: string; name: string; type: string; balance: number }[]
 }
 
 // BudgetAnalyzerInput e analyzeBudget foram removidos: o engine montava seu
