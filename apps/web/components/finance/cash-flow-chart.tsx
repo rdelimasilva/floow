@@ -2,12 +2,24 @@
 
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
-  XAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import type { CashFlowMonth } from '@floow/core-finance'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { ChartType } from './cash-flow-chart-picker'
+
+/** Centavos -> "R$ 10 mil": referência curta para o eixo Y. */
+const yAxisFormatter = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+
+function formatYAxisTick(cents: number): string {
+  return yAxisFormatter.format(cents / 100)
+}
 
 const chartConfig = {
   income: { label: 'Receitas', color: '#16a34a' },
@@ -114,6 +126,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
         <BarChart data={viewMode === 'both' ? data : chartData}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
+          <YAxis tickLine={false} axisLine={false} width={80} tickFormatter={formatYAxisTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
@@ -130,6 +143,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
         <BarChart data={chartData}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
+          <YAxis tickLine={false} axisLine={false} width={80} tickFormatter={formatYAxisTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Bar dataKey="income" stackId="stack" fill="var(--color-income)" radius={[0, 0, 0, 0]} />
@@ -139,6 +153,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
         <LineChart data={chartData}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
+          <YAxis tickLine={false} axisLine={false} width={80} tickFormatter={formatYAxisTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Line type="monotone" dataKey="income" stroke="var(--color-income)" strokeWidth={2} dot={false} />
@@ -149,6 +164,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
         <AreaChart data={chartData}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
+          <YAxis tickLine={false} axisLine={false} width={80} tickFormatter={formatYAxisTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Area type="monotone" dataKey="income" fill="var(--color-income)" fillOpacity={0.3} stroke="var(--color-income)" strokeWidth={2} />
@@ -159,6 +175,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
         <BarChart data={waterfallData}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
+          <YAxis tickLine={false} axisLine={false} width={80} tickFormatter={formatYAxisTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Bar dataKey="base" stackId="waterfall" fill="transparent" legendType="none" />
@@ -172,6 +189,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
         <BarChart data={chartData}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine tickMargin={8} tickFormatter={formatMonthTick} />
+          <YAxis tickLine={false} axisLine={false} width={80} tickFormatter={formatYAxisTick} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Legend formatter={legendFormatter} />
           <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
