@@ -11,3 +11,12 @@ export function estaEncerrada(p: Pick<EnrichedPosition, 'currentValueCents' | 'q
   if (p.currentValueCents !== 0) return false
   return p.source === 'openfinance' || p.quantityHeld === 0
 }
+
+/**
+ * A carteira que a tela de posições mostra por padrão (sem encerradas). O
+ * Resumo usa a mesma: antes somava os proventos de papel encerrado e o total
+ * de dividendos não batia com o rodapé da tabela.
+ */
+export function posicoesDaCarteira<T extends Pick<EnrichedPosition, 'currentValueCents' | 'quantityHeld' | 'source'>>(posicoes: T[]): T[] {
+  return posicoes.filter((p) => !estaEncerrada(p))
+}

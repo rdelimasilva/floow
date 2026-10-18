@@ -13,9 +13,10 @@
  */
 import {
   POLP_INVESTMENT_KINDS, normalizeInvestment, normalizeInvestmentTransaction,
-  type PolpClient, type PolpInvestmentKind,
+  type NormalizedInvestment, type PolpClient, type PolpInvestmentKind,
 } from '@floow/core-finance'
 import { normalizeBatch } from '../normalize-batch'
+import { separarDuplicatas } from './duplicatas'
 import type { ProblemaDeIngestao, RepositorioDeInvestimentos } from './repositorio'
 import { janelaDeMovimentacoes } from './vinculo'
 
@@ -59,6 +60,10 @@ export async function sincronizarInvestimentos(
     // O que a listagem devolveu deste tipo — ilegível com id também conta.
     const vistos: string[] = []
     let temIlegivelSemId = false
+    // A listagem inteira do tipo antes de gravar: a cópia de um lote pode vir
+    // em outra página, e a escolha de quem fica não pode depender da ordem.
+    const lidos: NormalizedInvestment[] = []
+    let falha: unknown = null
     try {
       for await (const page of client.streamInvestments(conexao.polpConsentId, kind)) {
         const { ok, rejected } = normalizeBatch(page, (raw) => normalizeInvestment(kind, raw))
@@ -68,23 +73,37 @@ export async function sincronizarInvestimentos(
           else temIlegivelSemId = true
         }
         problemas.push(...rejected.map((r) => ({ resourceId: null, externalId: r.externalId, reason: `${kind}: ${r.reason}`, payload: r.raw })))
-
-        for (const inv of ok) {
-          vistos.push(inv.polpId)
-          const salvo = await repo.salvarInvestimento({ orgId, connectionId: conexao.id }, inv)
-          if (salvo.tipo === 'conflito') {
-            resumo.conflitos++
-            problemas.push({ resourceId: null, externalId: inv.polpId, reason: `${kind}: investimento pertence a outra org`, payload: { polpId: inv.polpId } })
-            continue
-          }
-          resumo.ativos++
-          if (inv.position) resumo.posicoes++
-          salvos.push({ kind, polpId: inv.polpId, assetId: salvo.assetId, resourceId: salvo.resourceId })
-        }
+        lidos.push(...ok)
       }
     } catch (error) {
+      falha = error
+    }
+
+    try {
+      const { unicos, duplicatas } = separarDuplicatas(lidos)
+      // A cópia não entra em `vistos`: se já tinha virado ativo, `zerarAusentes` zera.
+      for (const d of duplicatas) {
+        problemas.push({ resourceId: null, externalId: d.inv.polpId, reason: `${kind}: duplicata de ${d.de} (mesmo lote com outro id)`, payload: { polpId: d.inv.polpId, de: d.de } })
+      }
+      for (const inv of unicos) {
+        vistos.push(inv.polpId)
+        const salvo = await repo.salvarInvestimento({ orgId, connectionId: conexao.id }, inv)
+        if (salvo.tipo === 'conflito') {
+          resumo.conflitos++
+          problemas.push({ resourceId: null, externalId: inv.polpId, reason: `${kind}: investimento pertence a outra org`, payload: { polpId: inv.polpId } })
+          continue
+        }
+        resumo.ativos++
+        if (inv.position) resumo.posicoes++
+        salvos.push({ kind, polpId: inv.polpId, assetId: salvo.assetId, resourceId: salvo.resourceId })
+      }
+    } catch (error) {
+      falha ??= error
+    }
+
+    if (falha) {
       resumo.tiposComFalha.push(kind)
-      problemas.push({ resourceId: null, externalId: null, reason: `falha ao listar ${kind}: ${mensagem(error)}`, payload: {} })
+      problemas.push({ resourceId: null, externalId: null, reason: `falha ao listar ${kind}: ${mensagem(falha)}`, payload: {} })
       continue
     }
 

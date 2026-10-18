@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { ehIdDeRota } from '@/lib/investments/id-de-rota'
 import { getOrgId, getAccounts } from '@/lib/finance/queries'
 import { getAssets, getPortfolioEventById } from '@/lib/investments/queries'
 import { PortfolioEventEditForm } from '@/components/investments/portfolio-event-edit-form'
@@ -10,6 +11,7 @@ interface Props {
 
 export default async function EditPortfolioEventPage({ params }: Props) {
   const { eventId } = await params
+  if (!ehIdDeRota(eventId)) notFound()
   const orgId = await getOrgId()
 
   const [event, accounts, assets] = await Promise.all([

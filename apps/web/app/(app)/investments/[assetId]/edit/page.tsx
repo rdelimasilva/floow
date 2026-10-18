@@ -1,4 +1,5 @@
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
+import { ehIdDeRota } from '@/lib/investments/id-de-rota'
 import { getOrgId } from '@/lib/finance/queries'
 import { getAssets } from '@/lib/investments/queries'
 import { AssetEditForm } from '@/components/investments/asset-edit-form'
@@ -10,11 +11,12 @@ interface Props {
 
 export default async function EditAssetPage({ params }: Props) {
   const { assetId } = await params
+  if (!ehIdDeRota(assetId)) notFound()
   const orgId = await getOrgId()
   const assets = await getAssets(orgId)
   const asset = assets.find((a) => a.id === assetId)
 
-  if (!asset) redirect('/investments')
+  if (!asset) notFound()
 
   return (
     <div className="mx-auto max-w-lg space-y-6">

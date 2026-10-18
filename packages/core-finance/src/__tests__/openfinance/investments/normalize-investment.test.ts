@@ -103,6 +103,16 @@ describe('normalizeInvestment — crédito, Tesouro, fundo, renda variável', ()
     expect(r.asset.assetClass).toBe('treasury')
   })
 
+  // Revisão de 18/10/2026: a XP manda só a sigla ("NTN-F"), e três NTN-F de
+  // vencimentos diferentes pareciam o mesmo título repetido em lotes.
+  it('Tesouro com nome sem o ano de vencimento ganha o vencimento', () => {
+    const r = normalizeInvestment('TREASURE_TITLE', {
+      id: 'tt-2', product_name: 'NTN-F', due_date: '2035-01-01',
+      remuneration: { indexer: 'PRE' }, balance: null,
+    })
+    expect(r.asset.name).toBe('NTN-F · venc. 01/2035')
+  })
+
   it('fundo: cotas, reference_date e provisões', () => {
     const r = normalizeInvestment('FUND', {
       id: 'f-1', name: 'Fundo XP DI', cnpj_number: '11222333000144',

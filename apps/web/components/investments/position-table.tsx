@@ -81,7 +81,10 @@ const PositionRow = memo(function PositionRow({
       <tr className="border-b border-gray-100 hover:bg-gray-50">
         {/* Ticker */}
         <td className="px-4 py-3 font-mono text-sm font-semibold text-gray-900">
-          {position.ticker}
+          {/* Sem ticker (CDB, CRI, Tesouro do banco) o `ticker` é o próprio
+              nome: em monoespaçado quebrava em várias linhas e repetia a
+              coluna Nome. */}
+          {position.ticker !== position.name ? position.ticker : <span className="text-gray-400">—</span>}
           {positionBadges(position).map((b) => (
             <span key={b.label} title={b.title} className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal text-gray-600">
               {b.label}
@@ -89,7 +92,7 @@ const PositionRow = memo(function PositionRow({
           ))}
         </td>
         {/* Name */}
-        <td className="px-4 py-3 text-sm text-gray-700 max-w-[160px] truncate">
+        <td className="px-4 py-3 text-sm text-gray-700 max-w-[240px] truncate" title={position.name}>
           {position.name}
         </td>
         {/* Classe */}

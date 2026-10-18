@@ -63,7 +63,9 @@ export function AllocationChart({ positions }: AllocationChartProps) {
   }
 
   return (
-    <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+    // Altura fixa: o aspect-video padrão do ChartContainer, na largura do card,
+    // abria um vão enorme e a pizza ficava solta no fundo.
+    <ChartContainer config={chartConfig} className="aspect-auto h-[320px] w-full">
       <PieChart>
         <Pie
           data={data}

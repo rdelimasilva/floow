@@ -1,6 +1,7 @@
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatBRL } from '@floow/core-finance'
+import { ehIdDeRota } from '@/lib/investments/id-de-rota'
 import { getOrgId } from '@/lib/finance/queries'
 import { getAssets, getPortfolioEvents } from '@/lib/investments/queries'
 import { getLatestBankPosition } from '@/lib/investments/bank-position-queries'
@@ -20,6 +21,7 @@ function formatarDataReferencia(iso: string): string {
 
 export default async function AssetDetailPage({ params }: Props) {
   const { assetId } = await params
+  if (!ehIdDeRota(assetId)) notFound()
   const orgId = await getOrgId()
 
   const [allAssets, events] = await Promise.all([
@@ -28,7 +30,7 @@ export default async function AssetDetailPage({ params }: Props) {
   ])
 
   const asset = allAssets.find((a) => a.id === assetId)
-  if (!asset) redirect('/investments')
+  if (!asset) notFound()
 
   const isFromBank = asset.source === 'openfinance'
   const bankPosition = isFromBank ? await getLatestBankPosition(orgId, assetId) : null
