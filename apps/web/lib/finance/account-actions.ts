@@ -1,11 +1,10 @@
 'use server'
 import { getDb, accounts, transactions, patrimonySnapshots } from '@floow/db'
 import { createAccountSchema, updateAccountSchema } from '@floow/shared'
-import { computeSnapshot } from '@floow/core-finance'
 
 import { eq, sql, and } from 'drizzle-orm'
 import { getOrgId } from './queries'
-import { getPositions } from '@/lib/investments/queries'
+import { getPatrimonioAtual } from './patrimonio-queries'
 import { isOpenFinanceLinkedAccount } from '@/lib/openfinance/transfer-leg'
 import {
   revalidateAccountData,
@@ -191,49 +190,30 @@ export async function adjustAccountBalance(formData: FormData) {
 }
 
 /**
- * Server action: compute and save a new patrimony snapshot for the authenticated user's org.
- * Fetches all active accounts, computes net worth, and saves to patrimony_snapshots.
- * Revalidates the dashboard page so the updated snapshot appears immediately.
+ * Server action: grava o snapshot de patrimônio de hoje.
+ *
+ * Grava o mesmo número que o Dashboard e a tela Contas mostram
+ * (`getPatrimonioAtual`). Antes usava `computeSnapshot`, com regra própria:
+ * somava saldo de corretora e posições, e cartão com crédito a favor virava
+ * passivo. O snapshot é o histórico (evolução do patrimônio, consultor); quem
+ * mostra o valor de agora calcula na hora.
  */
 export async function refreshSnapshot() {
   const orgId = await getOrgId()
   const db = getDb()
 
-  // Include investment portfolio value in net worth calculation (DASH-03 / Phase 3)
-  // Gracefully handles the case where no investments exist (returns 0)
-  let investmentValueCents = 0
-  try {
-    const positions = await getPositions(orgId)
-    investmentValueCents = positions.reduce((sum, p) => sum + p.currentValueCents, 0)
-  } catch {
-    // If investment queries fail (e.g., table not yet migrated), fall back to 0
-    investmentValueCents = 0
-  }
-
-  // Include fixed assets estimated value in net worth
-  let fixedAssetValueCents = 0
-  try {
-    const { getFixedAssets } = await import('@/lib/fixed-assets/queries')
-    const assets = await getFixedAssets(orgId)
-    const { estimateAssetValue } = await import('@floow/core-finance')
-    const now = new Date()
-    fixedAssetValueCents = assets.reduce((sum, a) => {
-      const baseDate = a.currentValueDate instanceof Date ? a.currentValueDate : new Date(a.currentValueDate)
-      return sum + estimateAssetValue(a.currentValueCents, baseDate, Number(a.annualRate), now)
-    }, 0)
-  } catch {
-    fixedAssetValueCents = 0
-  }
-
-  // Reuse the cached getAccounts() instead of a separate raw query
-  const { getAccounts } = await import('./queries')
-  const activeAccounts = await getAccounts(orgId)
-
-  const snapshot = computeSnapshot(activeAccounts, orgId, investmentValueCents, fixedAssetValueCents)
+  const patrimonio = await getPatrimonioAtual(orgId)
 
   const [saved] = await db
     .insert(patrimonySnapshots)
-    .values(snapshot)
+    .values({
+      orgId,
+      snapshotDate: new Date(),
+      netWorthCents: patrimonio.patrimonioLiquidoCents,
+      liquidAssetsCents: patrimonio.ativosCents,
+      liabilitiesCents: patrimonio.passivosCents,
+      breakdown: JSON.stringify(Object.fromEntries(patrimonio.blocos.map((b) => [b.key, b.valorCents]))),
+    })
     .returning()
 
   revalidateSnapshotData(orgId)

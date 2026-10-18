@@ -1,6 +1,8 @@
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
-import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getLatestSnapshot, getCategories } from '@/lib/finance/queries'
+import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getCategories } from '@/lib/finance/queries'
+import { getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
+import { getPatrimonioAtual } from '@/lib/finance/patrimonio-queries'
 import { refreshSnapshot } from '@/lib/finance/account-actions'
 import { AccountSummaryRow } from '@/components/finance/account-summary-row'
 import { QuickStatsRow } from '@/components/finance/quick-stats-row'
@@ -26,8 +28,13 @@ async function OnboardingSection({ orgId }: { orgId: string }) {
 }
 
 async function AccountSection({ orgId }: { orgId: string }) {
-  const userAccounts = await getAccounts(orgId)
-  return <AccountSummaryRow accounts={userAccounts} />
+  // Mesmo valor da tela Contas: conta de investimento do Open Finance vale as
+  // posições, não o saldo de lançamentos.
+  const [userAccounts, valorDasPosicoes] = await Promise.all([
+    getAccounts(orgId),
+    getValorDasContasDeInvestimento(orgId),
+  ])
+  return <AccountSummaryRow accounts={userAccounts} valorDasPosicoes={valorDasPosicoes} />
 }
 
 async function StatsSection({ orgId }: { orgId: string }) {
@@ -67,24 +74,10 @@ async function ChartSection({ orgId }: { orgId: string }) {
 }
 
 async function PatrimonySection({ orgId }: { orgId: string }) {
-  const latestSnapshot = await getLatestSnapshot(orgId)
-  const serialized = latestSnapshot
-    ? {
-        ...latestSnapshot,
-        snapshotDate: latestSnapshot.snapshotDate instanceof Date
-          ? latestSnapshot.snapshotDate.toISOString()
-          : latestSnapshot.snapshotDate,
-        createdAt: latestSnapshot.createdAt instanceof Date
-          ? latestSnapshot.createdAt.toISOString()
-          : latestSnapshot.createdAt,
-      }
-    : null
-  return (
-    <PatrimonySummary
-      snapshot={serialized}
-      onRefresh={refreshSnapshot}
-    />
-  )
+  // Calculado agora, com a regra da tela Contas — não o último snapshot, que
+  // só era refeito no clique e ficava semanas para trás.
+  const patrimonio = await getPatrimonioAtual(orgId)
+  return <PatrimonySummary patrimonio={patrimonio} onRefresh={refreshSnapshot} />
 }
 
 async function BudgetAlertSection({ orgId }: { orgId: string }) {

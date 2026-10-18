@@ -6,7 +6,7 @@
  * that the dashboard renders:
  *   - AccountSummaryRow (renders per-account cards with name and balance)
  *   - QuickStatsRow (renders Receitas do Mes, Despesas do Mes, Saldo do Mes)
- *   - PatrimonySummary (renders net worth and "Atualizar valores" button)
+ *   - PatrimonySummary (renders net worth, blocks and "Atualizar valores" button)
  *   - CashFlowChart (renders with data-testid="cash-flow-chart")
  */
 import { describe, it, expect, vi } from 'vitest'
@@ -104,15 +104,11 @@ const mockCashFlow: CashFlowMonth[] = [
   { month: '2026-02', income: 480000, expense: -18000, net: 462000 },
 ]
 
-const mockSnapshot = {
-  id: 'snap-001',
-  orgId: 'org-test',
-  snapshotDate: new Date('2026-03-11'),
-  netWorthCents: 480000,
-  liquidAssetsCents: 480000,
-  liabilitiesCents: 0,
-  breakdown: JSON.stringify({ checking: 380000, savings: 100000 }),
-  createdAt: new Date(),
+const mockPatrimonio = {
+  patrimonioLiquidoCents: 480000,
+  ativosCents: 480000,
+  passivosCents: 0,
+  blocos: [{ key: 'correntes', titulo: 'Contas correntes', valorCents: 480000 }],
 }
 
 // ── Tests: AccountSummaryRow ───────────────────────────────────────────────
@@ -127,6 +123,15 @@ describe('AccountSummaryRow', () => {
     // Formatted BRL balances (R$ 3.800,00 and R$ 1.000,00)
     expect(screen.getByText(/3\.800/)).toBeDefined()
     expect(screen.getByText(/1\.000/)).toBeDefined()
+  })
+
+  it('conta de investimento do Open Finance mostra o valor das posições, como a tela Contas', () => {
+    // Revisão de 18/10/2026: o Dashboard mostrava o saldo de lançamentos
+    // (Inv. Itaú R$ 104.858, XP R$ 0) e Contas as posições (R$ 1.905 e R$ 650.824).
+    const corretora = { ...mockAccounts[0], id: 'inv-xp', name: 'Investimentos · XP', type: 'brokerage' as const, balanceCents: 0 }
+    render(<AccountSummaryRow accounts={[corretora]} valorDasPosicoes={new Map([['inv-xp', 65082488]])} />)
+
+    expect(screen.getByText(/650\.824,88/)).toBeDefined()
   })
 
   it('shows empty state CTA when no accounts', () => {
@@ -157,24 +162,39 @@ describe('QuickStatsRow', () => {
 // ── Tests: PatrimonySummary ────────────────────────────────────────────────
 
 describe('PatrimonySummary', () => {
-  it('renders net worth and update snapshot button when snapshot exists', () => {
+  it('renders net worth and refresh button', () => {
     const onRefresh = vi.fn()
-    render(<PatrimonySummary snapshot={mockSnapshot} onRefresh={onRefresh} />)
+    render(<PatrimonySummary patrimonio={mockPatrimonio} onRefresh={onRefresh} />)
 
     // Net worth 480000 cents = R$ 4.800,00 — use getAllByText since it appears in multiple places
     const elements = screen.getAllByText(/4\.800/)
     expect(elements.length).toBeGreaterThan(0)
-    // Button should be present
-    expect(screen.getByRole('button')).toBeDefined()
+    expect(screen.getByRole('button', { name: /Atualizar valores/i })).toBeDefined()
   })
 
-  it('shows no snapshot message and refresh button when snapshot is null', () => {
-    const onRefresh = vi.fn()
-    render(<PatrimonySummary snapshot={null} onRefresh={onRefresh} />)
+  it('detalha pelos blocos em português, com cartão negativo', () => {
+    render(
+      <PatrimonySummary
+        patrimonio={{
+          patrimonioLiquidoCents: 66434639,
+          ativosCents: 66942480,
+          passivosCents: 507841,
+          blocos: [
+            { key: 'correntes', titulo: 'Contas correntes', valorCents: 1669490 },
+            { key: 'investimentos', titulo: 'Investimentos', valorCents: 65272990 },
+            { key: 'cartoes', titulo: 'Cartões', valorCents: -507841 },
+          ],
+        }}
+        onRefresh={vi.fn()}
+      />
+    )
 
-    // Null snapshot shows a message about needing to calculate patrimony
-    expect(screen.getAllByText(/Atualizar valores/i).length).toBeGreaterThan(0)
-    expect(screen.getByRole('button')).toBeDefined()
+    expect(screen.getByText('Contas correntes')).toBeDefined()
+    expect(screen.getByText('Investimentos')).toBeDefined()
+    expect(screen.getByText('Cartões')).toBeDefined()
+    expect(screen.queryByText('investments')).toBeNull()
+    expect(screen.getByText(/664\.346,39/)).toBeDefined()
+    expect(screen.getByText(/-R\$\s?5\.078,41/)).toBeDefined()
   })
 })
 
