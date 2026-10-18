@@ -1,7 +1,7 @@
 import { getOrgId } from '@/lib/finance/queries'
 import { PageHeader } from '@/components/ui/page-header'
 import { getIncomeEvents } from '@/lib/investments/queries'
-import { aggregateIncome, estimateMonthlyIncome, formatBRL } from '@floow/core-finance'
+import { estimateMonthlyIncome, formatBRL, incomeAverageMonths, lastIncomeMonths } from '@floow/core-finance'
 import dynamic from 'next/dynamic'
 
 const IncomeChart = dynamic(() => import('@/components/investments/income-chart').then(m => ({ default: m.IncomeChart })), {
@@ -28,8 +28,11 @@ export default async function IncomePage() {
 
   const events = await getIncomeEvents(orgId, 12)
 
-  const incomeData = aggregateIncome(events)
+  // Os 12 meses de calendário até o atual, com zero onde não houve renda: o
+  // gráfico não pula mês vazio e a média não divide só pelos meses com provento.
+  const incomeData = lastIncomeMonths(events, 12)
   const monthlyEstimate = estimateMonthlyIncome(events, 12)
+  const mesesDaMedia = incomeAverageMonths(events, 12) || 12
 
   const hasIncome = events.length > 0
 
@@ -59,7 +62,7 @@ export default async function IncomePage() {
                   {formatBRL(monthlyEstimate)}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Média dos últimos 12 meses
+                  {mesesDaMedia === 1 ? 'Média do último mês' : `Média dos últimos ${mesesDaMedia} meses`}
                 </p>
               </CardContent>
             </Card>

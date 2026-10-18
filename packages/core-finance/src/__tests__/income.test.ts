@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { aggregateIncome, estimateMonthlyIncome } from '../income'
+import { aggregateIncome, estimateMonthlyIncome, lastIncomeMonths } from '../income'
 import type { IncomeEvent } from '../income'
 
 // Helper to create a minimal IncomeEvent for testing
@@ -128,7 +128,7 @@ describe('estimateMonthlyIncome', () => {
       makeIncomeEvent({ eventType: 'dividend', totalCents: 30000, eventDate: new Date('2024-03-15') }),
     ]
     // Average over 3 months = (10000 + 20000 + 30000) / 3 = 20000
-    const result = estimateMonthlyIncome(events, 3)
+    const result = estimateMonthlyIncome(events, 3, new Date('2024-03-20'))
     expect(result).toBe(20000)
   })
 
@@ -137,8 +137,45 @@ describe('estimateMonthlyIncome', () => {
       makeIncomeEvent({ eventType: 'dividend', totalCents: 10000, eventDate: new Date('2024-01-15') }),
       makeIncomeEvent({ eventType: 'dividend', totalCents: 20000, eventDate: new Date('2024-02-15') }),
     ]
-    // Request 12 months but only 2 exist — average over 2 months
-    const result = estimateMonthlyIncome(events, 12)
+    // Request 12 months but history only starts 2 months ago — average over 2 months
+    const result = estimateMonthlyIncome(events, 12, new Date('2024-02-20'))
     expect(result).toBe(15000) // (10000 + 20000) / 2 = 15000
+  })
+
+  // Revisão de 18/10/2026: "média dos últimos 12 meses" dividia o total pelos
+  // 6 meses que tiveram provento — mês sem receita conta como zero.
+  it('mês sem receita no meio da janela entra como zero na média', () => {
+    const events: IncomeEvent[] = [
+      makeIncomeEvent({ totalCents: 12000, eventDate: new Date('2025-11-10') }),
+      makeIncomeEvent({ totalCents: 12000, eventDate: new Date('2026-10-05') }),
+    ]
+    // Nov/25 a Out/26 = 12 meses, só 2 com provento
+    expect(estimateMonthlyIncome(events, 12, new Date('2026-10-18'))).toBe(2000)
+  })
+
+  it('provento anterior à janela fica de fora', () => {
+    const events: IncomeEvent[] = [
+      makeIncomeEvent({ totalCents: 99900, eventDate: new Date('2025-10-20') }),
+      makeIncomeEvent({ totalCents: 12000, eventDate: new Date('2025-11-10') }),
+    ]
+    expect(estimateMonthlyIncome(events, 12, new Date('2026-10-18'))).toBe(1000)
+  })
+})
+
+describe('lastIncomeMonths', () => {
+  it('devolve os N meses da janela, do mais recente ao mais antigo, com zero onde não houve renda', () => {
+    const events: IncomeEvent[] = [
+      makeIncomeEvent({ totalCents: 5000, eventDate: new Date('2026-08-10') }),
+      makeIncomeEvent({ eventType: 'interest', totalCents: 700, eventDate: new Date('2026-10-01') }),
+    ]
+    const result = lastIncomeMonths(events, 4, new Date('2026-10-18'))
+    expect(result.map((m) => m.month)).toEqual(['2026-10', '2026-09', '2026-08', '2026-07'])
+    expect(result.map((m) => m.totalCents)).toEqual([700, 0, 5000, 0])
+    expect(result[1]).toMatchObject({ dividendCents: 0, interestCents: 0, amortizationCents: 0, eventCount: 0 })
+  })
+
+  it('vira o ano corretamente', () => {
+    const result = lastIncomeMonths([], 3, new Date('2026-01-15'))
+    expect(result.map((m) => m.month)).toEqual(['2026-01', '2025-12', '2025-11'])
   })
 })
