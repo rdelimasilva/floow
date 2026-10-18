@@ -72,7 +72,10 @@ function getGroupLabel(key: string, grouping: Grouping): string {
     }
     case 'monthly': {
       const [y, m] = key.split('-')
-      return new Date(Number(y), Number(m) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      // "outubro de 2026" -> "Outubro de 2026". A classe CSS `capitalize`
+      // subia todas as palavras ("Outubro De 2026").
+      const label = new Date(Number(y), Number(m) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      return label.charAt(0).toUpperCase() + label.slice(1)
     }
     case 'quarterly': {
       const [y, q] = key.split('-Q')
@@ -221,7 +224,7 @@ export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlow
                 <tbody className="divide-y divide-gray-100">
                   {rows.map((r) => (
                     <tr key={r.key} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm text-gray-600 capitalize">{r.label}</td>
+                      <td className="px-4 py-2 text-sm text-gray-600">{r.label}</td>
                       <td className="px-4 py-2 text-right text-sm font-medium text-green-700">{r.income > 0 ? formatBRL(r.income) : '—'}</td>
                       <td className="px-4 py-2 text-right text-sm font-medium text-red-600">{r.expense < 0 ? formatBRL(Math.abs(r.expense)) : '—'}</td>
                       <td className={`px-4 py-2 text-right text-sm font-bold ${r.net >= 0 ? 'text-green-700' : 'text-red-600'}`}>
