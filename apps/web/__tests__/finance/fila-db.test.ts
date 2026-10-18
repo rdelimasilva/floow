@@ -45,4 +45,23 @@ describe('lerFila', () => {
     expect(r.meio).toBe('Pix')
     expect(r.candidatas.map((c) => [c.id, c.nomeParecido])).toEqual([['p1', true]])
   })
+
+  it('#13: recorrência antiga sem vínculo traz o Pix de antes da janela da fila como candidato', async () => {
+    const hoje = new Date('2026-10-18T12:00:00Z')
+    const db = dbCom([
+      [], // recentes: nada nos últimos 90 dias
+      [{ id: 'j1', accountId: 'itau', contaNome: 'Itaú', date: '2026-01-15', amountCents: -360000, description: 'Jussara - Diarista (1/61)', categoriaNome: 'Casa', recurringTemplateId: 'tpl-j' }],
+      [{ templateId: 'tpl-j', counterpartyId: 'cp-j' }], // contrapartes da série
+      [{ id: 'pix', accountId: 'itau', date: '2026-01-01', amountCents: -330700, description: 'Pix enviado JUSSARA LEONCIO DE ANDRADE', counterpartyId: 'cp-j' }],
+      [], // recusas
+      [{
+        id: 'pix', date: '2026-01-01', description: 'Pix enviado JUSSARA LEONCIO DE ANDRADE', amountCents: -330700, cardLastDigits: null, importedAt: null,
+        vinculoRevisadoEm: null, polpType: 'PIX', contaId: 'itau', contaNome: 'Itaú', contaTipo: 'checking', agencia: null, numero: null, instituicao: 'Itaú',
+      }],
+    ])
+    const fila = await lerFila(db, 'org-1', hoje)
+    expect(fila.map((i) => i.id)).toEqual(['pix'])
+    expect(fila[0].candidatas.map((c) => c.id)).toEqual(['j1'])
+    expect(fila[0].candidatas[0]).not.toHaveProperty('antiga')
+  })
 })
