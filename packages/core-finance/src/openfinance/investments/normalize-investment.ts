@@ -96,7 +96,11 @@ export function normalizeInvestment(kind: PolpInvestmentKind, raw: unknown): Nor
         polpId: item.id,
         kind,
         asset: {
-          name: r.product_name ?? withDue(`Tesouro ${rem.indexer ?? ''}`.trim(), r.due_date),
+          // A XP manda só a sigla ("NTN-F"): sem o vencimento, títulos de
+          // anos diferentes saem com o mesmo nome. "Tesouro IPCA+ 2035" já traz.
+          name: r.product_name && (!r.due_date || r.product_name.includes(r.due_date.slice(0, 4)))
+            ? r.product_name
+            : withDue(r.product_name ?? `Tesouro ${rem.indexer ?? ''}`.trim(), r.due_date),
           ticker: null,
           assetClass: 'treasury',
           assetSubtype: null,
