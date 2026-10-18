@@ -43,7 +43,11 @@ vi.mock('@/lib/finance/revalidate', () => ({
 vi.mock('@/lib/finance/conciliacao/absorver', () => ({ aplicarEfeitoDaAbsorcao: vi.fn() }))
 vi.mock('@/lib/db/rls', () => ({ withUserDb: vi.fn() }))
 vi.mock('@/lib/finance/conciliacao/registro', () => ({ registrarVinculo: vi.fn() }))
-vi.mock('@/lib/finance/conciliacao/validacoes', () => ({ registrarEventos: vi.fn(async () => {}) }))
+let decididaPeloUsuario = false
+vi.mock('@/lib/finance/conciliacao/validacoes', () => ({
+  registrarEventos: vi.fn(async () => {}),
+  categoriaDecididaPeloUsuario: vi.fn(async () => decididaPeloUsuario),
+}))
 
 const { vincularPrevisao } = await import('@/lib/finance/conciliacao/vincular-actions')
 const { aplicarEfeitoDaAbsorcao } = await import('@/lib/finance/conciliacao/absorver')
@@ -56,6 +60,7 @@ const REAL = { id: 'real-1', accountId: 'itau', amountCents: -15000, matchedTran
 beforeEach(() => {
   ops.length = 0
   selectQueue.length = 0
+  decididaPeloUsuario = false
   vi.clearAllMocks()
 })
 
@@ -127,6 +132,28 @@ describe('vincularPrevisao', () => {
     selectQueue.push([{ ...PREV, categoryId: null }, { ...REAL, reviewState: 'confirmed' }], [])
     expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
     expect(registrarEventos).not.toHaveBeenCalled()
+  })
+  it('realizado confirmado com categoria automática: a categoria da previsão substitui', async () => {
+    const auto = { ...REAL, reviewState: 'confirmed', type: 'expense', categoryId: 'outras-saude', isAutoCategorized: true, counterpartyId: 'cp-flavio' }
+    selectQueue.push([PREV, auto], [])
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
+    const updates = ops.filter((o) => o.op.startsWith('update'))
+    expect(updates[1]).toMatchObject({ op: 'update:transactions', payload: { categoryId: 'cat-9', isAutoCategorized: false } })
+    expect(registrarEventos).toHaveBeenCalledWith(tx, 'org-1', 'vinculo', null, [
+      { transactionId: 'real-1', counterpartyId: 'cp-flavio', natureza: 'expense', categoriaId: 'cat-9' },
+    ])
+  })
+  it('categoria automática que o usuário confirmou ou editou naquela linha fica', async () => {
+    decididaPeloUsuario = true
+    selectQueue.push([PREV, { ...REAL, reviewState: 'confirmed', type: 'expense', categoryId: 'outras-saude', isAutoCategorized: true }], [])
+    expect(await vincularPrevisao('real-1', 'prev-1')).toEqual({ efetivada: true, classificou: true })
+    expect(ops.filter((o) => o.payload && 'categoryId' in o.payload)).toHaveLength(0)
+    expect(registrarEventos).not.toHaveBeenCalled()
+  })
+  it('categoria escolhida à mão fica', async () => {
+    selectQueue.push([PREV, { ...REAL, reviewState: 'confirmed', type: 'expense', categoryId: 'minha', isAutoCategorized: false }], [])
+    await vincularPrevisao('real-1', 'prev-1')
+    expect(ops.filter((o) => o.payload && 'categoryId' in o.payload)).toHaveLength(0)
   })
   it('previsão comum de outra conta, mesmo sinal, ainda vincula (Procurar previsão é entre contas)', async () => {
     selectQueue.push([{ ...PREV, accountId: 'nubank' }, REAL], [])

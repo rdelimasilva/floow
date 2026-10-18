@@ -210,7 +210,7 @@ describe('aprovarProposta', () => {
     ])
     await aprovarProposta('prop-1')
     const escritas = ops.filter((o) => o.op === 'update:transactions').map((o) => o.payload)
-    expect(escritas).toContainEqual({ type: 'expense', categoryId: 'cat-mercado', reviewState: 'confirmed' })
+    expect(escritas).toContainEqual({ type: 'expense', categoryId: 'cat-mercado', reviewState: 'confirmed', isAutoCategorized: false })
   })
 
   it('realizado marcado como ignorado na janela não é efetivado', async () => {
