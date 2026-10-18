@@ -3,6 +3,7 @@ import { getAllBudgetEntries, getSpendingByCategory } from '@/lib/finance/budget
 import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { getParcelasAVencerDoMes } from '@/lib/finance/parcelas-a-vencer-queries'
 import { carregarDadosDaSugestao, montarSugestoesDeMeta } from '@/lib/finance/budget-goal-suggestion-queries'
+import { rollUpSpendingToBudgeted } from '@/lib/finance/budgeted-spending'
 import { SpendingClient } from './client'
 
 interface Props {
@@ -54,7 +55,8 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
         startMonth: e.startMonth instanceof Date ? e.startMonth.toISOString().split('T')[0] : String(e.startMonth),
         endMonth: e.endMonth ? (e.endMonth instanceof Date ? e.endMonth.toISOString().split('T')[0] : String(e.endMonth)) : null,
       }))}
-      spending={spending}
+      // Gasto das subcategorias conta na meta da categoria-mãe
+      spending={rollUpSpendingToBudgeted(spending, categories, entriesForMonth)}
       selectedMonth={selectedMonth}
       parcelasAVencer={parcelasAVencer}
       goalSuggestions={goalSuggestions}

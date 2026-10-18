@@ -4,6 +4,7 @@ import { getBudgetEntriesForMonth, getInvestmentContributions, getSpendingByCate
 import { buscarOcorrenciasDeRecorrentes } from '@/lib/finance/recurring-budget-queries'
 import { combinarMetasDoMes, somarRecorrentesPorCategoria } from '@/lib/finance/recurring-budget'
 import { getCategories } from '@/lib/finance/queries-categories'
+import { rollUpSpendingToBudgeted } from '@/lib/finance/budgeted-spending'
 import type { ContextoFerramenta, Ferramenta } from './tipos'
 import { LIMITE_LINHAS, intervaloDoMes, mesSchema, reais, validar } from './utils'
 
@@ -33,7 +34,7 @@ async function planoDeInvestimentos(ctx: ContextoFerramenta, mes: string): Promi
  */
 async function planoDeGastos(ctx: ContextoFerramenta, mes: string): Promise<string> {
   const { inicio, fim } = intervaloDoMes(mes)
-  const [manuais, ocorrencias, gastos, categorias] = await Promise.all([
+  const [manuais, ocorrencias, gastosBrutos, categorias] = await Promise.all([
     getBudgetEntriesForMonth(ctx.orgId, inicio, 'spending'),
     withUserDbFor(ctx.userId, (tx) => buscarOcorrenciasDeRecorrentes(tx, ctx.orgId, inicio, fim)),
     getSpendingByCategory(ctx.orgId, inicio, fim),
@@ -44,6 +45,7 @@ async function planoDeGastos(ctx: ContextoFerramenta, mes: string): Promise<stri
     somarRecorrentesPorCategoria(ocorrencias),
   )
   if (plano.length === 0) return `Nenhum plano de gastos para ${mes}.`
+  const gastos = rollUpSpendingToBudgeted(gastosBrutos, categorias, plano)
 
   const nomePorId = new Map(categorias.map((c) => [c.id, c.name]))
   const gastoPor = new Map(gastos.map((g) => [g.categoryId, g.spent]))

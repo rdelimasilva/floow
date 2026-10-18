@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/ui/page-header'
-import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getLatestSnapshot } from '@/lib/finance/queries'
+import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getLatestSnapshot, getCategories } from '@/lib/finance/queries'
 import { refreshSnapshot } from '@/lib/finance/account-actions'
 import { AccountSummaryRow } from '@/components/finance/account-summary-row'
 import { QuickStatsRow } from '@/components/finance/quick-stats-row'
@@ -14,7 +14,7 @@ import { BudgetAlertCard } from '@/components/finance/budget-alert-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBudgetGoals, getSpendingByCategory, getInvestmentContributions, getAdjustmentTotalsForGoals, getCurrentPeriodRange } from '@/lib/finance/budget-queries'
 import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
-import { sumBudgetedSpending } from '@/lib/finance/budgeted-spending'
+import { sumBudgetedSpending, rollUpSpendingToBudgeted } from '@/lib/finance/budgeted-spending'
 import { WelcomeCard } from '@/components/finance/welcome-card'
 import { getEstadoDoCadastro } from '@/lib/onboarding/estado-do-cadastro'
 // import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
@@ -92,17 +92,21 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
   const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  const [budgetEntriesData, spendingData, investingGoals] = await Promise.all([
+  const [budgetEntriesData, spendingData, investingGoals, categories] = await Promise.all([
     getSpendingPlanForMonth(orgId, currentMonth, currentMonthEnd),
     getSpendingByCategory(orgId, currentMonth, currentMonthEnd),
     getBudgetGoals(orgId, 'investing'),
+    getCategories(orgId),
   ])
 
   const alerts: { name: string; currentCents: number; limitCents: number; href: string }[] = []
 
   // Spending alerts from budget entries
   const totalPlanned = budgetEntriesData.reduce((sum, e) => sum + e.plannedCents, 0)
-  const totalSpent = sumBudgetedSpending(spendingData, budgetEntriesData)
+  const totalSpent = sumBudgetedSpending(
+    rollUpSpendingToBudgeted(spendingData, categories, budgetEntriesData),
+    budgetEntriesData,
+  )
   if (totalPlanned > 0) {
     const pct = (totalSpent / totalPlanned) * 100
     if (pct >= 80) {
