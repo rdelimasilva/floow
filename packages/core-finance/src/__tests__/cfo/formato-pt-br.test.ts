@@ -24,7 +24,7 @@ describe('formato pt-BR dos textos do consultor', () => {
   it('saldo negativo de conta sai em R$ brasileiro', () => {
     const [ins] = analyzeCashFlow({
       monthlyTotals: [],
-      accountBalances: [{ accountId: 'a', name: 'Itaú', balance: -185098 }],
+      accountBalances: [{ accountId: 'a', name: 'Itaú', type: 'checking', balance: -185098 }],
     })
     expect(norm(ins.body)).toContain('R$ 1.850,98')
   })

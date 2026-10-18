@@ -169,6 +169,7 @@ export async function runCfoEngine(
         .select({
           id: accounts.id,
           name: accounts.name,
+          type: accounts.type,
           balanceCents: accounts.balanceCents,
         })
         .from(accounts)
@@ -187,6 +188,7 @@ export async function runCfoEngine(
           accountBalances: accountRows.map((a) => ({
             accountId: a.id,
             name: a.name,
+            type: a.type,
             balance: a.balanceCents,
           })),
         }

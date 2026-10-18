@@ -57,6 +57,8 @@ export function analyzeCashFlow(input: CashFlowAnalyzerInput): InsightResult[] {
   }
 
   for (const account of accountBalances) {
+    // Cartão tem saldo devedor por natureza: é a fatura, não cheque especial.
+    if (account.type === 'credit_card') continue
     if (account.balance < 0) {
       insights.push({
         type: 'cash_flow_negative_balance',
