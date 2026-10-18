@@ -48,10 +48,9 @@ export function revalidateCategoryData(orgId: string) {
 /**
  * O valor da carteira de investimentos mudou.
  *
- * Migrada de `actions.ts`: função definida ali mas nunca chamada — os
- * pontos que invalidam investimentos vivem em `lib/investments/actions.ts`,
- * com cópia própria. Segue não usada aqui; existe para não perder o símbolo
- * na divisão do arquivo.
+ * Migrada de `actions.ts`. Os pontos que invalidam investimentos em
+ * `lib/investments/actions.ts` têm cópia própria; aqui é usada pela
+ * sincronização do Open Finance (`revalidateSincronizacao`).
  */
 export function revalidateInvestmentData(orgId: string) {
   invalidateTag(investmentsTag(orgId))
@@ -61,3 +60,20 @@ export function revalidateSnapshotData(orgId: string) {
   invalidateTag(snapshotsTag(orgId))
   invalidateTag(patrimonyHistoryTag(orgId, 12))
 }
+
+/**
+ * Uma sincronização do Open Finance terminou: lançamentos, saldos e posições
+ * podem ter mudado de uma vez.
+ *
+ * O sync invalidava só contas, transações e investimentos — e o cron diário,
+ * nada. Os resumos mensais (Dashboard, Fluxo de Caixa) e o gasto diário (Ritmo
+ * de Gastos) têm tags próprias e ficavam cada um com a sua cópia até expirar:
+ * a mesma despesa do mês aparecia com um valor em cada tela.
+ */
+export function revalidateSincronizacao(orgId: string) {
+  revalidateAccountData(orgId)
+  revalidateTransactionData(orgId)
+  revalidateInvestmentData(orgId)
+  revalidateSnapshotData(orgId)
+}
+

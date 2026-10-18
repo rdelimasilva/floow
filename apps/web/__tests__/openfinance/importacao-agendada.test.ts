@@ -17,6 +17,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const conexoesMock = vi.fn()
 const syncMock = vi.fn()
 const investimentosMock = vi.fn()
+const revalidarMock = vi.fn()
 
 vi.mock('@floow/db', () => ({
   getDb: () => ({
@@ -27,6 +28,7 @@ vi.mock('@floow/db', () => ({
 vi.mock('@/lib/openfinance/sync', () => ({ syncConnectionTransactions: syncMock }))
 vi.mock('@/lib/openfinance/sincronizar-conexao', () => ({ sincronizarInvestimentosDaConexao: investimentosMock }))
 vi.mock('@/lib/openfinance/config', () => ({ getPolpClient: () => ({}) }))
+vi.mock('@/lib/finance/revalidate', () => ({ revalidateSincronizacao: revalidarMock }))
 
 const { importarLancamentosDeTodasAsConexoes } = await import('@/lib/openfinance/importacao-agendada')
 
@@ -40,6 +42,7 @@ beforeEach(() => {
   syncMock.mockReset()
   investimentosMock.mockReset()
   investimentosMock.mockResolvedValue(null)
+  revalidarMock.mockReset()
 })
 
 describe('importarLancamentosDeTodasAsConexoes', () => {
@@ -132,5 +135,22 @@ describe('importarLancamentosDeTodasAsConexoes', () => {
 
     expect(r.falhas).toBe(0)
     expect(r.importadas).toBe(1)
+  })
+
+  it('invalida o cache de cada org sincronizada, uma vez por org', async () => {
+    // Sem isso, Dashboard, Fluxo de Caixa e Ritmo de Gastos leem cada um a sua
+    // cópia em cache e só se atualizam quando ela expira — na revisão de
+    // 18/10/2026 o Dashboard mostrava R$ 18.558 de despesas no mês e as outras
+    // duas telas R$ 21.332, todas lendo os mesmos lançamentos.
+    conexoesMock.mockResolvedValue([
+      { id: 'c1', orgId: 'org-1' },
+      { id: 'c2', orgId: 'org-1' },
+      { id: 'c3', orgId: 'org-2' },
+    ])
+    syncMock.mockResolvedValue(RESUMO_VAZIO)
+
+    await importarLancamentosDeTodasAsConexoes()
+
+    expect(revalidarMock.mock.calls.map((c) => c[0]).sort()).toEqual(['org-1', 'org-2'])
   })
 })
