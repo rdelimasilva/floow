@@ -76,15 +76,15 @@ export function SimulationResults({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <p className="text-xs text-red-600 font-medium">Conservador</p>
-              <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.conservative)}/mes</p>
+              <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.conservative)}/mês</p>
             </div>
             <div>
               <p className="text-xs text-blue-600 font-medium">Base</p>
-              <p className="text-xl font-bold text-blue-900">{formatBRL(computedResult.base)}/mes</p>
+              <p className="text-xl font-bold text-blue-900">{formatBRL(computedResult.base)}/mês</p>
             </div>
             <div>
               <p className="text-xs text-green-600 font-medium">Arrojado</p>
-              <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.aggressive)}/mes</p>
+              <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.aggressive)}/mês</p>
             </div>
           </div>
         </CardContent>

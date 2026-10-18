@@ -197,7 +197,7 @@ export function SimulationForm({
             >
               <p className="font-medium text-sm">Tenho um aporte mensal</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Descubra a renda passiva que voce tera na aposentadoria
+                Descubra a renda passiva que você terá na aposentadoria
               </p>
             </button>
             <button
@@ -209,7 +209,7 @@ export function SimulationForm({
             >
               <p className="font-medium text-sm">Quero uma renda mensal</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Descubra quanto precisa aportar por mes para atingir seu objetivo
+                Descubra quanto precisa aportar por mês para atingir seu objetivo
               </p>
             </button>
           </div>
@@ -294,7 +294,7 @@ export function SimulationForm({
             />
             {currentPortfolioCents > 0 && (
               <p className="text-xs text-gray-500 mt-1">
-                Seu portfolio atual: {formatBRL(currentPortfolioCents)}.{' '}
+                Seu portfólio atual: {formatBRL(currentPortfolioCents)}.{' '}
                 <button type="button" onClick={() => setPortfolioBRL(currentPortfolioCents / 100)} className="text-blue-600 hover:underline">
                   Usar valor atual
                 </button>
@@ -344,7 +344,7 @@ export function SimulationForm({
               />
               {currentPassiveIncomeCents > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents)}/mes
+                  Renda passiva atual estimada: {formatBRL(currentPassiveIncomeCents)}/mês
                 </p>
               )}
             </div>
@@ -352,7 +352,7 @@ export function SimulationForm({
 
           <div>
             <Label htmlFor="inflationPct" className="flex items-center gap-1">
-              Inflacao Anual (% ao ano)
+              Inflação Anual (% ao ano)
               <HelpTooltip text="Taxa anual de perda de poder de compra. O IPCA médio no Brasil é de 4% a 5% ao ano." />
             </Label>
             <Input id="inflationPct" type="number" step="0.1" value={inflationPct} onChange={(e) => setInflationPct(Number(e.target.value) || 4)} />

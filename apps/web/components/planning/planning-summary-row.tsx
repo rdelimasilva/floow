@@ -33,7 +33,7 @@ export function PlanningSummaryRow({
             <p className="text-2xl font-bold text-gray-900">
               {formatBRL(currentPassiveIncomeCents)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">/mes (media dos ultimos 12 meses)</p>
+            <p className="text-xs text-gray-500 mt-1">/mês (média dos últimos 12 meses)</p>
           </CardContent>
         </Card>
       </Link>
