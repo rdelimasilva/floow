@@ -32,6 +32,11 @@ export interface DailySpendRow {
   categoryId: string | null
   /** Positivo, já normalizado pela query. */
   cents: number
+  /**
+   * Conta fixa já paga (recorrência realizada). Entra no gasto, mas não no
+   * ritmo: o aluguel pago no dia 5 não se repete a cada 5 dias.
+   */
+  fixed?: boolean
 }
 
 export interface BudgetCap {
@@ -52,7 +57,8 @@ export interface BudgetPacingInput {
    */
   today: Date
   /**
-   * Gasto já certo que ainda não saiu — parcelas de cartão que vencem no mês.
+   * Gasto já certo que ainda não saiu — parcelas de cartão e recorrências que
+   * vencem no mês.
    * Não entra no gasto (não aconteceu), mas entra na projeção: vai acontecer.
    * Quem chama sobe a categoria até a que tem teto, como em `daily`.
    */
@@ -83,7 +89,7 @@ export interface BudgetPacingResult {
     plannedCents: number
     spentCents: number
     unbudgetedCents: number
-    /** Parcelas a vencer nas categorias com teto. */
+    /** Parcelas e recorrências a vencer nas categorias com teto. */
     committedCents: number
     projectedCents: number
     confidence: Confidence
@@ -198,16 +204,28 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
   // Gasto do mês por categoria, apenas para as categorias com teto, e apenas
   // até hoje — mesmo motivo do spendIdx acima.
   const spentByCategory = new Map<string, number>()
+  const fixedByCategory = new Map<string, number>()
+  let fixedCents = 0
   for (const row of input.daily) {
     if (row.categoryId === null) continue
     const idx = indexByDate.get(row.date)
     if (idx === undefined || idx > spendIdx) continue
     if (!capByCategory.has(row.categoryId)) continue
     spentByCategory.set(row.categoryId, (spentByCategory.get(row.categoryId) ?? 0) + row.cents)
+    if (row.fixed) {
+      fixedByCategory.set(row.categoryId, (fixedByCategory.get(row.categoryId) ?? 0) + row.cents)
+      fixedCents += row.cents
+    }
   }
 
+  /** Ritmo só no gasto variável; o fixo pago e o que vence entram uma vez. */
+  const projectWith = (spent: number, fixed: number, committed: number): number =>
+    project(spent - fixed) + fixed + committed
+
+  // Mês encerrado: o valor é final. Previsão que ficou sem vínculo não é
+  // gasto que ainda vai acontecer.
   const committedByCategory = new Map<string, number>()
-  for (const c of input.committed ?? []) {
+  for (const c of isPastMonth ? [] : (input.committed ?? [])) {
     if (!capByCategory.has(c.categoryId)) continue
     committedByCategory.set(c.categoryId, (committedByCategory.get(c.categoryId) ?? 0) + c.cents)
   }
@@ -218,9 +236,9 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
   for (const [categoryId, plannedCents] of capByCategory) {
     const spentCents = spentByCategory.get(categoryId) ?? 0
     const catCommitted = committedByCategory.get(categoryId) ?? 0
-    // O ritmo extrapola o que já saiu; a parcela a vencer é certa e soma por
-    // cima. Os universos não se cruzam: gasto é balance_applied, parcela não.
-    const projectedCents = project(spentCents) + catCommitted
+    // O ritmo extrapola o variável que já saiu; o que vence é certo e soma
+    // por cima. Os universos não se cruzam: gasto é balance_applied, a vencer não.
+    const projectedCents = projectWith(spentCents, fixedByCategory.get(categoryId) ?? 0, catCommitted)
 
     let status: PacingStatus
     if (spentCents > plannedCents) status = 'estourado'
@@ -240,7 +258,7 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
       spentCents: asOfToday.budgetedCum,
       unbudgetedCents: asOfToday.unbudgetedCum,
       committedCents,
-      projectedCents: project(asOfToday.budgetedCum) + committedCents,
+      projectedCents: projectWith(asOfToday.budgetedCum, fixedCents, committedCents),
       confidence,
       daysElapsed,
       daysInMonth,

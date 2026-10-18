@@ -398,4 +398,53 @@ describe('computeBudgetPacing', () => {
       expect(result.byCategory[0].projectedCents).toBe(90000)
     })
   })
+
+  describe('gasto fixo (recorrência já paga)', () => {
+    it('conta no gasto mas não é esticado pelo ritmo', () => {
+      // Dia 10 de 30: limpeza de 3.583 já paga (fixa) + 300 de mercado.
+      // Só os 300 viram ritmo (900 no mês); a limpeza entra uma vez.
+      const result = computeBudgetPacing({
+        daily: [
+          { date: '2026-09-05', accountType: 'checking', categoryId: 'casa', cents: 358300, fixed: true },
+          { date: '2026-09-06', accountType: 'checking', categoryId: 'casa', cents: 30000 },
+        ],
+        budgets: [{ categoryId: 'casa', plannedCents: 450000 }],
+        monthStart: utc(2026, 9, 1),
+        today: utc(2026, 9, 10),
+      })
+
+      const c = result.byCategory[0]
+      expect(c.spentCents).toBe(388300)
+      expect(c.projectedCents).toBe(358300 + 90000)
+      expect(c.status).toBe('ok')
+      expect(result.total.projectedCents).toBe(358300 + 90000)
+    })
+
+    it('fixa já paga + recorrência a vencer: fecha na soma das duas, sem ritmo', () => {
+      const result = computeBudgetPacing({
+        daily: [{ date: '2026-09-05', accountType: 'checking', categoryId: 'casa', cents: 100000, fixed: true }],
+        budgets: [{ categoryId: 'casa', plannedCents: 990000 }],
+        committed: [{ categoryId: 'casa', cents: 880000 }],
+        monthStart: utc(2026, 9, 1),
+        today: utc(2026, 9, 10),
+      })
+
+      expect(result.byCategory[0].projectedCents).toBe(980000)
+      expect(result.byCategory[0].status).toBe('ok')
+    })
+  })
+
+  it('em mês encerrado o que "vence" é ignorado: o valor é final', () => {
+    const result = computeBudgetPacing({
+      daily: [{ date: '2026-08-05', accountType: 'checking', categoryId: 'casa', cents: 10000 }],
+      budgets: [{ categoryId: 'casa', plannedCents: 50000 }],
+      committed: [{ categoryId: 'casa', cents: 880000 }],
+      monthStart: utc(2026, 8, 1),
+      today: utc(2026, 9, 10),
+    })
+
+    expect(result.byCategory[0].projectedCents).toBe(10000)
+    expect(result.byCategory[0].committedCents).toBe(0)
+    expect(result.total.committedCents).toBe(0)
+  })
 })

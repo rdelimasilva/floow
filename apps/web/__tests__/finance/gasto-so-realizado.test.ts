@@ -52,6 +52,16 @@ describe('mesmo universo entre o Ritmo e o CFO', () => {
       const fonte = readFileSync(path.resolve(__dirname, '../..', arquivo), 'utf8')
       expect(fonte).toMatch(/committed/)
       expect(fonte).toMatch(/ParcelasAVencer/)
+      expect(fonte).toMatch(/RecorrentesAVencer/)
     },
   )
 })
+
+it.each(['lib/finance/budget-daily-queries.ts', 'lib/cfo/budget-pacing-input.ts'])(
+  '%s marca a conta fixa já paga, que o ritmo não estica',
+  (arquivo) => {
+    const fonte = readFileSync(path.resolve(__dirname, '../..', arquivo), 'utf8')
+    expect(fonte).toMatch(/leftJoin\(previstoDaRecorrencia, condicaoDoPrevisto\)/)
+    expect(fonte).toMatch(/fixed: ehGastoFixo/)
+  },
+)

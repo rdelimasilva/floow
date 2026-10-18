@@ -11,7 +11,6 @@ import {
   computeBudgetPacing,
   buildParentIndex,
   rollUpToBudgetedCategories,
-  resolveBudgetedCategory,
 } from '@floow/core-finance'
 import type { AccountKind, DailySpendRow } from '@floow/core-finance'
 import type { BudgetPacingAnalyzerInput } from '@floow/core-finance'
@@ -19,6 +18,13 @@ import { saoPauloToday, monthStartUTC, monthEndUTC, monthKeyUTC } from '@/lib/fi
 import { somenteRealizado } from '@/lib/finance/realized-spending'
 import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import { buscarParcelasAVencer } from '@/lib/finance/parcelas-a-vencer-queries'
+import {
+  buscarRecorrentesAVencer,
+  condicaoDoPrevisto,
+  ehGastoFixo,
+  montarAVencer,
+  previstoDaRecorrencia,
+} from '@/lib/finance/gasto-fixo'
 import { buscarOcorrenciasDeRecorrentes } from '@/lib/finance/recurring-budget-queries'
 import { combinarMetasDoMes, somarRecorrentesPorCategoria } from '@/lib/finance/recurring-budget'
 
@@ -58,9 +64,11 @@ export async function buildBudgetPacingInput(
       accountType: accounts.type,
       categoryId: transactions.categoryId,
       cents: sql<number>`SUM(-${transactions.amountCents})`.as('cents'),
+      fixed: ehGastoFixo.as('fixed'),
     })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(previstoDaRecorrencia, condicaoDoPrevisto)
     .leftJoin(categories, eq(categories.id, transactions.categoryId))
     .where(
       and(
@@ -75,13 +83,14 @@ export async function buildBudgetPacingInput(
         lte(transactions.date, monthEnd),
       ),
     )
-    .groupBy(transactions.date, accounts.type, transactions.categoryId)
+    .groupBy(transactions.date, accounts.type, transactions.categoryId, ehGastoFixo)
 
   const rawDaily: DailySpendRow[] = dailyRows.map((r) => ({
     date: r.date,
     accountType: r.accountType as AccountKind,
     categoryId: r.categoryId,
     cents: Number(r.cents),
+    fixed: Boolean(r.fixed),
   }))
 
   const categoryRows = await db
@@ -98,12 +107,12 @@ export async function buildBudgetPacingInput(
   const budgetedIds = new Set(budgets.map((b) => b.categoryId))
   const daily = rollUpToBudgetedCategories(rawDaily, parentIndex, budgetedIds)
 
-  // Parcelas do cartão que vencem no mês: mesma conta da tela do Ritmo.
-  const parcelas = await buscarParcelasAVencer(db, orgId, monthStart, monthEnd)
-  const committed = Object.entries(parcelas).flatMap(([categoryId, p]) => {
-    const target = resolveBudgetedCategory(categoryId, parentIndex, budgetedIds)
-    return target ? [{ categoryId: target, cents: p.totalCents }] : []
-  })
+  // Parcelas do cartão e recorrências que vencem no mês: mesma conta da tela do Ritmo.
+  const [parcelas, recorrentes] = await Promise.all([
+    buscarParcelasAVencer(db, orgId, monthStart, monthEnd),
+    buscarRecorrentesAVencer(db, orgId, monthStart, monthEnd),
+  ])
+  const committed = montarAVencer(parcelas, recorrentes, parentIndex, budgetedIds)
 
   return {
     pacing: computeBudgetPacing({ daily, budgets, committed, monthStart, today }),

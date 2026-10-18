@@ -6,6 +6,7 @@ import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
 import type { DailySpendRow } from '@floow/core-finance'
 import { budgetSpendingTag } from '@/lib/cache-tags'
 import { somenteRealizado } from '@/lib/finance/realized-spending'
+import { ehGastoFixo, previstoDaRecorrencia, condicaoDoPrevisto } from '@/lib/finance/gasto-fixo'
 
 /**
  * Gasto diário agregado por dia, tipo de conta e categoria, no intervalo dado.
@@ -32,9 +33,11 @@ export const getDailySpending = cache(async function getDailySpending(
           accountType: accounts.type,
           categoryId: transactions.categoryId,
           cents: sql<number>`SUM(-${transactions.amountCents})`.as('cents'),
+          fixed: ehGastoFixo.as('fixed'),
         })
         .from(transactions)
         .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+        .leftJoin(previstoDaRecorrencia, condicaoDoPrevisto)
         .leftJoin(categories, eq(categories.id, transactions.categoryId))
         .where(
           and(
@@ -49,13 +52,14 @@ export const getDailySpending = cache(async function getDailySpending(
             lte(transactions.date, end),
           ),
         )
-        .groupBy(transactions.date, accounts.type, transactions.categoryId)
+        .groupBy(transactions.date, accounts.type, transactions.categoryId, ehGastoFixo)
 
       return rows.map((r) => ({
         date: r.date,
         accountType: r.accountType,
         categoryId: r.categoryId,
         cents: Number(r.cents),
+        fixed: Boolean(r.fixed),
       }))
     },
     ['budget-daily-spending', orgId, start.toISOString(), end.toISOString()],

@@ -63,13 +63,14 @@ export function resolveBudgetedCategory(
  * somadas, para o motor não receber duas linhas equivalentes.
  */
 export function rollUpToBudgetedCategories<
-  T extends { date: string; accountType: string; categoryId: string | null; cents: number },
+  T extends { date: string; accountType: string; categoryId: string | null; cents: number; fixed?: boolean },
 >(rows: T[], parentById: Map<string, string | null>, budgetedIds: Set<string>): T[] {
   const merged = new Map<string, T>()
 
   for (const row of rows) {
     const categoryId = resolveBudgetedCategory(row.categoryId, parentById, budgetedIds)
-    const key = `${row.date}|${row.accountType}|${categoryId ?? ''}`
+    // `fixed` na chave: somar fixo com variável faria o aluguel virar ritmo.
+    const key = `${row.date}|${row.accountType}|${categoryId ?? ''}|${row.fixed ? 'f' : ''}`
     const existing = merged.get(key)
 
     if (existing) {

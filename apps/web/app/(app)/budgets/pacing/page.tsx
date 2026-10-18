@@ -2,6 +2,7 @@ import { getOrgId, getCategories } from '@/lib/finance/queries'
 import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { getDailySpending } from '@/lib/finance/budget-daily-queries'
 import { getParcelasAVencerDoMes } from '@/lib/finance/parcelas-a-vencer-queries'
+import { getRecorrentesAVencerDoMes, montarAVencer } from '@/lib/finance/gasto-fixo'
 import {
   computeBudgetPacing,
   buildParentIndex,
@@ -30,11 +31,12 @@ export default async function BudgetPacingPage({ searchParams }: Props) {
   const monthStart = new Date(Date.UTC(sy, sm - 1, 1))
   const monthEnd = new Date(Date.UTC(sy, sm, 0))
 
-  const [categories, budgetEntries, daily, parcelasAVencer] = await Promise.all([
+  const [categories, budgetEntries, daily, parcelasAVencer, recorrentesAVencer] = await Promise.all([
     getCategories(orgId),
     getSpendingPlanForMonth(orgId, monthStart, monthEnd),
     getDailySpending(orgId, monthStart, monthEnd),
     getParcelasAVencerDoMes(orgId, monthStart, monthEnd),
+    getRecorrentesAVencerDoMes(orgId, monthStart, monthEnd),
   ])
 
   const budgets = budgetEntries
@@ -54,11 +56,8 @@ export default async function BudgetPacingPage({ searchParams }: Props) {
       budgetedIds,
     ),
     budgets,
-    // Parcelas do cartão que vencem no mês: ainda não saíram, mas vão sair.
-    committed: Object.entries(parcelasAVencer).flatMap(([categoryId, p]) => {
-      const target = resolveBudgetedCategory(categoryId, parentIndex, budgetedIds)
-      return target ? [{ categoryId: target, cents: p.totalCents }] : []
-    }),
+    // Parcelas do cartão e recorrências que vencem no mês: ainda não saíram, mas vão sair.
+    committed: montarAVencer(parcelasAVencer, recorrentesAVencer, parentIndex, budgetedIds),
     monthStart,
     today,
   })
