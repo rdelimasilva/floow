@@ -172,17 +172,28 @@ export function CashFlowClient({
     return mergedData
   }, [viewMode, realizedData, projectedData, mergedData])
 
-  // Summary stats
-  const summaryData = viewMode === 'realized' ? realizedData
-    : viewMode === 'projected' ? projectedData
-    : [...realizedData, ...projectedData]
-
-  const totalIncome = summaryData.reduce((sum, d) => sum + d.income, 0)
-  const totalExpense = summaryData.reduce((sum, d) => sum + Math.abs(d.expense), 0)
-  const totalNet = totalIncome - totalExpense
-  const avgMonthlyNet = summaryData.length > 0
-    ? summaryData.reduce((sum, d) => sum + d.net, 0) / summaryData.length
-    : 0
+  // Cards: mesmos lançamentos e mesma regra da tabela de detalhamento. O
+  // resumo mensal filtrado por mês contava o mês de borda inteiro enquanto a
+  // tabela corta por dia, e os totais não batiam.
+  const summary = useMemo(() => {
+    let totalIncome = 0
+    let totalExpense = 0
+    const months = new Set<string>()
+    for (const t of activeTransactions) {
+      if (t.type === 'income') totalIncome += t.amountCents
+      else if (t.type === 'expense') totalExpense += Math.abs(t.amountCents)
+      else continue
+      months.add(t.month)
+    }
+    const totalNet = totalIncome - totalExpense
+    return {
+      totalIncome,
+      totalExpense,
+      totalNet,
+      avgMonthlyNet: months.size > 0 ? totalNet / months.size : 0,
+    }
+  }, [activeTransactions])
+  const { totalIncome, totalExpense, totalNet, avgMonthlyNet } = summary
 
   return (
     <>
