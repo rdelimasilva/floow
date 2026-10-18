@@ -53,6 +53,28 @@ export function categoryLabel(category: CategoryLike): string {
   return category.parentId ? `${INDENT}${category.name}` : category.name
 }
 
+function semAcento(valor: string): string {
+  return valor.normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase().trim()
+}
+
+/**
+ * Busca da tela de Categorias: sem acento e sem caixa. A mãe da filha
+ * encontrada fica (sem ela a filha perde o contexto) e a mãe encontrada traz
+ * as filhas junto. Preserva a ordem de entrada.
+ */
+export function filtrarCategorias<T extends CategoryLike>(categories: T[], termo: string): T[] {
+  const busca = semAcento(termo)
+  if (!busca) return categories
+
+  const casa = new Set(categories.filter((c) => semAcento(c.name).includes(busca)).map((c) => c.id))
+  return categories.filter(
+    (c) =>
+      casa.has(c.id) ||
+      (c.parentId != null && casa.has(c.parentId)) ||
+      categories.some((filha) => filha.parentId === c.id && casa.has(filha.id)),
+  )
+}
+
 /** Ordena e já devolve `{ id, label }` — o que a maioria dos seletores usa. */
 export function toCategoryOptions<T extends CategoryLike>(categories: T[]): (T & { label: string })[] {
   return sortCategoryTree(categories).map((category) => ({ ...category, label: categoryLabel(category) }))
