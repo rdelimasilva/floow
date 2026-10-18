@@ -29,7 +29,7 @@ export default async function FixedAssetsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Bens Imóveis"
+        title="Bens"
         description="Gerencie seus imóveis, veículos e outros bens"
       >
         <Button asChild variant="primary">

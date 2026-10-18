@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categoryLabel, sortCategoryTree, toCategoryOptions } from '@/lib/finance/category-options'
+import { categoryLabel, filtrarCategorias, sortCategoryTree, toCategoryOptions } from '@/lib/finance/category-options'
 
 const alimentacao = { id: 'food', name: 'Alimentação', parentId: null }
 const supermercado = { id: 'groceries', name: 'Supermercado', parentId: 'food' }
@@ -43,5 +43,26 @@ describe('toCategoryOptions', () => {
     const options = toCategoryOptions([{ ...alimentacao, type: 'expense' }])
 
     expect(options[0]).toMatchObject({ id: 'food', type: 'expense', label: 'Alimentação' })
+  })
+})
+
+describe('filtrarCategorias', () => {
+  const todas = [alimentacao, supermercado, restaurante, transporte]
+
+  it('sem termo devolve tudo', () => {
+    expect(filtrarCategorias(todas, '  ')).toEqual(todas)
+  })
+
+  it('casa sem acento e sem caixa, e mantém a mãe da filha encontrada', () => {
+    // Filha solta, sem a raiz, perde o contexto de onde ela mora.
+    expect(filtrarCategorias(todas, 'SUPER').map((c) => c.id)).toEqual(['food', 'groceries'])
+  })
+
+  it('mãe encontrada traz as filhas junto', () => {
+    expect(filtrarCategorias(todas, 'alimentacao').map((c) => c.id)).toEqual(['food', 'groceries', 'restaurant'])
+  })
+
+  it('nada encontrado devolve lista vazia', () => {
+    expect(filtrarCategorias(todas, 'xyz')).toEqual([])
   })
 })

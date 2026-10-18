@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Search } from 'lucide-react'
 import { createCategory, updateCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DeleteCategoryDialog } from './delete-category-dialog'
-import { sortCategoryTree } from '@/lib/finance/category-options'
+import { filtrarCategorias, sortCategoryTree } from '@/lib/finance/category-options'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface Category {
@@ -54,9 +54,22 @@ export function CategoryList({ categories }: CategoryListProps) {
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [busca, setBusca] = useState('')
+  // Mães abertas. Fechadas por padrão: com ~145 categorias da Polp, a lista
+  // aberta inteira não cabe em tela nenhuma.
+  const [abertas, setAbertas] = useState<Set<string>>(new Set())
+
+  function alternar(id: string) {
+    setAbertas((atual) => {
+      const nova = new Set(atual)
+      if (nova.has(id)) nova.delete(id)
+      else nova.add(id)
+      return nova
+    })
+  }
 
   const [name, setName] = useState('')
-  const [type, setType] = useState<'income' | 'expense'>('expense')
+  const [type, setType] = useState<Category['type']>('expense')
   const [color, setColor] = useState('#6b7280')
   const [icon, setIcon] = useState('')
   // Categoria antiga vem sem a coluna; o default é o comportamento de hoje.
@@ -65,7 +78,7 @@ export function CategoryList({ categories }: CategoryListProps) {
   function startEdit(cat: Category) {
     setEditingId(cat.id)
     setName(cat.name)
-    setType(cat.type as 'income' | 'expense')
+    setType(cat.type)
     setColor(cat.color ?? '#6b7280')
     setIcon(cat.icon ?? '')
     setAffectsCashFlow(cat.affectsCashFlow ?? true)
@@ -126,20 +139,34 @@ export function CategoryList({ categories }: CategoryListProps) {
 
   // Ordem de arvore: a filha aparece logo abaixo do pai, nao perdida na ordem
   // alfabetica global entre outras 140.
-  const incomeCategories = sortCategoryTree(categories.filter((c) => c.type === 'income'))
-  const expenseCategories = sortCategoryTree(categories.filter((c) => c.type === 'expense'))
+  //
+  // Transferência tem grupo próprio: as categorias de sistema da Polp
+  // ("Resgate de investimentos e previdência", "Aporte em investimentos e
+  // previdência") aparecem nos lançamentos e precisam existir aqui também.
+  const visiveis = filtrarCategorias(categories, busca)
+  const buscando = busca.trim() !== ''
+  const incomeCategories = sortCategoryTree(visiveis.filter((c) => c.type === 'income'))
+  const expenseCategories = sortCategoryTree(visiveis.filter((c) => c.type === 'expense'))
+  const transferCategories = sortCategoryTree(visiveis.filter((c) => c.type === 'transfer'))
+  const temFilhas = new Set(categories.map((c) => c.parentId).filter(Boolean))
 
   function renderCategoryGroup(title: string, cats: Category[]) {
+    if (cats.length === 0) return null
+    const ids = new Set(cats.map((c) => c.id))
+    // Na busca tudo que casou fica à mostra; fora dela, a filha só com a mãe aberta.
+    const mostrar = cats.filter(
+      (c) => buscando || !c.parentId || !ids.has(c.parentId) || abertas.has(c.parentId),
+    )
     return (
       <div>
         <h3 className="text-sm font-medium text-gray-500 mb-2">{title}</h3>
         <div className="space-y-1">
-          {cats.map((cat) => (
+          {mostrar.map((cat) => (
             editingId === cat.id ? (
               <div key={cat.id} className="flex items-center gap-2 rounded-lg bg-blue-50 p-3">
                 <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 rounded border cursor-pointer" />
                 <Input value={name} onChange={(e) => setName(e.target.value)} className="h-9 text-sm flex-1" />
-                <CashFlowToggle checked={affectsCashFlow} onChange={setAffectsCashFlow} />
+                {type !== 'transfer' && <CashFlowToggle checked={affectsCashFlow} onChange={setAffectsCashFlow} />}
                 <Button size="sm" variant="outline" onClick={() => { setEditingId(null); resetForm() }} className="h-8">Cancelar</Button>
                 <Button size="sm" variant="primary" onClick={() => handleUpdate(cat.id)} disabled={loading} className="h-8">Salvar</Button>
               </div>
@@ -151,6 +178,17 @@ export function CategoryList({ categories }: CategoryListProps) {
                 className={`flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50 ${cat.parentId ? 'ml-6' : ''}`}
               >
                 <div className="flex items-center gap-2">
+                  {!cat.parentId && temFilhas.has(cat.id) && !buscando && (
+                    <button
+                      type="button"
+                      onClick={() => alternar(cat.id)}
+                      aria-label={`${abertas.has(cat.id) ? 'Esconder' : 'Mostrar'} subcategorias de ${cat.name}`}
+                      aria-expanded={abertas.has(cat.id)}
+                      className="-ml-1 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    >
+                      {abertas.has(cat.id) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                  )}
                   <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: cat.color ?? '#6b7280' }} />
                   <span className="text-sm text-foreground">{cat.name}</span>
                   {cat.affectsCashFlow === false && (
@@ -214,8 +252,22 @@ export function CategoryList({ categories }: CategoryListProps) {
         )}
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-6">
+          <div className="relative max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar categoria"
+              aria-label="Buscar categoria"
+              className="h-9 pl-9"
+            />
+          </div>
           {renderCategoryGroup('Despesas', expenseCategories)}
           {renderCategoryGroup('Receitas', incomeCategories)}
+          {renderCategoryGroup('Transferências', transferCategories)}
+          {buscando && visiveis.length === 0 && (
+            <p className="text-sm text-gray-500">Nenhuma categoria encontrada.</p>
+          )}
         </div>
       </div>
 

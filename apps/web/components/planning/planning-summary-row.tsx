@@ -33,7 +33,7 @@ export function PlanningSummaryRow({
             <p className="text-2xl font-bold text-gray-900">
               {formatBRL(currentPassiveIncomeCents)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">/mes (media dos ultimos 12 meses)</p>
+            <p className="text-xs text-gray-500 mt-1">/mês (média dos últimos 12 meses)</p>
           </CardContent>
         </Card>
       </Link>
@@ -62,7 +62,7 @@ export function PlanningSummaryRow({
               <p className="text-lg font-medium text-blue-600">Simular</p>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              {retirementReadiness ?? 'Nenhum plano salvo'}
+              {retirementReadiness ?? 'Simule sua aposentadoria'}
             </p>
           </CardContent>
         </Card>

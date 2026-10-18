@@ -3,7 +3,8 @@
 import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatBRL } from '@floow/core-finance/src/balance'
-import { calculateFI, SCENARIO_PRESETS } from '@floow/core-finance/src/simulation'
+import { SCENARIO_PRESETS } from '@floow/core-finance/src/simulation'
+import { progressoAteIF } from '@/lib/planning/progresso-ate-if'
 import type { RetirementYearPoint } from '@floow/core-finance/src/simulation'
 
 interface SimulationResultsProps {
@@ -35,22 +36,22 @@ export function SimulationResults({
 }: SimulationResultsProps) {
   const baseRate = baseReturnRate ?? SCENARIO_PRESETS.base.annualRealReturnRate
 
-  // FI calculation
-  const fi = useMemo(() => {
-    const targetIncome = mode === 'income' ? desiredMonthlyIncomeCents : computedResult.base
-    if (targetIncome <= 0) return null
-    return calculateFI({
-      currentPortfolioCents: portfolioCents,
-      monthlyContributionCents,
-      targetMonthlyPassiveIncomeCents: targetIncome,
-      annualRealReturnRate: baseRate,
-      currentAge,
-    })
-  }, [mode, portfolioCents, monthlyContributionCents, desiredMonthlyIncomeCents, computedResult.base, baseRate, currentAge])
-
-  const fiProgress = fi && fi.fiNumberCents > 0
-    ? Math.min(100, Math.round((portfolioCents / fi.fiNumberCents) * 100))
-    : 0
+  // FI calculation — a mesma conta do card do hub (`progressoAteIF`).
+  const progresso = useMemo(
+    () =>
+      progressoAteIF({
+        mode,
+        portfolioCents,
+        monthlyContributionCents,
+        desiredMonthlyIncomeCents,
+        annualRealReturnRate: baseRate,
+        currentAge,
+        retirementAge,
+      }),
+    [mode, portfolioCents, monthlyContributionCents, desiredMonthlyIncomeCents, baseRate, currentAge, retirementAge],
+  )
+  const fi = progresso?.fi ?? null
+  const fiProgress = progresso?.percent ?? 0
 
   // Depletion detection (base scenario)
   const depletionAge = useMemo(() => {
@@ -75,15 +76,15 @@ export function SimulationResults({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <p className="text-xs text-red-600 font-medium">Conservador</p>
-              <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.conservative)}/mes</p>
+              <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.conservative)}/mês</p>
             </div>
             <div>
               <p className="text-xs text-blue-600 font-medium">Base</p>
-              <p className="text-xl font-bold text-blue-900">{formatBRL(computedResult.base)}/mes</p>
+              <p className="text-xl font-bold text-blue-900">{formatBRL(computedResult.base)}/mês</p>
             </div>
             <div>
               <p className="text-xs text-green-600 font-medium">Arrojado</p>
-              <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.aggressive)}/mes</p>
+              <p className="text-xl font-bold text-gray-900">{formatBRL(computedResult.aggressive)}/mês</p>
             </div>
           </div>
         </CardContent>
