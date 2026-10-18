@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { syncConnectionTransactions } from './sync'
 import { sincronizarInvestimentosDaConexao } from './sincronizar-conexao'
 import { getPolpClient } from './config'
+import { revalidateSincronizacao } from '@/lib/finance/revalidate'
 
 export interface ResumoDaImportacaoAgendada {
   conexoes: number
@@ -94,6 +95,10 @@ export async function importarLancamentosDeTodasAsConexoes(): Promise<ResumoDaIm
       )
     }
   }
+
+  // Sem isto cada tela segue com o cache de antes do sync até ele expirar, e
+  // o mesmo mês aparece com um número em cada uma.
+  for (const orgId of new Set(conexoes.map((c) => c.orgId))) revalidateSincronizacao(orgId)
 
   return resumo
 }

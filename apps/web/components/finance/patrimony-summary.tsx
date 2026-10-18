@@ -4,74 +4,30 @@ import { useTransition } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import type { PatrimonySnapshot } from '@floow/db'
-import { formatarDia } from '@/lib/formatar-dia'
-
-type SerializedSnapshot = Omit<PatrimonySnapshot, 'snapshotDate' | 'createdAt'> & {
-  snapshotDate: string | Date
-  createdAt: string | Date
-}
+import type { Patrimonio } from '@/lib/finance/patrimonio'
 
 interface PatrimonySummaryProps {
-  snapshot: SerializedSnapshot | null
+  patrimonio: Patrimonio
   onRefresh: () => Promise<unknown>
 }
 
 /**
  * PatrimonySummary — client component.
  *
- * Displays net worth, liquid assets, liabilities, and a per-type breakdown
- * from the most recent patrimony snapshot. Provides a button to trigger a
- * snapshot refresh via the refreshSnapshot server action.
+ * Mostra o patrimônio de agora, calculado com a mesma regra da tela Contas
+ * (`calcularPatrimonio`). Antes lia o último snapshot gravado, que só era
+ * refeito no clique e ficava semanas para trás.
  *
- * Uses useTransition to call the server action without blocking the UI.
+ * "Atualizar valores" grava o snapshot do dia (o histórico do gráfico de
+ * evolução) e recarrega os números.
  */
-export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps) {
+export function PatrimonySummary({ patrimonio, onRefresh }: PatrimonySummaryProps) {
   const [isPending, startTransition] = useTransition()
 
   function handleRefresh() {
     startTransition(async () => {
       await onRefresh()
     })
-  }
-
-  if (!snapshot) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Patrimônio Líquido</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-500 mb-4">
-            Patrimônio ainda não calculado. Clique em &quot;Atualizar valores&quot; para calcular.
-          </p>
-          <Button
-            type="button"
-            variant="primary"
-            onClick={handleRefresh}
-            disabled={isPending}
-          >
-            {isPending ? 'Calculando...' : 'Atualizar valores'}
-          </Button>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  let breakdown: Record<string, number> = {}
-  try {
-    breakdown = JSON.parse(snapshot.breakdown ?? '{}')
-  } catch {
-    breakdown = {}
-  }
-
-  const accountTypeLabels: Record<string, string> = {
-    checking: 'Conta Corrente',
-    savings: 'Poupança',
-    brokerage: 'Investimentos',
-    credit_card: 'Cartão de Crédito',
-    cash: 'Dinheiro em Espécie',
-    fixed_assets: 'Imobilizado',
   }
 
   return (
@@ -83,39 +39,36 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
         {/* Net Worth — prominent display */}
         <div>
           <p className="text-sm text-gray-500">Patrimônio Líquido Total</p>
-          <p className="text-3xl font-bold text-gray-900">
-            {formatBRL(snapshot.netWorthCents)}
+          <p className={`text-3xl font-bold ${patrimonio.patrimonioLiquidoCents < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+            {formatBRL(patrimonio.patrimonioLiquidoCents)}
           </p>
         </div>
 
-        {/* Liquid assets and liabilities */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-sm text-gray-500">Ativos Líquidos</p>
+            <p className="text-sm text-gray-500">Ativos</p>
             <p className="text-lg font-semibold text-green-700">
-              {formatBRL(snapshot.liquidAssetsCents)}
+              {formatBRL(patrimonio.ativosCents)}
             </p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Passivos</p>
             <p className="text-lg font-semibold text-red-600">
-              {formatBRL(snapshot.liabilitiesCents)}
+              {formatBRL(patrimonio.passivosCents)}
             </p>
           </div>
         </div>
 
-        {/* Per-type breakdown */}
-        {Object.keys(breakdown).length > 0 && (
+        {/* Mesmos blocos da tela Contas */}
+        {patrimonio.blocos.length > 0 && (
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Detalhamento por tipo</p>
             <div className="space-y-1">
-              {Object.entries(breakdown).map(([type, amount]) => (
-                <div key={type} className="flex justify-between text-sm">
-                  <span className="text-gray-600">
-                    {accountTypeLabels[type] ?? type}
-                  </span>
-                  <span className={amount < 0 ? 'text-red-600' : 'text-gray-900'}>
-                    {formatBRL(amount)}
+              {patrimonio.blocos.map((bloco) => (
+                <div key={bloco.key} className="flex justify-between text-sm">
+                  <span className="text-gray-600">{bloco.titulo}</span>
+                  <span className={bloco.valorCents < 0 ? 'text-red-600' : 'text-gray-900'}>
+                    {formatBRL(bloco.valorCents)}
                   </span>
                 </div>
               ))}
@@ -123,15 +76,6 @@ export function PatrimonySummary({ snapshot, onRefresh }: PatrimonySummaryProps)
           </div>
         )}
 
-        {/* Snapshot date */}
-        <p className="text-xs text-gray-400">
-          Última atualização:{' '}
-          {snapshot.snapshotDate instanceof Date
-            ? formatarDia(snapshot.snapshotDate)
-            : formatarDia(new Date(snapshot.snapshotDate))}
-        </p>
-
-        {/* Refresh button */}
         <Button
           type="button"
           variant="outline"

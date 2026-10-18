@@ -3,12 +3,15 @@ import { formatBRL } from '@floow/core-finance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { Account } from '@floow/db'
+import { valorDaConta } from '@/lib/finance/patrimonio'
 
 interface AccountSummaryRowProps {
   accounts: Account[]
+  /** Valor das posições das contas de investimento do Open Finance (ver `valorDaConta`). */
+  valorDasPosicoes?: Map<string, number>
 }
 
-export function AccountSummaryRow({ accounts }: AccountSummaryRowProps) {
+export function AccountSummaryRow({ accounts, valorDasPosicoes = new Map() }: AccountSummaryRowProps) {
   if (accounts.length === 0) {
     return (
       <Card>
@@ -38,14 +41,17 @@ export function AccountSummaryRow({ accounts }: AccountSummaryRowProps) {
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-3">
-          {accounts.map((account) => (
-            <div key={account.id} className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{account.name}</span>
-              <span className={`font-medium ${account.balanceCents < 0 ? 'text-red-600' : 'text-foreground'}`}>
-                {formatBRL(account.balanceCents)}
-              </span>
-            </div>
-          ))}
+          {accounts.map((account) => {
+            const valorCents = valorDaConta(account, valorDasPosicoes)
+            return (
+              <div key={account.id} className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{account.name}</span>
+                <span className={`font-medium ${valorCents < 0 ? 'text-red-600' : 'text-foreground'}`}>
+                  {formatBRL(valorCents)}
+                </span>
+              </div>
+            )
+          })}
         </div>
       </CardContent>
     </Card>

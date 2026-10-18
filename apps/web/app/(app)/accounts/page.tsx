@@ -7,6 +7,7 @@ import { getContasConectadasAoBanco, getContasDeInvestimentoOpenFinance, getValo
 import { getLogosDasContas } from '@/lib/openfinance/logos-das-contas'
 import { formatBRL } from '@floow/core-finance'
 import { agruparPorBloco } from '@/lib/finance/account-types'
+import { valorDaConta } from '@/lib/finance/patrimonio'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 
@@ -29,8 +30,9 @@ export default async function AccountsPage() {
   }))
 
   // Conta de investimentos do Open Finance vale o que as posições valem, não o
-  // saldo de lançamentos (zerado numa conexão só de investimentos).
-  const valorDe = (a: (typeof accounts)[number]) => valorDasPosicoes.get(a.id) ?? a.balanceCents
+  // saldo de lançamentos (zerado numa conexão só de investimentos). A mesma
+  // regra vale no Dashboard (`calcularPatrimonio`).
+  const valorDe = (a: (typeof accounts)[number]) => valorDaConta(a, valorDasPosicoes)
   const totalBalanceCents = accounts.reduce((sum, a) => sum + valorDe(a), 0)
   const blocos = agruparPorBloco(accounts).map((b) => ({
     ...b,
