@@ -99,7 +99,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
           href="/fixed-assets"
           className="text-sm text-gray-500 hover:text-gray-700"
         >
-          &larr; Bens Imóveis
+          &larr; Bens
         </Link>
       </div>
 

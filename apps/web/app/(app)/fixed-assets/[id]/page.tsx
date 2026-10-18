@@ -53,7 +53,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Link href="/fixed-assets" className="text-sm text-gray-500 hover:text-gray-700">&larr; Bens Imóveis</Link>
+        <Link href="/fixed-assets" className="text-sm text-gray-500 hover:text-gray-700">&larr; Bens</Link>
       </div>
 
       <PageHeader title={asset.name} description={typeName}>
