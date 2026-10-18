@@ -35,6 +35,7 @@ import { revalidateTransactionData } from './revalidate'
 import { lerMetaDeGasto, metaDeGastoValida } from './recurring-budget-flag'
 import { reagendarParcelasPendentes } from './recurring-reschedule'
 import { generateForTemplate } from './recurring-generate'
+import { camposQueAcompanhamOModelo, propagarEdicaoParaParcelas } from './recurring-propagate'
 
 type Db = ReturnType<typeof getDb>
 
@@ -240,11 +241,29 @@ export async function updateRecurringTemplate(formData: FormData) {
 
   await db.transaction(async (tx) => {
     const [atual] = await tx
-      .select({ frequency: recurringTemplates.frequency })
+      .select({ frequency: recurringTemplates.frequency, type: recurringTemplates.type, amountCents: recurringTemplates.amountCents })
       .from(recurringTemplates)
       .where(and(eq(recurringTemplates.id, id), eq(recurringTemplates.orgId, orgId)))
       .limit(1)
     if (!atual) throw new Error('Recorrência não encontrada')
+
+    // Antes de mover as datas: data nova no passado tiraria as parcelas do
+    // recorte "de hoje em diante" que a propagação usa.
+    await propagarEdicaoParaParcelas(tx, {
+      orgId,
+      templateId: id,
+      hojeStr: todayStr,
+      campos: camposQueAcompanhamOModelo(
+        {
+          categoryId: categoryId !== null ? categoryId || null : undefined,
+          accountId: accountId || undefined,
+          type: (setObj.type as 'income' | 'expense' | undefined),
+          amountCents: setObj.amountCents as number | undefined,
+        },
+        { type: atual.type as 'income' | 'expense', amountCents: atual.amountCents },
+      ),
+      descricao: (setObj.description as string | undefined) ?? null,
+    })
 
     if (nextDueDateStr) {
       const novaFrequencia = (frequency ?? atual.frequency) as RecurringFrequency
