@@ -32,3 +32,26 @@ describe('somenteRealizado', () => {
     expect(fonte).toMatch(/somenteRealizado,/)
   })
 })
+
+// Investimento não é gasto, e a parcela a vencer entra na projeção: a tela do
+// Ritmo, o insight do CFO e os alertas por e-mail/WhatsApp contam o mês igual.
+describe('mesmo universo entre o Ritmo e o CFO', () => {
+  it.each([
+    'lib/finance/budget-queries.ts',
+    'lib/finance/budget-daily-queries.ts',
+    'lib/finance/budget-pacing-actions.ts',
+    'lib/cfo/budget-pacing-input.ts',
+  ])('%s exclui o que não afeta o fluxo de caixa', (arquivo) => {
+    const fonte = readFileSync(path.resolve(__dirname, '../..', arquivo), 'utf8')
+    expect(fonte).toMatch(/effectiveAffectsCashFlow,/)
+  })
+
+  it.each(['app/(app)/budgets/pacing/page.tsx', 'lib/cfo/budget-pacing-input.ts'])(
+    '%s passa as parcelas a vencer para a projeção',
+    (arquivo) => {
+      const fonte = readFileSync(path.resolve(__dirname, '../..', arquivo), 'utf8')
+      expect(fonte).toMatch(/committed/)
+      expect(fonte).toMatch(/ParcelasAVencer/)
+    },
+  )
+})

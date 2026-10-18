@@ -7,11 +7,18 @@
  */
 import { getDb, transactions, accounts, categories, budgetEntries } from '@floow/db'
 import { and, eq, gte, lte, isNull, or, sql } from 'drizzle-orm'
-import { computeBudgetPacing, buildParentIndex, rollUpToBudgetedCategories } from '@floow/core-finance'
+import {
+  computeBudgetPacing,
+  buildParentIndex,
+  rollUpToBudgetedCategories,
+  resolveBudgetedCategory,
+} from '@floow/core-finance'
 import type { AccountKind, DailySpendRow } from '@floow/core-finance'
 import type { BudgetPacingAnalyzerInput } from '@floow/core-finance'
 import { saoPauloToday, monthStartUTC, monthEndUTC, monthKeyUTC } from '@/lib/finance/sp-date'
 import { somenteRealizado } from '@/lib/finance/realized-spending'
+import { effectiveAffectsCashFlow } from '@/lib/finance/affects-cash-flow'
+import { buscarParcelasAVencer } from '@/lib/finance/parcelas-a-vencer-queries'
 import { buscarOcorrenciasDeRecorrentes } from '@/lib/finance/recurring-budget-queries'
 import { combinarMetasDoMes, somarRecorrentesPorCategoria } from '@/lib/finance/recurring-budget'
 
@@ -54,6 +61,7 @@ export async function buildBudgetPacingInput(
     })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(categories.id, transactions.categoryId))
     .where(
       and(
         eq(transactions.orgId, orgId),
@@ -61,6 +69,8 @@ export async function buildBudgetPacingInput(
         eq(transactions.reviewState, 'confirmed'),
         eq(transactions.isIgnored, false),
         somenteRealizado,
+        // Mesmo universo de getDailySpending: aplicação em investimento não é gasto.
+        effectiveAffectsCashFlow,
         gte(transactions.date, monthStart),
         lte(transactions.date, monthEnd),
       ),
@@ -84,14 +94,19 @@ export async function buildBudgetPacingInput(
   // "Alimentação" ignoraria o que cai em "Supermercado" e apareceria intocado
   // enquanto o dinheiro sai. computeBudgetPacing casa por id e não sabe de
   // hierarquia — de propósito.
-  const daily = rollUpToBudgetedCategories(
-    rawDaily,
-    buildParentIndex(categoryRows),
-    new Set(budgets.map((b) => b.categoryId)),
-  )
+  const parentIndex = buildParentIndex(categoryRows)
+  const budgetedIds = new Set(budgets.map((b) => b.categoryId))
+  const daily = rollUpToBudgetedCategories(rawDaily, parentIndex, budgetedIds)
+
+  // Parcelas do cartão que vencem no mês: mesma conta da tela do Ritmo.
+  const parcelas = await buscarParcelasAVencer(db, orgId, monthStart, monthEnd)
+  const committed = Object.entries(parcelas).flatMap(([categoryId, p]) => {
+    const target = resolveBudgetedCategory(categoryId, parentIndex, budgetedIds)
+    return target ? [{ categoryId: target, cents: p.totalCents }] : []
+  })
 
   return {
-    pacing: computeBudgetPacing({ daily, budgets, monthStart, today }),
+    pacing: computeBudgetPacing({ daily, budgets, committed, monthStart, today }),
     categoryNames: Object.fromEntries(categoryRows.map((c) => [c.id, c.name])),
     month: monthKeyUTC(today),
   }
