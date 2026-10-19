@@ -1,6 +1,7 @@
 import { getDb, assets, assetPositionSnapshots, assetPrices, portfolioEvents } from '@floow/db'
 import { computePosition, computeBankPosition, type PortfolioEventType, type BankPositionInput } from '@floow/core-finance'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { leiturasRecentesDoBanco, posicaoVigente } from './posicao-vigente'
 
 type DbClient = ReturnType<typeof getDb>
 
@@ -148,32 +149,18 @@ async function getLatestPriceCents(db: DbClient, orgId: string, assetId: string)
   return latestPrice?.priceCents ?? 0
 }
 
-/** Última posição do banco por ativo, direto do Open Finance. */
+/**
+ * Posição do banco que vale por ativo, direto do Open Finance — sem leitura
+ * espelhada de outro ativo e sem zero isolado do banco (`posicao-vigente`).
+ */
 async function getLatestBankPositions(db: DbClient, orgId: string): Promise<Map<string, BankPositionInput>> {
-  const rows = await db.execute<{
-    asset_id: string
-    quantity: string | null
-    gross_cents: number | null
-    net_cents: number | null
-    purchase_unit_price: string | null
-  }>(
-    sql`SELECT DISTINCT ON (asset_id) asset_id, quantity, gross_cents, net_cents, purchase_unit_price
-        FROM asset_bank_positions
-        WHERE org_id = ${orgId}
-        ORDER BY asset_id, reference_date DESC`
-  )
-  const num = (v: string | null) => (v === null ? null : Number(v))
-  return new Map(
-    rows.map((r) => [
-      r.asset_id,
-      {
-        quantity: num(r.quantity),
-        grossCents: r.gross_cents,
-        netCents: r.net_cents,
-        purchaseUnitPrice: num(r.purchase_unit_price),
-      },
-    ])
-  )
+  const leituras = await leiturasRecentesDoBanco(db, orgId)
+  const vigentes = new Map<string, BankPositionInput>()
+  for (const [assetId, lista] of leituras) {
+    const p = posicaoVigente(lista)
+    if (p) vigentes.set(assetId, { quantity: p.quantity, grossCents: p.grossCents, netCents: p.netCents, purchaseUnitPrice: p.purchaseUnitPrice })
+  }
+  return vigentes
 }
 
 export async function recomputeAssetPositionSnapshot(db: DbClient, orgId: string, assetId: string) {

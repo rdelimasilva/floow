@@ -186,12 +186,14 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
           eq(openfinanceResources.resourceType, kind),
           isNotNull(openfinanceResources.assetId),
           polpIdsVistos.length > 0 ? notInArray(openfinanceResources.polpResourceId, polpIdsVistos) : undefined,
-          // Já zerado na última posição: não empilha uma linha nova por dia.
+          // Já zerado por ausência na última posição: não empilha uma linha nova
+          // por dia. Zero do banco (PU 0) não basta — sozinho não vale (`posicao-vigente`).
           sql`NOT EXISTS (
             SELECT 1 FROM asset_bank_positions p
             WHERE p.asset_id = ${openfinanceResources.assetId}
               AND p.reference_date = (SELECT max(q.reference_date) FROM asset_bank_positions q WHERE q.asset_id = p.asset_id)
               AND coalesce(p.quantity, 0) = 0 AND coalesce(p.gross_cents, 0) = 0 AND coalesce(p.net_cents, 0) = 0
+              AND p.unit_price IS NULL
           )`,
         ))
       if (ausentes.length === 0) return 0
