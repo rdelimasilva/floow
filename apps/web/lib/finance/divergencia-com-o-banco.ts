@@ -23,6 +23,8 @@ export interface ConferenciaDeSaldo {
   diferencaCents: number
 }
 
+export const LEITURAS_PARA_AVISAR = 2
+
 /**
  * Sem tolerância de propósito: um centavo de diferença é um lançamento errado
  * em algum lugar, e arredondar a conferência esconderia justamente o dígito
@@ -37,6 +39,12 @@ export function compararComOBanco(entrada: {
    * compará-lo acusava o salário do dia como divergência.
    */
   chegouDepoisCents?: number
+  /**
+   * Leituras seguidas do banco que discordaram (`divergencia_leituras`). Uma
+   * só é o débito que o banco já descontou e o extrato traz amanhã; o aviso
+   * espera a segunda. Sem o dado, avisa como antes.
+   */
+  leiturasDivergentes?: number
 }): ConferenciaDeSaldo {
   // Cartão de crédito e conta sem Open Finance caem aqui. Ausência de dado não
   // é conferência bem-sucedida — dizer "bate" seria mentir por omissão.
@@ -46,5 +54,6 @@ export function compararComOBanco(entrada: {
 
   const diferencaCents = entrada.saldoLocalCents - (entrada.chegouDepoisCents ?? 0) - entrada.saldoBancoCents
 
-  return { comparavel: true, divergente: diferencaCents !== 0, diferencaCents }
+  const confirmada = (entrada.leiturasDivergentes ?? LEITURAS_PARA_AVISAR) >= LEITURAS_PARA_AVISAR
+  return { comparavel: true, divergente: diferencaCents !== 0 && confirmada, diferencaCents }
 }

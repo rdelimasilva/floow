@@ -49,6 +49,8 @@ describe('registrarSaldoDoBanco', () => {
     expect(gravado).toHaveLength(1)
     expect(gravado[0].bankBalanceCents).toBe(615118)
     expect(gravado[0].bankBalanceAt).toEqual(new Date('2026-09-22T07:14:13Z'))
+    // A contagem de leituras divergentes vai na mesma gravação.
+    expect(gravado[0].divergenciaLeituras).toBeDefined()
   })
 
   it('não grava nada para cartão de crédito, que não tem saldo', async () => {

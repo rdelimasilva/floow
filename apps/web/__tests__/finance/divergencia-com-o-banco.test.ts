@@ -63,4 +63,18 @@ describe('compararComOBanco', () => {
 
     expect(r.divergente).toBe(false)
   })
+
+  it('uma leitura só não avisa: é o débito que o extrato traz amanhã', () => {
+    // 18/10/2026: débito automático de R$ 316,74 no saldo do Itaú, fora do extrato.
+    const r = compararComOBanco({ saldoLocalCents: 1669490, saldoBancoCents: 1637816, leiturasDivergentes: 1 })
+
+    expect(r.diferencaCents).toBe(31674)
+    expect(r.divergente).toBe(false)
+  })
+
+  it('a diferença que sobrevive à segunda leitura avisa', () => {
+    const r = compararComOBanco({ saldoLocalCents: 1669490, saldoBancoCents: 1637816, leiturasDivergentes: 2 })
+
+    expect(r.divergente).toBe(true)
+  })
 })

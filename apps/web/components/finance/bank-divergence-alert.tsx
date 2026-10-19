@@ -12,6 +12,8 @@ export interface ContaConferida {
   apuradoEm: Date | null
   /** O que entrou no app depois da apuração: o banco não podia contar. */
   chegouDepois?: { quantos: number; cents: number }
+  /** Leituras seguidas do banco que discordaram; uma só ainda não avisa. */
+  leiturasDivergentes?: number
 }
 
 function conferir(c: ContaConferida) {
@@ -19,6 +21,7 @@ function conferir(c: ContaConferida) {
     saldoLocalCents: c.saldoLocalCents,
     saldoBancoCents: c.saldoBancoCents,
     chegouDepoisCents: c.chegouDepois?.cents ?? 0,
+    leiturasDivergentes: c.leiturasDivergentes,
   })
 }
 

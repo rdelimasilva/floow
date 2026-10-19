@@ -27,6 +27,7 @@ export default async function AccountsPage() {
     saldoBancoCents: saldosDoBanco.get(a.id)?.bankBalanceCents ?? null,
     apuradoEm: saldosDoBanco.get(a.id)?.bankBalanceAt ?? null,
     chegouDepois: saldosDoBanco.get(a.id)?.chegouDepois,
+    leiturasDivergentes: saldosDoBanco.get(a.id)?.divergenciaLeituras,
   }))
 
   // Conta de investimentos do Open Finance vale o que as posições valem, não o

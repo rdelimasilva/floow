@@ -133,6 +133,8 @@ export const openfinanceResources = pgTable(
     bankBalanceCents: integer('bank_balance_cents'),
     /** Quando o banco APUROU o saldo, nao quando gravamos. Ver migration 00048. */
     bankBalanceAt: timestamp('bank_balance_at', { withTimezone: true }),
+    /** Leituras seguidas do banco que discordaram do nosso saldo. Ver migration 00080. */
+    divergenciaLeituras: integer('divergencia_leituras').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

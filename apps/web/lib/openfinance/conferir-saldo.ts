@@ -1,5 +1,5 @@
 import { getDb, openfinanceResources } from '@floow/db'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import {
   extrairApuracaoDoSaldo,
   extrairSaldoDisponivelCents,
@@ -42,12 +42,39 @@ export async function registrarSaldoDoBanco(
   // que saldo. Gravar zero aqui fingiria uma conferência que não houve.
   if (saldoCents === null) return
 
+  const apuracao = extrairApuracaoDoSaldo(detalhe)
   await db
     .update(openfinanceResources)
     .set({
       bankBalanceCents: saldoCents,
-      bankBalanceAt: extrairApuracaoDoSaldo(detalhe),
+      bankBalanceAt: apuracao,
+      divergenciaLeituras: leiturasDivergentes(saldoCents, apuracao),
       updatedAt: new Date(),
     })
     .where(eq(openfinanceResources.id, resource.id))
+}
+
+/**
+ * Quantas leituras seguidas do banco discordaram do nosso saldo, contando
+ * esta. O Itaú desconta o débito automático do saldo no dia e só põe a linha
+ * no extrato no dia seguinte, carimbada depois da apuração: por um sync os
+ * dois discordam sem lançamento errado nenhum. O aviso espera a segunda
+ * leitura (`LEITURAS_PARA_AVISAR`).
+ *
+ * Mesma conta de `compararComOBanco`, com o "chegou depois" de
+ * `consultaSaldosDoBanco`, mas contra a apuração nova (no SET, a coluna
+ * ainda tem a antiga). Conta sem vínculo dá NULL e zera. Data em SQL cru vai
+ * como texto: o postgres-js recusa `Date` como parâmetro.
+ */
+function leiturasDivergentes(saldoCents: number, apuracao: Date | null) {
+  return sql`case when (
+      (select a.balance_cents from accounts a where a.id = "openfinance_resources"."account_id")
+      - (select coalesce(sum(t.amount_cents), 0)
+           from transactions t
+          where t.account_id = "openfinance_resources"."account_id"
+            and t.origem = 'extrato'
+            and t.balance_applied and not t.is_ignored
+            and date_trunc('second', t.ocorrido_em) > ${apuracao?.toISOString() ?? null}::timestamptz)
+      - ${saldoCents}
+    ) <> 0 then "openfinance_resources"."divergencia_leituras" + 1 else 0 end`
 }

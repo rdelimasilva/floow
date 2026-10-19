@@ -55,6 +55,7 @@ export function consultaSaldosDoBanco(db: ReturnType<typeof getDb>, orgId: strin
       accountId: openfinanceResources.accountId,
       bankBalanceCents: openfinanceResources.bankBalanceCents,
       bankBalanceAt: openfinanceResources.bankBalanceAt,
+      divergenciaLeituras: openfinanceResources.divergenciaLeituras,
       // O extrato que aconteceu depois da apuração: o banco não podia contá-lo.
       // Pelo instante da transação, não pelo da chegada — o débito de ontem
       // chega hoje e já estava no saldo do banco.
@@ -81,11 +82,21 @@ export function consultaSaldosDoBanco(db: ReturnType<typeof getDb>, orgId: strin
 export const getSaldosDoBanco = cache(async function getSaldosDoBanco(orgId: string) {
   const linhas = await consultaSaldosDoBanco(getDb(), orgId)
 
-  const porConta = new Map<string, { bankBalanceCents: number; bankBalanceAt: Date | null; chegouDepois: { quantos: number; cents: number } }>()
+  const porConta = new Map<string, {
+    bankBalanceCents: number
+    bankBalanceAt: Date | null
+    divergenciaLeituras: number
+    chegouDepois: { quantos: number; cents: number }
+  }>()
   for (const l of linhas) {
     if (l.accountId === null || l.bankBalanceCents === null) continue
     const chegouDepois = { quantos: Number(l.chegouDepois?.quantos ?? 0), cents: Number(l.chegouDepois?.cents ?? 0) }
-    porConta.set(l.accountId, { bankBalanceCents: l.bankBalanceCents, bankBalanceAt: l.bankBalanceAt, chegouDepois })
+    porConta.set(l.accountId, {
+      bankBalanceCents: l.bankBalanceCents,
+      bankBalanceAt: l.bankBalanceAt,
+      divergenciaLeituras: l.divergenciaLeituras,
+      chegouDepois,
+    })
   }
   return porConta
 })
