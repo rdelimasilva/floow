@@ -205,6 +205,8 @@ export const assetBankPositions = pgTable(
     iofCents: integer('iof_cents'),
     blockedCents: integer('blocked_cents'),
     purchaseUnitPrice: numericNumber('purchase_unit_price'),
+    /** `ausencia`: zero que `zerarAusentes` grava; `banco`: o que a listagem trouxe. */
+    origem: text('origem', { enum: ['banco', 'ausencia'] }).notNull().default('banco'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

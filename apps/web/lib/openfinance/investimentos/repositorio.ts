@@ -105,8 +105,8 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
         const { referenceDate, ...valores } = inv.position
         await db
           .insert(assetBankPositions)
-          .values({ orgId: ctx.orgId, assetId, referenceDate, ...valores })
-          .onConflictDoUpdate({ target: [assetBankPositions.assetId, assetBankPositions.referenceDate], set: valores })
+          .values({ orgId: ctx.orgId, assetId, referenceDate, ...valores, origem: 'banco' })
+          .onConflictDoUpdate({ target: [assetBankPositions.assetId, assetBankPositions.referenceDate], set: { ...valores, origem: 'banco' } })
       }
       // Voltou à listagem: a posição zerada por `zerarAusentes` com data mais
       // nova que a do banco (que costuma vir D-1) esconderia a real. Sem saldo
@@ -117,9 +117,7 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
         .where(and(
           eq(assetBankPositions.assetId, assetId),
           inv.position ? gt(assetBankPositions.referenceDate, inv.position.referenceDate) : undefined,
-          sql`coalesce(${assetBankPositions.quantity}, 0) = 0`,
-          sql`coalesce(${assetBankPositions.grossCents}, 0) = 0`,
-          sql`coalesce(${assetBankPositions.netCents}, 0) = 0`,
+          eq(assetBankPositions.origem, 'ausencia'),
         ))
 
       await db
@@ -187,20 +185,19 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
           isNotNull(openfinanceResources.assetId),
           polpIdsVistos.length > 0 ? notInArray(openfinanceResources.polpResourceId, polpIdsVistos) : undefined,
           // Já zerado por ausência na última posição: não empilha uma linha nova
-          // por dia. Zero do banco (PU 0) não basta — sozinho não vale (`posicao-vigente`).
+          // por dia. Zero do banco não basta — sem prova não vale (`posicao-vigente`).
           sql`NOT EXISTS (
             SELECT 1 FROM asset_bank_positions p
             WHERE p.asset_id = ${openfinanceResources.assetId}
               AND p.reference_date = (SELECT max(q.reference_date) FROM asset_bank_positions q WHERE q.asset_id = p.asset_id)
-              AND coalesce(p.quantity, 0) = 0 AND coalesce(p.gross_cents, 0) = 0 AND coalesce(p.net_cents, 0) = 0
-              AND p.unit_price IS NULL
+              AND p.origem = 'ausencia'
           )`,
         ))
       if (ausentes.length === 0) return 0
 
       const zero = {
         quantity: 0, unitPrice: null, grossCents: 0, netCents: 0,
-        incomeTaxCents: 0, iofCents: 0, blockedCents: 0, purchaseUnitPrice: null,
+        incomeTaxCents: 0, iofCents: 0, blockedCents: 0, purchaseUnitPrice: null, origem: 'ausencia' as const,
       }
       await db
         .insert(assetBankPositions)

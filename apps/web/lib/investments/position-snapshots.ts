@@ -1,7 +1,7 @@
 import { getDb, assets, assetPositionSnapshots, assetPrices, portfolioEvents } from '@floow/db'
 import { computePosition, computeBankPosition, type PortfolioEventType, type BankPositionInput } from '@floow/core-finance'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
-import { leiturasRecentesDoBanco, posicaoVigente } from './posicao-vigente'
+import { posicoesVigentesDoBanco } from './posicao-vigente'
 
 type DbClient = ReturnType<typeof getDb>
 
@@ -149,19 +149,8 @@ async function getLatestPriceCents(db: DbClient, orgId: string, assetId: string)
   return latestPrice?.priceCents ?? 0
 }
 
-/**
- * Posição do banco que vale por ativo, direto do Open Finance — sem leitura
- * espelhada de outro ativo e sem zero isolado do banco (`posicao-vigente`).
- */
-async function getLatestBankPositions(db: DbClient, orgId: string): Promise<Map<string, BankPositionInput>> {
-  const leituras = await leiturasRecentesDoBanco(db, orgId)
-  const vigentes = new Map<string, BankPositionInput>()
-  for (const [assetId, lista] of leituras) {
-    const p = posicaoVigente(lista)
-    if (p) vigentes.set(assetId, { quantity: p.quantity, grossCents: p.grossCents, netCents: p.netCents, purchaseUnitPrice: p.purchaseUnitPrice })
-  }
-  return vigentes
-}
+/** Posição do banco que vale por ativo, direto do Open Finance (`posicao-vigente`). */
+const getLatestBankPositions = posicoesVigentesDoBanco
 
 export async function recomputeAssetPositionSnapshot(db: DbClient, orgId: string, assetId: string) {
   const [asset] = await db
