@@ -51,6 +51,11 @@ function diasEntre(de: string, ate: string): number {
  * foi cobrada em `real`. Nas séries por mês, o dia da cobrança no mesmo
  * deslocamento de meses (cobrança que virou o mês empurra as próximas
  * junto); nas séries por dia, o mesmo número de dias.
+ *
+ * Pagamento atrasado não é mudança de mês: a parcela de 01/12 paga em 01/01
+ * fica no dia 1 de cada mês. Só empurra o mês quando o dia da cobrança no
+ * mês dela fica mais perto do previsto do que no mês da previsão (30/09
+ * pago em 01/10 empurra; 01/12 pago em 01/01 não).
  */
 export function dataRealinhada(pendente: string, previsao: string, real: string, frequencia: RecurringFrequency): string {
   if (frequencia === 'daily' || frequencia === 'weekly' || frequencia === 'biweekly') {
@@ -58,9 +63,56 @@ export function dataRealinhada(pendente: string, previsao: string, real: string,
   }
   const [ap, mp] = partes(previsao)
   const [ar, mr, dr] = partes(real)
-  const meses = ar * 12 + mr - (ap * 12 + mp)
+  let meses = ar * 12 + mr - (ap * 12 + mp)
+  if (meses !== 0) {
+    const distancia = (k: number) => Math.abs(diasEntre(previsao, diaNoMes(ap, mp + k, dr)))
+    if (distancia(0) <= distancia(meses)) meses = 0
+  }
   const [a, m] = partes(pendente)
   return diaNoMes(a, m + meses, dr)
+}
+
+interface ParcelaDaSerie {
+  id: string
+  accountId: string
+  data: string
+}
+
+/**
+ * As datas novas das parcelas, na ordem em que podem ser gravadas sem bater
+ * no índice único (template, dia, conta) no meio do caminho. `null` quando o resultado final põe duas
+ * parcelas da série no mesmo dia da mesma conta — o banco recusaria e
+ * derrubaria o vínculo junto.
+ */
+export function planejarRealinhamento(
+  pendentes: ParcelaDaSerie[],
+  daSerie: ParcelaDaSerie[],
+  realinhar: (data: string) => string,
+): { id: string; atual: string; nova: string }[] | null {
+  const movimentos = pendentes
+    .map((p) => ({ id: p.id, accountId: p.accountId, atual: p.data, nova: realinhar(p.data) }))
+    .filter((mv) => mv.nova !== mv.atual)
+  const destino = new Map(movimentos.map((mv) => [mv.id, mv.nova]))
+  const ocupadas = new Set<string>()
+  for (const p of daSerie) {
+    const chave = `${p.accountId}|${destino.get(p.id) ?? p.data}`
+    if (ocupadas.has(chave)) return null
+    ocupadas.add(chave)
+  }
+  // Grava primeiro quem vai para um dia já livre; o dia que ela larga libera
+  // a próxima. Sem saída (troca circular de dias), desiste.
+  const agora = new Set(daSerie.map((p) => `${p.accountId}|${p.data}`))
+  const ordem: { id: string; atual: string; nova: string }[] = []
+  let restantes = movimentos
+  while (restantes.length > 0) {
+    const livre = restantes.find((mv) => !agora.has(`${mv.accountId}|${mv.nova}`))
+    if (!livre) return null
+    agora.delete(`${livre.accountId}|${livre.atual}`)
+    agora.add(`${livre.accountId}|${livre.nova}`)
+    ordem.push({ id: livre.id, atual: livre.atual, nova: livre.nova })
+    restantes = restantes.filter((mv) => mv !== livre)
+  }
+  return ordem
 }
 
 /**
@@ -90,21 +142,29 @@ export async function realinharSerie(
   const frequencia = template.frequency as RecurringFrequency
 
   const pendentes = await tx
-    .select({ id: transactions.id, date: transactions.date })
+    .select({ id: transactions.id, date: transactions.date, accountId: transactions.accountId })
     .from(transactions)
     .where(and(...condicoesDeParcelasPendentes(orgId, previsao.recurringTemplateId, hojeStr), ne(transactions.id, previsao.id)))
+  const daSerie = await tx
+    .select({ id: transactions.id, date: transactions.date, accountId: transactions.accountId })
+    .from(transactions)
+    .where(and(eq(transactions.orgId, orgId), eq(transactions.recurringTemplateId, previsao.recurringTemplateId)))
 
-  let movidas = 0
-  for (const p of pendentes) {
-    const atual = dataDeCalendario(p.date)
-    const nova = dataRealinhada(atual, prevista, cobrada, frequencia)
-    if (nova === atual) continue
+  const movimentos = planejarRealinhamento(
+    pendentes.map((p) => ({ id: p.id, accountId: p.accountId, data: dataDeCalendario(p.date) })),
+    daSerie.map((p) => ({ id: p.id, accountId: p.accountId, data: dataDeCalendario(p.date) })),
+    (data) => dataRealinhada(data, prevista, cobrada, frequencia),
+  )
+  // Duas parcelas no mesmo dia: o vínculo vale, a série fica como estava.
+  if (!movimentos) return 0
+
+  for (const mv of movimentos) {
     await tx
       .update(transactions)
-      .set({ date: new Date(`${nova}T00:00:00Z`) })
-      .where(and(eq(transactions.id, p.id), eq(transactions.orgId, orgId)))
-    movidas++
+      .set({ date: new Date(`${mv.nova}T00:00:00Z`) })
+      .where(and(eq(transactions.id, mv.id), eq(transactions.orgId, orgId)))
   }
+  const movidas = movimentos.length
 
   if (template.nextDueDate) {
     const proxima = dataRealinhada(dataDeCalendario(template.nextDueDate), prevista, cobrada, frequencia)
