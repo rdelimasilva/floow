@@ -25,4 +25,12 @@ describe('ExportCsvButton', () => {
       expect(toast).toHaveBeenCalledWith('Não foi possível exportar as transações. Tente de novo.', 'error'),
     )
   })
+
+  it('pede XLSX com os mesmos filtros da tela', async () => {
+    const fetchMock = vi.fn(async () => new Response('erro', { status: 500 }))
+    global.fetch = fetchMock as never
+    render(<ExportCsvButton formato="xlsx" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar Excel' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/transactions/export?search=x&format=xlsx'))
+  })
 })

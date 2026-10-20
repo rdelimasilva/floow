@@ -4,6 +4,12 @@ import { getVerifiedIdentity, getOrgId } from '@/lib/auth/session'
 import { formatBRL } from '@floow/core-finance'
 import { recordAudit } from '@/lib/audit/record'
 import { formatarDia } from '@/lib/formatar-dia'
+import { planilhaDeTransacoes, TIPO_XLSX } from '@/lib/export/planilha'
+
+/** `YYYY-MM-DD` do lançamento: a coluna é `date`, então o dia é o do ISO. */
+function diaDoLancamento(date: Date | string): string {
+  return (date instanceof Date ? date.toISOString() : String(date)).slice(0, 10)
+}
 
 const TYPE_LABELS: Record<string, string> = {
   income: 'Receita',
@@ -45,12 +51,30 @@ export async function GET(request: NextRequest) {
       ...filters,
     })
 
+    const formato = params.get('format') === 'xlsx' ? 'xlsx' : 'csv'
+
     await recordAudit({
       action: 'transactions.export',
       resource: 'transactions',
       resourceCount: transactions.length,
-      metadata: { filters },
+      metadata: { filters, formato },
     })
+
+    if (formato === 'xlsx') {
+      const planilha = await planilhaDeTransacoes(transactions.map((tx) => ({
+        dia: diaDoLancamento(tx.date),
+        descricao: tx.description,
+        categoria: tx.categoryName,
+        tipo: tx.type,
+        amountCents: tx.amountCents,
+      })))
+      return new NextResponse(new Uint8Array(planilha), {
+        headers: {
+          'Content-Type': TIPO_XLSX,
+          'Content-Disposition': `attachment; filename="transacoes.xlsx"`,
+        },
+      })
+    }
 
     // Build CSV
     const header = 'Data,Descrição,Categoria,Tipo,Valor'

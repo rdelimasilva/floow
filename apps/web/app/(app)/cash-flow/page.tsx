@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { getOrgId, getRecentTransactions, getFutureTransactions, getAccounts, getMonthlyCashFlowSummary, getFutureMonthlyCashFlowSummary } from '@/lib/finance/queries'
 import { CashFlowClient } from '@/components/finance/cash-flow-client'
 import { PageHeader } from '@/components/ui/page-header'
+import { BotaoDeExportar } from '@/components/finance/export-csv-button'
 
 async function CashFlowContent({ orgId }: { orgId: string }) {
   const [recentTransactions, futureTransactions, monthlyRealized, monthlyProjected, accounts] = await Promise.all([
@@ -42,7 +43,16 @@ export default async function CashFlowPage() {
       <PageHeader
         title="Fluxo de Caixa"
         description="Receitas, despesas e saldo por período"
-      />
+      >
+        <div className="hidden sm:contents">
+          <BotaoDeExportar
+            url="/api/cash-flow/export"
+            arquivo="fluxo-de-caixa.xlsx"
+            rotulo="Exportar Excel"
+            erro="Não foi possível exportar o fluxo de caixa. Tente de novo."
+          />
+        </div>
+      </PageHeader>
 
       <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /><SectionSkeleton /></>}>
         <CashFlowContent orgId={orgId} />

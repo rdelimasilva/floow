@@ -20,7 +20,7 @@ import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { sumBudgetedSpending, rollUpSpendingToBudgeted } from '@/lib/finance/budgeted-spending'
 import { WelcomeCard } from '@/components/finance/welcome-card'
 import { getEstadoDoCadastro } from '@/lib/onboarding/estado-do-cadastro'
-// import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
+import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
 
 // -- Async sub-components for Suspense streaming ----------------------------
 
@@ -143,6 +143,11 @@ export default async function DashboardPage() {
       {/* Stats Row */}
       <Suspense fallback={<SectionSkeleton />}>
         <StatsSection orgId={orgId} />
+      </Suspense>
+
+      {/* Consultor: os 3 alertas mais graves do dia */}
+      <Suspense fallback={null}>
+        <CfoDashboardStrip orgId={orgId} />
       </Suspense>
 
       {/* Budget Alerts */}
