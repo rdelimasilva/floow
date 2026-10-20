@@ -55,8 +55,6 @@ describe('cards × total do detalhamento', () => {
       <CashFlowClient
         transactions={transactions}
         futureTransactions={[]}
-        monthlyRealized={monthlyRealized}
-        monthlyProjected={[]}
         accounts={[{ id: 'a1', name: 'Conta' }]}
       />,
     )

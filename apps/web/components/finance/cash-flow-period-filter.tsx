@@ -47,7 +47,8 @@ export function CashFlowPeriodFilter({ startDate, endDate, onChange }: CashFlowP
   )
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    // `contents`: os campos entram na linha de filtros de quem usa, como em Transações.
+    <div className="contents">
       {/* Celular: o seletor nativo abre a roleta do iPhone e cabe numa linha. */}
       <select
         aria-label="Período"

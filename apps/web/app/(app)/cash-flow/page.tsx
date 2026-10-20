@@ -1,15 +1,13 @@
 import { Suspense } from 'react'
-import { getOrgId, getRecentTransactions, getFutureTransactions, getAccounts, getMonthlyCashFlowSummary, getFutureMonthlyCashFlowSummary } from '@/lib/finance/queries'
+import { getOrgId, getRecentTransactions, getFutureTransactions, getAccounts } from '@/lib/finance/queries'
 import { CashFlowClient } from '@/components/finance/cash-flow-client'
 import { PageHeader } from '@/components/ui/page-header'
 import { BotaoDeExportar } from '@/components/finance/export-csv-button'
 
 async function CashFlowContent({ orgId }: { orgId: string }) {
-  const [recentTransactions, futureTransactions, monthlyRealized, monthlyProjected, accounts] = await Promise.all([
+  const [recentTransactions, futureTransactions, accounts] = await Promise.all([
     getRecentTransactions(orgId, 24),
     getFutureTransactions(orgId),
-    getMonthlyCashFlowSummary(orgId, 24),
-    getFutureMonthlyCashFlowSummary(orgId, 24),
     getAccounts(orgId),
   ])
 
@@ -24,8 +22,6 @@ async function CashFlowContent({ orgId }: { orgId: string }) {
     <CashFlowClient
       transactions={recentTransactions.map(serialize)}
       futureTransactions={futureTransactions.map(serialize)}
-      monthlyRealized={monthlyRealized}
-      monthlyProjected={monthlyProjected}
       accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
     />
   )

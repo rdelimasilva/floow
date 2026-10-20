@@ -19,13 +19,13 @@ const transactions = [
 
 describe('detalhamento do fluxo de caixa', () => {
   it('rótulo do mês: só a primeira letra maiúscula ("Outubro de 2026")', () => {
-    render(<CashFlowBreakdown transactions={transactions} accounts={[]} />)
+    render(<CashFlowBreakdown transactions={transactions} />)
     const celula = screen.getByText('Outubro de 2026')
     expect(celula.className).not.toContain('capitalize')
   })
 
   it('a tabela não tem scroll vertical próprio', () => {
-    const { container } = render(<CashFlowBreakdown transactions={transactions} accounts={[]} />)
+    const { container } = render(<CashFlowBreakdown transactions={transactions} />)
     const table = container.querySelector('table')!
     let el: HTMLElement | null = table.parentElement
     while (el && el !== container) {

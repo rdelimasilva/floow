@@ -14,11 +14,6 @@ interface RawTransaction {
   accountId: string
 }
 
-interface AccountOption {
-  id: string
-  name: string
-}
-
 interface AggregatedRow {
   key: string
   label: string
@@ -29,7 +24,6 @@ interface AggregatedRow {
 
 interface CashFlowBreakdownProps {
   transactions: RawTransaction[]
-  accounts: AccountOption[]
 }
 
 const GROUPING_LABELS: Record<Grouping, string> = {
@@ -115,19 +109,12 @@ function aggregate(transactions: RawTransaction[], grouping: Grouping): Aggregat
     .sort((a, b) => b.key.localeCompare(a.key))
 }
 
-export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlowBreakdownProps) {
+export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps) {
   const [grouping, setGrouping] = useState<Grouping>('monthly')
-  const [accountId, setAccountId] = useState<string>('')
 
   const deferredTransactions = useDeferredValue(transactions)
 
-  const filtered = useMemo(() => {
-    let result = deferredTransactions
-    if (accountId) result = result.filter((t) => t.accountId === accountId)
-    return result
-  }, [deferredTransactions, accountId])
-
-  const rows = useMemo(() => aggregate(filtered, grouping), [filtered, grouping])
+  const rows = useMemo(() => aggregate(deferredTransactions, grouping), [deferredTransactions, grouping])
 
   const totalIncome = rows.reduce((s, r) => s + r.income, 0)
   const totalExpense = rows.reduce((s, r) => s + Math.abs(r.expense), 0)
@@ -138,21 +125,6 @@ export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlow
       <CardHeader>
         <div className="flex flex-col gap-3">
           <CardTitle className="text-sm">Detalhamento</CardTitle>
-
-          {/* Filters row */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Account filter */}
-            <select
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
-            >
-              <option value="">Todas as contas</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
 
           {/* Grouping toggle */}
           <div className="flex max-w-full overflow-x-auto rounded-lg border border-gray-200 p-0.5 gap-0.5 w-fit">

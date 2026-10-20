@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useMemo, useCallback, useDeferredValue } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { CashFlowPeriodFilter } from './cash-flow-period-filter'
+import { AccountFilter } from './account-filter'
 import { PERIOD_GROUPS, getPeriodDates, type PeriodKey } from '@/lib/finance/filtros-lembrados'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
 import dynamic from 'next/dynamic'
-import type { MonthlyCashFlowSummary } from '@/lib/finance/queries'
 
 const CashFlowChart = dynamic(() => import('./cash-flow-chart').then(m => ({ default: m.CashFlowChart })), {
   loading: () => <div className="min-h-[300px] animate-pulse rounded-xl bg-gray-100" />,
@@ -40,64 +40,76 @@ const VIEW_LABELS: Record<ViewMode, string> = {
   both: 'Ambos',
 }
 
+// As mesmas pílulas da tela de Transações.
+const PILL_BASE = 'h-8 whitespace-nowrap rounded-lg px-3 text-xs font-medium transition-colors'
+const PILL_OFF = 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+const PILL_ON = 'bg-gray-900 border border-gray-900 text-white'
+
 interface CashFlowClientProps {
   transactions: RawTransaction[]
   futureTransactions: RawTransaction[]
-  monthlyRealized: MonthlyCashFlowSummary[]
-  monthlyProjected: MonthlyCashFlowSummary[]
   accounts: AccountOption[]
 }
 
-export function CashFlowClient({
-  transactions,
-  futureTransactions,
-  monthlyRealized,
-  monthlyProjected,
-  accounts,
-}: CashFlowClientProps) {
+function preparar(list: RawTransaction[]): PreparedTransaction[] {
+  return list.map((t) => {
+    const dateKey = t.date.split('T')[0]
+    return { ...t, dateKey, month: dateKey.slice(0, 7) }
+  })
+}
+
+interface MesDoGrafico {
+  month: string
+  income: number
+  expense: number
+  net: number
+  projectedIncome: number
+  projectedExpense: number
+  projectedNet: number
+}
+
+/** Receita e despesa por mês, separando o projetado para o modo "Ambos". */
+function porMes(realizado: PreparedTransaction[], projetado: PreparedTransaction[]): MesDoGrafico[] {
+  const map = new Map<string, MesDoGrafico>()
+  const somar = (t: PreparedTransaction, proj: boolean) => {
+    if (t.type !== 'income' && t.type !== 'expense') return
+    const m = map.get(t.month) ?? {
+      month: t.month, income: 0, expense: 0, net: 0, projectedIncome: 0, projectedExpense: 0, projectedNet: 0,
+    }
+    const valor = Math.abs(t.amountCents)
+    if (t.type === 'income') m[proj ? 'projectedIncome' : 'income'] += valor
+    else m[proj ? 'projectedExpense' : 'expense'] += valor
+    m.net = m.income - m.expense
+    m.projectedNet = m.projectedIncome - m.projectedExpense
+    map.set(t.month, m)
+  }
+  realizado.forEach((t) => somar(t, false))
+  projetado.forEach((t) => somar(t, true))
+  return [...map.values()].sort((a, b) => a.month.localeCompare(b.month))
+}
+
+export function CashFlowClient({ transactions, futureTransactions, accounts }: CashFlowClientProps) {
   const [{ startDate, endDate }, setPeriodo] = useState(() => getPeriodDates('last12Months'))
+  const [accountIds, setAccountIds] = useState<string[]>([])
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [viewMode, setViewMode] = useState<ViewMode>('realized')
-  // Data vazia é ponta aberta, como em Transações ("Todo o período").
-  const noPeriodo = useCallback(
-    (dia: string) => (!startDate || dia >= startDate) && (!endDate || dia <= endDate),
-    [startDate, endDate],
-  )
   const [hideTransfers, setHideTransfers] = useState(true)
 
-  const preparedTransactions = useMemo<PreparedTransaction[]>(
-    () => transactions.map((t) => {
-      const dateKey = t.date.split('T')[0]
-      return { ...t, dateKey, month: dateKey.slice(0, 7) }
-    }),
-    [transactions],
-  )
+  const preparedTransactions = useMemo(() => preparar(transactions), [transactions])
+  const preparedFutureTransactions = useMemo(() => preparar(futureTransactions), [futureTransactions])
 
-  const preparedFutureTransactions = useMemo<PreparedTransaction[]>(
-    () => futureTransactions.map((t) => {
-      const dateKey = t.date.split('T')[0]
-      return { ...t, dateKey, month: dateKey.slice(0, 7) }
-    }),
-    [futureTransactions],
-  )
+  // Período, conta e transferências valem para cards, gráfico e detalhamento.
+  // Data vazia é ponta aberta, como em Transações ("Todo o período").
+  const filtrar = useMemo(() => (list: PreparedTransaction[]) => list.filter((t) =>
+    (!hideTransfers || t.type !== 'transfer')
+    && (accountIds.length === 0 || accountIds.includes(t.accountId))
+    && (!startDate || t.dateKey >= startDate)
+    && (!endDate || t.dateKey <= endDate),
+  ), [hideTransfers, accountIds, startDate, endDate])
 
-  // Filter realized transactions by period + transfer toggle
-  const filteredRealized = useMemo(() => {
-    return preparedTransactions.filter((t) => {
-      if (hideTransfers && t.type === 'transfer') return false
-      return noPeriodo(t.dateKey)
-    })
-  }, [preparedTransactions, noPeriodo, hideTransfers])
+  const filteredRealized = useMemo(() => filtrar(preparedTransactions), [filtrar, preparedTransactions])
+  const filteredFuture = useMemo(() => filtrar(preparedFutureTransactions), [filtrar, preparedFutureTransactions])
 
-  // Filter future transactions by period + transfer toggle
-  const filteredFuture = useMemo(() => {
-    return preparedFutureTransactions.filter((t) => {
-      if (hideTransfers && t.type === 'transfer') return false
-      return noPeriodo(t.dateKey)
-    })
-  }, [preparedFutureTransactions, noPeriodo, hideTransfers])
-
-  // Pick which transactions to show based on view mode
   const activeTransactions = useMemo(() => {
     if (viewMode === 'realized') return filteredRealized
     if (viewMode === 'projected') return filteredFuture
@@ -106,10 +118,11 @@ export function CashFlowClient({
 
   const deferredActiveTransactions = useDeferredValue(activeTransactions)
 
-  const monthRange = useMemo(() => ({
-    startMonth: startDate.slice(0, 7) || '0000-00',
-    endMonth: endDate.slice(0, 7) || '9999-99',
-  }), [startDate, endDate])
+  const chartData = useMemo(() => {
+    if (viewMode === 'realized') return porMes(filteredRealized, [])
+    if (viewMode === 'projected') return porMes(filteredFuture, [])
+    return porMes(filteredRealized, filteredFuture)
+  }, [viewMode, filteredRealized, filteredFuture])
 
   function escolherPeriodo(s: string, e: string, key: PeriodKey | null) {
     setPeriodo({ startDate: s, endDate: e })
@@ -117,70 +130,6 @@ export function CashFlowClient({
     if (key && PERIOD_GROUPS[0].keys.includes(key)) setViewMode('realized')
     if (key && PERIOD_GROUPS[2].keys.includes(key)) setViewMode('projected')
   }
-
-  const realizedData = useMemo(
-    () => monthlyRealized
-      .filter((item) => item.month >= monthRange.startMonth && item.month <= monthRange.endMonth)
-      .sort((a, b) => a.month.localeCompare(b.month)),
-    [monthlyRealized, monthRange.endMonth, monthRange.startMonth],
-  )
-
-  const projectedData = useMemo(
-    () => monthlyProjected
-      .filter((item) => item.month >= monthRange.startMonth && item.month <= monthRange.endMonth)
-      .sort((a, b) => a.month.localeCompare(b.month)),
-    [monthlyProjected, monthRange.endMonth, monthRange.startMonth],
-  )
-
-  // Merge realized + projected for "both" mode
-  const mergedData = useMemo(() => {
-    if (viewMode === 'realized') return realizedData
-    if (viewMode === 'projected') return projectedData
-
-    // Merge by month key
-    const map = new Map<string, { month: string; income: number; expense: number; net: number; projectedIncome: number; projectedExpense: number; projectedNet: number }>()
-
-    for (const d of realizedData) {
-      map.set(d.month, {
-        month: d.month,
-        income: d.income,
-        expense: Math.abs(d.expense),
-        net: d.net,
-        projectedIncome: 0,
-        projectedExpense: 0,
-        projectedNet: 0,
-      })
-    }
-
-    for (const d of projectedData) {
-      const existing = map.get(d.month)
-      if (existing) {
-        existing.projectedIncome = d.income
-        existing.projectedExpense = Math.abs(d.expense)
-        existing.projectedNet = d.net
-      } else {
-        map.set(d.month, {
-          month: d.month,
-          income: 0,
-          expense: 0,
-          net: 0,
-          projectedIncome: d.income,
-          projectedExpense: Math.abs(d.expense),
-          projectedNet: d.net,
-        })
-      }
-    }
-
-    return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month))
-  }, [viewMode, realizedData, projectedData])
-
-  const chartData = useMemo(() => {
-    if (viewMode !== 'both') {
-      const src = viewMode === 'realized' ? realizedData : projectedData
-      return src
-    }
-    return mergedData
-  }, [viewMode, realizedData, projectedData, mergedData])
 
   // Cards: mesmos lançamentos e mesma regra da tabela de detalhamento. O
   // resumo mensal filtrado por mês contava o mês de borda inteiro enquanto a
@@ -207,40 +156,35 @@ export function CashFlowClient({
 
   return (
     <>
-      <div className="space-y-2">
-        <CashFlowPeriodFilter startDate={startDate} endDate={endDate} onChange={escolherPeriodo} />
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex gap-1.5">
-            {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setViewMode(mode)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  viewMode === mode
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                {VIEW_LABELS[mode]}
-              </button>
-            ))}
-          </div>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={hideTransfers}
-              onChange={(e) => setHideTransfers(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            <span className="text-xs text-gray-600">Ocultar transferências</span>
-          </label>
-          {futureTransactions.length === 0 && (
-            <span className="text-xs text-gray-400">
-              Sem lançamentos futuros (crie transações recorrentes para projetar)
-            </span>
-          )}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <CashFlowPeriodFilter startDate={startDate} endDate={endDate} onChange={escolherPeriodo} />
+          <AccountFilter accounts={accounts} selected={accountIds} onChange={setAccountIds} />
+          {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={viewMode === mode}
+              onClick={() => setViewMode(mode)}
+              className={`${PILL_BASE} ${viewMode === mode ? PILL_ON : PILL_OFF}`}
+            >
+              {VIEW_LABELS[mode]}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-pressed={hideTransfers}
+            onClick={() => setHideTransfers((v) => !v)}
+            className={`${PILL_BASE} ${hideTransfers ? PILL_ON : PILL_OFF}`}
+          >
+            Ocultar transferências
+          </button>
         </div>
+        {futureTransactions.length === 0 && (
+          <p className="text-xs text-gray-400">
+            Sem lançamentos futuros (crie transações recorrentes para projetar)
+          </p>
+        )}
       </div>
 
       {/* Summary cards */}
@@ -249,7 +193,7 @@ export function CashFlowClient({
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Receitas {viewMode === 'projected' ? '(projetado)' : ''}
           </p>
-          <p className="mt-2 text-xl font-bold text-green-700">{formatBRL(totalIncome)}</p>
+          <p className="mt-2 text-xl font-bold text-blue-600">{formatBRL(totalIncome)}</p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -261,13 +205,13 @@ export function CashFlowClient({
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Saldo {viewMode === 'projected' ? '(projetado)' : ''}
           </p>
-          <p className={`mt-2 text-xl font-bold ${totalNet >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+          <p className={`mt-2 text-xl font-bold ${totalNet >= 0 ? 'text-violet-700' : 'text-red-600'}`}>
             {formatBRL(totalNet)}
           </p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Média Mensal</p>
-          <p className={`mt-2 text-xl font-bold ${avgMonthlyNet >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+          <p className={`mt-2 text-xl font-bold ${avgMonthlyNet >= 0 ? 'text-violet-700' : 'text-red-600'}`}>
             {formatBRL(Math.round(avgMonthlyNet))}
           </p>
         </Card>
@@ -291,10 +235,7 @@ export function CashFlowClient({
       </Card>
 
       {/* Breakdown */}
-      <CashFlowBreakdown
-        transactions={deferredActiveTransactions}
-        accounts={accounts}
-      />
+      <CashFlowBreakdown transactions={deferredActiveTransactions} />
     </>
   )
 }
