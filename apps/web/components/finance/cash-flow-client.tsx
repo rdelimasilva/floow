@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo, useDeferredValue } from 'react'
+import { useState, useMemo, useCallback, useDeferredValue } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
-import { CashFlowPeriodFilter, getPeriodDates, type PeriodKey } from './cash-flow-period-filter'
+import { CashFlowPeriodFilter } from './cash-flow-period-filter'
+import { PERIOD_GROUPS, getPeriodDates, type PeriodKey } from '@/lib/finance/filtros-lembrados'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
 import dynamic from 'next/dynamic'
 import type { MonthlyCashFlowSummary } from '@/lib/finance/queries'
@@ -54,9 +55,14 @@ export function CashFlowClient({
   monthlyProjected,
   accounts,
 }: CashFlowClientProps) {
-  const [period, setPeriod] = useState<PeriodKey>('last12')
+  const [{ startDate, endDate }, setPeriodo] = useState(() => getPeriodDates('last12Months'))
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [viewMode, setViewMode] = useState<ViewMode>('realized')
+  // Data vazia é ponta aberta, como em Transações ("Todo o período").
+  const noPeriodo = useCallback(
+    (dia: string) => (!startDate || dia >= startDate) && (!endDate || dia <= endDate),
+    [startDate, endDate],
+  )
   const [hideTransfers, setHideTransfers] = useState(true)
 
   const preparedTransactions = useMemo<PreparedTransaction[]>(
@@ -75,24 +81,21 @@ export function CashFlowClient({
     [futureTransactions],
   )
 
-  // Get date range for current period
-  const { startDate, endDate } = useMemo(() => getPeriodDates(period), [period])
-
   // Filter realized transactions by period + transfer toggle
   const filteredRealized = useMemo(() => {
     return preparedTransactions.filter((t) => {
       if (hideTransfers && t.type === 'transfer') return false
-      return t.dateKey >= startDate && t.dateKey <= endDate
+      return noPeriodo(t.dateKey)
     })
-  }, [preparedTransactions, startDate, endDate, hideTransfers])
+  }, [preparedTransactions, noPeriodo, hideTransfers])
 
   // Filter future transactions by period + transfer toggle
   const filteredFuture = useMemo(() => {
     return preparedFutureTransactions.filter((t) => {
       if (hideTransfers && t.type === 'transfer') return false
-      return t.dateKey >= startDate && t.dateKey <= endDate
+      return noPeriodo(t.dateKey)
     })
-  }, [preparedFutureTransactions, startDate, endDate, hideTransfers])
+  }, [preparedFutureTransactions, noPeriodo, hideTransfers])
 
   // Pick which transactions to show based on view mode
   const activeTransactions = useMemo(() => {
@@ -104,9 +107,16 @@ export function CashFlowClient({
   const deferredActiveTransactions = useDeferredValue(activeTransactions)
 
   const monthRange = useMemo(() => ({
-    startMonth: startDate.slice(0, 7),
-    endMonth: endDate.slice(0, 7),
+    startMonth: startDate.slice(0, 7) || '0000-00',
+    endMonth: endDate.slice(0, 7) || '9999-99',
   }), [startDate, endDate])
+
+  function escolherPeriodo(s: string, e: string, key: PeriodKey | null) {
+    setPeriodo({ startDate: s, endDate: e })
+    // Atalho de passado ou de futuro já leva ao modo que tem dado para ele.
+    if (key && PERIOD_GROUPS[0].keys.includes(key)) setViewMode('realized')
+    if (key && PERIOD_GROUPS[2].keys.includes(key)) setViewMode('projected')
+  }
 
   const realizedData = useMemo(
     () => monthlyRealized
@@ -197,6 +207,42 @@ export function CashFlowClient({
 
   return (
     <>
+      <div className="space-y-2">
+        <CashFlowPeriodFilter startDate={startDate} endDate={endDate} onChange={escolherPeriodo} />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-1.5">
+            {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === mode
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {VIEW_LABELS[mode]}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hideTransfers}
+              onChange={(e) => setHideTransfers(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            <span className="text-xs text-gray-600">Ocultar transferências</span>
+          </label>
+          {futureTransactions.length === 0 && (
+            <span className="text-xs text-gray-400">
+              Sem lançamentos futuros (crie transações recorrentes para projetar)
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Summary cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <Card className="p-5">
@@ -243,47 +289,6 @@ export function CashFlowClient({
           )}
         </CardContent>
       </Card>
-
-      {/* Filters below chart */}
-      <CashFlowPeriodFilter
-        activePeriod={period}
-        onChange={(p) => setPeriod(p)}
-      />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex gap-1.5">
-          {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setViewMode(mode)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === mode
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {VIEW_LABELS[mode]}
-            </button>
-          ))}
-        </div>
-
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={hideTransfers}
-            onChange={(e) => setHideTransfers(e.target.checked)}
-            className="rounded border-gray-300"
-          />
-          <span className="text-xs text-gray-600">Ocultar transferências</span>
-        </label>
-
-        {futureTransactions.length === 0 && (
-          <span className="text-xs text-gray-400">
-            Sem lançamentos futuros (crie transações recorrentes para projetar)
-          </span>
-        )}
-      </div>
 
       {/* Breakdown */}
       <CashFlowBreakdown

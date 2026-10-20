@@ -118,20 +118,14 @@ function aggregate(transactions: RawTransaction[], grouping: Grouping): Aggregat
 export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlowBreakdownProps) {
   const [grouping, setGrouping] = useState<Grouping>('monthly')
   const [accountId, setAccountId] = useState<string>('')
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
 
   const deferredTransactions = useDeferredValue(transactions)
 
   const filtered = useMemo(() => {
     let result = deferredTransactions
     if (accountId) result = result.filter((t) => t.accountId === accountId)
-    if (startDate) result = result.filter((t) => (t.dateKey ?? t.date.split('T')[0]) >= startDate)
-    if (endDate) result = result.filter((t) => (t.dateKey ?? t.date.split('T')[0]) <= endDate)
     return result
-  }, [deferredTransactions, accountId, startDate, endDate])
-
-  const hasFilters = accountId || startDate || endDate
+  }, [deferredTransactions, accountId])
 
   const rows = useMemo(() => aggregate(filtered, grouping), [filtered, grouping])
 
@@ -158,31 +152,6 @@ export function CashFlowBreakdown({ transactions = [], accounts = [] }: CashFlow
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
-
-            {/* Date range */}
-            <input
-              type="date" min="1900-01-01" max="2100-12-31"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
-            />
-            <span className="text-xs text-gray-400">até</span>
-            <input
-              type="date" min="1900-01-01" max="2100-12-31"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-xs text-gray-600"
-            />
-
-            {hasFilters && (
-              <button
-                type="button"
-                onClick={() => { setAccountId(''); setStartDate(''); setEndDate('') }}
-                className="text-xs text-red-500 hover:text-red-700"
-              >
-                Limpar
-              </button>
-            )}
           </div>
 
           {/* Grouping toggle */}

@@ -24,10 +24,10 @@ function formatYAxisTick(cents: number): string {
 }
 
 const chartConfig = {
-  income: { label: 'Receitas', color: '#16a34a' },
+  income: { label: 'Receitas', color: '#2563eb' },
   expense: { label: 'Despesas', color: '#dc2626' },
-  net: { label: 'Saldo', color: '#2563eb' },
-  projectedIncome: { label: 'Receitas (proj.)', color: '#86efac' },
+  net: { label: 'Saldo', color: '#7c3aed' },
+  projectedIncome: { label: 'Receitas (proj.)', color: '#93c5fd' },
   projectedExpense: { label: 'Despesas (proj.)', color: '#fca5a5' },
 }
 
@@ -92,7 +92,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
 
   if (chartType === 'pie') {
     const pieData = [
-      { name: 'Receitas', value: pieTotals.income, color: '#16a34a' },
+      { name: 'Receitas', value: pieTotals.income, color: '#2563eb' },
       { name: 'Despesas', value: pieTotals.expense, color: '#dc2626' },
     ]
     const netValue = pieTotals.income - pieTotals.expense
@@ -117,7 +117,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
             <Legend />
           </PieChart>
         </ResponsiveContainer>
-        <p className={`text-sm font-semibold ${netValue >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+        <p className={`text-sm font-semibold ${netValue >= 0 ? 'text-violet-700' : 'text-red-600'}`}>
           Saldo: {formatBRL(netValue)}
         </p>
       </div>
@@ -185,7 +185,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
           <Bar dataKey="base" stackId="waterfall" fill="transparent" legendType="none" />
           <Bar dataKey="delta" stackId="waterfall" radius={[4, 4, 0, 0]}>
             {waterfallData.map((entry, i) => (
-              <Cell key={i} fill={entry.delta >= 0 ? '#16a34a' : '#dc2626'} />
+              <Cell key={i} fill={entry.delta >= 0 ? '#7c3aed' : '#dc2626'} />
             ))}
           </Bar>
         </BarChart>

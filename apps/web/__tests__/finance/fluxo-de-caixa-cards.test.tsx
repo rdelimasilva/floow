@@ -60,6 +60,7 @@ describe('cards × total do detalhamento', () => {
         accounts={[{ id: 'a1', name: 'Conta' }]}
       />,
     )
+    fireEvent.click(screen.getByRole('button', { name: /^Período:/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Hoje' }))
 
     const tabela = totaisDoDetalhamento()
