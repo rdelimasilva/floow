@@ -46,4 +46,5 @@ export * from './openfinance/duplicata'
 // Conciliação única — o extrato é a verdade
 export * from './conciliacao'
 export * from './openfinance/parcelas'
+export * from './openfinance/parcelados-no-cartao'
 export * from './openfinance/investments'

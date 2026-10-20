@@ -80,7 +80,7 @@ export interface ParcelaConhecida {
 
 export type ParcelaPlanejada = ParcelaConhecida
 
-function mesmoValor(a: number, b: number): boolean {
+export function mesmoValor(a: number, b: number): boolean {
   const maior = Math.max(Math.abs(a), Math.abs(b))
   return maior === 0 || Math.abs(a - b) / maior <= TOLERANCIA_DO_GRUPO
 }
