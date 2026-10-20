@@ -1,50 +1,68 @@
 {
-  "FLOOW-V": {
+  "7758326901": {
     "verdict": "vivo-corrigido",
-    "note": "unstable_cache devolve eventDate como string; 23d331a",
+    "note": "FLOOW-K: lado cliente do FLOOW-V; unstable_cache devolvia eventDate como string; 23d331a",
     "lastSeen": "2026-10-19T18:30:55Z",
-    "julgadoEm": "2026-10-20T13:24:21.081Z"
+    "julgadoEm": "2026-10-20T13:59:01.441Z"
   },
-  "FLOOW-K": {
+  "7758327112": {
     "verdict": "vivo-corrigido",
-    "note": "lado cliente do FLOOW-V (mesmo trace); 23d331a",
-    "lastSeen": "2026-10-19T18:30:55Z",
-    "julgadoEm": "2026-10-20T13:24:21.142Z"
+    "note": "FLOOW-M: mesmo getUTCFullYear da renda passiva; 23d331a",
+    "lastSeen": "2026-09-28T00:25:24Z",
+    "julgadoEm": "2026-10-20T13:59:01.511Z"
   },
-  "FLOOW-H": {
+  "7753682457": {
     "verdict": "morto",
-    "note": "último evento 20:55 BRT de 18/10, antes de 23f8595 (21:13) que corrigiu a colisão no realinhamento",
+    "note": "FLOOW-H: último evento 20:55 BRT de 18/10, antes de 23f8595 (21:13)",
     "lastSeen": "2026-10-18T23:55:01Z",
-    "julgadoEm": "2026-10-20T13:24:21.226Z"
+    "julgadoEm": "2026-10-20T13:59:01.568Z"
   },
-  "FLOOW-N": {
+  "7763542628": {
     "verdict": "vivo-reportado",
-    "note": "alerta de dados: conta 3ac85523 divergia R$ 316,74; não disparou em 19 e 20/10",
+    "note": "FLOOW-N: alerta de dados, conta 3ac85523 divergia R$ 316,74; não disparou em 19 e 20/10",
     "lastSeen": "2026-10-18T12:50:23Z",
-    "julgadoEm": "2026-10-20T13:24:21.290Z"
+    "julgadoEm": "2026-10-20T13:59:01.645Z"
   },
-  "FLOOW-J": {
+  "7755366425": {
     "verdict": "vivo-reportado",
-    "note": "N+1 em salvarInvestimento (1 select por papel); custo baixo perto da Polp",
+    "note": "FLOOW-J: N+1 em salvarInvestimento, 1 select por papel; custo baixo perto da Polp",
     "lastSeen": "2026-10-19T23:52:24Z",
-    "julgadoEm": "2026-10-20T13:24:21.348Z"
+    "julgadoEm": "2026-10-20T13:59:01.694Z"
   },
-  "FLOOW-T": {
+  "7796184636": {
     "verdict": "vivo-reportado",
-    "note": "mesmo N+1 do FLOOW-J, reconexão",
+    "note": "FLOOW-T: mesmo N+1 do FLOOW-J, na reconexão",
     "lastSeen": "2026-10-16T14:11:00Z",
-    "julgadoEm": "2026-10-20T13:24:21.409Z"
+    "julgadoEm": "2026-10-20T13:59:01.745Z"
   },
-  "FLOOW-S": {
+  "7777067284": {
     "verdict": "morto",
-    "note": "erro de build de 13 dias atrás; build atual passa",
-    "lastSeen": "2026-10-07T00:00:00Z",
-    "julgadoEm": "2026-10-20T13:24:21.485Z"
+    "note": "FLOOW-S: erro de build de 06/10; build atual passa",
+    "lastSeen": "2026-10-06T17:25:32Z",
+    "julgadoEm": "2026-10-20T13:59:01.801Z"
   },
-  "FLOOW-R": {
+  "7777023910": {
     "verdict": "nao-e-nosso",
-    "note": "plano da conta Polp inativo — erro do provedor, 1 evento",
-    "lastSeen": "2026-10-07T00:00:00Z",
-    "julgadoEm": "2026-10-20T13:24:21.543Z"
+    "note": "FLOOW-R: Polp sem plano ativo, erro do provedor",
+    "lastSeen": "2026-10-06T17:02:01Z",
+    "julgadoEm": "2026-10-20T13:59:01.887Z"
+  },
+  "7766494756": {
+    "verdict": "nao-e-nosso",
+    "note": "FLOOW-Q: frames de build dev (runWithFiberInDEV), dev local",
+    "lastSeen": "2026-10-01T17:55:31Z",
+    "julgadoEm": "2026-10-20T13:59:01.941Z"
+  },
+  "7766274579": {
+    "verdict": "nao-e-nosso",
+    "note": "FLOOW-P: frames _next/dev, servidor de dev local",
+    "lastSeen": "2026-10-01T15:57:52Z",
+    "julgadoEm": "2026-10-20T13:59:01.996Z"
+  },
+  "7752835949": {
+    "verdict": "guard-intencional",
+    "note": "FLOOW-G: aviso de CPF já conectado mostrado ao usuário; 1 evento em 24/09",
+    "lastSeen": "2026-09-24T14:51:49Z",
+    "julgadoEm": "2026-10-20T13:59:02.050Z"
   }
 }
