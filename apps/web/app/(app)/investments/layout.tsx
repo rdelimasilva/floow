@@ -1,4 +1,5 @@
 import { AbasDeInvestimentos } from '@/components/investments/abas-de-investimentos'
+import { ExigePro } from '@/components/billing/exige-pro'
 
 export default function InvestmentsLayout({
   children,
@@ -6,9 +7,11 @@ export default function InvestmentsLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-6">
-      <AbasDeInvestimentos />
-      {children}
-    </div>
+    <ExigePro recurso="investimentos">
+      <div className="space-y-6">
+        <AbasDeInvestimentos />
+        {children}
+      </div>
+    </ExigePro>
   )
 }

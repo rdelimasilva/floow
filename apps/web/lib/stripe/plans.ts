@@ -1,24 +1,24 @@
 export const PLANS = {
   free: {
     name: 'Free',
-    description: 'Basic financial tracking',
+    description: 'Controle financeiro básico',
     features: [
-      'Up to 2 accounts',
-      'Manual transactions',
-      'Basic dashboard',
+      'Até 2 contas',
+      'Lançamentos manuais',
+      'Dashboard e fluxo de caixa',
     ],
     price: { monthly: 0, annual: 0 },
     stripePriceId: { monthly: null, annual: null },
   },
   pro: {
     name: 'Pro',
-    description: 'Full financial management',
+    description: 'Gestão financeira completa',
     features: [
-      'Unlimited accounts',
-      'OFX/CSV import',
-      'Investment tracking',
-      'Financial planning',
-      'Priority support',
+      'Contas ilimitadas',
+      'Open Finance e importação de OFX/CSV',
+      'Investimentos',
+      'Planejamento e independência financeira',
+      'Suporte prioritário',
     ],
     // Prices in cents: R$19.90/mo = 1990, R$199/yr = 19900
     price: { monthly: 1990, annual: 19900 },

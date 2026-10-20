@@ -23,6 +23,7 @@ import {
 } from '@floow/shared'
 import { validateHeirPercentages } from '@floow/core-finance'
 import { planningSummaryTag, planningTag, invalidateTag } from '@/lib/cache-tags'
+import { exigirPro } from '@/lib/plano/acesso-queries'
 
 /**
  * Upserts the retirement plan for the current org.
@@ -31,6 +32,7 @@ import { planningSummaryTag, planningTag, invalidateTag } from '@/lib/cache-tags
 export async function saveRetirementPlan(input: RetirementPlanInput) {
   const validated = retirementPlanSchema.parse(input)
   const orgId = await getOrgId()
+  await exigirPro('planejamento', orgId)
   const db = getDb()
 
   await db
@@ -94,6 +96,7 @@ export async function saveRetirementPlan(input: RetirementPlanInput) {
 export async function saveWithdrawalStrategy(input: WithdrawalStrategyInput) {
   const validated = withdrawalStrategySchema.parse(input)
   const orgId = await getOrgId()
+  await exigirPro('planejamento', orgId)
   const db = getDb()
 
   await db
@@ -145,6 +148,7 @@ export async function saveSuccessionPlan(input: {
   }
 
   const orgId = await getOrgId()
+  await exigirPro('planejamento', orgId)
   const db = getDb()
 
   await db.transaction(async (tx) => {
@@ -219,6 +223,7 @@ export interface SaveScenarioInput {
 
 export async function saveSimulationScenario(input: SaveScenarioInput) {
   const orgId = await getOrgId()
+  await exigirPro('planejamento', orgId)
   const db = getDb()
 
   const [row] = await db

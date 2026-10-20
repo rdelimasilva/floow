@@ -16,6 +16,7 @@ import {
   transactionsTag,
   invalidateTag,
 } from '@/lib/cache-tags'
+import { exigirPro } from '@/lib/plano/acesso-queries'
 
 type Db = ReturnType<typeof getDb>
 
@@ -32,6 +33,7 @@ export type { ImportResult, MatchStatus, PreviewItem, TransactionOverride }
  */
 export async function previewImport(formData: FormData): Promise<PreviewItem[]> {
   const orgId = await getOrgId()
+  await exigirPro('importacao', orgId)
   const db = getDb()
 
   const file = formData.get('file') as File | null
@@ -173,6 +175,7 @@ export async function previewImport(formData: FormData): Promise<PreviewItem[]> 
  */
 export async function importTransactions(formData: FormData): Promise<ImportResult> {
   const orgId = await getOrgId()
+  await exigirPro('importacao', orgId)
   const db = getDb()
 
   const file = formData.get('file') as File | null
@@ -262,6 +265,7 @@ export async function importTransactions(formData: FormData): Promise<ImportResu
  */
 export async function importSelectedTransactions(formData: FormData): Promise<ImportResult> {
   const orgId = await getOrgId()
+  await exigirPro('importacao', orgId)
   const db = getDb()
 
   const file = formData.get('file') as File | null

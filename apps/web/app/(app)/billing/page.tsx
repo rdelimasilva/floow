@@ -6,6 +6,9 @@ import { createCheckoutSession, createPortalSession } from '@/lib/stripe/server'
 import { PlanCard } from '@/components/billing/plan-card'
 import { SubscriptionStatus } from '@/components/billing/subscription-status'
 import { PageHeader } from '@/components/ui/page-header'
+import { getAcesso } from '@/lib/plano/acesso-queries'
+import { LIMITE_DE_CONTAS_FREE } from '@/lib/plano/acesso'
+import { formatarDia } from '@/lib/formatar-dia'
 import type { PlanTier, SubscriptionStatus as SubscriptionStatusType } from '@floow/shared'
 
 /**
@@ -64,7 +67,7 @@ async function openPortal() {
 
 export default async function BillingPage() {
   const orgId = await getOrgId()
-  const subscription = await getSubscription(orgId)
+  const [subscription, acesso] = await Promise.all([getSubscription(orgId), getAcesso(orgId)])
 
   const planTier: PlanTier = (subscription?.plan_tier as PlanTier) ?? 'free'
   const status = (subscription?.status as SubscriptionStatusType) ?? null
@@ -78,6 +81,13 @@ export default async function BillingPage() {
         title="Plano e Cobrança"
         description="Gerencie seu plano e informações de pagamento."
       />
+
+      {acesso.motivo === 'trial' && acesso.trialAte && (
+        <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          Você está no período de teste do Pro até {formatarDia(acesso.trialAte)}. Depois disso, a conta
+          passa para o Free: até {LIMITE_DE_CONTAS_FREE} contas, sem importação, investimentos ou planejamento.
+        </p>
+      )}
 
       {/* Current subscription status */}
       <SubscriptionStatus

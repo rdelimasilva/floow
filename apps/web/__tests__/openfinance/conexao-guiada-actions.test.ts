@@ -32,6 +32,7 @@ const db = {
 }
 
 vi.mock('@/lib/db/rls', () => ({ withUserDb: (fn: (d: unknown) => unknown) => fn(db) }))
+vi.mock('@/lib/plano/acesso-queries', () => ({ exigirPro: vi.fn(async () => {}) }))
 vi.mock('@floow/db', () => ({
   accounts: { _table: 'accounts' },
   openfinanceConnections: { _table: 'openfinance_connections' },

@@ -32,6 +32,7 @@ import {
   type DestinosGuardados,
   type TipoDeRecurso,
 } from './auto-vinculo'
+import { exigirPro } from '@/lib/plano/acesso-queries'
 
 export type DestinoEscolhido = { kind: 'existing'; accountId: string } | { kind: 'new'; name: string }
 
@@ -51,6 +52,7 @@ export async function iniciarConexaoGuiada(
   input: IniciarConexaoGuiadaInput,
 ): Promise<StartConnectionResult> {
   const orgId = await getOrgId()
+  await exigirPro('open_finance', orgId)
   const banco = input.institutionName?.trim() || 'Banco'
 
   const conta = input.products.includes('ACCOUNT') ? input.destinos.conta ?? null : null

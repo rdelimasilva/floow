@@ -34,6 +34,7 @@ import { decideResourceRouting } from './resource-routing'
 import { type SyncSummary } from './sync'
 import { sincronizarConexao } from './sincronizar-conexao'
 import { produtosJaConectados } from './conexao-repetida'
+import { exigirPro } from '@/lib/plano/acesso-queries'
 
 /** Os produtos que o floow sabe ingerir. */
 const SUPPORTED_PRODUCTS: PolpProduct[] = ['ACCOUNT', 'CREDIT_CARD_ACCOUNT', 'INVESTMENTS']
@@ -59,6 +60,7 @@ export async function startBankConnection(
   input: StartConnectionInput,
 ): Promise<StartConnectionResult> {
   const orgId = await getOrgId()
+  await exigirPro('open_finance', orgId)
   const db = getDb()
 
   if (!isValidCpf(input.cpf)) {

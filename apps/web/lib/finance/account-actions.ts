@@ -12,6 +12,7 @@ import {
   revalidateSnapshotData,
   revalidateTransactionData,
 } from './revalidate'
+import { exigirPro } from '@/lib/plano/acesso-queries'
 
 type Db = ReturnType<typeof getDb>
 
@@ -55,6 +56,7 @@ export async function assertAccountOwnership(db: Db, accountId: string, orgId: s
  */
 export async function createAccount(formData: FormData) {
   const orgId = await getOrgId()
+  await exigirPro('contas', orgId)
   const db = getDb()
 
   const rawInitialBalance = formData.get('initialBalanceCents')

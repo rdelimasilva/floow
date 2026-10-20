@@ -26,6 +26,7 @@ import {
 import { triggerCfoAnalysis } from '@/lib/cfo/trigger'
 import { assertAccountOwnership, assertAssetOwnership } from './ownership'
 import { CASH_FLOW_EVENT_TYPES, inserirTransacaoDoEvento } from './transacao-do-evento'
+import { exigirPro } from '@/lib/plano/acesso-queries'
 
 type Db = ReturnType<typeof getDb>
 
@@ -58,6 +59,7 @@ function revalidateCrossModuleData(orgId: string) {
  */
 export async function createAsset(formData: FormData) {
   const orgId = await getOrgId()
+  await exigirPro('investimentos', orgId)
   const db = getDb()
 
   const input = createAssetSchema.parse({
@@ -104,6 +106,7 @@ export async function createAsset(formData: FormData) {
  */
 export async function createPortfolioEvent(formData: FormData) {
   const orgId = await getOrgId()
+  await exigirPro('investimentos', orgId)
   const db = getDb()
 
   const rawQuantity = formData.get('quantity')
@@ -181,6 +184,7 @@ export async function createPortfolioEvent(formData: FormData) {
  */
 export async function updateAssetPrice(formData: FormData) {
   const orgId = await getOrgId()
+  await exigirPro('investimentos', orgId)
   const db = getDb()
 
   const assetId = formData.get('assetId') as string
@@ -269,6 +273,7 @@ export async function deleteAsset(formData: FormData) {
  */
 export async function updateAsset(formData: FormData) {
   const orgId = await getOrgId()
+  await exigirPro('investimentos', orgId)
   const db = getDb()
 
   const input = updateAssetSchema.parse({
@@ -365,6 +370,7 @@ export async function deletePortfolioEvent(formData: FormData) {
  */
 export async function updatePortfolioEvent(formData: FormData) {
   const orgId = await getOrgId()
+  await exigirPro('investimentos', orgId)
   const db = getDb()
 
   const rawQuantity = formData.get('quantity')
