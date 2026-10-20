@@ -6,6 +6,7 @@ import {
   serializarFiltros,
   restaurarFiltros,
   temFiltroNaUrl,
+  urlDeTransacoes,
 } from '@/lib/finance/filtros-lembrados'
 
 /**
@@ -143,5 +144,41 @@ describe('memória dos filtros', () => {
     expect(temFiltroNaUrl({ search: 'x' })).toBe(true)
     // Filtro explicitamente vazio na URL também é escolha
     expect(temFiltroNaUrl({ accountId: '' })).toBe(true)
+  })
+})
+
+// O menu aponta para a URL já filtrada: o cache do navegador (staleTimes)
+// guarda a tela por URL, e um "/transactions" puro guardado antes de o filtro
+// mudar reabriria o recorte antigo.
+describe('urlDeTransacoes', () => {
+  const HOJE = '2026-10-20'
+
+  it('sem cookie nenhum, é a tela pura', () => {
+    expect(urlDeTransacoes({}, HOJE)).toBe('/transactions')
+  })
+
+  it('cookie vazio é "limpou tudo": não restaura', () => {
+    expect(urlDeTransacoes({ 'tx-filters': '', 'tx-accounts': '' }, HOJE)).toBe('/transactions')
+  })
+
+  it('restaura os filtros e a conta lembrada numa URL só', () => {
+    const url = urlDeTransacoes(
+      { 'tx-filters': encodeURIComponent('search=mercado&period=month'), 'tx-accounts': 'a1,a2' },
+      HOJE,
+    )
+    const p = new URL(url, 'https://x').searchParams
+    expect(p.get('search')).toBe('mercado')
+    expect(p.get('startDate')).toBe('2026-10-01')
+    expect(p.get('endDate')).toBe('2026-10-31')
+    expect(p.get('accountId')).toBe('a1,a2')
+  })
+
+  it('a conta do filtro vence a do cookie de contas', () => {
+    const url = urlDeTransacoes({ 'tx-filters': 'accountId=a9', 'tx-accounts': 'a1' }, HOJE)
+    expect(new URL(url, 'https://x').searchParams.get('accountId')).toBe('a9')
+  })
+
+  it('leva o tamanho de página escolhido', () => {
+    expect(urlDeTransacoes({ 'tx-page-size': '50' }, HOJE)).toBe('/transactions?pageSize=50')
   })
 })

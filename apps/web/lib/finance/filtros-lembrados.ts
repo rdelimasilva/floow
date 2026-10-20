@@ -156,3 +156,21 @@ export function temFiltroNaUrl(params: Record<string, string | undefined>): bool
 export function lembrarFiltros(url: URLSearchParams) {
   document.cookie = `${FILTERS_COOKIE}=${encodeURIComponent(serializarFiltros(url))}; path=/; max-age=31536000; SameSite=Lax`
 }
+
+/**
+ * Para onde o menu leva em Transações, a partir dos cookies do navegador.
+ *
+ * Espelha os dois redirects da página (filtros lembrados e `tx-accounts`) e
+ * leva o tamanho de página. O cache do navegador (staleTimes) guarda a tela
+ * por URL: um `/transactions` puro guardado antes de o filtro mudar reabriria
+ * o recorte antigo. Com a URL já filtrada, cada recorte tem a sua entrada.
+ */
+export function urlDeTransacoes(cookies: Record<string, string | undefined>, hoje: string = hojeEmSaoPaulo()): string {
+  const destino = cookies[FILTERS_COOKIE] ? restaurarFiltros(cookies[FILTERS_COOKIE], hoje) : new URLSearchParams()
+  const contas = cookies['tx-accounts']
+  if (!destino.has('accountId') && contas) destino.set('accountId', contas)
+  const pageSize = cookies['tx-page-size']
+  if (pageSize) destino.set('pageSize', pageSize)
+  const q = destino.toString()
+  return q ? `/transactions?${q}` : '/transactions'
+}

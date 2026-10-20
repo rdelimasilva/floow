@@ -1,23 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // vi.mock é içado para o topo; o que a fábrica usa precisa vir de vi.hoisted.
-const { USER, upsertFrequency } = vi.hoisted(() => ({
+const { USER, upsertFrequency, revalidatePath } = vi.hoisted(() => ({
   USER: '6f1c2b3a-1111-4222-8333-944455556666',
   upsertFrequency: vi.fn(async (..._a: unknown[]) => {}),
+  revalidatePath: vi.fn(),
 }))
 const ORG = '11111111-2222-4333-8444-555566667777'
 vi.mock('@/lib/auth/session', () => ({ requireUserId: vi.fn(async () => USER) }))
 vi.mock('@/lib/db/rls', () => ({ withUserDb: vi.fn(async (fn: (tx: unknown) => unknown) => fn({})) }))
 vi.mock('@/lib/notifications/preferences-store', () => ({ upsertFrequency }))
+vi.mock('next/cache', () => ({ revalidatePath }))
 
 import { setNotificationFrequency } from '@/lib/notifications/preferences-actions'
 
 describe('setNotificationFrequency', () => {
-  beforeEach(() => upsertFrequency.mockClear())
+  beforeEach(() => {
+    upsertFrequency.mockClear()
+    revalidatePath.mockClear()
+  })
 
   it('grava para o usuário da sessão, só na org pedida', async () => {
     await setNotificationFrequency(ORG, 'whatsapp', 'daily')
     expect(upsertFrequency).toHaveBeenCalledWith({}, USER, [ORG], 'whatsapp', 'daily')
+  })
+
+  // O navegador guarda a tela por `staleTimes`; sem isso, voltar a
+  // Configurações logo depois mostraria a frequência antiga.
+  it('limpa o cache de Configurações depois de gravar', async () => {
+    await setNotificationFrequency(ORG, 'whatsapp', 'daily')
+    expect(revalidatePath).toHaveBeenCalledWith('/settings')
   })
 
   it.each([

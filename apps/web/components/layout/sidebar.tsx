@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useSearchParams } from 'next/navigation'
@@ -25,6 +25,16 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from './sidebar-context'
+import { urlDeTransacoes } from '@/lib/finance/filtros-lembrados'
+
+function lerCookies(): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const par of document.cookie.split('; ')) {
+    const i = par.indexOf('=')
+    if (i > 0) out[par.slice(0, i)] = par.slice(i + 1)
+  }
+  return out
+}
 
 // ---------------------------------------------------------------------------
 // Navigation structure
@@ -170,7 +180,16 @@ export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarPro
   // As três telas de orçamento navegam por `?month=`: trocar de uma para outra
   // pelo menu mantém o mês que o usuário estava vendo.
   const mesDoOrcamento = pathname.startsWith('/budgets/') ? searchParams.get('month') : null
+  // Transações abre já no recorte lembrado (ver `urlDeTransacoes`). Lido
+  // depois da montagem porque o cookie só existe no navegador; relido a cada
+  // troca de URL, que é quando os filtros mudam.
+  const [hrefDeTransacoes, setHrefDeTransacoes] = useState('/transactions')
+  useEffect(() => {
+    setHrefDeTransacoes(urlDeTransacoes(lerCookies()))
+  }, [pathname, searchParams])
+
   function hrefDoItem(href: string) {
+    if (href === '/transactions') return hrefDeTransacoes
     return mesDoOrcamento && href.startsWith('/budgets/') ? `${href}?month=${mesDoOrcamento}` : href
   }
 

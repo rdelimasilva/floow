@@ -1,6 +1,7 @@
 'use server'
 import { orgs, orgMembers, profiles, notificationPreferences } from '@floow/db'
 import { and, asc, eq } from 'drizzle-orm'
+import { revalidatePath } from 'next/cache'
 import { requireUserId } from '@/lib/auth/session'
 import { withUserDb } from '@/lib/db/rls'
 import { upsertFrequency } from './preferences-store'
@@ -53,6 +54,9 @@ export async function setNotificationFrequency(
     throw new Error('Preferência inválida')
   }
   await withUserDb((tx) => upsertFrequency(tx, userId, [orgId], channel, frequency))
+  // A tela fica no cache do navegador (staleTimes); sem isso, voltar a ela
+  // logo depois mostraria a frequência antiga.
+  revalidatePath('/settings')
 }
 
 /** Org do consultor no WhatsApp. Só aceita org da qual o usuário é membro. */
@@ -67,4 +71,5 @@ export async function setWhatsAppOrg(orgId: string): Promise<void> {
     if (!membro) throw new Error('Organização inválida')
     await tx.update(profiles).set({ whatsappOrgId: orgId }).where(eq(profiles.id, userId))
   })
+  revalidatePath('/settings')
 }
