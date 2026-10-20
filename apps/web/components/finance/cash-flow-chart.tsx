@@ -14,6 +14,8 @@ const yAxisFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
   notation: 'compact',
+  // Sem o mínimo explícito, ICU antigo (Node 20) herda as 2 casas da moeda: "R$ 10,0 mil"
+  minimumFractionDigits: 0,
   maximumFractionDigits: 1,
 })
 
