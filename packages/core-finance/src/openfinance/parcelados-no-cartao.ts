@@ -36,6 +36,15 @@ export interface ParceladoNoCartao {
   paidCents: number
   remainingCents: number
   nextDueDate: string
+  /** As que ainda vencem, em ordem: base do comprometimento mês a mês. */
+  parcelasFuturas: { installmentNumber: number; date: string; amountCents: number }[]
+}
+
+export interface ComprometimentoDoMes {
+  /** AAAA-MM do vencimento da fatura. */
+  mes: string
+  totalCents: number
+  quantidade: number
 }
 
 function semNumeroDaParcela(descricao: string): string {
@@ -85,10 +94,31 @@ export function agruparParceladosNoCartao(parcelas: ParcelaDoCartao[], hoje: str
       paidCents: totalCents - remainingCents,
       remainingCents,
       nextDueDate: futuras[0].date,
+      parcelasFuturas: futuras.map((p) => ({ installmentNumber: p.installmentNumber, date: p.date, amountCents: p.amountCents })),
     })
   }
 
   return resultado.sort(
     (a, b) => a.nextDueDate.localeCompare(b.nextDueDate) || a.description.localeCompare(b.description, 'pt-BR'),
   )
+}
+
+/** Quanto das faturas de cada mês já está tomado por parcela, do mais próximo ao mais distante. */
+export function comprometimentoPorMes(parcelados: ParceladoNoCartao[]): ComprometimentoDoMes[] {
+  const porMes = new Map<string, ComprometimentoDoMes>()
+  for (const p of parcelados) {
+    for (const f of p.parcelasFuturas) {
+      const mes = f.date.slice(0, 7)
+      const atual = porMes.get(mes) ?? { mes, totalCents: 0, quantidade: 0 }
+      atual.totalCents += f.amountCents
+      atual.quantidade += 1
+      porMes.set(mes, atual)
+    }
+  }
+  return [...porMes.values()].sort((a, b) => a.mes.localeCompare(b.mes))
+}
+
+/** A parcela da compra que cai no mês (AAAA-MM), se houver. */
+export function parcelaDoMes(p: ParceladoNoCartao, mes: string) {
+  return p.parcelasFuturas.find((f) => f.date.startsWith(mes)) ?? null
 }

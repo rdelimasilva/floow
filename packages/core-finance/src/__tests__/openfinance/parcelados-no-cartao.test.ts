@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agruparParceladosNoCartao, type ParcelaDoCartao } from '../../openfinance/parcelados-no-cartao'
+import { agruparParceladosNoCartao, comprometimentoPorMes, parcelaDoMes, type ParcelaDoCartao } from '../../openfinance/parcelados-no-cartao'
 
 function parcela(n: number, total: number, date: string, over: Partial<ParcelaDoCartao> = {}): ParcelaDoCartao {
   return {
@@ -108,5 +108,30 @@ describe('agruparParceladosNoCartao', () => {
       HOJE,
     )
     expect(r.map((p) => p.description)).toEqual(['A', 'B'])
+  })
+})
+
+describe('comprometimentoPorMes', () => {
+  it('soma as parcelas que vencem em cada mês, só as futuras', () => {
+    const parcelados = agruparParceladosNoCartao(
+      [
+        parcela(1, 3, '2026-10-15'),
+        parcela(2, 3, '2026-11-15'),
+        parcela(3, 3, '2026-12-15'),
+        parcela(1, 2, '2026-11-15', { compra: 'outra', amountCents: 5000 }),
+        parcela(2, 2, '2026-12-15', { compra: 'outra', amountCents: 5000 }),
+      ],
+      HOJE,
+    )
+    expect(comprometimentoPorMes(parcelados)).toEqual([
+      { mes: '2026-11', totalCents: 15000, quantidade: 2 },
+      { mes: '2026-12', totalCents: 15000, quantidade: 2 },
+    ])
+  })
+
+  it('parcelaDoMes acha a parcela daquele mês com o número dela', () => {
+    const [p] = agruparParceladosNoCartao([parcela(1, 3, '2026-10-15'), parcela(2, 3, '2026-11-15'), parcela(3, 3, '2026-12-15')], HOJE)
+    expect(parcelaDoMes(p, '2026-12')).toEqual({ installmentNumber: 3, date: '2026-12-15', amountCents: 10000 })
+    expect(parcelaDoMes(p, '2027-01')).toBeNull()
   })
 })
