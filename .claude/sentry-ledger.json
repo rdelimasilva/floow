@@ -1,1 +1,50 @@
-{}
+{
+  "FLOOW-V": {
+    "verdict": "vivo-corrigido",
+    "note": "unstable_cache devolve eventDate como string; 23d331a",
+    "lastSeen": "2026-10-19T18:30:55Z",
+    "julgadoEm": "2026-10-20T13:24:21.081Z"
+  },
+  "FLOOW-K": {
+    "verdict": "vivo-corrigido",
+    "note": "lado cliente do FLOOW-V (mesmo trace); 23d331a",
+    "lastSeen": "2026-10-19T18:30:55Z",
+    "julgadoEm": "2026-10-20T13:24:21.142Z"
+  },
+  "FLOOW-H": {
+    "verdict": "morto",
+    "note": "último evento 20:55 BRT de 18/10, antes de 23f8595 (21:13) que corrigiu a colisão no realinhamento",
+    "lastSeen": "2026-10-18T23:55:01Z",
+    "julgadoEm": "2026-10-20T13:24:21.226Z"
+  },
+  "FLOOW-N": {
+    "verdict": "vivo-reportado",
+    "note": "alerta de dados: conta 3ac85523 divergia R$ 316,74; não disparou em 19 e 20/10",
+    "lastSeen": "2026-10-18T12:50:23Z",
+    "julgadoEm": "2026-10-20T13:24:21.290Z"
+  },
+  "FLOOW-J": {
+    "verdict": "vivo-reportado",
+    "note": "N+1 em salvarInvestimento (1 select por papel); custo baixo perto da Polp",
+    "lastSeen": "2026-10-19T23:52:24Z",
+    "julgadoEm": "2026-10-20T13:24:21.348Z"
+  },
+  "FLOOW-T": {
+    "verdict": "vivo-reportado",
+    "note": "mesmo N+1 do FLOOW-J, reconexão",
+    "lastSeen": "2026-10-16T14:11:00Z",
+    "julgadoEm": "2026-10-20T13:24:21.409Z"
+  },
+  "FLOOW-S": {
+    "verdict": "morto",
+    "note": "erro de build de 13 dias atrás; build atual passa",
+    "lastSeen": "2026-10-07T00:00:00Z",
+    "julgadoEm": "2026-10-20T13:24:21.485Z"
+  },
+  "FLOOW-R": {
+    "verdict": "nao-e-nosso",
+    "note": "plano da conta Polp inativo — erro do provedor, 1 evento",
+    "lastSeen": "2026-10-07T00:00:00Z",
+    "julgadoEm": "2026-10-20T13:24:21.543Z"
+  }
+}
