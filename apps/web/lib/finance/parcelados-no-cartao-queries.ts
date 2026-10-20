@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { and, eq, gt, isNotNull, or } from 'drizzle-orm'
 import { accounts, recurringTemplates, transactions } from '@floow/db'
 import { agruparParceladosNoCartao, type ParceladoNoCartao } from '@floow/core-finance'
@@ -5,15 +6,15 @@ import { withUserDb } from '@/lib/db/rls'
 import { hojeEmSaoPaulo } from '@/lib/openfinance/parcelas-previstas'
 
 /**
- * Compras parceladas no cartão que ainda têm parcela a vencer, para a tela
- * de dívidas. Calculado das transações a cada leitura: não há o que
+ * Compras parceladas no cartão que ainda têm parcela a vencer, para
+ * Dívidas e Recorrentes. Calculado das transações a cada leitura: não há o que
  * cadastrar nem o que sincronizar.
  *
  * Entra a parcela do Open Finance (tem `purchase_date`) e a compra parcelada
  * manual, que é recorrência com quantidade fixa. Recorrência sem fim
  * (supermercado do mês) também grava `installment_total`, mas não é dívida.
  */
-export async function getParceladosNoCartao(orgId: string): Promise<ParceladoNoCartao[]> {
+export const getParceladosNoCartao = cache(async function getParceladosNoCartao(orgId: string): Promise<ParceladoNoCartao[]> {
   const rows = await withUserDb((tx) =>
     tx
       .select({
@@ -54,7 +55,8 @@ export async function getParceladosNoCartao(orgId: string): Promise<ParceladoNoC
       amountCents: Math.abs(r.amountCents),
       date: r.date.toISOString().slice(0, 10),
       description: r.description,
+      deRecorrencia: !r.purchaseDate,
     })),
     hojeEmSaoPaulo(),
   )
-}
+})

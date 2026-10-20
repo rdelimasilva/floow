@@ -24,6 +24,8 @@ import { formatBRL } from '@floow/core-finance/src/balance'
 import { dataDeCalendario, formatarDataDeCalendario } from '@/lib/finance/recurring-dates'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 import { proximasAVencer, JANELA_PROXIMAS_DIAS } from '@/lib/finance/proximas-a-vencer'
+import type { ParceladoNoCartao } from '@floow/core-finance'
+import { ParceladosDoBancoRecorrentes } from '@/components/finance/parcelados-do-banco-recorrentes'
 
 interface AccountOption {
   id: string
@@ -63,6 +65,8 @@ interface RecurringTemplateListProps {
   templates: RecurringTemplate[]
   accounts: AccountOption[]
   categories: CategoryOption[]
+  /** Parcelados do cartão vindos do banco (sem recorrência), de `getParceladosNoCartao`. */
+  parcelados?: ParceladoNoCartao[]
 }
 
 const frequencyLabels: Record<string, string> = {
@@ -83,6 +87,7 @@ export function RecurringTemplateList({
   templates,
   accounts,
   categories,
+  parcelados = [],
 }: RecurringTemplateListProps) {
   const { toast } = useToast()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -98,7 +103,24 @@ export function RecurringTemplateList({
 
   // A próxima parcela em aberto de cada recorrência, nos próximos 30 dias.
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const due = proximasAVencer(templates, hoje)
+  const doBanco = parcelados.filter((p) => !p.deRecorrencia)
+  // Parcela do banco entra como item da série: mesma janela, mesma ordem por data.
+  const due = proximasAVencer(
+    [
+      ...templates.map((t) => ({ ...t, chave: t.id, parcela: null as string | null })),
+      ...doBanco.map((p) => ({
+        chave: p.chave,
+        isActive: true,
+        proximaParcela: p.nextDueDate,
+        description: p.description,
+        accountId: p.accountId,
+        type: 'expense' as const,
+        amountCents: p.installmentCents,
+        parcela: `${p.parcelasFuturas[0].installmentNumber}/${p.installmentTotal}` as string | null,
+      })),
+    ],
+    hoje,
+  )
 
   async function handleGenerate(template: RecurringTemplate) {
     setGenerating(template.id)
@@ -161,13 +183,14 @@ export function RecurringTemplateList({
           <div className="space-y-2">
             {due.map((t) => (
               <div
-                key={t.id}
+                key={t.chave}
                 className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{t.description}</p>
                   <p className="text-xs text-muted-foreground">
-                    {accountMap.get(t.accountId) ?? t.accountId} &bull; {formatarDataDeCalendario(t.proximaParcela)}
+                    {accountMap.get(t.accountId) ?? doBanco.find((p) => p.accountId === t.accountId)?.accountName ?? t.accountId} &bull; {formatarDataDeCalendario(t.proximaParcela)}
+                    {t.parcela && <> &bull; parcela {t.parcela}</>}
                   </p>
                 </div>
                 {/* Sem "Gerar agora": a parcela já existe como previsão. */}
@@ -309,6 +332,8 @@ export function RecurringTemplateList({
           </div>
         )}
       </section>
+
+      <ParceladosDoBancoRecorrentes parcelados={doBanco} />
 
       {/* Create dialog */}
       <CreateRecurringDialog

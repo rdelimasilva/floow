@@ -6,6 +6,7 @@ import {
   getDatasDasParcelas,
 } from '@/lib/finance/queries'
 import { contasParaLancamento } from '@/lib/finance/account-options'
+import { getParceladosNoCartao } from '@/lib/finance/parcelados-no-cartao-queries'
 import { RecurringTemplateList } from '@/components/finance/recurring-template-list'
 import { PageHeader } from '@/components/ui/page-header'
 import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
@@ -13,11 +14,12 @@ import { LinkDeAjuda } from '@/components/ajuda/link-de-ajuda'
 export default async function RecurringPage() {
   const orgId = await getOrgId()
   const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const [templates, accounts, categories, datas] = await Promise.all([
+  const [templates, accounts, categories, datas, parcelados] = await Promise.all([
     getRecurringTemplates(orgId),
     getAccounts(orgId),
     getCategories(orgId),
     getDatasDasParcelas(orgId, hojeStr),
+    getParceladosNoCartao(orgId),
   ])
 
   const accountOptions = contasParaLancamento(accounts)
@@ -43,6 +45,7 @@ export default async function RecurringPage() {
         }))}
         accounts={accountOptions}
         categories={categoryOptions}
+        parcelados={parcelados}
       />
     </div>
   )

@@ -22,6 +22,8 @@ export interface ParcelaDoCartao {
   /** AAAA-MM-DD: vencimento da fatura em que a parcela cai. */
   date: string
   description: string
+  /** Compra parcelada lançada à mão: já é uma recorrência e aparece como tal em Recorrentes. */
+  deRecorrencia?: boolean
 }
 
 export interface ParceladoNoCartao {
@@ -36,6 +38,7 @@ export interface ParceladoNoCartao {
   paidCents: number
   remainingCents: number
   nextDueDate: string
+  deRecorrencia: boolean
   /** As que ainda vencem, em ordem: base do comprometimento mês a mês. */
   parcelasFuturas: { installmentNumber: number; date: string; amountCents: number }[]
 }
@@ -94,6 +97,7 @@ export function agruparParceladosNoCartao(parcelas: ParcelaDoCartao[], hoje: str
       paidCents: totalCents - remainingCents,
       remainingCents,
       nextDueDate: futuras[0].date,
+      deRecorrencia: grupo[0].deRecorrencia ?? false,
       parcelasFuturas: futuras.map((p) => ({ installmentNumber: p.installmentNumber, date: p.date, amountCents: p.amountCents })),
     })
   }
