@@ -46,11 +46,13 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
     )
   }
 
+  // Em "Ambos", só as barras desenham o projetado à parte; os outros tipos somam
+  // realizado e projetado, senão o previsto sumia do gráfico.
   const chartData = data.map((month) => ({
     month: month.month,
-    income: month.income,
-    expense: Math.abs(month.expense),
-    net: month.net,
+    income: month.income + (month.projectedIncome ?? 0),
+    expense: Math.abs(month.expense) + (month.projectedExpense ?? 0),
+    net: month.net + (month.projectedNet ?? 0),
   }))
 
   // Waterfall: compute cumulative balance

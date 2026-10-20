@@ -41,6 +41,7 @@ export {
   type MonthlyCashFlowSummary,
   getMonthlyCashFlowSummary,
   getFutureMonthlyCashFlowSummary,
+  getGastosMensaisPorCategoria,
 } from './queries-cash-flow'
 
 export { getRecurringTemplates, getDatasDasParcelas } from './queries-recurring'
