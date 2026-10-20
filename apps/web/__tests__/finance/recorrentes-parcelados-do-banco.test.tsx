@@ -4,9 +4,8 @@ import React from 'react'
 import { agruparParceladosNoCartao, type ParcelaDoCartao } from '@floow/core-finance'
 
 /**
- * Parcelado que o banco já mandou inteiro aparece em Recorrentes como série
- * (próxima parcela em "Próximas a vencer" e na seção própria), sem virar
- * recorrência. O lançado à mão já é recorrência e não aparece duas vezes.
+ * Parcelado que o banco já mandou inteiro aparece em Recorrentes como série,
+ * na seção própria, sem virar recorrência. O lançado à mão já é recorrência e não aparece duas vezes.
  */
 
 vi.mock('@/lib/finance/recurring-actions', () => ({
@@ -41,14 +40,6 @@ const parcelados = agruparParceladosNoCartao(
 )
 
 describe('Recorrentes: parcelados do banco', () => {
-  it('a próxima parcela entra em "Próximas a vencer" com o número dela', () => {
-    render(<RecurringTemplateList templates={[]} accounts={[]} categories={[]} parcelados={parcelados} />)
-    const proximas = screen.getByRole('heading', { name: 'Próximas a vencer' }).closest('section')!
-    expect(within(proximas).getByText('Airbnb')).toBeTruthy()
-    expect(within(proximas).getByText(/parcela 3\/4/)).toBeTruthy()
-    expect(within(proximas).getByText(/Master Black/)).toBeTruthy()
-  })
-
   it('lista a série na seção própria, sem repetir a compra que já é recorrência', () => {
     render(<RecurringTemplateList templates={[]} accounts={[]} categories={[]} parcelados={parcelados} />)
     const secao = screen.getByRole('heading', { name: 'Parcelados no cartão' }).closest('section')!
@@ -56,5 +47,10 @@ describe('Recorrentes: parcelados do banco', () => {
     expect(within(secao).getByText('15/12/2026')).toBeTruthy()
     expect(within(secao).queryByText('Livelo')).toBeNull()
     expect(screen.queryAllByText('Livelo')).toHaveLength(0)
+  })
+
+  it('não há mais a seção "Próximas a vencer"', () => {
+    render(<RecurringTemplateList templates={[]} accounts={[]} categories={[]} parcelados={parcelados} />)
+    expect(screen.queryByRole('heading', { name: 'Próximas a vencer' })).toBeNull()
   })
 })

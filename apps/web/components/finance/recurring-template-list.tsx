@@ -23,7 +23,7 @@ import {
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { dataDeCalendario, formatarDataDeCalendario } from '@/lib/finance/recurring-dates'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
-import { proximasAVencer, JANELA_PROXIMAS_DIAS } from '@/lib/finance/proximas-a-vencer'
+import { ordenarPorProximaParcela } from '@/lib/finance/ordenar-recorrencias'
 import type { ParceladoNoCartao } from '@floow/core-finance'
 import { ParceladosDoBancoRecorrentes } from '@/components/finance/parcelados-do-banco-recorrentes'
 
@@ -101,26 +101,9 @@ export function RecurringTemplateList({
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]))
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]))
 
-  // A próxima parcela em aberto de cada recorrência, nos próximos 30 dias.
-  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const doBanco = parcelados.filter((p) => !p.deRecorrencia)
-  // Parcela do banco entra como item da série: mesma janela, mesma ordem por data.
-  const due = proximasAVencer(
-    [
-      ...templates.map((t) => ({ ...t, chave: t.id, parcela: null as string | null })),
-      ...doBanco.map((p) => ({
-        chave: p.chave,
-        isActive: true,
-        proximaParcela: p.nextDueDate,
-        description: p.description,
-        accountId: p.accountId,
-        type: 'expense' as const,
-        amountCents: p.installmentCents,
-        parcela: `${p.parcelasFuturas[0].installmentNumber}/${p.installmentTotal}` as string | null,
-      })),
-    ],
-    hoje,
-  )
+  // O que vence primeiro no topo (ver `ordenar-recorrencias.ts`).
+  const ordenadas = ordenarPorProximaParcela(templates)
 
   async function handleGenerate(template: RecurringTemplate) {
     setGenerating(template.id)
@@ -173,38 +156,6 @@ export function RecurringTemplateList({
     <div className="space-y-8">
       <RecurringMonthlyTotalCard templates={templates} />
 
-      {/* Próxima parcela em aberto de cada recorrência — não `next_due_date`,
-          que aponta para depois da última parcela (ver `proximas-a-vencer.ts`). */}
-      <section>
-        <h2 className="text-base font-semibold text-gray-900 mb-3">Próximas a vencer</h2>
-        {due.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma parcela nos próximos {JANELA_PROXIMAS_DIAS} dias.</p>
-        ) : (
-          <div className="space-y-2">
-            {due.map((t) => (
-              <div
-                key={t.chave}
-                className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{t.description}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {accountMap.get(t.accountId) ?? doBanco.find((p) => p.accountId === t.accountId)?.accountName ?? t.accountId} &bull; {formatarDataDeCalendario(t.proximaParcela)}
-                    {t.parcela && <> &bull; parcela {t.parcela}</>}
-                  </p>
-                </div>
-                {/* Sem "Gerar agora": a parcela já existe como previsão. */}
-                <div className="flex items-center gap-3 ml-4">
-                  <span className={t.type === 'income' ? 'text-sm font-semibold text-green-700' : 'text-sm font-semibold text-red-600'}>
-                    {formatBRL(t.amountCents)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* All Templates Table */}
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -247,7 +198,7 @@ export function RecurringTemplateList({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {templates.map((t) => {
+                {ordenadas.map((t) => {
                   const overdue = t.isActive && isOverdue(t.nextDueDate)
                   return (
                     <TableRow key={t.id}>
