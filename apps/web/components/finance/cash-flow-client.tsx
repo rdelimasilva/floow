@@ -137,10 +137,17 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
     setViewMode(mode)
     const hoje = hojeEmSaoPaulo()
     const futuro = getPeriodDates('next6Months', hoje)
-    if (mode !== 'realized' && endDate && endDate <= hoje) {
-      setPeriodo(mode === 'projected' ? futuro : { startDate, endDate: futuro.endDate })
-    } else if (mode === 'realized' && startDate && startDate >= hoje) {
-      setPeriodo(getPeriodDates('last12Months', hoje))
+    const passado = getPeriodDates('last12Months', hoje)
+    const soPassado = Boolean(endDate) && endDate <= hoje
+    const soFuturo = Boolean(startDate) && startDate >= hoje
+    if (mode === 'projected' && soPassado) setPeriodo(futuro)
+    else if (mode === 'realized' && soFuturo) setPeriodo(passado)
+    // "Ambos" precisa dos dois lados de hoje; vindo de Projetado, o período só tinha futuro.
+    else if (mode === 'both' && (soPassado || soFuturo)) {
+      setPeriodo({
+        startDate: soFuturo ? passado.startDate : startDate,
+        endDate: soPassado ? futuro.endDate : endDate,
+      })
     }
   }
 
@@ -203,28 +210,32 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
       {/* Summary cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {/* Bolinha na cor da série do gráfico; o valor fica na cor do texto. */}
+            <span className="h-2 w-2 rounded-full bg-[#2a78d6] dark:bg-[#3987e5]" />
             Receitas {viewMode === 'projected' ? '(projetado)' : ''}
           </p>
-          <p className="mt-2 text-xl font-bold text-blue-600">{formatBRL(totalIncome)}</p>
+          <p className="mt-2 text-xl font-bold text-foreground">{formatBRL(totalIncome)}</p>
         </Card>
         <Card className="p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {/* Bolinha na cor da série do gráfico; o valor fica na cor do texto. */}
+            <span className="h-2 w-2 rounded-full bg-[#eb6834] dark:bg-[#d95926]" />
             Despesas {viewMode === 'projected' ? '(projetado)' : ''}
           </p>
-          <p className="mt-2 text-xl font-bold text-red-600">{formatBRL(totalExpense)}</p>
+          <p className="mt-2 text-xl font-bold text-foreground">{formatBRL(totalExpense)}</p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Saldo {viewMode === 'projected' ? '(projetado)' : ''}
           </p>
-          <p className={`mt-2 text-xl font-bold ${totalNet >= 0 ? 'text-violet-700' : 'text-red-600'}`}>
+          <p className={`mt-2 text-xl font-bold ${totalNet >= 0 ? 'text-foreground' : 'text-red-600'}`}>
             {formatBRL(totalNet)}
           </p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Média Mensal</p>
-          <p className={`mt-2 text-xl font-bold ${avgMonthlyNet >= 0 ? 'text-violet-700' : 'text-red-600'}`}>
+          <p className={`mt-2 text-xl font-bold ${avgMonthlyNet >= 0 ? 'text-foreground' : 'text-red-600'}`}>
             {formatBRL(Math.round(avgMonthlyNet))}
           </p>
         </Card>
