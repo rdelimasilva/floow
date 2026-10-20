@@ -176,6 +176,17 @@ export async function updateFixedAsset(formData: FormData) {
     input.acquisitionTransactionId,
   )
 
+  // A estimativa parte de currentValue/currentValueDate. Enquanto essa base é
+  // a própria compra (data até a da compra: "Atualizar valor" nunca foi usado
+  // depois), corrigir a compra corrige a base; senão o valor estimado ficava
+  // preso ao valor digitado na criação. Avaliação posterior é do usuário.
+  const [atual] = await db
+    .select({ purchaseDate: fixedAssets.purchaseDate, currentValueDate: fixedAssets.currentValueDate })
+    .from(fixedAssets)
+    .where(and(eq(fixedAssets.id, input.id), eq(fixedAssets.orgId, orgId)))
+    .limit(1)
+  const baseEhACompra = !!atual && atual.currentValueDate.getTime() <= atual.purchaseDate.getTime()
+
   await db
     .update(fixedAssets)
     .set({
@@ -183,6 +194,7 @@ export async function updateFixedAsset(formData: FormData) {
       name: input.name,
       purchaseValueCents: input.purchaseValueCents,
       purchaseDate: input.purchaseDate,
+      ...(baseEhACompra && { currentValueCents: input.purchaseValueCents, currentValueDate: input.purchaseDate }),
       annualRate: String(input.annualRate),
       address: input.address ?? null,
       licensePlate: input.licensePlate ?? null,
