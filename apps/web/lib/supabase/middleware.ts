@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { JWKS_DO_AUTH } from './jwks'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -40,7 +41,7 @@ export async function updateSession(request: NextRequest) {
   // getSession() NÃO faz isso: no servidor ele devolve o conteúdo do cookie sem
   // verificar nada. Um cookie forjado passava por esta checagem e seguia para o
   // app inteiro. Não voltar para getSession() aqui.
-  const { data, error } = await supabase.auth.getClaims()
+  const { data, error } = await supabase.auth.getClaims(undefined, { jwks: JWKS_DO_AUTH })
 
   const userId = error ? null : (data?.claims?.sub ?? null)
 

@@ -2,6 +2,7 @@ import { cache } from 'react'
 import { asc, eq } from 'drizzle-orm'
 import { getDb, orgMembers } from '@floow/db'
 import { createClient } from '@/lib/supabase/server'
+import { JWKS_DO_AUTH } from '@/lib/supabase/jwks'
 
 /**
  * Identidade do requisitante, derivada exclusivamente de um JWT cuja assinatura
@@ -51,7 +52,7 @@ function readOrgIds(appMetadata: unknown): string[] {
  */
 const readVerifiedClaims = cache(async function readVerifiedClaims() {
   const supabase = await createClient()
-  const { data, error } = await supabase.auth.getClaims()
+  const { data, error } = await supabase.auth.getClaims(undefined, { jwks: JWKS_DO_AUTH })
 
   if (error || !data?.claims?.sub) return null
   return data.claims
