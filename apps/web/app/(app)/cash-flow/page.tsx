@@ -1,23 +1,17 @@
 import { Suspense } from 'react'
-import { getOrgId, getRecentTransactions, getFutureTransactions, getAccounts, getMonthlyCashFlowSummary, getFutureMonthlyCashFlowSummary, getGastosMensaisPorCategoria } from '@/lib/finance/queries'
-import { resumirFluxo } from '@floow/core-finance/src/fluxo-resumo'
-import { ResumoDoFluxoCard } from '@/components/finance/resumo-do-fluxo'
+import { getOrgId, getRecentTransactions, getFutureTransactions, getAccounts, getMonthlyCashFlowSummary, getFutureMonthlyCashFlowSummary } from '@/lib/finance/queries'
 import { CashFlowClient } from '@/components/finance/cash-flow-client'
 import { PageHeader } from '@/components/ui/page-header'
 import { BotaoDeExportar } from '@/components/finance/export-csv-button'
 
 async function CashFlowContent({ orgId }: { orgId: string }) {
-  const [recentTransactions, futureTransactions, monthlyRealized, monthlyProjected, accounts, gastosPorCategoria] = await Promise.all([
+  const [recentTransactions, futureTransactions, monthlyRealized, monthlyProjected, accounts] = await Promise.all([
     getRecentTransactions(orgId, 24),
     getFutureTransactions(orgId),
     getMonthlyCashFlowSummary(orgId, 24),
     getFutureMonthlyCashFlowSummary(orgId, 24),
     getAccounts(orgId),
-    getGastosMensaisPorCategoria(orgId, 7),
   ])
-
-  const mesAtual = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7)
-  const resumo = resumirFluxo(monthlyRealized, gastosPorCategoria, mesAtual)
 
   const serialize = (t: typeof recentTransactions[number]) => ({
     date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : String(t.date).split('T')[0],
@@ -27,16 +21,13 @@ async function CashFlowContent({ orgId }: { orgId: string }) {
   })
 
   return (
-    <>
-      {resumo && <ResumoDoFluxoCard resumo={resumo} />}
-      <CashFlowClient
-        transactions={recentTransactions.map(serialize)}
-        futureTransactions={futureTransactions.map(serialize)}
-        monthlyRealized={monthlyRealized}
-        monthlyProjected={monthlyProjected}
-        accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
-      />
-    </>
+    <CashFlowClient
+      transactions={recentTransactions.map(serialize)}
+      futureTransactions={futureTransactions.map(serialize)}
+      monthlyRealized={monthlyRealized}
+      monthlyProjected={monthlyProjected}
+      accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
+    />
   )
 }
 
