@@ -299,7 +299,7 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
         id: e.id,
         assetId: e.assetId,
         eventType: e.eventType,
-        eventDate: e.eventDate instanceof Date ? e.eventDate : new Date(e.eventDate as unknown as string),
+        eventDate: e.eventDate,
         totalCents: e.totalCents,
         notes: e.notes,
         ticker: assetDisplayName(e),
@@ -309,7 +309,13 @@ export async function getIncomeEvents(orgId: string, months: number = 12): Promi
     },
     ['investment-income-events', orgId, String(months)],
     { tags: [incomeEventsTag(orgId, months), investmentsTag(orgId)], revalidate: 300 },
-  )()
+  )().then((rows) =>
+    // O cache guarda JSON: lida dele, a data volta como texto.
+    rows.map((e) => ({
+      ...e,
+      eventDate: e.eventDate instanceof Date ? e.eventDate : new Date(e.eventDate as unknown as string),
+    }))
+  )
 }
 
 /**
