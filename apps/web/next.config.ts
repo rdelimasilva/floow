@@ -12,12 +12,12 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: ['@floow/db', '@floow/shared', '@floow/core-finance'],
   experimental: {
-    // Tela já visitada (dynamic) ou pré-carregada no hover de um link (static)
-    // volta do cache do navegador, sem nova ida ao servidor. O que o próprio
+    // Tela já visitada (dynamic) ou pré-carregada pelo menu (static) volta do
+    // cache do navegador por 5 min, sem nova ida ao servidor. O que o próprio
     // usuário muda chega na hora: as server actions chamam revalidateTag/
     // revalidatePath, que limpam esse cache. Só o que muda por fora (sync do
     // Open Finance pelo cron) pode levar até esse tempo para aparecer.
-    staleTimes: { dynamic: 60, static: 120 },
+    staleTimes: { dynamic: 300, static: 300 },
     // Hover (ou toque) num link já busca a tela inteira, não só o skeleton:
     // o clique que vem logo depois abre do cache.
     dynamicOnHover: true,
