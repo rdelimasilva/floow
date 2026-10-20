@@ -94,6 +94,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [viewMode, setViewMode] = useState<ViewMode>('realized')
   const [hideTransfers, setHideTransfers] = useState(true)
+  const [showLabels, setShowLabels] = useState(false)
 
   const preparedTransactions = useMemo(() => preparar(transactions), [transactions])
   const preparedFutureTransactions = useMemo(() => preparar(futureTransactions), [futureTransactions])
@@ -247,13 +248,24 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
           <CardTitle>Fluxo de Caixa</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <CashFlowChartPicker activeType={chartType} onChange={setChartType} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CashFlowChartPicker activeType={chartType} onChange={setChartType} />
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={showLabels}
+                onChange={(e) => setShowLabels(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              Mostrar valores
+            </label>
+          </div>
           {chartData.length === 0 ? (
             <div className="flex min-h-[300px] items-center justify-center text-sm text-muted-foreground">
               Nenhuma transação encontrada para o período selecionado.
             </div>
           ) : (
-            <CashFlowChart data={chartData} chartType={chartType} viewMode={viewMode} />
+            <CashFlowChart data={chartData} chartType={chartType} viewMode={viewMode} showLabels={showLabels} />
           )}
         </CardContent>
       </Card>

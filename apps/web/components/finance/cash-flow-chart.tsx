@@ -2,7 +2,7 @@
 
 import {
   Bar, Line, Area, ComposedChart, LineChart, AreaChart, BarChart, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Legend, ReferenceLine,
+  XAxis, YAxis, CartesianGrid, Legend, ReferenceLine, LabelList,
 } from 'recharts'
 import type { TooltipProps } from 'recharts'
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
@@ -86,6 +86,8 @@ interface CashFlowChartProps {
   data: MonthRow[]
   chartType?: ChartType
   viewMode?: 'realized' | 'projected' | 'both'
+  /** Valor escrito em cada barra ou ponto, sem precisar passar o mouse. */
+  showLabels?: boolean
 }
 
 /** Tooltip do mês em reais; o padrão mostrava os centavos crus. */
@@ -139,16 +141,35 @@ function frame(legend = true) {
   ]
 }
 
-const netLine = (
-  <Line
-    type="monotone" dataKey="net" stroke={COLORS.net} strokeWidth={2}
-    strokeLinecap="round" strokeLinejoin="round"
-    dot={{ r: 4, fill: COLORS.net, stroke: SURFACE, strokeWidth: 2 }}
-    activeDot={{ r: 5, fill: COLORS.net, stroke: SURFACE, strokeWidth: 2 }}
-  />
-)
+// Entrada do rótulo: Recharts passa o retângulo ou ponto com o mês em `payload`.
+type LabelEntry = { value?: number | number[]; payload: MonthRow }
 
-export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }: CashFlowChartProps) {
+/** Valor fixo na ponta da marca, no formato curto do eixo ("R$ 1,2 mil"); zero fica sem rótulo. */
+function rotulo(show: boolean, position: 'top' | 'bottom' = 'top', valueAccessor?: (e: LabelEntry) => number) {
+  if (!show) return null
+  return (
+    <LabelList
+      position={position} offset={6} fontSize={10} fill="hsl(var(--muted-foreground))"
+      valueAccessor={valueAccessor}
+      formatter={(v: number) => (v ? formatYAxisTick(v) : '')}
+    />
+  )
+}
+
+function netLine(show: boolean) {
+  return (
+    <Line
+      type="monotone" dataKey="net" stroke={COLORS.net} strokeWidth={2}
+      strokeLinecap="round" strokeLinejoin="round"
+      dot={{ r: 4, fill: COLORS.net, stroke: SURFACE, strokeWidth: 2 }}
+      activeDot={{ r: 5, fill: COLORS.net, stroke: SURFACE, strokeWidth: 2 }}
+    >
+      {rotulo(show)}
+    </Line>
+  )
+}
+
+export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized', showLabels = false }: CashFlowChartProps) {
   if (data.length === 0) {
     return (
       <div className="min-h-[300px] w-full flex items-center justify-center text-sm text-gray-500">
@@ -215,9 +236,9 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
       <ChartContainer config={chartConfig} className={container}>
         <LineChart data={chartData}>
           {frame()}
-          <Line type="monotone" dataKey="income" stroke={COLORS.income} strokeWidth={2} strokeLinecap="round" dot={false} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }} />
-          <Line type="monotone" dataKey="expense" stroke={COLORS.expense} strokeWidth={2} strokeLinecap="round" dot={false} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }} />
-          {netLine}
+          <Line type="monotone" dataKey="income" stroke={COLORS.income} strokeWidth={2} strokeLinecap="round" dot={false} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }}>{rotulo(showLabels)}</Line>
+          <Line type="monotone" dataKey="expense" stroke={COLORS.expense} strokeWidth={2} strokeLinecap="round" dot={false} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }}>{rotulo(showLabels)}</Line>
+          {netLine(showLabels)}
         </LineChart>
       </ChartContainer>
     )
@@ -228,9 +249,9 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
       <ChartContainer config={chartConfig} className={container}>
         <AreaChart data={chartData}>
           {frame()}
-          <Area type="monotone" dataKey="income" fill={COLORS.income} fillOpacity={0.1} stroke={COLORS.income} strokeWidth={2} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }} />
-          <Area type="monotone" dataKey="expense" fill={COLORS.expense} fillOpacity={0.1} stroke={COLORS.expense} strokeWidth={2} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }} />
-          <Area type="monotone" dataKey="net" fill={COLORS.net} fillOpacity={0.1} stroke={COLORS.net} strokeWidth={2} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }} />
+          <Area type="monotone" dataKey="income" fill={COLORS.income} fillOpacity={0.1} stroke={COLORS.income} strokeWidth={2} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }}>{rotulo(showLabels)}</Area>
+          <Area type="monotone" dataKey="expense" fill={COLORS.expense} fillOpacity={0.1} stroke={COLORS.expense} strokeWidth={2} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }}>{rotulo(showLabels)}</Area>
+          <Area type="monotone" dataKey="net" fill={COLORS.net} fillOpacity={0.1} stroke={COLORS.net} strokeWidth={2} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }}>{rotulo(showLabels)}</Area>
         </AreaChart>
       </ChartContainer>
     )
@@ -241,9 +262,11 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
       <ChartContainer config={chartConfig} className={container}>
         <BarChart data={chartData} stackOffset="sign">
           {frame()}
-          <Bar dataKey="income" stackId="s" fill={COLORS.income} maxBarSize={24} radius={[4, 4, 0, 0]} stroke={SURFACE} strokeWidth={1} />
+          <Bar dataKey="income" stackId="s" fill={COLORS.income} maxBarSize={24} radius={[4, 4, 0, 0]} stroke={SURFACE} strokeWidth={1}>{rotulo(showLabels)}</Bar>
           {/* Despesa abaixo do zero: o empilhado mostra entrada contra saída no mesmo mês. */}
-          <Bar dataKey={(d: MonthRow) => -d.expense} name="expense" stackId="s" fill={COLORS.expense} maxBarSize={24} radius={[0, 0, 4, 4]} stroke={SURFACE} strokeWidth={1} />
+          <Bar dataKey={(d: MonthRow) => -d.expense} name="expense" stackId="s" fill={COLORS.expense} maxBarSize={24} radius={[0, 0, 4, 4]} stroke={SURFACE} strokeWidth={1}>
+            {rotulo(showLabels, 'bottom', (e) => e.payload.expense)}
+          </Bar>
         </BarChart>
       </ChartContainer>
     )
@@ -265,6 +288,7 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
             {waterfallData.map((entry) => (
               <Cell key={entry.month} fill={entry.faixa[1] >= entry.faixa[0] ? COLORS.income : COLORS.expense} />
             ))}
+            {rotulo(showLabels, 'top', (e) => (Array.isArray(e.value) ? e.value[1] - e.value[0] : 0))}
           </Bar>
         </BarChart>
       </ChartContainer>
@@ -280,13 +304,28 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized' }
     <ChartContainer config={chartConfig} className={container}>
       <ComposedChart data={barData} barGap={2} barCategoryGap="24%">
         {frame()}
-        <Bar dataKey="income" stackId={both ? 'in' : undefined} fill={COLORS.income} {...BAR} stroke={both ? SURFACE : undefined} strokeWidth={both ? 1 : 0} />
-        {both && <Bar dataKey="projectedIncome" stackId="in" fill={COLORS.income} fillOpacity={PROJECTED_OPACITY} {...BAR} stroke={SURFACE} strokeWidth={1} />}
-        <Bar dataKey="expense" stackId={both ? 'out' : undefined} fill={COLORS.expense} {...BAR} stroke={both ? SURFACE : undefined} strokeWidth={both ? 1 : 0} />
-        {both && <Bar dataKey="projectedExpense" stackId="out" fill={COLORS.expense} fillOpacity={PROJECTED_OPACITY} {...BAR} stroke={SURFACE} strokeWidth={1} />}
+        <Bar dataKey="income" stackId={both ? 'in' : undefined} fill={COLORS.income} {...BAR} stroke={both ? SURFACE : undefined} strokeWidth={both ? 1 : 0}>
+          {!both && rotulo(showLabels)}
+        </Bar>
+        {/* Em "Ambos" o rótulo vai no topo da pilha e mostra o total do mês. */}
+        {both && (
+          <Bar dataKey="projectedIncome" stackId="in" fill={COLORS.income} fillOpacity={PROJECTED_OPACITY} {...BAR} stroke={SURFACE} strokeWidth={1}>
+            {rotulo(showLabels, 'top', (e) => e.payload.income + (e.payload.projectedIncome ?? 0))}
+          </Bar>
+        )}
+        <Bar dataKey="expense" stackId={both ? 'out' : undefined} fill={COLORS.expense} {...BAR} stroke={both ? SURFACE : undefined} strokeWidth={both ? 1 : 0}>
+          {!both && rotulo(showLabels)}
+        </Bar>
+        {both && (
+          <Bar dataKey="projectedExpense" stackId="out" fill={COLORS.expense} fillOpacity={PROJECTED_OPACITY} {...BAR} stroke={SURFACE} strokeWidth={1}>
+            {rotulo(showLabels, 'top', (e) => e.payload.expense + (e.payload.projectedExpense ?? 0))}
+          </Bar>
+        )}
         {both
-          ? <Line type="monotone" dataKey={(d: MonthRow) => d.net + (d.projectedNet ?? 0)} name="net" stroke={COLORS.net} strokeWidth={2} dot={{ r: 4, fill: COLORS.net, stroke: SURFACE, strokeWidth: 2 }} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }} />
-          : netLine}
+          ? <Line type="monotone" dataKey={(d: MonthRow) => d.net + (d.projectedNet ?? 0)} name="net" stroke={COLORS.net} strokeWidth={2} dot={{ r: 4, fill: COLORS.net, stroke: SURFACE, strokeWidth: 2 }} activeDot={{ r: 5, stroke: SURFACE, strokeWidth: 2 }}>
+              {rotulo(showLabels)}
+            </Line>
+          : netLine(showLabels)}
       </ComposedChart>
     </ChartContainer>
   )
