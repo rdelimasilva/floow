@@ -4,7 +4,7 @@ import { useState, useMemo, useDeferredValue } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { CashFlowPeriodFilter } from './cash-flow-period-filter'
 import { AccountFilter } from './account-filter'
-import { PERIOD_GROUPS, getPeriodDates, type PeriodKey } from '@/lib/finance/filtros-lembrados'
+import { PERIOD_GROUPS, getPeriodDates, hojeEmSaoPaulo, type PeriodKey } from '@/lib/finance/filtros-lembrados'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
 import dynamic from 'next/dynamic'
 
@@ -131,6 +131,19 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
     if (key && PERIOD_GROUPS[2].keys.includes(key)) setViewMode('projected')
   }
 
+  // O caminho inverso: período que para em hoje não tem previsão nenhuma, e
+  // o que começa hoje não tem realizado. Trocar a visão estica o período.
+  function trocarVisao(mode: ViewMode) {
+    setViewMode(mode)
+    const hoje = hojeEmSaoPaulo()
+    const futuro = getPeriodDates('next6Months', hoje)
+    if (mode !== 'realized' && endDate && endDate <= hoje) {
+      setPeriodo(mode === 'projected' ? futuro : { startDate, endDate: futuro.endDate })
+    } else if (mode === 'realized' && startDate && startDate >= hoje) {
+      setPeriodo(getPeriodDates('last12Months', hoje))
+    }
+  }
+
   // Cards: mesmos lançamentos e mesma regra da tabela de detalhamento. O
   // resumo mensal filtrado por mês contava o mês de borda inteiro enquanto a
   // tabela corta por dia, e os totais não batiam.
@@ -165,7 +178,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
               key={mode}
               type="button"
               aria-pressed={viewMode === mode}
-              onClick={() => setViewMode(mode)}
+              onClick={() => trocarVisao(mode)}
               className={`${PILL_BASE} ${viewMode === mode ? PILL_ON : PILL_OFF}`}
             >
               {VIEW_LABELS[mode]}
