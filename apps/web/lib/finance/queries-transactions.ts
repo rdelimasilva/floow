@@ -421,6 +421,9 @@ export const getRecentTransactions = cache(async function getRecentTransactions(
           type: transactions.type,
           amountCents: transactions.amountCents,
           date: transactions.date,
+          // Descrição e categoria: o detalhamento do fluxo de caixa abre os lançamentos de cada soma.
+          description: transactions.description,
+          categoryName: categories.name,
         })
         .from(transactions)
         // Mesma regra do resumo mensal (`queries-cash-flow.ts`): sem ela o
@@ -436,7 +439,7 @@ export const getRecentTransactions = cache(async function getRecentTransactions(
         ))
         .orderBy(desc(transactions.date))
     },
-    ['finance-recent-transactions', orgId, String(months)],
+    ['finance-recent-transactions-v2', orgId, String(months)],
     { tags: [recentTransactionsTag(orgId, months)], revalidate: 180 },
   )().then((rows) =>
     rows.map((row) => ({
@@ -465,6 +468,9 @@ export async function getFutureTransactions(orgId: string, months: number = 24) 
           type: transactions.type,
           amountCents: transactions.amountCents,
           date: transactions.date,
+          // Descrição e categoria: o detalhamento do fluxo de caixa abre os lançamentos de cada soma.
+          description: transactions.description,
+          categoryName: categories.name,
         })
         .from(transactions)
         .leftJoin(categories, eq(categories.id, transactions.categoryId))
@@ -479,7 +485,7 @@ export async function getFutureTransactions(orgId: string, months: number = 24) 
         ))
         .orderBy(asc(transactions.date))
     },
-    ['finance-future-transactions', orgId, String(months)],
+    ['finance-future-transactions-v2', orgId, String(months)],
     { tags: [futureTransactionsTag(orgId, months)], revalidate: 180 },
   )().then((rows) =>
     rows.map((row) => ({

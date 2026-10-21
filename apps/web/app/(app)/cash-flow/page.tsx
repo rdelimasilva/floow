@@ -16,6 +16,8 @@ async function CashFlowContent({ orgId }: { orgId: string }) {
     amountCents: t.amountCents,
     type: t.type,
     accountId: t.accountId,
+    description: t.description,
+    categoryName: t.categoryName,
   })
 
   return (

@@ -80,4 +80,20 @@ describe('cards × total do detalhamento', () => {
     expect(card(/^Receitas/)).toContain('1.600,00')
     expect(card(/^Despesas/)).toContain('630,00')
   })
+
+  it('clicar na despesa do mês abre os lançamentos que formam a soma', () => {
+    render(
+      <CashFlowClient
+        transactions={transactions.map((t, i) => ({ ...t, description: `Lançamento ${i}` }))}
+        futureTransactions={[]}
+        accounts={[{ id: 'a1', name: 'Conta' }]}
+      />,
+    )
+    const linha = screen.getByText('Outubro de 2026').closest('tr')!
+    fireEvent.click(within(linha).getByRole('button', { name: /230,00/ }))
+    expect(screen.getByText(/2 lançamentos/)).toBeTruthy()
+    expect(screen.getByText('Lançamento 1')).toBeTruthy()
+    expect(screen.getByText('Lançamento 3')).toBeTruthy()
+    expect(screen.queryByText('Lançamento 0')).toBeNull()
+  })
 })

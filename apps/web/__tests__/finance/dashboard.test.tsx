@@ -36,6 +36,10 @@ vi.mock('recharts', () => ({
   CartesianGrid: () => null,
   Tooltip: () => null,
   Legend: () => null,
+  ComposedChart: ({ children }: { children: React.ReactNode }) =>
+    React.createElement('div', { 'data-testid': 'composed-chart' }, children),
+  ReferenceLine: () => null,
+  LabelList: () => null,
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) =>
     React.createElement('div', null, children),
 }))

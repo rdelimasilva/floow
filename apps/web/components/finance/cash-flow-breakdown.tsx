@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useDeferredValue } from 'react'
+import { Fragment, useState, useMemo, useDeferredValue } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -12,7 +12,12 @@ interface RawTransaction {
   amountCents: number
   type: string
   accountId: string
+  description?: string
+  categoryName?: string | null
 }
+
+/** Célula aberta: os lançamentos daquele período e daquele lado. */
+interface Aberta { key: string; type: 'income' | 'expense' }
 
 interface AggregatedRow {
   key: string
@@ -111,6 +116,7 @@ function aggregate(transactions: RawTransaction[], grouping: Grouping): Aggregat
 
 export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps) {
   const [grouping, setGrouping] = useState<Grouping>('monthly')
+  const [aberta, setAberta] = useState<Aberta | null>(null)
 
   const deferredTransactions = useDeferredValue(transactions)
 
@@ -119,6 +125,35 @@ export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps)
   const totalIncome = rows.reduce((s, r) => s + r.income, 0)
   const totalExpense = rows.reduce((s, r) => s + Math.abs(r.expense), 0)
   const totalNet = totalIncome - totalExpense
+
+  // Os mesmos lançamentos que formaram a soma da célula, do mais recente ao mais antigo.
+  const lancamentos = useMemo(() => {
+    if (!aberta) return []
+    return deferredTransactions
+      .filter((t) => t.type === aberta.type && getGroupKey(t.date, grouping) === aberta.key)
+      .sort((a, b) => b.date.localeCompare(a.date))
+  }, [aberta, deferredTransactions, grouping])
+
+  function alternar(key: string, type: Aberta['type']) {
+    setAberta(aberta?.key === key && aberta.type === type ? null : { key, type })
+  }
+
+  // Valor clicável: abre ou fecha a lista logo abaixo da linha.
+  function celula(r: AggregatedRow, type: Aberta['type']) {
+    const valor = type === 'income' ? Math.max(r.income, 0) : Math.max(-r.expense, 0)
+    if (!valor) return '—'
+    const ativa = aberta?.key === r.key && aberta.type === type
+    return (
+      <button
+        type="button"
+        aria-expanded={ativa}
+        onClick={() => alternar(r.key, type)}
+        className={`rounded px-1 underline-offset-2 hover:underline ${ativa ? 'underline' : ''}`}
+      >
+        {formatBRL(valor)}
+      </button>
+    )
+  }
 
   return (
     <Card>
@@ -132,7 +167,7 @@ export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps)
               <button
                 key={g}
                 type="button"
-                onClick={() => setGrouping(g)}
+                onClick={() => { setGrouping(g); setAberta(null) }}
                 className={`shrink-0 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   grouping === g ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
                 }`}
@@ -163,14 +198,37 @@ export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps)
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.map((r) => (
-                  <tr key={r.key} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm text-gray-600">{r.label}</td>
-                    <td className="px-4 py-2 text-right text-sm font-medium text-green-700">{r.income > 0 ? formatBRL(r.income) : '—'}</td>
-                    <td className="px-4 py-2 text-right text-sm font-medium text-red-600">{r.expense < 0 ? formatBRL(Math.abs(r.expense)) : '—'}</td>
-                    <td className={`px-4 py-2 text-right text-sm font-bold ${r.net >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                      {formatBRL(r.net)}
-                    </td>
-                  </tr>
+                  <Fragment key={r.key}>
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-sm text-gray-600">{r.label}</td>
+                      <td className="px-4 py-2 text-right text-sm font-medium text-green-700">{celula(r, 'income')}</td>
+                      <td className="px-4 py-2 text-right text-sm font-medium text-red-600">{celula(r, 'expense')}</td>
+                      <td className={`px-4 py-2 text-right text-sm font-bold ${r.net >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                        {formatBRL(r.net)}
+                      </td>
+                    </tr>
+                    {aberta?.key === r.key && (
+                      <tr className="bg-gray-50/60">
+                        <td colSpan={4} className="px-4 py-2">
+                          <p className="mb-1 text-xs font-medium text-muted-foreground">
+                            {aberta.type === 'income' ? 'Receitas' : 'Despesas'} de {r.label} · {lancamentos.length} lançamento{lancamentos.length === 1 ? '' : 's'}
+                          </p>
+                          <ul className="divide-y divide-gray-100 text-sm">
+                            {lancamentos.map((t, i) => (
+                              <li key={i} className="flex items-baseline gap-3 py-1.5">
+                                <span className="w-12 shrink-0 tabular-nums text-xs text-muted-foreground">
+                                  {(t.dateKey ?? t.date).slice(8, 10)}/{(t.dateKey ?? t.date).slice(5, 7)}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-gray-700">{t.description || 'Sem descrição'}</span>
+                                {t.categoryName && <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">{t.categoryName}</span>}
+                                <span className="shrink-0 tabular-nums font-medium text-gray-900">{formatBRL(Math.abs(t.amountCents))}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
               <tfoot className="bg-gray-50">

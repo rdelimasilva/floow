@@ -20,6 +20,8 @@ interface RawTransaction {
   amountCents: number
   type: string
   accountId: string
+  description?: string
+  categoryName?: string | null
 }
 
 interface PreparedTransaction extends RawTransaction {
