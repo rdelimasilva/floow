@@ -12,6 +12,7 @@ async function CashFlowContent({ orgId }: { orgId: string }) {
   ])
 
   const serialize = (t: typeof recentTransactions[number]) => ({
+    id: t.id,
     date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : String(t.date).split('T')[0],
     amountCents: t.amountCents,
     type: t.type,

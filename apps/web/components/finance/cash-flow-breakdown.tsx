@@ -3,10 +3,12 @@
 import { Fragment, useState, useMemo, useDeferredValue } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CashFlowLancamentoDialog } from './cash-flow-lancamento-dialog'
 
 type Grouping = 'daily' | 'monthly' | 'quarterly' | 'semiannual' | 'annual'
 
 interface RawTransaction {
+  id?: string
   date: string
   dateKey?: string
   amountCents: number
@@ -117,6 +119,7 @@ function aggregate(transactions: RawTransaction[], grouping: Grouping): Aggregat
 export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps) {
   const [grouping, setGrouping] = useState<Grouping>('monthly')
   const [aberta, setAberta] = useState<Aberta | null>(null)
+  const [detalhe, setDetalhe] = useState<string | null>(null)
 
   const deferredTransactions = useDeferredValue(transactions)
 
@@ -215,13 +218,20 @@ export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps)
                           </p>
                           <ul className="divide-y divide-gray-100 text-sm">
                             {lancamentos.map((t, i) => (
-                              <li key={i} className="flex items-baseline gap-3 py-1.5">
+                              <li key={t.id ?? i}>
+                                <button
+                                  type="button"
+                                  disabled={!t.id}
+                                  onClick={() => t.id && setDetalhe(t.id)}
+                                  className="flex w-full items-baseline gap-3 rounded py-1.5 text-left hover:bg-gray-100"
+                                >
                                 <span className="w-12 shrink-0 tabular-nums text-xs text-muted-foreground">
                                   {(t.dateKey ?? t.date).slice(8, 10)}/{(t.dateKey ?? t.date).slice(5, 7)}
                                 </span>
                                 <span className="min-w-0 flex-1 truncate text-gray-700">{t.description || 'Sem descrição'}</span>
                                 {t.categoryName && <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">{t.categoryName}</span>}
                                 <span className="shrink-0 tabular-nums font-medium text-gray-900">{formatBRL(Math.abs(t.amountCents))}</span>
+                                </button>
                               </li>
                             ))}
                           </ul>
@@ -245,6 +255,7 @@ export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps)
           </div>
         )}
       </CardContent>
+      <CashFlowLancamentoDialog id={detalhe} onClose={() => setDetalhe(null)} />
     </Card>
   )
 }

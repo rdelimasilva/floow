@@ -16,6 +16,7 @@ import { CashFlowBreakdown } from './cash-flow-breakdown'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface RawTransaction {
+  id?: string
   date: string
   amountCents: number
   type: string

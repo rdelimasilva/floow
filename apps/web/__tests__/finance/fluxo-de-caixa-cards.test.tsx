@@ -19,6 +19,15 @@ vi.mock('next/dynamic', () => ({
   default: () => () => React.createElement('div', { 'data-testid': 'grafico' }),
 }))
 
+vi.mock('@/lib/finance/fluxo-de-caixa-actions', () => ({
+  getDetalheDoLancamento: vi.fn(async (id: string) => ({
+    id, date: '2026-10-02', description: 'Aluguel', amountCents: -200_00, type: 'expense',
+    accountId: 'a1', accountName: 'Itaú', categoryName: 'Moradia', origem: 'extrato',
+    balanceApplied: true, recorrente: false, installmentNumber: null, installmentTotal: null,
+    purchaseDate: null, cardLastDigits: null,
+  })),
+}))
+
 import { CashFlowClient } from '@/components/finance/cash-flow-client'
 
 describe('cards × total do detalhamento', () => {
@@ -115,5 +124,22 @@ describe('cards × total do detalhamento', () => {
     render(tela())
     expect(card(/^Receitas/)).toContain('100,00')
     expect(card(/^Receitas/)).not.toContain('600,00')
+  })
+
+  it('clicar num lançamento da lista abre o popup com os detalhes', async () => {
+    render(
+      <CashFlowClient
+        transactions={transactions.map((t, i) => ({ ...t, id: `id-${i}`, description: `Lançamento ${i}` }))}
+        futureTransactions={[]}
+        accounts={[{ id: 'a1', name: 'Conta' }]}
+      />,
+    )
+    const linha = screen.getByText('Outubro de 2026').closest('tr')!
+    fireEvent.click(within(linha).getByRole('button', { name: /230,00/ }))
+    fireEvent.click(screen.getByText('Lançamento 3'))
+    const popup = await screen.findByRole('dialog')
+    expect(await within(popup).findByText('Moradia')).toBeTruthy()
+    expect(within(popup).getByText('Itaú')).toBeTruthy()
+    expect(within(popup).getByText('Realizado')).toBeTruthy()
   })
 })
