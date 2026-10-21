@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useDeferredValue } from 'react'
+import { useState, useMemo, useDeferredValue, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { CashFlowPeriodFilter } from './cash-flow-period-filter'
 import { AccountFilter } from './account-filter'
@@ -33,6 +33,10 @@ interface AccountOption {
 }
 
 type ViewMode = 'realized' | 'projected' | 'both'
+
+// Tipo de gráfico, rótulos e transferências sobrevivem à troca de tela.
+const PREFS_KEY = 'fluxo-de-caixa:preferencias'
+interface Prefs { chartType: ChartType; showLabels: boolean; hideTransfers: boolean }
 
 const VIEW_LABELS: Record<ViewMode, string> = {
   realized: 'Realizado',
@@ -96,17 +100,35 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
   const [hideTransfers, setHideTransfers] = useState(true)
   const [showLabels, setShowLabels] = useState(false)
 
+  // Lido depois de montar: no servidor não há localStorage e o HTML divergiria.
+  useEffect(() => {
+    try {
+      const p: Partial<Prefs> = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}')
+      if (p.chartType) setChartType(p.chartType)
+      if (typeof p.showLabels === 'boolean') setShowLabels(p.showLabels)
+      if (typeof p.hideTransfers === 'boolean') setHideTransfers(p.hideTransfers)
+    } catch { /* sem preferência salva, fica o padrão */ }
+  }, [])
+
+  function lembrar(patch: Partial<Prefs>) {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ chartType, showLabels, hideTransfers, ...patch }))
+    } catch { /* navegador sem storage: vale só nesta visita */ }
+  }
+
   const preparedTransactions = useMemo(() => preparar(transactions), [transactions])
   const preparedFutureTransactions = useMemo(() => preparar(futureTransactions), [futureTransactions])
 
   // Período, conta e transferências valem para cards, gráfico e detalhamento.
   // Data vazia é ponta aberta, como em Transações ("Todo o período").
+  // Transferência à mostra conta pelo sinal: entrada na conta é receita, saída é despesa.
   const filtrar = useMemo(() => (list: PreparedTransaction[]) => list.filter((t) =>
     (!hideTransfers || t.type !== 'transfer')
     && (accountIds.length === 0 || accountIds.includes(t.accountId))
     && (!startDate || t.dateKey >= startDate)
     && (!endDate || t.dateKey <= endDate),
-  ), [hideTransfers, accountIds, startDate, endDate])
+  ).map((t) => (t.type === 'transfer' ? { ...t, type: t.amountCents >= 0 ? 'income' : 'expense' } : t)),
+  [hideTransfers, accountIds, startDate, endDate])
 
   const filteredRealized = useMemo(() => filtrar(preparedTransactions), [filtrar, preparedTransactions])
   const filteredFuture = useMemo(() => filtrar(preparedFutureTransactions), [filtrar, preparedFutureTransactions])
@@ -195,7 +217,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
           <button
             type="button"
             aria-pressed={hideTransfers}
-            onClick={() => setHideTransfers((v) => !v)}
+            onClick={() => { setHideTransfers(!hideTransfers); lembrar({ hideTransfers: !hideTransfers }) }}
             className={`${PILL_BASE} ${hideTransfers ? PILL_ON : PILL_OFF}`}
           >
             Ocultar transferências
@@ -249,12 +271,12 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CashFlowChartPicker activeType={chartType} onChange={setChartType} />
+            <CashFlowChartPicker activeType={chartType} onChange={(t) => { setChartType(t); lembrar({ chartType: t }) }} />
             <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
               <input
                 type="checkbox"
                 checked={showLabels}
-                onChange={(e) => setShowLabels(e.target.checked)}
+                onChange={(e) => { setShowLabels(e.target.checked); lembrar({ showLabels: e.target.checked }) }}
                 className="rounded border-gray-300"
               />
               Mostrar valores

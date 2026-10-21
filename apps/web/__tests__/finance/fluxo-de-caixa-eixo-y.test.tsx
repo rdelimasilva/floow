@@ -15,6 +15,7 @@ vi.mock('recharts', () => ({
   LineChart: wrap('line-chart'),
   AreaChart: wrap('area-chart'),
   PieChart: wrap('pie-chart'),
+  ComposedChart: wrap('composed-chart'),
   ResponsiveContainer: wrap('rc'),
   Bar: () => null,
   Line: () => null,
@@ -27,6 +28,8 @@ vi.mock('recharts', () => ({
   CartesianGrid: () => null,
   Tooltip: () => null,
   Legend: () => null,
+  ReferenceLine: () => null,
+  LabelList: () => null,
 }))
 
 vi.mock('@/components/ui/chart', () => ({

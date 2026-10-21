@@ -142,7 +142,7 @@ function frame(legend = true) {
 }
 
 // Entrada do rótulo: Recharts passa o retângulo ou ponto com o mês em `payload`.
-type LabelEntry = { value?: number | number[]; payload: MonthRow }
+type LabelEntry = { value?: number; payload: MonthRow & { faixa?: [number, number] } }
 
 /** Valor fixo na ponta da marca, no formato curto do eixo ("R$ 1,2 mil"); zero fica sem rótulo. */
 function rotulo(show: boolean, position: 'top' | 'bottom' = 'top', valueAccessor?: (e: LabelEntry) => number) {
@@ -288,7 +288,8 @@ export function CashFlowChart({ data, chartType = 'bar', viewMode = 'realized', 
             {waterfallData.map((entry) => (
               <Cell key={entry.month} fill={entry.faixa[1] >= entry.faixa[0] ? COLORS.income : COLORS.expense} />
             ))}
-            {rotulo(showLabels, 'top', (e) => (Array.isArray(e.value) ? e.value[1] - e.value[0] : 0))}
+            {/* O Recharts entrega ao rótulo só a ponta da faixa; a variação do mês vem do payload. */}
+            {rotulo(showLabels, 'top', (e) => (e.payload.faixa ? e.payload.faixa[1] - e.payload.faixa[0] : 0))}
           </Bar>
         </BarChart>
       </ChartContainer>

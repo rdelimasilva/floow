@@ -66,4 +66,18 @@ describe('cards × total do detalhamento', () => {
     expect(card(/^Despesas/)).toBe(tabela.despesas)
     expect(tabela.receitas).toContain('100,00')
   })
+
+  it('"Ocultar transferências" desligado conta a entrada como receita e a saída como despesa', () => {
+    render(
+      <CashFlowClient
+        transactions={[...transactions, tx('2026-10-10', 1000_00, 'transfer'), tx('2026-10-11', -400_00, 'transfer')]}
+        futureTransactions={[]}
+        accounts={[{ id: 'a1', name: 'Conta' }]}
+      />,
+    )
+    expect(card(/^Receitas/)).toContain('600,00')
+    fireEvent.click(screen.getByRole('button', { name: 'Ocultar transferências' }))
+    expect(card(/^Receitas/)).toContain('1.600,00')
+    expect(card(/^Despesas/)).toContain('630,00')
+  })
 })
