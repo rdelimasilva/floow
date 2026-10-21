@@ -92,6 +92,18 @@ describe('linkResourceToAccount — compatibilidade de tipo', () => {
     expect(ops.some((o) => o.op === 'update' && o.table === 'openfinance_resources')).toBe(true)
   })
 
+  it('a conta vinculada herda o titular da conexão', async () => {
+    selectQueue.push([CARTAO])
+    selectQueue.push([{ id: 'acc-cc', type: 'credit_card' }])
+    selectQueue.push([])
+
+    await linkResourceToAccount('res-card', { kind: 'existing', accountId: 'acc-cc' })
+
+    const vinculo = ops.findIndex((o) => o.op === 'update' && o.table === 'openfinance_resources')
+    const titular = ops.findIndex((o) => o.op === 'update' && o.table === 'accounts')
+    expect(titular).toBeGreaterThan(vinculo)
+  })
+
   it('aceita conta bancária em poupança', async () => {
     selectQueue.push([CONTA])
     selectQueue.push([{ id: 'acc-sav', type: 'savings' }])

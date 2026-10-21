@@ -22,6 +22,7 @@ export interface EstadoDoWizard {
   nomeCartao: string
   institutionId: string
   cpf: string
+  titular: string
 }
 
 export function contasCompativeis<T extends ContaDoFloow>(contas: T[], tipo: TipoDeRecurso): T[] {

@@ -64,6 +64,8 @@ export const accounts = pgTable(
     branch: text('branch'),
     accountNumber: text('account_number'),
     isActive: boolean('is_active').notNull().default(true),
+    /** Primeiro nome de quem é a conta, para o filtro por pessoa. Migration 00082. */
+    titular: text('titular'),
     /**
      * Só cartão de crédito. Dia do fechamento e do vencimento da fatura (1..31,
      * migration 00057); `null` = não cadastrado, e o extrato não mostra a linha

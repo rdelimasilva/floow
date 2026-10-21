@@ -78,6 +78,7 @@ export function ConnectWizard({ institutions, loadError, contas }: ConnectWizard
     nomeCartao: '',
     institutionId: '',
     cpf: '',
+    titular: '',
   })
 
   const [passo, setPasso] = useState<1 | 2 | 3>(1)
@@ -162,9 +163,12 @@ export function ConnectWizard({ institutions, loadError, contas }: ConnectWizard
           institutionId: estado.institutionId,
           institutionName: selected?.name,
           cpf: estado.cpf,
+          titular: estado.titular,
           products: estado.products,
           destinos: montarDestinos(estado),
         })
+        // O catch abaixo mostra a frase da action no toast.
+        if ('error' in result) throw new Error(result.error)
         connectionId = result.connectionId
         return result.authUrl
       })
@@ -235,6 +239,8 @@ export function ConnectWizard({ institutions, loadError, contas }: ConnectWizard
           onInstitution={(institutionId) => atualizar({ institutionId })}
           cpf={estado.cpf}
           onCpf={(cpf) => atualizar({ cpf })}
+          titular={estado.titular}
+          onTitular={(titular) => atualizar({ titular })}
         />
       )}
 

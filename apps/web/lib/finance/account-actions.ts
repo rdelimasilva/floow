@@ -13,6 +13,7 @@ import {
   revalidateTransactionData,
 } from './revalidate'
 import { exigirPro } from '@/lib/plano/acesso-queries'
+import { primeiroNome } from './titular'
 
 type Db = ReturnType<typeof getDb>
 
@@ -235,6 +236,8 @@ export async function updateAccount(formData: FormData) {
       branch: input.branch ?? null,
       accountNumber: input.accountNumber ?? null,
       ...diasDoCartao(input),
+      // Só quem manda o campo mexe no titular; sem ele, o titular fica.
+      ...(formData.has('titular') ? { titular: primeiroNome(formData.get('titular') as string) } : {}),
       updatedAt: new Date(),
     })
     .where(and(eq(accounts.id, input.id), eq(accounts.orgId, orgId)))

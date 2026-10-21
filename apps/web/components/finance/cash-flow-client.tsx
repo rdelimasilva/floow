@@ -33,6 +33,7 @@ interface PreparedTransaction extends RawTransaction {
 interface AccountOption {
   id: string
   name: string
+  titular?: string | null
 }
 
 type ViewMode = 'realized' | 'projected' | 'both'

@@ -12,7 +12,7 @@
  */
 
 import { revalidatePath } from 'next/cache'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { getDb, accounts, openfinanceResources } from '@floow/db'
 import { getOrgId } from '@/lib/finance/queries'
 import { accountsTag, invalidateTag } from '@/lib/cache-tags'
@@ -85,6 +85,13 @@ export async function linkResourceToAccount(
       updatedAt: new Date(),
     })
     .where(eq(openfinanceResources.id, resource.id))
+
+  // A conta herda o titular da conexão (filtro por pessoa). Titular já
+  // escolhido na conta não é trocado.
+  await db
+    .update(accounts)
+    .set({ titular: sql`(SELECT titular FROM openfinance_connections WHERE id = ${resource.connectionId})` })
+    .where(and(eq(accounts.id, accountId), eq(accounts.orgId, orgId), isNull(accounts.titular)))
 
   await invalidateTag(accountsTag(orgId))
   revalidatePath('/accounts')

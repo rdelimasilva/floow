@@ -28,6 +28,7 @@ const ESTADO: EstadoDoWizard = {
   nomeCartao: '',
   institutionId: 'itau',
   cpf: '529.982.247-25',
+  titular: '',
 }
 
 describe('contasCompativeis', () => {

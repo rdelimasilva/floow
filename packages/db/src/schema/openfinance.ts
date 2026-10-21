@@ -38,6 +38,8 @@ export const openfinanceConnections = pgTable(
     /** SHA-256 do CPF com salt. O CPF em claro nunca é armazenado. */
     cpfHash: text('cpf_hash').notNull(),
     cpfMasked: text('cpf_masked').notNull(),
+    /** Primeiro nome do titular, herdado pelas contas vinculadas. Migration 00082. */
+    titular: text('titular'),
     /** ConsentStatus: AWAITING_AUTHORIZATION | AUTHORISED | REJECTED | EXPIRED */
     status: text('status').notNull(),
     /** ConsentExecutionStatus: AWAITING_RESOURCES | SUCCESS | PARTIAL_SUCCESS */

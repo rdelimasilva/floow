@@ -66,3 +66,24 @@ function extrairMensagem(body: string): string | null {
     return limpo.length > 0 && limpo.length <= 160 ? limpo : null
   }
 }
+
+/**
+ * Roda a chamada e substitui a falha da Polp por uma frase acionavel.
+ *
+ * O erro original nao e engolido: describePolpError le status, Retry-After e o
+ * corpo da resposta para montar a mensagem.
+ */
+export async function comErroTraduzido<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (error) {
+    throw new ErroDaConexao(describePolpError(error))
+  }
+}
+
+/**
+ * Erro com frase escrita para o usuário. Em produção o Next troca a mensagem
+ * de todo erro lançado numa server action por um texto genérico, então quem
+ * chama devolve `{ error }` em vez de relançar.
+ */
+export class ErroDaConexao extends Error {}

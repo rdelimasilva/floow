@@ -33,6 +33,7 @@ import {
   type TipoDeRecurso,
 } from './auto-vinculo'
 import { exigirPro } from '@/lib/plano/acesso-queries'
+import { ErroDaConexao } from './errors'
 
 export type DestinoEscolhido = { kind: 'existing'; accountId: string } | { kind: 'new'; name: string }
 
@@ -50,7 +51,7 @@ export interface IniciarConexaoGuiadaInput extends StartConnectionInput {
  */
 export async function iniciarConexaoGuiada(
   input: IniciarConexaoGuiadaInput,
-): Promise<StartConnectionResult> {
+): Promise<StartConnectionResult | { error: string }> {
   const orgId = await getOrgId()
   await exigirPro('open_finance', orgId)
   const banco = input.institutionName?.trim() || 'Banco'
@@ -68,12 +69,19 @@ export async function iniciarConexaoGuiada(
     targetCardNewName: cartao?.kind === 'new' ? nomeDaNova(cartao.name, `${banco} · Cartão`) : null,
   }
 
-  const resultado = await startBankConnection({
-    institutionId: input.institutionId,
-    institutionName: input.institutionName,
-    cpf: input.cpf,
-    products: input.products,
-  })
+  let resultado: StartConnectionResult
+  try {
+    resultado = await startBankConnection({
+      institutionId: input.institutionId,
+      institutionName: input.institutionName,
+      cpf: input.cpf,
+      titular: input.titular,
+      products: input.products,
+    })
+  } catch (error) {
+    if (error instanceof ErroDaConexao) return { error: error.message }
+    throw error
+  }
 
   if (!semDestinos(destinos)) {
     // O consentimento já existe e a aba do banco está abrindo: lançar aqui

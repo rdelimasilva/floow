@@ -17,10 +17,12 @@ interface PassoBancoProps {
   onInstitution: (id: string) => void
   cpf: string
   onCpf: (cpf: string) => void
+  titular: string
+  onTitular: (titular: string) => void
 }
 
 /** Passo 2: banco e CPF do titular. */
-export function PassoBanco({ institutions, institutionId, onInstitution, cpf, onCpf }: PassoBancoProps) {
+export function PassoBanco({ institutions, institutionId, onInstitution, cpf, onCpf, titular, onTitular }: PassoBancoProps) {
   const [search, setSearch] = useState('')
   const filtered = search
     ? institutions.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
@@ -82,6 +84,21 @@ export function PassoBanco({ institutions, institutionId, onInstitution, cpf, on
         <p className="text-xs text-gray-500">
           Usado só para criar o consentimento no banco. O floow guarda uma versão mascarada e um
           código irreversível — o número em si não fica armazenado.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="titular">Primeiro nome do titular (opcional)</Label>
+        <Input
+          id="titular"
+          value={titular}
+          onChange={(e) => onTitular(e.target.value)}
+          placeholder="Ex.: Ana"
+          maxLength={30}
+          autoComplete="off"
+        />
+        <p className="text-xs text-gray-500">
+          Se a família conecta mais de um CPF, o nome aparece no filtro de contas para ver só as de cada pessoa.
         </p>
       </div>
     </div>

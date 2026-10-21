@@ -33,7 +33,7 @@ describe('contasParaLancamento', () => {
   })
 
   it('devolve so id e nome, o formato que os seletores esperam', () => {
-    expect(contasParaLancamento([CONTAS[0]])).toEqual([{ id: 'a1', name: 'Itau Corrente' }])
+    expect(contasParaLancamento([CONTAS[0]])).toEqual([{ id: 'a1', name: 'Itau Corrente', titular: null }])
   })
 })
 

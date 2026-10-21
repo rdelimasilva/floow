@@ -28,12 +28,14 @@ import { getOrgId } from '@/lib/finance/queries'
 import { revalidateSincronizacao } from '@/lib/finance/revalidate'
 import { getCpfSalt, getPolpClient } from './config'
 import { hashCpf, isValidCpf, maskCpf } from './cpf'
-import { describePolpError } from './errors'
+import { ErroDaConexao, comErroTraduzido, describePolpError } from './errors'
 import { deriveResourceIdentity } from './resource-label'
 import { decideResourceRouting } from './resource-routing'
 import { type SyncSummary } from './sync'
 import { sincronizarConexao } from './sincronizar-conexao'
 import { produtosJaConectados } from './conexao-repetida'
+import { exigirVagaDeCpf } from './limite-de-cpfs'
+import { primeiroNome } from '@/lib/finance/titular'
 import { exigirPro } from '@/lib/plano/acesso-queries'
 
 /** Os produtos que o floow sabe ingerir. */
@@ -46,6 +48,8 @@ export interface StartConnectionInput {
   institutionId: string
   institutionName?: string
   cpf: string
+  /** Primeiro nome, herdado pelas contas vinculadas (filtro por pessoa). */
+  titular?: string
   products: string[]
 }
 
@@ -66,14 +70,14 @@ export async function startBankConnection(
   if (!isValidCpf(input.cpf)) {
     // Antes de qualquer chamada: consentimento com CPF inválido não devolve só
     // um erro, consome tentativa dentro de um teto regulatório mensal.
-    throw new Error('CPF inválido')
+    throw new ErroDaConexao('CPF inválido')
   }
 
   const products = input.products.filter((p): p is PolpProduct =>
     (SUPPORTED_PRODUCTS as string[]).includes(p),
   )
   if (products.length === 0) {
-    throw new Error('Selecione ao menos um produto para conectar')
+    throw new ErroDaConexao('Selecione ao menos um produto para conectar')
   }
 
   const cpfHash = hashCpf(input.cpf, getCpfSalt())
@@ -96,10 +100,13 @@ export async function startBankConnection(
 
   // Produto novo no mesmo banco (investimentos depois de conta) é outra conexão.
   if (produtosJaConectados(existentes, products).length > 0) {
-    throw new Error(
+    throw new ErroDaConexao(
       'Este CPF já está conectado a esta instituição. Se a autorização no banco falhou, use "Reabrir autorização" na conexão existente.',
     )
   }
+
+  // Antes do consentimento: barrar depois já teria queimado cota do CPF novo.
+  await exigirVagaDeCpf(db, orgId, cpfHash)
 
   const { userId } = await requireIdentity()
 
@@ -132,7 +139,7 @@ export async function startBankConnection(
     .limit(1)
 
   if (jaRegistrado && jaRegistrado.orgId !== orgId) {
-    throw new Error(
+    throw new ErroDaConexao(
       'Este CPF já está conectado a esta instituição em outra organização. Revogue a conexão lá antes de conectar aqui.',
     )
   }
@@ -147,6 +154,7 @@ export async function startBankConnection(
       institutionName: input.institutionName ?? null,
       cpfHash,
       cpfMasked: maskCpf(input.cpf),
+      titular: primeiroNome(input.titular),
       status: consent.status,
       executionStatus: consent.execution_status ?? null,
       flags: consent.flags ?? [],
@@ -483,18 +491,4 @@ export async function syncBankConnection(connectionId: string): Promise<SyncSumm
   revalidatePath('/investments')
 
   return summary
-}
-
-/**
- * Roda a chamada e substitui a falha da Polp por uma frase acionavel.
- *
- * O erro original nao e engolido: describePolpError le status, Retry-After e o
- * corpo da resposta para montar a mensagem.
- */
-async function comErroTraduzido<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn()
-  } catch (error) {
-    throw new Error(describePolpError(error))
-  }
 }

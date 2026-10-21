@@ -23,6 +23,7 @@ const PARAMS_DA_TABELA = ['types', 'categoryIds', 'minAmount', 'maxAmount', 'sor
 interface AccountOption {
   id: string
   name: string
+  titular?: string | null
 }
 
 interface TransactionFiltersProps {

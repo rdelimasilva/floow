@@ -50,6 +50,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
   const [accountNumber, setAccountNumber] = useState(account.accountNumber ?? '')
   const [closingDay, setClosingDay] = useState(account.closingDay?.toString() ?? '')
   const [dueDay, setDueDay] = useState(account.dueDay?.toString() ?? '')
+  const [titular, setTitular] = useState(account.titular ?? '')
   const [showAdjust, setShowAdjust] = useState(false)
   const [adjustNewBalance, setAdjustNewBalance] = useState('')
   const [adjustNote, setAdjustNote] = useState('')
@@ -82,6 +83,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
       if (accountNumber) formData.append('accountNumber', accountNumber)
       if (closingDay) formData.append('closingDay', closingDay)
       if (dueDay) formData.append('dueDay', dueDay)
+      formData.append('titular', titular)
       await updateAccount(formData)
       setEditing(false)
       toast('Conta atualizada com sucesso')
@@ -149,6 +151,10 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             <Label>Nome</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
+          <div>
+            <Label>Titular (primeiro nome)</Label>
+            <Input value={titular} onChange={(e) => setTitular(e.target.value)} placeholder="Ex.: Ana" maxLength={30} />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Agência</Label>
@@ -188,7 +194,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             <Button size="sm" variant="primary" onClick={handleUpdate} disabled={loading}>
               {loading ? 'Salvando...' : 'Salvar'}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setEditing(false); setName(account.name); setType(account.type); setBranch(account.branch ?? ''); setAccountNumber(account.accountNumber ?? ''); setClosingDay(account.closingDay?.toString() ?? ''); setDueDay(account.dueDay?.toString() ?? ''); setShowAdjust(false) }}>
+            <Button size="sm" variant="outline" onClick={() => { setEditing(false); setName(account.name); setType(account.type); setBranch(account.branch ?? ''); setAccountNumber(account.accountNumber ?? ''); setClosingDay(account.closingDay?.toString() ?? ''); setDueDay(account.dueDay?.toString() ?? ''); setTitular(account.titular ?? ''); setShowAdjust(false) }}>
               Cancelar
             </Button>
           </div>

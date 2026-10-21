@@ -53,7 +53,12 @@ export function criarRepositorio(db: Db): RepositorioDeInvestimentos {
       // `core-finance/src/account-kind.ts`. D3: investimento não toca o caixa.
       const [conta] = await db
         .insert(accounts)
-        .values({ orgId: conexao.orgId, name: `Investimentos · ${conexao.institutionName ?? 'Open Finance'}`, type: 'brokerage' })
+        .values({
+          orgId: conexao.orgId,
+          name: `Investimentos · ${conexao.institutionName ?? 'Open Finance'}`,
+          type: 'brokerage',
+          titular: sql`(SELECT titular FROM openfinance_connections WHERE id = ${conexao.id})`,
+        })
         .returning({ id: accounts.id })
       await db
         .update(openfinanceConnections)

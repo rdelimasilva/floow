@@ -57,6 +57,7 @@ vi.mock('@/lib/openfinance/queries', () => ({
   getLastTransactionDateByAccount: (...a: unknown[]) => getLastTransactionDateByAccount(...a),
 }))
 
+const { ErroDaConexao } = await import('@/lib/openfinance/errors')
 const { iniciarConexaoGuiada, concluirConexaoGuiada } = await import(
   '@/lib/openfinance/conexao-guiada-actions'
 )
@@ -86,7 +87,7 @@ describe('iniciarConexaoGuiada', () => {
       destinos: { conta: { kind: 'existing', accountId: 'acc-1' }, cartao: { kind: 'new', name: '  ' } },
     })
 
-    expect(r.connectionId).toBe('conn-1')
+    expect(r).toMatchObject({ connectionId: 'conn-1' })
     expect(startBankConnection).toHaveBeenCalledWith({
       institutionId: 'itau',
       institutionName: 'Itaú',
@@ -148,7 +149,18 @@ describe('iniciarConexaoGuiada', () => {
   it('falha ao gravar o destino não derruba a conexão já criada', async () => {
     updateFalha = true
     const r = await iniciarConexaoGuiada({ ...BASE, products: ['ACCOUNT'], destinos: { conta: { kind: 'new', name: '' } } })
-    expect(r.authUrl).toBe('https://banco')
+    expect(r).toMatchObject({ authUrl: 'https://banco' })
+  })
+
+  it('frase escrita para o usuário volta como { error }, para aparecer em produção', async () => {
+    startBankConnection.mockRejectedValue(new ErroDaConexao('Esta conta já tem 5 CPFs conectados'))
+    const r = await iniciarConexaoGuiada({ ...BASE, products: ['INVESTMENTS'], destinos: {} })
+    expect(r).toEqual({ error: 'Esta conta já tem 5 CPFs conectados' })
+  })
+
+  it('erro inesperado continua sendo lançado', async () => {
+    startBankConnection.mockRejectedValue(new Error('connection reset'))
+    await expect(iniciarConexaoGuiada({ ...BASE, products: ['INVESTMENTS'], destinos: {} })).rejects.toThrow('connection reset')
   })
 })
 

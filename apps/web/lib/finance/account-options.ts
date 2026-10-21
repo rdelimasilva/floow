@@ -4,6 +4,8 @@ import { ehContaDeInvestimento } from '@floow/core-finance'
 interface OpcaoDeConta {
   id: string
   name: string
+  /** De quem é a conta, para o atalho por pessoa do filtro. */
+  titular?: string | null
 }
 
 /**
@@ -32,9 +34,9 @@ export function semContasDeInvestimento<T extends { type: string }>(
  * verdade, nao duplicacao.
  */
 export function contasParaLancamento(
-  contas: readonly { id: string; name: string; type: string }[],
+  contas: readonly { id: string; name: string; type: string; titular?: string | null }[],
 ): OpcaoDeConta[] {
-  return semContasDeInvestimento(contas).map((c) => ({ id: c.id, name: c.name }))
+  return semContasDeInvestimento(contas).map((c) => ({ id: c.id, name: c.name, titular: c.titular ?? null }))
 }
 
 /**
