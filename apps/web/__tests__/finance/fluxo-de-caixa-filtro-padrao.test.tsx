@@ -14,10 +14,16 @@ import { CashFlowClient } from '@/components/finance/cash-flow-client'
 
 describe('filtro de período do fluxo de caixa', () => {
   beforeEach(() => {
+    // O localStorage do Node sobrepõe o do jsdom e não grava; a tela precisa de um que funcione.
+    const guardado = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => guardado.get(k) ?? null,
+      setItem: (k: string, v: string) => { guardado.set(k, v) },
+    })
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 9, 18, 10, 0, 0))
   })
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
   const props = {
     transactions: [{ date: '2026-10-05', amountCents: 500_00, type: 'income', accountId: 'a1' }],

@@ -23,10 +23,16 @@ import { CashFlowClient } from '@/components/finance/cash-flow-client'
 
 describe('cards × total do detalhamento', () => {
   beforeEach(() => {
+    // O localStorage do Node sobrepõe o do jsdom e não grava; a tela precisa de um que funcione.
+    const guardado = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => guardado.get(k) ?? null,
+      setItem: (k: string, v: string) => { guardado.set(k, v) },
+    })
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 9, 18, 10, 0, 0))
   })
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
   const tx = (date: string, amountCents: number, type: string) => ({ date, amountCents, type, accountId: 'a1' })
 
@@ -95,5 +101,19 @@ describe('cards × total do detalhamento', () => {
     expect(screen.getByText('Lançamento 1')).toBeTruthy()
     expect(screen.getByText('Lançamento 3')).toBeTruthy()
     expect(screen.queryByText('Lançamento 0')).toBeNull()
+  })
+
+  it('o período escolhido volta quando a pessoa retorna à tela', () => {
+    const tela = () => (
+      <CashFlowClient transactions={transactions} futureTransactions={[]} accounts={[{ id: 'a1', name: 'Conta' }]} />
+    )
+    const { unmount } = render(tela())
+    fireEvent.click(screen.getByRole('button', { name: /^Período:/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hoje' }))
+    unmount()
+
+    render(tela())
+    expect(card(/^Receitas/)).toContain('100,00')
+    expect(card(/^Receitas/)).not.toContain('600,00')
   })
 })

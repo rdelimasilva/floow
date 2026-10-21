@@ -4,7 +4,7 @@ import { useState, useMemo, useDeferredValue, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { CashFlowPeriodFilter } from './cash-flow-period-filter'
 import { AccountFilter } from './account-filter'
-import { PERIOD_GROUPS, getPeriodDates, hojeEmSaoPaulo, type PeriodKey } from '@/lib/finance/filtros-lembrados'
+import { PERIOD_GROUPS, detectActivePeriod, getPeriodDates, hojeEmSaoPaulo, type PeriodKey } from '@/lib/finance/filtros-lembrados'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
 import dynamic from 'next/dynamic'
 
@@ -36,9 +36,19 @@ interface AccountOption {
 
 type ViewMode = 'realized' | 'projected' | 'both'
 
-// Tipo de gráfico, rótulos e transferências sobrevivem à troca de tela.
+// Filtros e gráfico sobrevivem à troca de tela. Período de atalho fica
+// relativo (`periodKey`) e volta com as datas do dia da volta, como em Transações.
 const PREFS_KEY = 'fluxo-de-caixa:preferencias'
-interface Prefs { chartType: ChartType; showLabels: boolean; hideTransfers: boolean }
+interface Prefs {
+  chartType: ChartType
+  showLabels: boolean
+  hideTransfers: boolean
+  viewMode: ViewMode
+  accountIds: string[]
+  periodKey: PeriodKey | null
+  startDate: string
+  endDate: string
+}
 
 const VIEW_LABELS: Record<ViewMode, string> = {
   realized: 'Realizado',
@@ -102,6 +112,8 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
   const [hideTransfers, setHideTransfers] = useState(true)
   const [showLabels, setShowLabels] = useState(false)
 
+  const [carregado, setCarregado] = useState(false)
+
   // Lido depois de montar: no servidor não há localStorage e o HTML divergiria.
   useEffect(() => {
     try {
@@ -109,14 +121,29 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
       if (p.chartType) setChartType(p.chartType)
       if (typeof p.showLabels === 'boolean') setShowLabels(p.showLabels)
       if (typeof p.hideTransfers === 'boolean') setHideTransfers(p.hideTransfers)
+      if (p.viewMode && p.viewMode in VIEW_LABELS) setViewMode(p.viewMode)
+      // Conta excluída desde a última visita sairia filtrando nada.
+      if (Array.isArray(p.accountIds)) setAccountIds(p.accountIds.filter((id) => accounts.some((a) => a.id === id)))
+      if (p.periodKey) setPeriodo(getPeriodDates(p.periodKey))
+      else if (typeof p.startDate === 'string' && typeof p.endDate === 'string') {
+        setPeriodo({ startDate: p.startDate, endDate: p.endDate })
+      }
     } catch { /* sem preferência salva, fica o padrão */ }
+    setCarregado(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na montagem
   }, [])
 
-  function lembrar(patch: Partial<Prefs>) {
+  // Só grava depois de ler, senão o padrão apagaria o que estava salvo.
+  useEffect(() => {
+    if (!carregado) return
+    const prefs: Prefs = {
+      chartType, showLabels, hideTransfers, viewMode, accountIds,
+      periodKey: detectActivePeriod(startDate, endDate), startDate, endDate,
+    }
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ chartType, showLabels, hideTransfers, ...patch }))
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
     } catch { /* navegador sem storage: vale só nesta visita */ }
-  }
+  }, [carregado, chartType, showLabels, hideTransfers, viewMode, accountIds, startDate, endDate])
 
   const preparedTransactions = useMemo(() => preparar(transactions), [transactions])
   const preparedFutureTransactions = useMemo(() => preparar(futureTransactions), [futureTransactions])
@@ -219,7 +246,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
           <button
             type="button"
             aria-pressed={hideTransfers}
-            onClick={() => { setHideTransfers(!hideTransfers); lembrar({ hideTransfers: !hideTransfers }) }}
+            onClick={() => setHideTransfers((v) => !v)}
             className={`${PILL_BASE} ${hideTransfers ? PILL_ON : PILL_OFF}`}
           >
             Ocultar transferências
@@ -273,12 +300,12 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CashFlowChartPicker activeType={chartType} onChange={(t) => { setChartType(t); lembrar({ chartType: t }) }} />
+            <CashFlowChartPicker activeType={chartType} onChange={setChartType} />
             <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
               <input
                 type="checkbox"
                 checked={showLabels}
-                onChange={(e) => { setShowLabels(e.target.checked); lembrar({ showLabels: e.target.checked }) }}
+                onChange={(e) => setShowLabels(e.target.checked)}
                 className="rounded border-gray-300"
               />
               Mostrar valores
