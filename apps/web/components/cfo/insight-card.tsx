@@ -13,26 +13,22 @@ import type { CfoInsight } from '@floow/db'
 const SEVERITY_CONFIG = {
   critical: {
     icon: AlertTriangle,
-    border: 'border-l-4 border-l-red-500',
-    badge: 'bg-red-100 text-red-700',
+    tone: 'text-red-600',
     label: 'Crítico',
   },
   warning: {
     icon: AlertCircle,
-    border: 'border-l-4 border-l-yellow-500',
-    badge: 'bg-yellow-100 text-yellow-700',
+    tone: 'text-amber-600',
     label: 'Atenção',
   },
   info: {
     icon: Info,
-    border: 'border-l-4 border-l-blue-500',
-    badge: 'bg-blue-100 text-blue-700',
+    tone: 'text-blue-600',
     label: 'Info',
   },
   positive: {
     icon: CheckCircle2,
-    border: 'border-l-4 border-l-green-500',
-    badge: 'bg-green-100 text-green-700',
+    tone: 'text-green-600',
     label: 'Positivo',
   },
 } as const
@@ -84,13 +80,16 @@ export function InsightCard({ insight, compact = false }: InsightCardProps) {
   }
 
   return (
-    <Card className={cn(config.border, 'transition-all')}>
+    <Card className="transition-all">
       <CardContent className={cn('pt-4', compact ? 'pb-3' : 'pb-4')}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            <Icon className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
+            <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', config.tone)} aria-hidden="true" />
             <div className="min-w-0">
-              <p className="font-medium text-sm leading-tight">{insight.title}</p>
+              <p className="font-medium text-sm leading-tight">
+                <span className="sr-only">{config.label}: </span>
+                {insight.title}
+              </p>
               <p className="text-sm text-muted-foreground mt-1">{insight.body}</p>
             </div>
           </div>
