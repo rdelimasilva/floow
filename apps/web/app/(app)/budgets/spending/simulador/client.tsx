@@ -42,6 +42,11 @@ interface Props {
   selectedMonth: string
 }
 
+/** Campo vazio é zero: o InputMoeda apaga o "0,00" e `currencyToCents('')` dá NaN. */
+function centavos(texto: string): number {
+  return texto ? currencyToCents(texto) : 0
+}
+
 function linhasIniciais(plano: LinhaVigente[]): Linha[] {
   return plano.map((l) => ({ ...l, texto: formatarMoedaDigitada(String(l.plannedCents)) }))
 }
@@ -73,10 +78,10 @@ export function SimuladorClient({ categories, planoVigente, mediaPorCategoria, m
   const disponiveis = categories.filter((c) => !naSimulacao.has(c.id))
 
   const totalVigente = linhas.reduce((s, l) => s + l.plannedCents, 0)
-  const totalSimulado = linhas.reduce((s, l) => s + currencyToCents(l.texto), 0)
+  const totalSimulado = linhas.reduce((s, l) => s + centavos(l.texto), 0)
   const totalMedia = linhas.reduce((s, l) => s + (media.get(l.categoryId) ?? 0), 0)
   const diferenca = totalSimulado - totalVigente
-  const mudou = linhas.length !== planoVigente.length || linhas.some((l) => currencyToCents(l.texto) !== l.plannedCents)
+  const mudou = linhas.length !== planoVigente.length || linhas.some((l) => centavos(l.texto) !== l.plannedCents)
 
   function alterar(categoryId: string, texto: string) {
     setLinhas((prev) => prev.map((l) => (l.categoryId === categoryId ? { ...l, texto } : l)))
@@ -107,7 +112,7 @@ export function SimuladorClient({ categories, planoVigente, mediaPorCategoria, m
     try {
       const r = await aplicarSimulacao(
         selectedMonth,
-        linhas.map((l) => ({ categoryId: l.categoryId, simuladoCents: currencyToCents(l.texto) })),
+        linhas.map((l) => ({ categoryId: l.categoryId, simuladoCents: centavos(l.texto) })),
       )
       if ('error' in r) {
         toast(r.error, 'error')
@@ -211,7 +216,7 @@ export function SimuladorClient({ categories, planoVigente, mediaPorCategoria, m
                 <tbody className="divide-y divide-gray-100">
                   {linhas.map((l) => {
                     const cat = nomes.get(l.categoryId)
-                    const simulado = currencyToCents(l.texto)
+                    const simulado = centavos(l.texto)
                     return (
                       <tr key={l.categoryId}>
                         <td className="px-4 py-2 text-sm font-medium text-gray-900">
