@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Gauge } from 'lucide-react'
+import { Plus, Gauge, FlaskConical } from 'lucide-react'
 import { MonthNavigator } from '@/components/finance/month-navigator'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -153,6 +153,11 @@ export function SpendingClient({
   return (
     <div className="space-y-6">
       <PageHeader title="Plano de Gastos" description="Defina quanto quer gastar em cada categoria no mês">
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/budgets/spending/simulador?month=${selectedMonth}`}>
+            <FlaskConical className="h-4 w-4" /> Simular
+          </Link>
+        </Button>
         <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" /> Novo Lançamento
         </Button>
