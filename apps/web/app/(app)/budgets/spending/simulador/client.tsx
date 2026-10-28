@@ -2,7 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, RotateCcw, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, Check, RotateCcw, X } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
+import { aplicarSimulacao } from '@/lib/finance/simulador-actions'
+import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -53,7 +58,11 @@ function Diferenca({ cents }: { cents: number }) {
 }
 
 export function SimuladorClient({ categories, planoVigente, mediaPorCategoria, mesesDaMedia, selectedMonth }: Props) {
+  const router = useRouter()
+  const { toast } = useToast()
   const [linhas, setLinhas] = useState(() => linhasIniciais(planoVigente))
+  const [confirmando, setConfirmando] = useState(false)
+  const [aplicando, setAplicando] = useState(false)
 
   const nomes = new Map(categories.map((c) => [c.id, c]))
   // Média das subcategorias sobe para a categoria simulada, como no realizado do plano
@@ -91,12 +100,38 @@ export function SimuladorClient({ categories, planoVigente, mediaPorCategoria, m
     else setLinhas((prev) => prev.filter((l) => l.categoryId !== linha.categoryId))
   }
 
+  const nomeDoMes = new Date(`${selectedMonth.slice(0, 7)}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+
+  async function aplicar() {
+    setAplicando(true)
+    try {
+      const r = await aplicarSimulacao(
+        selectedMonth,
+        linhas.map((l) => ({ categoryId: l.categoryId, simuladoCents: currencyToCents(l.texto) })),
+      )
+      if ('error' in r) {
+        toast(r.error, 'error')
+        return
+      }
+      toast(r.alteradas === 1 ? '1 meta atualizada no plano' : `${r.alteradas} metas atualizadas no plano`)
+      router.push(`/budgets/spending?month=${selectedMonth}`)
+    } catch (err) {
+      toast(mensagemDeErro(err, 'Não foi possível aplicar a simulação'), 'error')
+    } finally {
+      setAplicando(false)
+      setConfirmando(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Simulador orçamentário"
-        description="Teste mudanças a partir do plano vigente. Nada aqui é gravado no seu Plano de Gastos."
+        description="Teste mudanças a partir do plano vigente. Nada é gravado até você aplicar."
       >
+        <Button variant="primary" size="sm" onClick={() => setConfirmando(true)} disabled={!mudou}>
+          <Check className="h-4 w-4" /> Aplicar ao plano
+        </Button>
         <Button variant="outline" size="sm" onClick={() => setLinhas(linhasIniciais(planoVigente))} disabled={!mudou}>
           <RotateCcw className="h-4 w-4" /> Recomeçar
         </Button>
@@ -222,6 +257,16 @@ export function SimuladorClient({ categories, planoVigente, mediaPorCategoria, m
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmando}
+        onClose={() => setConfirmando(false)}
+        onConfirm={aplicar}
+        title="Aplicar ao plano"
+        description={`As metas simuladas passam a valer de ${nomeDoMes} em diante. Os meses anteriores continuam como estão.`}
+        confirmLabel="Aplicar"
+        loading={aplicando}
+      />
     </div>
   )
 }
