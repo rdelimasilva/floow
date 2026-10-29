@@ -30,6 +30,16 @@ export function LoginForm() {
       password: data.password,
     })
 
+    if (error?.code === 'email_not_confirmed') {
+      const { error: reenvio } = await supabase.auth.resend({ type: 'signup', email: data.email })
+      setServerError(
+        reenvio
+          ? 'Confirme seu e-mail antes de entrar. Procure o link que enviamos, inclusive no spam.'
+          : 'Confirme seu e-mail antes de entrar. Enviamos um link novo para ' + data.email + '.'
+      )
+      return
+    }
+
     if (error) {
       setServerError(error.message)
       return
