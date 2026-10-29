@@ -86,7 +86,8 @@ export async function registrarSaldoDeAbertura(
   },
 ): Promise<number | null> {
   const { orgId, accountId, polpResourceId, extrato, refazer } = args
-  if (extrato.incompleto) return null
+  // Falha que passa lança: quem chama mantém o recurso pendente e tenta na próxima passada.
+  if (extrato.incompleto) throw new Error('extrato incompleto: saldo de abertura fica para a próxima passada')
 
   const [jaTem] = await db
     .select({ id: transactions.id, amountCents: transactions.amountCents, date: transactions.date })
@@ -111,10 +112,10 @@ export async function registrarSaldoDeAbertura(
     .limit(1)
   if (anterior) return null
 
-  const detalhe = await client.getResourceDetail('ACCOUNT', polpResourceId).catch(() => null)
+  const detalhe = await client.getResourceDetail('ACCOUNT', polpResourceId)
   const saldo = extrairSaldoDisponivelCents(detalhe)
   const apuracao = extrairApuracaoDoSaldo(detalhe)
-  if (saldo == null || !apuracao) return null
+  if (saldo == null || !apuracao) throw new Error('banco sem saldo nesta leitura: saldo de abertura fica para a próxima passada')
 
   const abertura = calcularSaldoDeAbertura(saldo, extrato.somaAte(apuracao))
 

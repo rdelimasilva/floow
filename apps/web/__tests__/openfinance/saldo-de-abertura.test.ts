@@ -94,9 +94,17 @@ describe('registrarSaldoDeAbertura', () => {
     expect(inseridas).toHaveLength(0)
   })
 
+  // Falha que passa: quem chamou tem que tentar de novo na próxima passada.
   it('extrato com item não lido: a soma estaria errada', async () => {
     const { db, client, inseridas } = montar()
-    expect(await registrarSaldoDeAbertura(...args(db, client, extrato({ incompleto: true })))).toBeNull()
+    await expect(registrarSaldoDeAbertura(...args(db, client, extrato({ incompleto: true })))).rejects.toThrow()
+    expect(inseridas).toHaveLength(0)
+  })
+
+  it('banco sem saldo nesta leitura', async () => {
+    const { db, inseridas } = montar()
+    const client: any = { getResourceDetail: async () => { throw new Error('502') } }
+    await expect(registrarSaldoDeAbertura(...args(db, client))).rejects.toThrow()
     expect(inseridas).toHaveLength(0)
   })
 })

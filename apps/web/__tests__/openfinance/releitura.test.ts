@@ -116,6 +116,27 @@ describe('relerHistorico', () => {
     expect(updates.at(-1)!.set.syncVersion).toBe(VERSAO_DO_SYNC)
   })
 
+  it('conta corrente sem o saldo de abertura gravado fica na versão anterior, para tentar de novo', async () => {
+    const tx = {
+      id: 'tx-1', account_id: 'acc-1', transaction_name: 'PIX ENVIADO', transaction_date_time: '2026-09-02T10:00:00-03:00',
+      type: 'PIX', completed_authorised_payment_type: 'TRANSACAO_EFETIVADA', credit_debit_type: 'DEBITO',
+      transaction_amount: { amount: '150.00', currency: 'BRL' }, counterparty: null, category_ref: null,
+      created_at: '2026-09-02T10:05:00-03:00', updated_at: '2026-09-02T10:05:00-03:00',
+    }
+    const { db, client, updates } = montar([[tx]], new Set(['tx-1']))
+    client.getResourceDetail = async () => null
+    // Conta corrente não lê dia de vencimento: nenhuma consulta acha linha.
+    db.select = () => {
+      const c: any = { then: (r: (v: unknown) => unknown) => Promise.resolve([]).then(r) }
+      for (const m of ['from', 'where', 'limit']) c[m] = () => c
+      return c
+    }
+
+    await relerHistorico(db, client, 'org', 'conta', { ...recurso, resourceType: 'ACCOUNT', syncVersion: 7 })
+
+    expect(updates.at(-1)!.set.syncVersion).toBe(7)
+  })
+
   it('não mexe em valor, data, tipo nem saldo', async () => {
     const { db, client, updates } = montar([[polpTx()]], new Set(['01a0870d-aaaa']))
 

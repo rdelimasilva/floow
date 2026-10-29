@@ -189,6 +189,7 @@ export async function syncConnectionTransactions(
 
     summary.rejected += rejectedHere
 
+    let aberturaPendente = false
     if (extratoLido && extratoLido.length > 0) {
       await registrarSaldoDeAbertura(db, client, {
         orgId: connection.orgId,
@@ -200,7 +201,10 @@ export async function syncConnectionTransactions(
           incompleto: rejectedHere > 0,
           somaAte: (apuracao) => somarExtratoAte(extratoLido, apuracao),
         },
-      }).catch((error) => console.error('[sync] falha ao registrar o saldo de abertura:', error))
+      }).catch((error) => {
+        aberturaPendente = true
+        console.error('[sync] falha ao registrar o saldo de abertura:', error)
+      })
     }
 
     // Previsão das parcelas que a Polp ainda não mandou. Falha aqui não
@@ -246,8 +250,9 @@ export async function syncConnectionTransactions(
     if (rejectedHere === 0) {
       await db
         .update(openfinanceResources)
-        // A primeira passada já leu tudo com o sync atual.
-        .set({ lastSyncedAt: startedAt, syncVersion: VERSAO_DO_SYNC, updatedAt: new Date() })
+        // A primeira passada já leu tudo com o sync atual. Sem a abertura, uma
+        // versão abaixo: a releitura da próxima passada tenta de novo.
+        .set({ lastSyncedAt: startedAt, syncVersion: aberturaPendente ? VERSAO_DO_SYNC - 1 : VERSAO_DO_SYNC, updatedAt: new Date() })
         .where(eq(openfinanceResources.id, resource.id))
     }
   }

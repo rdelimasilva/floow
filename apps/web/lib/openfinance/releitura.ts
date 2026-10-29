@@ -173,6 +173,7 @@ export async function relerHistorico(
   // como linha conhecida, e não entra de novo.
   if (primeira) atualizadas += await ocuparReemitidos(db, orgId, accountId, semLinha, idsDaPolp, primeira)
 
+  let aberturaPendente = false
   if (!isCard && primeira) {
     const primeiroDia = primeira
     await registrarSaldoDeAbertura(db, client, {
@@ -185,12 +186,16 @@ export async function relerHistorico(
         incompleto: rejeitados > 0,
         somaAte: (apuracao) => somarExtratoAte(extratoLido, apuracao),
       },
-    }).catch((error) => console.error('[sync] falha ao registrar o saldo de abertura:', error))
+    }).catch((error) => {
+      aberturaPendente = true
+      console.error('[sync] falha ao registrar o saldo de abertura:', error)
+    })
   }
 
+  // Sem a abertura, o recurso fica na versão em que estava e a próxima passada relê de novo.
   await db
     .update(openfinanceResources)
-    .set({ syncVersion: VERSAO_DO_SYNC, updatedAt: new Date() })
+    .set({ syncVersion: aberturaPendente ? recurso.syncVersion : VERSAO_DO_SYNC, updatedAt: new Date() })
     .where(eq(openfinanceResources.id, recurso.id))
   return atualizadas
 }
