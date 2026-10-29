@@ -95,11 +95,23 @@ describe('sincronizarInvestimentos', () => {
     expect(r.tiposComFalha).toEqual([])
   })
 
-  it('grava ativo, posição e movimentações, e recalcula uma vez', async () => {
+  it('grava ativo, posição e movimentações, e recalcula antes e depois das movimentações', async () => {
     const m = repoEmMemoria()
     const r = await sincronizarInvestimentos(m.repo, clienteFalso({ FUND: [fundo('f1')] }, { f1: [aplicacao('t1')] }), CONEXAO)
     expect(r).toMatchObject({ ativos: 1, posicoes: 1, movimentacoes: 1, conflitos: 0, rejeitados: 0 })
-    expect(m.recalculos()).toBe(1)
+    expect(m.recalculos()).toBe(2)
+  })
+
+  it('recalcula as posições antes de pedir a primeira movimentação (timeout no meio não deixa a carteira vazia)', async () => {
+    const m = repoEmMemoria()
+    const cliente = clienteFalso({ FUND: [fundo('f1')] })
+    let recalculosAntes = -1
+    cliente.streamInvestmentTransactions = async function* () {
+      recalculosAntes = m.recalculos()
+      throw new Error('timeout')
+    }
+    await sincronizarInvestimentos(m.repo, cliente, CONEXAO)
+    expect(recalculosAntes).toBe(1)
   })
 
   it('rodar duas vezes no mesmo dia não duplica nada', async () => {
@@ -206,7 +218,7 @@ describe('sincronizarInvestimentos', () => {
     expect(r).toMatchObject({ ativos: 1, posicoes: 1, movimentacoes: 1, transferenciasVinculadas: 0 })
     expect(m.posicoes.size).toBe(1)
     expect(m.problemas.map((p) => p.reason)).toContainEqual(expect.stringMatching(/vincular aplicações.*deadlock/))
-    expect(m.recalculos()).toBe(1)
+    expect(m.recalculos()).toBe(2)
   })
 })
 

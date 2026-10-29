@@ -115,6 +115,11 @@ export async function sincronizarInvestimentos(
     }
   }
 
+  // Antes das movimentações: são uma chamada por ativo, e com uma centena de
+  // ativos o timeout da função chega antes do fim. Sem isto a carteira fica
+  // vazia mesmo com as posições do banco já gravadas.
+  await repo.recalcularPosicoes(orgId)
+
   for (const s of salvos) {
     try {
       const query = janelaDeMovimentacoes(await repo.ultimaDataDeMovimentacao(s.assetId))
