@@ -62,7 +62,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Dia a dia',
     items: [
-      { href: '/cash-flow', label: 'Fluxo de Caixa', icon: BarChart3 },
+      { href: '/cash-flow', label: 'Análises', icon: BarChart3 },
       { href: '/transactions', label: 'Transações', icon: ArrowLeftRight },
       { href: '/transactions/recurring', label: 'Recorrentes', icon: RefreshCw },
     ],

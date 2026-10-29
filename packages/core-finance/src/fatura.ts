@@ -153,24 +153,26 @@ function ehPagamento(l: LancamentoDaFatura): boolean {
  * - Sem a fatura anterior (começo do histórico), os pagamentos do ciclo não
  *   mudam nada: pagaram uma fatura que o app não conhece.
  */
-export function totaisPorFatura(
+/**
+ * O fechamento de cada lançamento, na mesma ordem, e a regra para achar o de
+ * qualquer outro lançamento (o pagamento, por exemplo).
+ *
+ * Fatura que o banco já fechou (`bill_id`): todos os lançamentos dela vão
+ * juntos para o fechamento em que a maioria cai pelo ciclo cadastrado. O dia
+ * real de fechamento varia (fim de semana, feriado, o banco muda) e a compra
+ * perto da virada iria para a fatura errada; o bill_id não erra.
+ */
+export function ciclosDasCompras(
   lancamentos: readonly LancamentoDaFatura[],
   closingDay: number,
-  opts: { dueDay?: number | null; hoje?: string | null; faturasDoBanco?: readonly FaturaDoBanco[] } = {},
-): Map<string, number> {
-  const dueDay = opts.dueDay ?? null
-  const entram = lancamentos.filter((l) => entraNaFatura(l, opts.hoje ?? null))
-  const fechamentos = entram.map((l) => fechamentoDoLancamento(l, closingDay, dueDay))
-
-  // Fatura que o banco já fechou (`bill_id`): todos os lançamentos dela vão
-  // juntos para o fechamento em que a maioria cai pelo ciclo cadastrado. O
-  // dia real de fechamento varia (fim de semana, feriado, o banco muda) e a
-  // compra perto da virada iria para a fatura errada; o bill_id não erra.
+  dueDay: number | null,
+): { fechamentos: string[]; doCiclo: (l: LancamentoDaFatura, proprio: string) => string } {
+  const proprios = lancamentos.map((l) => fechamentoDoLancamento(l, closingDay, dueDay))
   const votos = new Map<string, Map<string, number>>()
-  entram.forEach((l, i) => {
+  lancamentos.forEach((l, i) => {
     if (!l.billId) return
     const v = votos.get(l.billId) ?? new Map<string, number>()
-    v.set(fechamentos[i], (v.get(fechamentos[i]) ?? 0) + 1)
+    v.set(proprios[i], (v.get(proprios[i]) ?? 0) + 1)
     votos.set(l.billId, v)
   })
   const fechamentoDaFatura = new Map<string, string>()
@@ -179,11 +181,21 @@ export function totaisPorFatura(
     fechamentoDaFatura.set(billId, melhor[0])
   }
   const doCiclo = (l: LancamentoDaFatura, proprio: string) => (l.billId && fechamentoDaFatura.get(l.billId)) || proprio
+  return { fechamentos: lancamentos.map((l, i) => doCiclo(l, proprios[i])), doCiclo }
+}
+
+export function totaisPorFatura(
+  lancamentos: readonly LancamentoDaFatura[],
+  closingDay: number,
+  opts: { dueDay?: number | null; hoje?: string | null; faturasDoBanco?: readonly FaturaDoBanco[] } = {},
+): Map<string, number> {
+  const dueDay = opts.dueDay ?? null
+  const entram = lancamentos.filter((l) => entraNaFatura(l, opts.hoje ?? null))
+  const { fechamentos, doCiclo } = ciclosDasCompras(entram, closingDay, dueDay)
 
   const compras = new Map<string, number>()
   entram.forEach((l, i) => {
-    const f = doCiclo(l, fechamentos[i])
-    compras.set(f, (compras.get(f) ?? 0) + l.amountCents)
+    compras.set(fechamentos[i], (compras.get(fechamentos[i]) ?? 0) + l.amountCents)
   })
 
   const pagamentos = new Map<string, number>()

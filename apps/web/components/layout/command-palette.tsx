@@ -20,7 +20,7 @@ export const COMMANDS: CommandItem[] = [
   { label: 'Nova transação', href: '/transactions?nova=1', icon: Plus, keywords: ['lancar', 'registrar', 'despesa', 'receita', 'adicionar'] },
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, keywords: ['inicio', 'home', 'visao geral'] },
   { label: 'Consultor Financeiro', href: '/cfo', icon: Bot, keywords: ['cfo', 'assistente', 'chat', 'insights'] },
-  { label: 'Fluxo de Caixa', href: '/cash-flow', icon: BarChart3, keywords: ['fluxo', 'caixa', 'grafico'] },
+  { label: 'Análises', href: '/cash-flow', icon: BarChart3, keywords: ['fluxo', 'caixa', 'grafico', 'cartao', 'fatura', 'analise'] },
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight, keywords: ['extrato', 'lancamentos'] },
   { label: 'Importar Extrato', href: '/transactions/import', icon: ArrowLeftRight, keywords: ['importar', 'ofx', 'csv', 'banco'] },
   { label: 'Recorrentes', href: '/transactions/recurring', icon: RefreshCw, keywords: ['recorrencia', 'parcelas', 'fixas', 'mensal'] },
