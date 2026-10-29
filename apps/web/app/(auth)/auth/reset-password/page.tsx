@@ -44,7 +44,11 @@ export default function ResetPasswordPage() {
     })
 
     if (error) {
-      setServerError(error.message)
+      setServerError(
+        error.name === 'AuthSessionMissingError'
+          ? 'O link expirou ou foi aberto em outro navegador. Peça um novo link em "Esqueci minha senha".'
+          : error.message,
+      )
       return
     }
 
