@@ -40,7 +40,8 @@ import { registrarSaldoDeAbertura, somarExtratoAte } from './saldo-de-abertura'
 // 5: instante da transação, para conferir com o saldo do banco (`ocorrido_em`).
 // 6: saldo de abertura refeito pela leitura nova, cortado no instante da apuração.
 // 7: saldo de abertura refeito uma última vez; dali em diante fica (`saldo-de-abertura.ts`).
-export const VERSAO_DO_SYNC = 7
+// 8: saldo de abertura da conta conectada depois da 4, que nascia na versão atual e nunca o recebia.
+export const VERSAO_DO_SYNC = 8
 
 /**
  * A releitura que refaz o saldo de abertura. A 6 o refez com o extrato

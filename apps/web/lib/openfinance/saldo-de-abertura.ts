@@ -1,4 +1,4 @@
-import { and, eq, lt, sql } from 'drizzle-orm'
+import { and, eq, lt, or, sql } from 'drizzle-orm'
 import { accounts, transactions } from '@floow/db'
 import { extrairApuracaoDoSaldo, extrairSaldoDisponivelCents, type PolpClient } from '@floow/core-finance'
 import type { Db } from './persist-page'
@@ -98,6 +98,7 @@ export async function registrarSaldoDeAbertura(
   if (jaTem && jaTem.date.toISOString().slice(0, 10) !== diaAnterior(extrato.primeiroDia)) return null
 
   // O próprio saldo de abertura é anterior ao extrato: só confere sem ele.
+  // Ajuste de saldo feito à mão já acertou a conta; somar a abertura contaria duas vezes.
   const [anterior] = jaTem ? [] : await db
     .select({ id: transactions.id })
     .from(transactions)
@@ -105,7 +106,7 @@ export async function registrarSaldoDeAbertura(
       eq(transactions.orgId, orgId),
       eq(transactions.accountId, accountId),
       eq(transactions.isIgnored, false),
-      lt(transactions.date, new Date(`${extrato.primeiroDia}T00:00:00Z`)),
+      or(lt(transactions.date, new Date(`${extrato.primeiroDia}T00:00:00Z`)), eq(transactions.origem, 'ajuste')),
     ))
     .limit(1)
   if (anterior) return null

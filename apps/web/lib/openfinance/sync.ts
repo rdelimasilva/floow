@@ -24,6 +24,7 @@ import { sugerirCategoriasDaFila } from './sugestao-da-fila'
 import { sugestaoDaFilaDeps } from './sugestao-da-fila-deps'
 import { completarParcelas } from './completar-parcelas'
 import { VERSAO_DO_SYNC, precisaReler, relerHistorico } from './releitura'
+import { registrarSaldoDeAbertura, somarExtratoAte } from './saldo-de-abertura'
 import { carregarFaturasDoBanco, completarMesDaFatura, gravarFaturasDoBanco, mesesDasFaturas as mesesPorBill, pagamentosDoBanco } from './faturas-do-banco'
 import { reclassificarPagamentosDeFatura } from './pagamento-de-fatura'
 import { ligarPagamentosAoCartao } from './ligar-pagamentos'
@@ -142,6 +143,9 @@ export async function syncConnectionTransactions(
       : client.streamAccountTransactions(resource.polpResourceId, query)
 
     let rejectedHere = 0
+    // Conta corrente na primeira leitura: o extrato inteiro, para o saldo de
+    // abertura. A releitura não roda em recurso novo, que já nasce na versão atual.
+    const extratoLido = !isCard && !resource.lastSyncedAt ? [] as Parameters<typeof somarExtratoAte>[0] : null
 
     for await (const page of pages as AsyncGenerator<unknown[]>) {
       // Item defeituoso não derruba o lote. Antes, um `page.map()` levava as
@@ -152,6 +156,8 @@ export async function syncConnectionTransactions(
           ? normalizeCardTransaction(tx as PolpCardTransaction)
           : normalizeAccountTransaction(tx as PolpAccountTransaction),
       )
+
+      if (extratoLido) for (const tx of ok) extratoLido.push({ date: tx.date, ocorridoEm: tx.ocorridoEm, amountCents: tx.amountCents })
 
       if (rejected.length > 0) {
         rejectedHere += rejected.length
@@ -182,6 +188,20 @@ export async function syncConnectionTransactions(
     }
 
     summary.rejected += rejectedHere
+
+    if (extratoLido && extratoLido.length > 0) {
+      await registrarSaldoDeAbertura(db, client, {
+        orgId: connection.orgId,
+        accountId: resource.accountId,
+        polpResourceId: resource.polpResourceId,
+        refazer: false,
+        extrato: {
+          primeiroDia: extratoLido.reduce((menor, i) => (i.date < menor ? i.date : menor), extratoLido[0].date),
+          incompleto: rejectedHere > 0,
+          somaAte: (apuracao) => somarExtratoAte(extratoLido, apuracao),
+        },
+      }).catch((error) => console.error('[sync] falha ao registrar o saldo de abertura:', error))
+    }
 
     // Previsão das parcelas que a Polp ainda não mandou. Falha aqui não
     // derruba o sync: o dado real já entrou, e a próxima passada completa.
