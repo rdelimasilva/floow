@@ -155,6 +155,23 @@ describe('sugerirCategoriasDaFila', () => {
     err.mockRestore()
   })
 
+  it('muitas contrapartes vão em lotes; lote que falha não derruba os outros', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const pendentes = Array.from({ length: 60 }, (_, i) => grupo({ counterpartyId: `cp${i}` }))
+    const classificar = vi.fn(async (_org: string, lote: GrupoPendente[]) => {
+      if (lote[0].counterpartyId === 'cp25') throw new Error('timeout')
+      return lote.map((g) => ({ counterpartyId: g.counterpartyId, categoryId: 'hosp', confianca: 'alta' as const }))
+    })
+    const { d, marcarTentativa } = deps({ carregarPendentes: async () => pendentes, classificar })
+    const r = await sugerirCategoriasDaFila('org', d)
+    expect(classificar.mock.calls.map(([, lote]) => lote.length)).toEqual([25, 25, 10])
+    expect(r).toEqual({ sugeridas: 35, semSugestao: 25 })
+    const marcados = (marcarTentativa.mock.calls[0] as unknown as [string, string[]])[1]
+    expect(marcados).toHaveLength(35)
+    expect(marcados).not.toContain('cp25')
+    err.mockRestore()
+  })
+
   it('sem pendentes, não carrega mais nada', async () => {
     const carregarHistorico = vi.fn(async () => [])
     const { d } = deps({ carregarHistorico })

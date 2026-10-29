@@ -228,15 +228,6 @@ export async function syncConnectionTransactions(
     summary.propostasDeConciliacao += conciliacao.propostasDeConciliacao
     summary.propostasDeDuplicata += conciliacao.propostasDeDuplicata
 
-    // Contraparte nova chega na fila com a categoria pré-selecionada
-    // (histórico ou Claude); quem confirma é o usuário. Falha aqui não
-    // derruba o sync — a fila só fica sem sugestão, como antes.
-    try {
-      await sugerirCategoriasDaFila(connection.orgId, sugestaoDaFilaDeps(db))
-    } catch (error) {
-      console.error('[sync] falha ao sugerir categorias da fila:', error)
-    }
-
     // O saldo do banco vale como conferencia do que ACABOU de entrar, entao
     // e lido depois da importacao. Nao entra no `try` da conciliacao: sao
     // controles independentes, e um nao deve mascarar a falha do outro.
@@ -292,6 +283,16 @@ export async function syncConnectionTransactions(
     } catch (error) {
       console.error('[sync] falha ao realinhar o saldo gravado:', error)
     }
+  }
+
+  // Contraparte nova chega na fila com a categoria pré-selecionada
+  // (histórico ou Claude); quem confirma é o usuário. Uma vez por sync, não
+  // por conta: a fila é da org, e a segunda chamada repetia a primeira. Falha
+  // aqui não derruba o sync — a fila só fica sem sugestão, como antes.
+  try {
+    await sugerirCategoriasDaFila(connection.orgId, sugestaoDaFilaDeps(db))
+  } catch (error) {
+    console.error('[sync] falha ao sugerir categorias da fila:', error)
   }
 
   await db

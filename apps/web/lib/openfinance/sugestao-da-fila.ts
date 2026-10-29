@@ -71,6 +71,9 @@ export interface SugestaoDaFilaDeps {
   marcarTentativa(orgId: string, counterpartyIds: string[]): Promise<void>
 }
 
+/** Grupos por chamada ao Claude: pequeno o bastante para responder bem antes do timeout. */
+const LOTE_DO_CLAUDE = 25
+
 export function ehPessoaFisica(g: GrupoPendente): boolean {
   return g.keyType === 'tax_id' && g.keyValue.replace(/\D/g, '').length === 11
 }
@@ -123,21 +126,30 @@ export async function sugerirCategoriasDaFila(
   }
 
   if (paraOClaude.length > 0 && deps.classificar) {
-    try {
-      const respostas = new Map((await deps.classificar(orgId, paraOClaude, categorias)).map((r) => [r.counterpartyId, r]))
-      for (const g of paraOClaude) {
+    // Em lotes paralelos: uma conexão nova traz uma centena de contrapartes, e
+    // numa chamada só a resposta passava do timeout — nada era marcado, e todo
+    // sync perguntava tudo de novo e esperava o timeout outra vez.
+    const lotes: GrupoPendente[][] = []
+    for (let i = 0; i < paraOClaude.length; i += LOTE_DO_CLAUDE) lotes.push(paraOClaude.slice(i, i + LOTE_DO_CLAUDE))
+    const resultados = await Promise.allSettled(lotes.map((lote) => deps.classificar!(orgId, lote, categorias)))
+    resultados.forEach((resultado, i) => {
+      if (resultado.status === 'rejected') {
+        // Sem marcar tentativa: a próxima importação pergunta de novo — no caso
+        // do teto de gasto, quando o mês virar.
+        const err = resultado.reason
+        if (err instanceof Error && err.name === 'OrcamentoDoClaudeEsgotado') console.warn(`[sugestao-da-fila] ${err.message}`)
+        else console.error(`[sugestao-da-fila] classificador falhou para org=${orgId}:`, err)
+        return
+      }
+      const respostas = new Map(resultado.value.map((r) => [r.counterpartyId, r]))
+      for (const g of lotes[i]) {
         const r = respostas.get(g.counterpartyId)
         if (r && r.confianca !== 'baixa' && valida(r.categoryId, g.nature!)) {
           sugestoes.push({ counterpartyId: g.counterpartyId, categoryId: r.categoryId!, origem: 'claude' })
         }
         tentados.push(g.counterpartyId)
       }
-    } catch (err) {
-      // Sem marcar tentativa: a próxima importação pergunta de novo — no caso
-      // do teto de gasto, quando o mês virar.
-      if (err instanceof Error && err.name === 'OrcamentoDoClaudeEsgotado') console.warn(`[sugestao-da-fila] ${err.message}`)
-      else console.error(`[sugestao-da-fila] classificador falhou para org=${orgId}:`, err)
-    }
+    })
   }
 
   for (const s of sugestoes) await deps.sugerir(orgId, s)

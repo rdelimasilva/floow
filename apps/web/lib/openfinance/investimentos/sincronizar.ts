@@ -120,7 +120,14 @@ export async function sincronizarInvestimentos(
   // vazia mesmo com as posições do banco já gravadas.
   await repo.recalcularPosicoes(orgId)
 
-  for (const s of salvos) {
+  // Poucas por vez: uma a uma, 230 chamadas levavam 80 s. O cliente da Polp
+  // espera o Retry-After quando um 429 chega.
+  const fila = [...salvos]
+  await Promise.all(Array.from({ length: MOVIMENTACOES_EM_PARALELO }, async () => {
+    for (let s = fila.shift(); s; s = fila.shift()) await sincronizarMovimentacoes(s)
+  }))
+
+  async function sincronizarMovimentacoes(s: (typeof salvos)[number]) {
     try {
       const query = janelaDeMovimentacoes(await repo.ultimaDataDeMovimentacao(s.assetId))
       for await (const page of client.streamInvestmentTransactions(s.kind, s.polpId, query)) {
@@ -143,6 +150,8 @@ export async function sincronizarInvestimentos(
   await repo.recalcularPosicoes(orgId)
   return resumo
 }
+
+const MOVIMENTACOES_EM_PARALELO = 4
 
 function mensagem(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
