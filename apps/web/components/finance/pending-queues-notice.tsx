@@ -8,6 +8,7 @@ import Link from 'next/link'
  * para uma decisão que aparece poucas vezes por mês, e some do campo de visão
  * de quem está olhando os lançamentos, que é onde o assunto surge. Sem nada
  * para conciliar não renderiza nada: alarme que toca sempre deixa de ser lido.
+ * A borda vermelha vale nos dois casos, porque cinza sumia no topo da tela.
  *
  * Âmbar só quando há repetido: aprovar um repetido tira dinheiro do saldo,
  * classificar só rotula. As três filas em amarelo dariam a mesma urgência a
@@ -24,15 +25,15 @@ export function PendingQueuesNotice({ total, repetidos }: { total: number; repet
       href="/transactions/conciliar"
       className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-sm transition-colors ${
         destaque
-          ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
-          : 'border-gray-200 bg-gray-50 text-gray-800 hover:bg-gray-100'
+          ? 'border-red-500 bg-amber-50 text-amber-900 hover:bg-amber-100'
+          : 'border-red-500 bg-white text-gray-800 hover:bg-red-50'
       }`}
     >
       <span>
         {destaque && <span aria-hidden="true">⚠ </span>}
         <strong>{contagem}</strong> para conciliar
       </span>
-      <span aria-hidden="true" className={destaque ? 'text-amber-700' : 'text-gray-400'}>
+      <span aria-hidden="true" className={destaque ? 'text-amber-700' : 'text-red-500'}>
         ›
       </span>
     </Link>
