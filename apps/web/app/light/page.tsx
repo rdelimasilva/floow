@@ -1,71 +1,55 @@
 import { Suspense } from 'react'
-import { formatBRL } from '@floow/core-finance/src/balance'
 import { getOrgId } from '@/lib/finance/queries'
 import { getGastosDosCartoes } from '@/lib/finance/queries-gastos-cartao'
-import { buildBudgetPacingInput } from '@/lib/cfo/budget-pacing-input'
-import { GastosDosCartoes } from '@/components/finance/gastos-dos-cartoes'
-import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { getCategories } from '@/lib/finance/queries-categories'
+import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
+import { CartoesDoMes, type MesDosCartoes } from './cartoes-do-mes'
 
-const esqueleto = <div className="h-80 animate-pulse rounded-xl bg-gray-100" />
-
-// Mesma conta do resumo semanal do WhatsApp: quanto de cada meta já foi usado no mês.
-async function MetasDoMes({ orgId }: { orgId: string }) {
-  const input = await buildBudgetPacingInput(orgId)
-  if (!input) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center text-sm text-gray-500">
-          Nenhuma meta de gasto cadastrada para este mês.
-        </CardContent>
-      </Card>
-    )
+// Soma as faturas de todos os cartões pelo mês do fechamento, como a tela de cartões.
+async function mesesDosCartoes(orgId: string): Promise<MesDosCartoes[]> {
+  const meses = new Map<string, MesDosCartoes>()
+  for (const c of await getGastosDosCartoes(orgId)) {
+    for (const f of c.faturas) {
+      const chave = f.fechamento.slice(0, 7)
+      const m = meses.get(chave) ?? { mes: chave, totalCents: 0, porCategoria: {}, lancamentos: [] }
+      m.totalCents += f.totalCents
+      for (const [cat, v] of Object.entries(f.porCategoria)) m.porCategoria[cat] = (m.porCategoria[cat] ?? 0) + v
+      m.lancamentos.push(...f.lancamentos)
+      meses.set(chave, m)
+    }
   }
-  const { total, byCategory } = input.pacing
-  const usado = total.plannedCents > 0 ? Math.round((total.spentCents / total.plannedCents) * 100) : 0
-  const categorias = [...byCategory].sort(
-    (a, b) => b.spentCents / (b.plannedCents || 1) - a.spentCents / (a.plannedCents || 1),
-  )
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Seu mês até agora</CardTitle>
-        <p className="text-sm text-gray-500">
-          Dia {total.daysElapsed} de {total.daysInMonth}. Você já usou {usado}% das metas:{' '}
-          {formatBRL(total.spentCents)} de {formatBRL(total.plannedCents)}.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {categorias.map((c) => (
-          <BudgetProgressBar
-            key={c.categoryId}
-            label={input.categoryNames[c.categoryId] ?? 'Sem nome'}
-            currentCents={c.spentCents}
-            limitCents={c.plannedCents}
-          />
-        ))}
-      </CardContent>
-    </Card>
-  )
+  return [...meses.values()].sort((a, b) => a.mes.localeCompare(b.mes))
 }
 
-async function Cartoes({ orgId }: { orgId: string }) {
-  const cartoes = await getGastosDosCartoes(orgId)
-  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  return <GastosDosCartoes cartoes={cartoes} hoje={hoje} />
+// Meta de subcategoria soma na categoria de cima, que é como o gasto vem agrupado.
+async function metasDosMeses(orgId: string, meses: string[]) {
+  const porId = new Map((await getCategories(orgId)).map((c) => [c.id, c]))
+  const planos = await Promise.all(meses.map((mes) => {
+    const [y, m] = mes.split('-').map(Number)
+    return getSpendingPlanForMonth(orgId, new Date(y, m - 1, 1), new Date(y, m, 0))
+  }))
+  return Object.fromEntries(meses.map((mes, i) => {
+    const porCategoria: Record<string, number> = {}
+    for (const linha of planos[i]) {
+      const c = porId.get(linha.categoryId ?? '')
+      const nome = (c?.parentId ? porId.get(c.parentId)?.name : undefined) ?? c?.name
+      if (nome) porCategoria[nome] = (porCategoria[nome] ?? 0) + linha.plannedCents
+    }
+    return [mes, porCategoria]
+  }))
+}
+
+async function Conteudo({ orgId }: { orgId: string }) {
+  const meses = await mesesDosCartoes(orgId)
+  const metas = await metasDosMeses(orgId, meses.map((m) => m.mes))
+  return <CartoesDoMes meses={meses} metas={metas} />
 }
 
 export default async function LightPage() {
   const orgId = await getOrgId()
   return (
-    <>
-      <Suspense fallback={esqueleto}>
-        <MetasDoMes orgId={orgId} />
-      </Suspense>
-      <Suspense fallback={esqueleto}>
-        <Cartoes orgId={orgId} />
-      </Suspense>
-    </>
+    <Suspense fallback={<div className="h-80 animate-pulse rounded-xl bg-gray-100" />}>
+      <Conteudo orgId={orgId} />
+    </Suspense>
   )
 }
