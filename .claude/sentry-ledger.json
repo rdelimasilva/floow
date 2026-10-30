@@ -64,5 +64,35 @@
     "note": "FLOOW-G: aviso de CPF já conectado mostrado ao usuário; 1 evento em 24/09",
     "lastSeen": "2026-09-24T14:51:49Z",
     "julgadoEm": "2026-10-20T13:59:02.050Z"
+  },
+  "7819475772": {
+    "verdict": "nao-e-nosso",
+    "note": "Erro genérico do Turbopack em next dev (/_error); appFrames só internals do Next, sem código do app",
+    "lastSeen": "2026-10-30T01:06:39Z",
+    "julgadoEm": "2026-10-30T11:02:05.348Z"
+  },
+  "7819472894": {
+    "verdict": "nao-e-nosso",
+    "note": "ENOENT scandir sem appFrames; erro de filesystem do dev server, sem frame em apps/web",
+    "lastSeen": "2026-10-30T01:05:46Z",
+    "julgadoEm": "2026-10-30T11:02:05.405Z"
+  },
+  "7819206631": {
+    "verdict": "morto",
+    "note": "Módulo em .claude/worktrees/analises-cartoes (dev Turbopack); worktree não versionada, arquivo auth-tabs.tsx existe e erro foi de instanciação em dev",
+    "lastSeen": "2026-10-29T21:26:24Z",
+    "julgadoEm": "2026-10-30T11:02:05.454Z"
+  },
+  "7819206302": {
+    "verdict": "morto",
+    "note": "module-not-found no worktree analises-cartoes; lastSeen anterior ao commit 5457e85 (aba Cartões) e o import ./cash-flow-lancamento-dialog existe hoje",
+    "lastSeen": "2026-10-29T21:26:07Z",
+    "julgadoEm": "2026-10-30T11:02:05.500Z"
+  },
+  "7819172809": {
+    "verdict": "morto",
+    "note": "'mudancas' nunca existiu no histórico git de gastos-dos-cartoes.tsx (git log -S vazio): working tree intermediário; lastSeen anterior ao commit 5457e85",
+    "lastSeen": "2026-10-29T20:59:43Z",
+    "julgadoEm": "2026-10-30T11:02:05.550Z"
   }
 }
