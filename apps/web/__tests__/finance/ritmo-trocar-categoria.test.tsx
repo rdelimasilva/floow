@@ -10,6 +10,10 @@ const LINHA = {
   id: 't1', date: '2026-09-10', description: 'IFOOD *REST', spentCents: 4_500,
   categoryId: 'alim', categoryName: 'Alimentação', accountId: 'acc-1', accountName: 'Nubank',
 }
+// O jsdom não implementa o modal do <dialog>.
+HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
+HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
+
 const getPacingCategoryTransactions = vi.fn(async () => [LINHA])
 const bulkCategorizeTransactions = vi.fn(async () => {})
 const refresh = vi.fn()
