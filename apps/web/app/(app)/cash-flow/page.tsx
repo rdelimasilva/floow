@@ -25,7 +25,7 @@ async function CashFlowContent({ orgId }: { orgId: string }) {
     <CashFlowClient
       transactions={recentTransactions.map(serialize)}
       futureTransactions={futureTransactions.map(serialize)}
-      accounts={accounts.map((a) => ({ id: a.id, name: a.name, titular: a.titular }))}
+      accounts={accounts.map((a) => ({ id: a.id, name: a.name, titular: a.titular, type: a.type }))}
     />
   )
 }

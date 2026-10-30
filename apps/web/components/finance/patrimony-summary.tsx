@@ -42,6 +42,12 @@ export function PatrimonySummary({ patrimonio, onRefresh }: PatrimonySummaryProp
           <p className={`text-3xl font-bold ${patrimonio.patrimonioLiquidoCents < 0 ? 'text-red-600' : 'text-gray-900'}`}>
             {formatBRL(patrimonio.patrimonioLiquidoCents)}
           </p>
+          {/* A tela Contas soma só as contas; aqui entram também os bens. */}
+          <p className="mt-1 text-xs text-gray-500">
+            {patrimonio.blocos.some((b) => b.key === 'imobilizado')
+              ? 'Contas, investimentos e bens do imobilizado'
+              : 'Contas e investimentos'}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

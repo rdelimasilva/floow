@@ -18,6 +18,7 @@ import type { LinhaDeMeta } from '@/lib/finance/recurring-budget'
 import { RecorrentesNaLinha } from './recorrentes-na-linha'
 import type { ParcelasDaCategoria } from '@/lib/finance/parcelas-a-vencer'
 import { ParcelasNaLinha } from './parcelas-na-linha'
+import { RealizadoDaMeta } from './realizado-da-meta'
 import { BudgetGoalSuggestionsCard } from '@/components/finance/budget-goal-suggestions-card'
 import type { BudgetGoalSuggestionRow } from '@/lib/finance/budget-goal-suggestion-queries'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
@@ -202,9 +203,9 @@ export function SpendingClient({
                       <RecorrentesNaLinha linha={entry} />
                       <ParcelasNaLinha parcelas={entry.categoryId ? parcelasAVencer[entry.categoryId] : undefined} />
                     </p>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-start justify-between text-xs">
                       <span className="font-medium text-gray-900">Meta: {formatBRL(entry.plannedCents)}</span>
-                      <span className="text-gray-500">Realizado: {formatBRL(actual)}</span>
+                      <span className="text-right text-gray-700">Realizado: <RealizadoDaMeta realizado={actual} meta={entry.plannedCents} /></span>
                     </div>
                   </CardContent>
                 </Card>
@@ -214,7 +215,7 @@ export function SpendingClient({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-gray-700">Total</span>
                 <span className="font-semibold text-gray-900">
-                  {formatBRL(totalPlanned)} <span className="font-normal text-gray-500">· realizado {formatBRL(totalSpent)}</span>
+                  {formatBRL(totalPlanned)} <span className="font-normal text-gray-700">· realizado <RealizadoDaMeta realizado={totalSpent} meta={totalPlanned} /></span>
                 </span>
               </div>
             </div>
@@ -249,7 +250,7 @@ export function SpendingClient({
                             <ParcelasNaLinha parcelas={entry.categoryId ? parcelasAVencer[entry.categoryId] : undefined} />
                           </td>
                           <td className="px-4 py-2.5 text-sm text-right font-medium text-gray-900">{formatBRL(entry.plannedCents)}</td>
-                          <td className="px-4 py-2.5 text-sm text-right text-gray-500">{formatBRL(actual)}</td>
+                          <td className="px-4 py-2.5 text-sm text-right text-gray-900"><RealizadoDaMeta realizado={actual} meta={entry.plannedCents} /></td>
                         </tr>
                       )
                     })}
@@ -258,7 +259,7 @@ export function SpendingClient({
                     <tr>
                       <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
                       <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900">{formatBRL(totalPlanned)}</td>
-                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-500">{formatBRL(totalSpent)}</td>
+                      <td className="px-4 py-2.5 text-sm text-right font-semibold text-gray-900"><RealizadoDaMeta realizado={totalSpent} meta={totalPlanned} /></td>
                     </tr>
                   </tfoot>
                 </table>

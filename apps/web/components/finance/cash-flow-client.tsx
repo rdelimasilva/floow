@@ -14,6 +14,7 @@ const CashFlowChart = dynamic(() => import('./cash-flow-chart').then(m => ({ def
 })
 import { CashFlowBreakdown } from './cash-flow-breakdown'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { aplicadoEmInvestimentos } from '@/lib/finance/aplicado-em-investimentos'
 
 interface RawTransaction {
   id?: string
@@ -34,6 +35,7 @@ interface AccountOption {
   id: string
   name: string
   titular?: string | null
+  type?: string
 }
 
 type ViewMode = 'realized' | 'projected' | 'both'
@@ -228,6 +230,20 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
   }, [activeTransactions])
   const { totalIncome, totalExpense, totalNet, avgMonthlyNet } = summary
 
+  // Aplicação em investimento é transferência: com elas ocultas, sai do saldo.
+  // Mostrar o valor separa o que foi guardado do que foi gasto.
+  const aplicado = useMemo(() => {
+    const contas = new Set(accounts.filter((a) => a.type === 'brokerage').map((a) => a.id))
+    const lista = viewMode === 'realized' ? preparedTransactions
+      : viewMode === 'projected' ? preparedFutureTransactions
+        : [...preparedTransactions, ...preparedFutureTransactions]
+    return aplicadoEmInvestimentos(lista.filter((t) =>
+      (accountIds.length === 0 || accountIds.includes(t.accountId))
+      && (!startDate || t.dateKey >= startDate)
+      && (!endDate || t.dateKey <= endDate),
+    ), contas)
+  }, [accounts, viewMode, preparedTransactions, preparedFutureTransactions, accountIds, startDate, endDate])
+
   return (
     <>
       <div className="space-y-1.5">
@@ -286,6 +302,14 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
           <p className={`mt-2 text-xl font-bold ${totalNet >= 0 ? 'text-foreground' : 'text-red-600'}`}>
             {formatBRL(totalNet)}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {hideTransfers ? 'Não inclui transferências entre contas' : 'Inclui transferências entre contas'}
+          </p>
+          {hideTransfers && aplicado > 0 && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Fora do saldo: {formatBRL(aplicado)} aplicados em investimentos
+            </p>
+          )}
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Média Mensal</p>
