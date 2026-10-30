@@ -42,6 +42,19 @@ describe('pagamentosDeFatura', () => {
     expect([...achados]).toEqual(['pagamento'])
   })
 
+  it('devolução de saldo credor: débito no cartão com entrada na conta corrente', () => {
+    const achados = pagamentosDeFatura(
+      [credito('devolucao', -1141357, '2025-11-26')],
+      [],
+      [saida('entrada', 1141357, '2025-11-27'), saida('outra', -1141357, '2025-11-26')],
+    )
+    expect([...achados]).toEqual(['devolucao'])
+  })
+
+  it('compra no cartão sem entrada do mesmo valor continua despesa', () => {
+    expect(pagamentosDeFatura([credito('compra', -50000, '2026-08-05')], [{ amountCents: 50000, date: '2026-08-05' }], [saida('s1', -50000, '2026-08-05')]).size).toBe(0)
+  })
+
   it('estorno sem pagamento correspondente continua receita', () => {
     expect(pagamentosDeFatura([credito('ml', 3878, '2026-07-11')], [], [saida('s1', -5579, '2026-07-11')]).size).toBe(0)
   })

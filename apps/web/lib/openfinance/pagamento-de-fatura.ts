@@ -1,5 +1,5 @@
 import { and, eq, gte, inArray, isNull, lt, lte, ne, gt, or } from 'drizzle-orm'
-import { transactions } from '@floow/db'
+import { accounts, transactions } from '@floow/db'
 import type { Db } from './persist-page'
 import type { PagamentoDoBanco } from './faturas-do-banco'
 
@@ -16,7 +16,12 @@ import type { PagamentoDoBanco } from './faturas-do-banco'
  *  - outra conta tem uma saída de transferência sem par, do mesmo valor, até
  *    3 dias de distância. Cada saída serve a um crédito só.
  *
- * Valor e saldo não mudam (o crédito já estava no saldo do cartão); muda a
+ * O caminho inverso segue a mesma regra. Quando se paga a mais, o banco devolve
+ * o excesso: no cartão vem um débito ("DEVOLUCAO SALDO CREDOR") e na conta
+ * corrente uma entrada de transferência. Os R$ 11.413,57 devolvidos ao Itaú em
+ * 26/11/2025 contavam como despesa do Master Black no fluxo de caixa.
+ *
+ * Valor e saldo não mudam (o lançamento já estava no saldo do cartão); muda a
  * natureza, e a categoria automática sai. Categoria escolhida pelo usuário
  * mantém a linha como está.
  */
@@ -27,18 +32,19 @@ const dia = (d: string) => Date.parse(`${d.slice(0, 10)}T00:00:00Z`)
 
 export interface Credito {
   id: string
+  /** Positivo no pagamento; negativo na devolução de saldo credor. */
   amountCents: number
   date: string
 }
 
 export interface Saida {
   id: string
-  /** Negativo: o dinheiro sai da outra conta. */
+  /** Sinal oposto ao do crédito: no pagamento, o dinheiro sai da outra conta. */
   amountCents: number
   date: string
 }
 
-/** Os créditos que são pagamento de fatura. */
+/** Os créditos que são pagamento de fatura e os débitos que são devolução dele. */
 export function pagamentosDeFatura(
   creditos: readonly Credito[],
   doBanco: readonly PagamentoDoBanco[],
@@ -77,8 +83,10 @@ export async function reclassificarPagamentosDeFatura(
     .where(and(
       eq(transactions.orgId, orgId),
       eq(transactions.accountId, accountId),
-      eq(transactions.type, 'income'),
-      gt(transactions.amountCents, 0),
+      or(
+        and(eq(transactions.type, 'income'), gt(transactions.amountCents, 0)),
+        and(eq(transactions.type, 'expense'), lt(transactions.amountCents, 0)),
+      ),
       eq(transactions.isIgnored, false),
       eq(transactions.origem, 'extrato'),
       isNull(transactions.transferGroupId),
@@ -93,11 +101,13 @@ export async function reclassificarPagamentosDeFatura(
   const saidas = (await db
     .select({ id: transactions.id, amountCents: transactions.amountCents, date: transactions.date })
     .from(transactions)
+    .innerJoin(accounts, eq(accounts.id, transactions.accountId))
     .where(and(
       eq(transactions.orgId, orgId),
       ne(transactions.accountId, accountId),
+      // O pagamento de fatura de outro cartão, com o mesmo valor, não é a outra ponta.
+      ne(accounts.type, 'credit_card'),
       eq(transactions.type, 'transfer'),
-      lt(transactions.amountCents, 0),
       eq(transactions.isIgnored, false),
       isNull(transactions.transferGroupId),
       inArray(transactions.amountCents, creditos.map((c) => -c.amountCents)),
