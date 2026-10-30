@@ -128,13 +128,16 @@ const PositionRow = memo(function PositionRow({
         {/* Actions */}
         <td className="whitespace-nowrap px-4 py-3">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowHistory((v) => !v)}
-              className="text-xs text-blue-600 hover:text-blue-800 underline"
-            >
-              {showHistory ? 'Fechar' : 'Histórico'}
-            </button>
+            {/* O histórico lista só preços digitados à mão; o Open Finance não grava nele. */}
+            {position.source !== 'openfinance' && (
+              <button
+                type="button"
+                onClick={() => setShowHistory((v) => !v)}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                {showHistory ? 'Fechar' : 'Histórico'}
+              </button>
+            )}
             {position.source !== 'openfinance' && (
               <button
                 type="button"
