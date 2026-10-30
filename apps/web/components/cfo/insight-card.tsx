@@ -139,27 +139,28 @@ export function InsightCard({ insight, compact = false }: InsightCardProps) {
           </div>
         )}
 
-        {compact && insight.suggestedActionType && (
-          <Button
-            size="sm"
-            variant="link"
-            className="mt-1 h-auto p-0 text-xs"
-            onClick={handleAction}
-          >
-            {getActionLabel(insight.suggestedActionType)} &rarr;
-          </Button>
-        )}
-
         {compact && (
-          <Button
-            size="sm"
-            variant="link"
-            className="mt-1 h-auto p-0 text-xs"
-            onClick={() => setChatOpen(!chatOpen)}
-          >
-            <MessageCircle className="h-3 w-3 mr-1" />
-            {chatOpen ? 'Fechar' : 'Conversar'}
-          </Button>
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+            {insight.suggestedActionType && (
+              <Button
+                size="sm"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={handleAction}
+              >
+                {getActionLabel(insight.suggestedActionType)} &rarr;
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="link"
+              className="h-auto p-0 text-xs"
+              onClick={() => setChatOpen(!chatOpen)}
+            >
+              <MessageCircle className="h-3 w-3 mr-1" />
+              {chatOpen ? 'Fechar' : 'Conversar'}
+            </Button>
+          </div>
         )}
 
         {chatOpen && (

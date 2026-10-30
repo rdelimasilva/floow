@@ -8,6 +8,7 @@ import type { TooltipProps } from 'recharts'
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { ChartType } from './cash-flow-chart-picker'
+import { nomeDoMes } from '@/lib/finance/nome-do-mes'
 
 /** Centavos -> "R$ 10 mil": referência curta para o eixo Y. */
 const yAxisFormatter = new Intl.NumberFormat('pt-BR', {
@@ -29,8 +30,7 @@ function formatMonthTick(value: string): string {
 }
 
 function formatMonthLong(value: string): string {
-  const [y, m] = value.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  return nomeDoMes(value)
 }
 
 // Azul e laranja: opostos que se separam também para daltônicos (verde e
@@ -95,7 +95,7 @@ function MonthTooltip({ active, payload, label }: TooltipProps<number | number[]
   if (!active || !payload?.length) return null
   return (
     <div className="min-w-[180px] rounded-lg border border-border bg-background px-3 py-2 text-xs shadow-lg">
-      <p className="mb-1.5 font-medium capitalize text-foreground">{formatMonthLong(String(label))}</p>
+      <p className="mb-1.5 font-medium text-foreground">{formatMonthLong(String(label))}</p>
       <div className="space-y-1">
         {payload.map((item) => {
           // Série com dataKey em função (despesa negativa, saldo somado) se identifica pelo `name`.

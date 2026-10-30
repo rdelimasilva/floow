@@ -207,11 +207,10 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
       <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} cardDigitsOptions={finaisDoCartao} />
 
-      {/* No celular o "por página" fica só embaixo: em cima ele empurra a lista. */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="hidden sm:block">
-          <PageSizeSelector current={pageSize} />
-        </div>
+      {/* No celular a paginação fica só embaixo: em cima ocupava três linhas
+          antes do primeiro lançamento. */}
+      <div className="hidden items-center justify-between gap-3 sm:flex">
+        <PageSizeSelector current={pageSize} />
         <Pagination
           currentPage={page}
           totalPages={totalPages}

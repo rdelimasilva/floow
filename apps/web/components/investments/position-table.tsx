@@ -80,20 +80,24 @@ const PositionRow = memo(function PositionRow({
     <>
       <tr className="border-b border-gray-100 hover:bg-gray-50">
         {/* Ticker */}
-        <td className="px-4 py-3 font-mono text-sm font-semibold text-gray-900">
+        <td className="whitespace-nowrap px-4 py-3 font-mono text-sm font-semibold text-gray-900">
           {/* Sem ticker (CDB, CRI, Tesouro do banco) o `ticker` é o próprio
               nome: em monoespaçado quebrava em várias linhas e repetia a
               coluna Nome. */}
           {position.ticker !== position.name ? position.ticker : <span className="text-gray-400">—</span>}
-          {positionBadges(position).map((b) => (
-            <span key={b.label} title={b.title} className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal text-gray-600">
-              {b.label}
-            </span>
-          ))}
         </td>
-        {/* Name */}
-        <td className="px-4 py-3 text-sm text-gray-700 max-w-[240px] truncate" title={position.name}>
-          {position.name}
+        {/* Name; os selos ficam aqui para a coluna Código mostrar só o código */}
+        <td className="px-4 py-3 text-sm text-gray-700 max-w-[240px]" title={position.name}>
+          <div className="truncate">{position.name}</div>
+          {positionBadges(position).length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {positionBadges(position).map((b) => (
+                <span key={b.label} title={b.title} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
+                  {b.label}
+                </span>
+              ))}
+            </div>
+          )}
         </td>
         {/* Classe */}
         <td className="hidden px-4 py-3 text-xs text-gray-500 xl:table-cell">
@@ -259,7 +263,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
                   <p className="font-mono text-sm font-semibold text-gray-900">
                     {position.ticker}
                     {positionBadges(position).map((b) => (
-                      <span key={b.label} title={b.title} className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal text-gray-600">
+                      <span key={b.label} title={b.title} className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 font-sans text-[10px] font-normal text-gray-600">
                         {b.label}
                       </span>
                     ))}

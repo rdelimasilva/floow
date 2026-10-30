@@ -8,8 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils'
 import { SEM_CATEGORIA } from '@floow/core-finance/src/gastos-do-cartao'
 import type { CartaoComGastos, LancamentoDoGasto } from '@/lib/finance/queries-gastos-cartao'
-import { GastosDosCartoesGrafico, nomeDoMes } from './gastos-dos-cartoes-grafico'
+import dynamic from 'next/dynamic'
+import { nomeDoMes } from '@/lib/finance/nome-do-mes'
 import { CashFlowLancamentoDialog } from './cash-flow-lancamento-dialog'
+
+// recharts só chega depois da página, como nas outras telas com gráfico.
+const GastosDosCartoesGrafico = dynamic(() => import('./gastos-dos-cartoes-grafico').then(m => ({ default: m.GastosDosCartoesGrafico })), {
+  loading: () => <div className="min-h-[280px] animate-pulse rounded-xl bg-gray-100" />,
+  ssr: false,
+})
 
 interface Mes {
   mes: string
@@ -194,7 +201,7 @@ export function GastosDosCartoes({ cartoes, hoje }: { cartoes: CartaoComGastos[]
                           className={cn('cursor-pointer border-b last:border-0 hover:bg-muted/50', ativo && 'bg-muted')}
                         >
                           <td className="px-6 py-2.5">
-                            <button type="button" className="capitalize focus-visible:underline focus-visible:outline-none" onClick={() => setEscolhido(m.mes)}>
+                            <button type="button" className="focus-visible:underline focus-visible:outline-none" onClick={() => setEscolhido(m.mes)}>
                               {nomeDoMes(m.mes)}
                             </button>
                             {m.aberta && <span className="ml-2 text-xs text-muted-foreground">aberta</span>}
@@ -212,11 +219,11 @@ export function GastosDosCartoes({ cartoes, hoje }: { cartoes: CartaoComGastos[]
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
-                  Por categoria em <span className="capitalize">{selecionado && nomeDoMes(selecionado.mes)}</span>
+                  Por categoria em {selecionado && nomeDoMes(selecionado.mes).toLowerCase()}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   {anterior
-                    ? <>Variação contra <span className="capitalize">{nomeDoMes(anterior.mes)}</span>.</>
+                    ? `Variação contra ${nomeDoMes(anterior.mes).toLowerCase()}.`
                     : 'Sem mês anterior para comparar.'}
                   {selecionado?.aberta && ' A fatura ainda está aberta.'}
                 </p>

@@ -328,7 +328,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
               {[account.branch && `Ag ${account.branch}`, account.accountNumber && `Nº ${account.accountNumber}`].filter(Boolean).join(' · ')}
             </p>
           )}
-          <p className="mt-1 text-xs text-gray-500">{account.currency}</p>
+          {account.currency !== 'BRL' && <p className="mt-1 text-xs text-gray-500">{account.currency}</p>}
           <Link
             href={`/accounts/${account.id}`}
             className="mt-2 inline-block text-xs text-blue-600 hover:text-blue-800 hover:underline"

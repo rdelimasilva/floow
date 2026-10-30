@@ -3,6 +3,7 @@
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import { formatBRL } from '@floow/core-finance/src/balance'
+import { nomeDoMes } from '@/lib/finance/nome-do-mes'
 
 export interface MesDoGrafico {
   mes: string
@@ -16,17 +17,12 @@ const eixoY = new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', notation: 'compact', minimumFractionDigits: 0, maximumFractionDigits: 1,
 })
 
-export function nomeDoMes(mes: string, formato: 'short' | 'long' = 'long'): string {
-  const [a, m] = mes.split('-').map(Number)
-  return new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: formato, year: formato === 'short' ? '2-digit' : 'numeric' })
-}
-
 function Dica({ active, payload }: { active?: boolean; payload?: { payload: MesDoGrafico }[] }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
     <div className="rounded-lg border bg-card px-3 py-2 text-xs shadow-md">
-      <p className="font-medium capitalize">{nomeDoMes(d.mes)}{d.aberta && ' (aberta)'}</p>
+      <p className="font-medium">{nomeDoMes(d.mes)}{d.aberta && ' (aberta)'}</p>
       <p className="tabular-nums text-muted-foreground">{formatBRL(d.totalCents)}</p>
     </div>
   )

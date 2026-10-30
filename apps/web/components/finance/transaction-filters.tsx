@@ -147,7 +147,15 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   }
 
   const finaisMarcados = (searchParams.get('cardDigits') ?? '').split(',').filter(Boolean)
-  const hasFilters = search || accountIds.length > 0 || startDate || endDate || finaisMarcados.length > 0
+  // Quantos filtros estão escondidos atrás do botão no celular. O período com
+  // atalho já aparece no seletor ao lado; a conta lembrada da última visita não.
+  const filtrosNoBotao = [
+    search,
+    !hideAccountFilter && accountIds.length > 0,
+    finaisMarcados.length > 0,
+    !activePeriod && (startDate || endDate),
+    includeFuture,
+  ].filter(Boolean).length
 
   return (
     <div className="space-y-2">
@@ -176,7 +184,11 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
         >
           <SlidersHorizontal className="h-4 w-4" />
           Filtros
-          {(hasFilters && !activePeriod) || includeFuture ? <span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> : null}
+          {filtrosNoBotao > 0 && (
+            <span className="rounded-full bg-blue-600 px-1.5 text-xs font-semibold tabular-nums text-white">
+              {filtrosNoBotao}
+            </span>
+          )}
         </button>
       </div>
 
