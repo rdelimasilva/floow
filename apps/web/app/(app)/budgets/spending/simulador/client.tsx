@@ -52,7 +52,7 @@ function linhasIniciais(plano: LinhaVigente[]): Linha[] {
 }
 
 function Diferenca({ cents }: { cents: number }) {
-  if (cents === 0) return <span className="text-gray-400">—</span>
+  if (cents === 0) return <span className="text-gray-500">—</span>
   // Gastar mais pesa contra o orçamento; cortar alivia
   return (
     <span className={cents > 0 ? 'text-red-600' : 'text-emerald-600'}>

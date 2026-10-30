@@ -315,7 +315,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
               {...register('totalCents')}
             />
             {(eventType === 'buy' || eventType === 'sell') && getAutoTotalReais() && (
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-500">
                 Calculado automaticamente: R$ {getAutoTotalReais()} (deixe em branco para usar)
               </p>
             )}

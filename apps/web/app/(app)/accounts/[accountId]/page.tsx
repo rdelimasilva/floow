@@ -132,7 +132,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
             {formatBRL(saldoExibidoCents)}
           </p>
           {valorDasPosicoesCents !== undefined && (
-            <p className="text-xs text-gray-400">Valor das posições informadas pelo banco</p>
+            <p className="text-xs text-gray-500">Valor das posições informadas pelo banco</p>
           )}
         </div>
       </div>

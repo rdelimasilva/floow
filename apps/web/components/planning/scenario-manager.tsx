@@ -127,7 +127,7 @@ export function ScenarioManager({ initialScenarios, getCurrentParams, onLoad }: 
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setParaExcluir(s) }}
-                  className="ml-3 shrink-0 rounded p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  className="ml-3 shrink-0 rounded p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                   title="Excluir cenário"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

@@ -38,7 +38,7 @@ export function CashFlowPeriodFilter({ startDate, endDate, onChange }: CashFlowP
           aria-label={`Limpar ${rotulo.toLowerCase()}`}
           title={`Limpar ${rotulo.toLowerCase()}`}
           onClick={() => mudar('')}
-          className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -69,7 +69,7 @@ export function CashFlowPeriodFilter({ startDate, endDate, onChange }: CashFlowP
       </div>
       <div className="flex w-full items-center gap-2 md:contents">
         {data(startDate, 'Data inicial', (v) => onChange(v, endDate, null))}
-        <span className="text-xs text-gray-400">até</span>
+        <span className="text-xs text-gray-500">até</span>
         {data(endDate, 'Data final', (v) => onChange(startDate, v, null))}
       </div>
     </div>

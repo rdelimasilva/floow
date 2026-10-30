@@ -40,7 +40,7 @@ export default async function BillingSuccessPage({
         </div>
 
         {sessionId && (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Referência: {sessionId}
           </p>
         )}

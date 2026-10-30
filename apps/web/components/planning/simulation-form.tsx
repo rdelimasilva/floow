@@ -413,7 +413,7 @@ export function SimulationForm({
       />
 
       {/* Disclaimer */}
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-gray-500">
         Valores em termos reais (descontada inflação). Projeções são estimativas — consulte um profissional para decisões financeiras.
       </p>
     </div>

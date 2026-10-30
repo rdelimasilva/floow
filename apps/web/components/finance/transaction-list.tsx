@@ -273,12 +273,12 @@ export function TransactionList({
         {comFiltro ? (
           <>
             <p className="text-gray-500">Nenhuma transação com os filtros atuais.</p>
-            <p className="mt-1 text-sm text-gray-400">Ajuste ou desligue os filtros acima para ver mais lançamentos.</p>
+            <p className="mt-1 text-sm text-gray-500">Ajuste ou desligue os filtros acima para ver mais lançamentos.</p>
           </>
         ) : (
           <>
             <p className="text-gray-500">Nenhuma transação encontrada.</p>
-            <p className="mt-1 text-sm text-gray-400">Registre sua primeira transação para começar.</p>
+            <p className="mt-1 text-sm text-gray-500">Registre sua primeira transação para começar.</p>
           </>
         )}
       </div>

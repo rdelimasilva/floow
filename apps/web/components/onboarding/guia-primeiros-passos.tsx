@@ -35,7 +35,7 @@ export function BarraDeProgresso({ concluidos, total }: { concluidos: number; to
 
 function Marcador({ passo, numero }: { passo: Passo; numero: number }) {
   if (passo.situacao === 'feito') return <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600" aria-hidden />
-  if (passo.situacao === 'pulado') return <CircleDashed className="h-6 w-6 shrink-0 text-gray-400" aria-hidden />
+  if (passo.situacao === 'pulado') return <CircleDashed className="h-6 w-6 shrink-0 text-gray-500" aria-hidden />
   return (
     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-blue-300 bg-blue-50 text-xs font-semibold text-blue-700">
       {numero}
@@ -104,7 +104,7 @@ export function GuiaPrimeirosPassos({ estado }: Props) {
                   <span className="text-xs text-gray-500">{ROTULO_DA_SITUACAO[passo.situacao]}</span>
                 )}
                 <ChevronDown
-                  className={`h-4 w-4 text-gray-400 transition-transform ${estaAberto ? 'rotate-180' : ''}`}
+                  className={`h-4 w-4 text-gray-500 transition-transform ${estaAberto ? 'rotate-180' : ''}`}
                   aria-hidden
                 />
               </button>

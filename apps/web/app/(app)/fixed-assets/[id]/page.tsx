@@ -68,19 +68,19 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Valor de Compra</p>
           <p className="mt-2 text-xl font-bold text-foreground">{formatBRL(asset.purchaseValueCents)}</p>
-          <p className="mt-1 text-xs text-gray-400">{formatarDia(purchaseDate)}</p>
+          <p className="mt-1 text-xs text-gray-500">{formatarDia(purchaseDate)}</p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Valor Atual Estimado</p>
           <p className="mt-2 text-xl font-bold text-foreground">{formatBRL(estimatedValue)}</p>
-          <p className="mt-1 text-xs text-gray-400">Baseado na taxa de {formatarNumero(Number(asset.annualRate) * 100, 1)}% a.a.</p>
+          <p className="mt-1 text-xs text-gray-500">Baseado na taxa de {formatarNumero(Number(asset.annualRate) * 100, 1)}% a.a.</p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Valorização</p>
           <p className={`mt-2 text-xl font-bold ${estimatedValue >= asset.purchaseValueCents ? 'text-green-700' : 'text-red-600'}`}>
             {formatBRL(estimatedValue - asset.purchaseValueCents)}
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-gray-500">
             {formatarNumero((estimatedValue / asset.purchaseValueCents - 1) * 100, 1)}% desde a compra
           </p>
         </Card>
@@ -140,7 +140,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
       <Card>
         <CardHeader><CardTitle className="text-sm">Atualizar Valor de Mercado</CardTitle></CardHeader>
         <CardContent>
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-gray-500 mb-3">
             Última atualização: {formatarDia(baseDate)} — {formatBRL(asset.currentValueCents)}
           </p>
           <UpdateValueForm assetId={id} />

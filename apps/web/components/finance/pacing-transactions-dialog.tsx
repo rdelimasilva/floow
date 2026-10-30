@@ -126,7 +126,7 @@ export function PacingTransactionsDialog({ category, month, categoryOptions = []
 
         <div className="overflow-y-auto px-5 py-2">
           {error ? (
-            <p className="py-6 text-center text-sm" style={{ color: '#EB5A4F' }}>
+            <p className="py-6 text-center text-sm" style={{ color: '#C2493F' }}>
               Não foi possível carregar as transações.
             </p>
           ) : rows === null ? (

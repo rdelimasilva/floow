@@ -48,7 +48,7 @@ export function ForgotPasswordForm() {
         <p className="text-sm text-gray-700">
           Se o email estiver cadastrado, você receberá um link para redefinir sua senha.
         </p>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500">
           Verifique também a pasta de spam.
         </p>
       </div>

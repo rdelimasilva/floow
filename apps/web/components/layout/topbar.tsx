@@ -47,7 +47,7 @@ export function Topbar({ userEmail, userName, avatarUrl, onMobileMenuOpen }: Top
       {/* Right: version + user */}
       <div className="flex items-center gap-3">
         <BotaoDeBusca />
-        <span className="hidden text-[10px] text-muted-foreground/50 sm:inline">
+        <span className="hidden text-[10px] text-muted-foreground sm:inline">
           v{process.env.NEXT_PUBLIC_APP_VERSION}
         </span>
         <UserMenu

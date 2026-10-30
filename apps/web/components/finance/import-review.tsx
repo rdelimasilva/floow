@@ -232,7 +232,7 @@ export function ImportReview({
                         </button>
                       </div>
                       {item.isAutoCategorized && state.categoryId === item.suggestedCategoryId && (
-                        <span className="text-[9px] text-blue-500 font-medium uppercase tracking-wider ml-1">auto</span>
+                        <span className="text-[11px] text-blue-700 font-medium uppercase tracking-wider ml-1">auto</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -263,7 +263,7 @@ export function ImportReview({
                           ))}
                         </select>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-gray-500">—</span>
                       )}
                     </TableCell>
                   </TableRow>

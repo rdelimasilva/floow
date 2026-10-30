@@ -373,7 +373,7 @@ export function SuccessionForm({
                     <span className="font-medium text-gray-900">{formatBRL(heir.estimatedValueCents)}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400">ITCMD</span>
+                    <span className="text-gray-500">ITCMD</span>
                     <span className="font-medium text-amber-700">{formatBRL(heir.estimatedItcmdCents)}</span>
                   </div>
                 </div>

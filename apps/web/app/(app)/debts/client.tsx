@@ -320,29 +320,29 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm font-semibold text-gray-900">{formatBRL(debt.remainingCents)}</p>
-                    <p className="text-[10px] text-gray-400">saldo devedor</p>
+                    <p className="text-[10px] text-gray-500">saldo devedor</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>
-                    <p className="text-gray-400">Parcelas</p>
+                    <p className="text-gray-500">Parcelas</p>
                     <p className="font-medium">{debt.paidCount}/{debt.installments}</p>
                   </div>
                   <div>
-                    <p className="text-gray-400">Pago</p>
+                    <p className="text-gray-500">Pago</p>
                     <p className="font-medium">{formatBRL(debt.paidCents)}</p>
                   </div>
                   <div>
-                    <p className="text-gray-400">Próx. Venc.</p>
+                    <p className="text-gray-500">Próx. Venc.</p>
                     <p className="font-medium">{formatDateBR(debt.nextDueDate)}</p>
                   </div>
                 </div>
                 <BudgetProgressBar label="" currentCents={debt.paidCents} limitCents={debt.totalCents} invertColors />
                 <div className="flex items-center justify-end gap-1 pt-1 border-t border-gray-100">
-                  <button type="button" onClick={() => openEdit(debt)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
+                  <button type="button" onClick={() => openEdit(debt)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
                     <Pencil className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
+                  <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -390,10 +390,10 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex justify-end gap-1">
-                          <button type="button" onClick={() => openEdit(debt)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
+                          <button type="button" onClick={() => openEdit(debt)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
+                          <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>

@@ -8,6 +8,7 @@ import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } fr
 import { MenuDeAcoes, itensDaLinha } from './menu-de-acoes-da-linha'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
 import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
+import { corDeTextoSobreTinta } from '@/lib/cor-legivel'
 
 interface RowActions {
   onEdit: (tx: TransactionRowData) => void
@@ -53,10 +54,10 @@ function CashFlowToggleButton({
       onClick={() => onToggle(tx)}
       disabled={loading}
       title={estado.title}
-      className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+      className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
         estado.excecao
           ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
       }`}
     >
       {estado.label}
@@ -251,7 +252,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
                 className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium"
                 style={{
                   backgroundColor: tx.categoryColor ? `${tx.categoryColor}20` : '#e5e7eb',
-                  color: tx.categoryColor ?? '#6b7280',
+                  color: tx.categoryColor ? corDeTextoSobreTinta(tx.categoryColor) : '#4b5563',
                 }}
               >
                 {tx.categoryName}
@@ -275,11 +276,11 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
         </div>
       </div>
       <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
-        <span className="text-[10px] text-gray-400 uppercase">{TYPE_LABELS[tx.type]}</span>
+        <span className="text-[10px] text-gray-500 uppercase">{TYPE_LABELS[tx.type]}</span>
         <div className="flex items-center gap-1">
           <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
           {!tx.transferGroupId && (
-            <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-2 text-gray-400 hover:text-gray-700">
+            <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-2 text-gray-500 hover:text-gray-700">
               <Pencil className="h-4 w-4" />
             </button>
           )}
@@ -326,17 +327,17 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
               className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
               style={{
                 backgroundColor: tx.categoryColor ? `${tx.categoryColor}20` : '#e5e7eb',
-                color: tx.categoryColor ?? '#6b7280',
+                color: tx.categoryColor ? corDeTextoSobreTinta(tx.categoryColor) : '#4b5563',
               }}
             >
               {tx.categoryName}
             </span>
             {tx.isAutoCategorized && (
-              <span className="text-[9px] text-blue-500 font-medium ml-0.5 uppercase tracking-wider">auto</span>
+              <span className="text-[11px] text-blue-700 font-medium ml-0.5 uppercase tracking-wider">auto</span>
             )}
           </span>
         ) : (
-          <span className="text-xs text-gray-400">&mdash;</span>
+          <span className="text-xs text-gray-500">&mdash;</span>
         )}
       </td>
       <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-500">{TYPE_LABELS[tx.type]}</td>
@@ -355,7 +356,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
               title="Editar lançamento"
               aria-label="Editar lançamento"
               onClick={() => actions.onEdit(tx)}
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>

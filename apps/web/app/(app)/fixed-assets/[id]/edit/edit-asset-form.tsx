@@ -147,7 +147,7 @@ export function EditAssetForm({ asset, types, candidates }: { asset: AssetData; 
             <div className="space-y-1.5">
               <Label htmlFor="annualRate">Taxa Anual (%)</Label>
               <Input id="annualRate" value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} required />
-              <p className="text-xs text-gray-400">Positivo = valorização, negativo = depreciação</p>
+              <p className="text-xs text-gray-500">Positivo = valorização, negativo = depreciação</p>
             </div>
 
             <AcquisitionTransactionField
@@ -157,17 +157,17 @@ export function EditAssetForm({ asset, types, candidates }: { asset: AssetData; 
             />
 
             <div className="space-y-1.5">
-              <Label htmlFor="model">Modelo <span className="text-gray-400 font-normal">(opcional)</span></Label>
+              <Label htmlFor="model">Modelo <span className="text-gray-500 font-normal">(opcional)</span></Label>
               <Input id="model" value={model} onChange={(e) => setModel(e.target.value)} />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="address">Endereço <span className="text-gray-400 font-normal">(opcional)</span></Label>
+              <Label htmlFor="address">Endereço <span className="text-gray-500 font-normal">(opcional)</span></Label>
               <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="licensePlate">Placa <span className="text-gray-400 font-normal">(opcional)</span></Label>
+              <Label htmlFor="licensePlate">Placa <span className="text-gray-500 font-normal">(opcional)</span></Label>
               <Input id="licensePlate" value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} />
             </div>
 

@@ -271,7 +271,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
           </button>
         </div>
         {futureTransactions.length === 0 && (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Sem lançamentos futuros (crie transações recorrentes para projetar)
           </p>
         )}
@@ -282,7 +282,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
         <Card className="p-5">
           <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {/* Bolinha na cor da série do gráfico; o valor fica na cor do texto. */}
-            <span className="h-2 w-2 rounded-full bg-[#2a78d6] dark:bg-[#3987e5]" />
+            <span className="h-2 w-2 rounded-full bg-[#2a78d6]" />
             Receitas {viewMode === 'projected' ? '(projetado)' : ''}
           </p>
           <p className="mt-2 text-xl font-bold text-foreground">{formatBRL(totalIncome)}</p>
@@ -290,7 +290,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
         <Card className="p-5">
           <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {/* Bolinha na cor da série do gráfico; o valor fica na cor do texto. */}
-            <span className="h-2 w-2 rounded-full bg-[#eb6834] dark:bg-[#d95926]" />
+            <span className="h-2 w-2 rounded-full bg-[#eb6834]" />
             Despesas {viewMode === 'projected' ? '(projetado)' : ''}
           </p>
           <p className="mt-2 text-xl font-bold text-foreground">{formatBRL(totalExpense)}</p>

@@ -47,7 +47,7 @@ export default async function FixedAssetsPage() {
           {assets.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
               <p className="text-gray-600 font-medium">Nenhum bem cadastrado.</p>
-              <p className="mt-1 text-sm text-gray-400">Cadastre imóveis, veículos e outros bens.</p>
+              <p className="mt-1 text-sm text-gray-500">Cadastre imóveis, veículos e outros bens.</p>
               <Button variant="primary" className="mt-4" asChild>
                 <Link href="/fixed-assets/new">Novo Bem</Link>
               </Button>
@@ -61,7 +61,7 @@ export default async function FixedAssetsPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900">{a.name}</p>
-                        {a.model && <p className="text-xs text-gray-400">{a.model}</p>}
+                        {a.model && <p className="text-xs text-gray-500">{a.model}</p>}
                         <p className="text-xs text-gray-500 mt-0.5">{typeMap.get(a.typeId) ?? '—'}</p>
                       </div>
                       <div className="text-right shrink-0">
@@ -72,7 +72,7 @@ export default async function FixedAssetsPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-100">
-                      <span className="text-gray-400">Compra: {formatBRL(a.purchaseValueCents)}</span>
+                      <span className="text-gray-500">Compra: {formatBRL(a.purchaseValueCents)}</span>
                     </div>
                   </Link>
                 ))}
@@ -101,7 +101,7 @@ export default async function FixedAssetsPage() {
                           <Link href={`/fixed-assets/${a.id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600">
                             {a.name}
                           </Link>
-                          {a.model && <p className="text-xs text-gray-400">{a.model}</p>}
+                          {a.model && <p className="text-xs text-gray-500">{a.model}</p>}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500">{typeMap.get(a.typeId) ?? '—'}</td>
                         <td className="px-4 py-3 text-right text-sm text-gray-500">{formatBRL(a.purchaseValueCents)}</td>

@@ -184,7 +184,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                       onClick={() => alternar(cat.id)}
                       aria-label={`${abertas.has(cat.id) ? 'Esconder' : 'Mostrar'} subcategorias de ${cat.name}`}
                       aria-expanded={abertas.has(cat.id)}
-                      className="-ml-1 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      className="-ml-1 rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
                     >
                       {abertas.has(cat.id) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </button>
@@ -253,7 +253,7 @@ export function CategoryList({ categories }: CategoryListProps) {
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-6">
           <div className="relative max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <Input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}

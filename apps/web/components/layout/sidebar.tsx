@@ -305,7 +305,7 @@ export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarPro
             <div key={section.title} className={cn(idx > 0 && 'mt-4')}>
               {/* Section title — fades in */}
               <p className={cn(
-                'mb-1.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60 whitespace-nowrap',
+                'mb-1.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap',
                 !pinned && FADE_IN,
               )}>
                 {section.title}

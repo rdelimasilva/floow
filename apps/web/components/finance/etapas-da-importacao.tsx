@@ -21,7 +21,7 @@ export function EtapasDaImportacao({ step }: { step: string }) {
             key={etapa.chave}
             aria-current={i === atual ? 'step' : undefined}
             className={cn(
-              i === atual ? 'font-semibold text-gray-900' : i < atual ? 'text-gray-600' : 'text-gray-400',
+              i === atual ? 'font-semibold text-gray-900' : i < atual ? 'text-gray-600' : 'text-gray-500',
             )}
           >
             {i + 1}. {etapa.rotulo}

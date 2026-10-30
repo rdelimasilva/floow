@@ -249,7 +249,7 @@ export function GastosDosCartoes({ cartoes, hoje }: { cartoes: CartaoComGastos[]
                             </div>
                             <div className="mt-1.5 flex items-center justify-between gap-4">
                               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                                <div className="h-full rounded-full bg-[#eb6834] dark:bg-[#d95926]" style={{ width: `${parte * 100}%` }} />
+                                <div className="h-full rounded-full bg-[#eb6834]" style={{ width: `${parte * 100}%` }} />
                               </div>
                               <span className="text-xs"><Variacao atual={c.atual} anterior={c.antes} /></span>
                             </div>

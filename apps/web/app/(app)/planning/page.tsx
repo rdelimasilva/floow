@@ -93,7 +93,7 @@ async function PlanningHubContent({ orgId }: { orgId: string }) {
       </div>
 
       {/* Disclaimer */}
-      <p className="text-xs text-gray-400 border-t pt-4">
+      <p className="text-xs text-gray-500 border-t pt-4">
         As projeções são estimativas baseadas em premissas que podem não se concretizar.
         Rentabilidades passadas não garantem rentabilidades futuras. Consulte um profissional
         habilitado (planejador financeiro, contador ou advogado) para decisões financeiras importantes.

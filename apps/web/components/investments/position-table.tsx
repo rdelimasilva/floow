@@ -124,7 +124,7 @@ const PositionRow = memo(function PositionRow({
           {position.unrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(position.unrealizedPnLCents)}
         </td>
         {/* Dividendos */}
-        <td className="hidden px-4 py-3 text-right text-sm tabular-nums text-green-700 xl:table-cell">
+        <td className={`hidden px-4 py-3 text-right text-sm tabular-nums xl:table-cell ${position.totalDividendsCents > 0 ? 'text-green-700' : 'text-gray-500'}`}>
           {position.totalDividendsCents > 0 ? formatBRL(position.totalDividendsCents) : '—'}
         </td>
         {/* Actions */}
@@ -265,7 +265,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
                     ))}
                   </p>
                   <p className="text-xs text-gray-500 truncate">{position.name}</p>
-                  <span className="text-[10px] text-gray-400 uppercase">{ASSET_CLASS_LABEL[position.assetClass as AssetClass] ?? position.assetClass}</span>
+                  <span className="text-[10px] text-gray-500 uppercase">{ASSET_CLASS_LABEL[position.assetClass as AssetClass] ?? position.assetClass}</span>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-gray-900">{formatBRL(position.currentValueCents)}</p>
@@ -276,16 +276,16 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div>
-                  <p className="text-gray-400">Qtd</p>
+                  <p className="text-gray-500">Qtd</p>
                   <p className="font-medium tabular-nums">{position.quantityHeld.toLocaleString('pt-BR')}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Preço médio</p>
+                  <p className="text-gray-500">Preço médio</p>
                   <p className="font-medium tabular-nums">{formatBRL(position.avgCostCents)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Dividendos</p>
-                  <p className="font-medium tabular-nums text-green-700">{position.totalDividendsCents > 0 ? formatBRL(position.totalDividendsCents) : '—'}</p>
+                  <p className="text-gray-500">Dividendos</p>
+                  <p className={`font-medium tabular-nums ${position.totalDividendsCents > 0 ? 'text-green-700' : 'text-gray-500'}`}>{position.totalDividendsCents > 0 ? formatBRL(position.totalDividendsCents) : '—'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
@@ -351,7 +351,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
             <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${totalPnLColor}`}>
               {totalUnrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(totalUnrealizedPnLCents)}
             </td>
-            <td className="hidden px-4 py-3 text-right text-sm font-bold tabular-nums text-green-700 xl:table-cell">
+            <td className={`hidden px-4 py-3 text-right text-sm font-bold tabular-nums xl:table-cell ${totalDividendsCents > 0 ? 'text-green-700' : 'text-gray-500'}`}>
               {totalDividendsCents > 0 ? formatBRL(totalDividendsCents) : '—'}
             </td>
             <td />

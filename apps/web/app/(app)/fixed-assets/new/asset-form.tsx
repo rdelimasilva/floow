@@ -173,7 +173,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
                 placeholder="Ex: 3 (valoriza) ou -10 (deprecia)"
                 required
               />
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-500">
                 Positivo = valorização, negativo = depreciação
               </p>
             </div>
@@ -187,7 +187,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
             <div className="space-y-1.5">
               <Label htmlFor="model">
                 Modelo{' '}
-                <span className="text-gray-400 font-normal">(opcional)</span>
+                <span className="text-gray-500 font-normal">(opcional)</span>
               </Label>
               <Input
                 id="model"
@@ -200,7 +200,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
             <div className="space-y-1.5">
               <Label htmlFor="address">
                 Endereço{' '}
-                <span className="text-gray-400 font-normal">(opcional)</span>
+                <span className="text-gray-500 font-normal">(opcional)</span>
               </Label>
               <Input
                 id="address"
@@ -213,7 +213,7 @@ export function AssetForm({ types, candidates }: AssetFormProps) {
             <div className="space-y-1.5">
               <Label htmlFor="licensePlate">
                 Placa{' '}
-                <span className="text-gray-400 font-normal">(opcional)</span>
+                <span className="text-gray-500 font-normal">(opcional)</span>
               </Label>
               <Input
                 id="licensePlate"

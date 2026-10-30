@@ -111,7 +111,7 @@ export function AmountFilter({ minAmount: initialMin, maxAmount: initialMax, onA
           onChange={(e) => setMin(e.target.value)}
           className="h-7 text-xs w-20"
         />
-        <span className="text-xs text-gray-400">a</span>
+        <span className="text-xs text-gray-500">a</span>
         <Input
           type="text"
           placeholder="Máx"

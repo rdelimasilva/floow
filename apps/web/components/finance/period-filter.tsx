@@ -58,7 +58,7 @@ export function PeriodFilter({ active, custom, onChange }: PeriodFilterProps) {
           filtrado ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-white text-gray-600'
         }`}
       >
-        <span className={filtrado ? 'text-gray-300' : 'text-gray-400'}>Período:</span>
+        <span className={filtrado ? 'text-gray-300' : 'text-gray-500'}>Período:</span>
         {rotulo}
         <ChevronDown className="h-3.5 w-3.5" />
       </button>
@@ -78,7 +78,7 @@ export function PeriodFilter({ active, custom, onChange }: PeriodFilterProps) {
           <div className="grid grid-cols-3 gap-2">
             {PERIOD_GROUPS.map((group) => (
               <div key={group.label} role="group" aria-label={group.label} className="min-w-0">
-                <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-500">
                   {group.label}
                 </p>
                 {group.keys.map((key) => (

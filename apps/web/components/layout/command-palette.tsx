@@ -142,7 +142,7 @@ export function CommandPalette() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[100] bg-black/40 animate-in fade-in duration-100"
+        className="fixed inset-0 z-[100] bg-black/40"
         onClick={() => setOpen(false)}
       />
 
@@ -151,19 +151,19 @@ export function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-label="Buscar página ou ação"
-        className="fixed inset-x-0 top-[15%] z-[101] mx-auto w-full max-w-lg px-4 animate-in fade-in slide-in-from-top-2 duration-150"
+        className="fixed inset-x-0 top-[15%] z-[101] mx-auto w-full max-w-lg px-4"
       >
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
           {/* Search input */}
           <div className="flex items-center gap-3 border-b px-4 py-3">
-            <Search className="h-4 w-4 shrink-0 text-gray-400" />
+            <Search className="h-4 w-4 shrink-0 text-gray-500" />
             <input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar página ou ação..."
               aria-label="Buscar página ou ação"
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-500"
             />
             <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500">
               ESC
@@ -173,7 +173,7 @@ export function CommandPalette() {
           {/* Results */}
           <div ref={listRef} className="max-h-72 overflow-y-auto p-1.5">
             {filtered.length === 0 ? (
-              <p className="py-6 text-center text-sm text-gray-400">Nenhum resultado encontrado.</p>
+              <p className="py-6 text-center text-sm text-gray-500">Nenhum resultado encontrado.</p>
             ) : (
               filtered.map((cmd, i) => (
                 <button
@@ -194,7 +194,7 @@ export function CommandPalette() {
           </div>
 
           {/* Footer hint */}
-          <div className="border-t px-4 py-2 text-[10px] text-gray-400 flex gap-3">
+          <div className="border-t px-4 py-2 text-[10px] text-gray-500 flex gap-3">
             <span>↑↓ navegar</span>
             <span>↵ abrir</span>
             <span>esc fechar</span>

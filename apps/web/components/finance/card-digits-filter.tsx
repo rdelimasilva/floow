@@ -81,7 +81,7 @@ export function CardDigitsFilter({ options, selected, onChange }: CardDigitsFilt
                   className="rounded border-gray-300"
                 />
                 <span className="font-mono">•{opcao.digits}</span>
-                <span className="ml-auto text-xs text-gray-400">{opcao.total}</span>
+                <span className="ml-auto text-xs text-gray-500">{opcao.total}</span>
               </label>
             ))}
           </div>

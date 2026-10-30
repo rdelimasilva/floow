@@ -90,24 +90,24 @@ export function ParceladosNoCartao({ parcelados, selectedMonth }: Props) {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{p.description}</p>
-                      {variosCartoes && <p className="text-[10px] text-gray-400">{p.accountName}</p>}
+                      {variosCartoes && <p className="text-[10px] text-gray-500">{p.accountName}</p>}
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-semibold text-gray-900">{formatBRL(parcela.amountCents)}</p>
-                      <p className="text-[10px] text-gray-400">no mês</p>
+                      <p className="text-[10px] text-gray-500">no mês</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
                     <div>
-                      <p className="text-gray-400">Parcela</p>
+                      <p className="text-gray-500">Parcela</p>
                       <p className="font-medium">{parcela.installmentNumber}/{p.installmentTotal}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400">Saldo devedor</p>
+                      <p className="text-gray-500">Saldo devedor</p>
                       <p className="font-medium">{formatBRL(p.remainingCents)}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400">Vencimento</p>
+                      <p className="text-gray-500">Vencimento</p>
                       <p className="font-medium">{formatDateBR(parcela.date)}</p>
                     </div>
                   </div>
