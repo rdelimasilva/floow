@@ -1,10 +1,11 @@
 'use client'
 
-import { BarChart, Bar, XAxis, CartesianGrid } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { IncomeMonth } from '@floow/core-finance/src/income'
 import { formatarDia } from '@/lib/formatar-dia'
+import { rotuloDoEixoY } from '@/lib/investments/serie-patrimonial'
 
 const chartConfig = {
   dividendCents: {
@@ -63,6 +64,7 @@ export function IncomeChart({ incomeData }: IncomeChartProps) {
           axisLine={false}
           tickMargin={8}
         />
+        <YAxis tickLine={false} axisLine={false} width={80} tickFormatter={(v: number) => rotuloDoEixoY(v)} />
         <ChartTooltip
           content={
             <ChartTooltipContent

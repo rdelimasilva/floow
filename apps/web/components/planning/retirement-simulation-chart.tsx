@@ -1,10 +1,11 @@
 'use client'
 
 import { useMemo } from 'react'
-import { LineChart, Line, XAxis, CartesianGrid, ReferenceLine } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceLine } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { RetirementYearPoint } from '@floow/core-finance/src/simulation'
+import { rotuloDoEixoY } from '@/lib/investments/serie-patrimonial'
 
 const chartConfig = {
   conservative: {
@@ -104,6 +105,7 @@ export function RetirementSimulationChart({
           tickMargin={8}
           label={{ value: 'Idade', position: 'insideBottom', offset: -5 }}
         />
+        <YAxis tickLine={false} axisLine={false} width={80} tickFormatter={(v: number) => rotuloDoEixoY(v)} />
         <ChartTooltip
           content={
             <ChartTooltipContent
