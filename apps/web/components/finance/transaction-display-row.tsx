@@ -8,6 +8,7 @@ import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } fr
 import { MenuDeAcoes, itensDaLinha } from './menu-de-acoes-da-linha'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
 import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
+import { corDeTextoSobreTinta } from '@/lib/cor-legivel'
 
 interface RowActions {
   onEdit: (tx: TransactionRowData) => void
@@ -53,10 +54,10 @@ function CashFlowToggleButton({
       onClick={() => onToggle(tx)}
       disabled={loading}
       title={estado.title}
-      className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+      className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
         estado.excecao
           ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-600'
+          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
       }`}
     >
       {estado.label}
@@ -251,7 +252,7 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
                 className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium"
                 style={{
                   backgroundColor: tx.categoryColor ? `${tx.categoryColor}20` : '#e5e7eb',
-                  color: tx.categoryColor ?? '#6b7280',
+                  color: tx.categoryColor ? corDeTextoSobreTinta(tx.categoryColor) : '#4b5563',
                 }}
               >
                 {tx.categoryName}
@@ -326,13 +327,13 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
               className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
               style={{
                 backgroundColor: tx.categoryColor ? `${tx.categoryColor}20` : '#e5e7eb',
-                color: tx.categoryColor ?? '#6b7280',
+                color: tx.categoryColor ? corDeTextoSobreTinta(tx.categoryColor) : '#4b5563',
               }}
             >
               {tx.categoryName}
             </span>
             {tx.isAutoCategorized && (
-              <span className="text-[9px] text-blue-500 font-medium ml-0.5 uppercase tracking-wider">auto</span>
+              <span className="text-[11px] text-blue-700 font-medium ml-0.5 uppercase tracking-wider">auto</span>
             )}
           </span>
         ) : (
