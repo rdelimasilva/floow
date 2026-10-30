@@ -15,6 +15,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import React from 'react'
 
+// O jsdom não implementa o modal do <dialog>.
+HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
+HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
+
 vi.mock('next/dynamic', () => ({
   default: () => () => React.createElement('div', { 'data-testid': 'grafico' }),
 }))
