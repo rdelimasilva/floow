@@ -107,3 +107,17 @@ export async function getFaturasDoExtrato(
     }))
   })
 }
+
+/**
+ * A fatura em aberto de cada cartão, pelo mesmo cálculo do extrato. Bate com o
+ * banco, e o saldo não: a parcela do banco tem a data do vencimento e só entra
+ * no saldo nesse dia, embora o banco já a ponha na fatura aberta.
+ */
+export async function getFaturasAbertas(orgId: string, contas: readonly ContaDoFiltro[]): Promise<Map<string, number>> {
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const faturas = await getFaturasDoExtrato(orgId, contas, { inicio: hoje, fim: hoje, limite: null, incluirProximo: true })
+  // Por cartão vem o fechamento de hoje (se houver) e depois o seguinte: o primeiro é o aberto.
+  const abertas = new Map<string, number>()
+  for (const f of faturas) if (!abertas.has(f.accountId)) abertas.set(f.accountId, f.totalCents)
+  return abertas
+}

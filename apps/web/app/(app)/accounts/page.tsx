@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getAccounts, getOrgId, getSaldosDoBanco } from '@/lib/finance/queries'
+import { getFaturasAbertas } from '@/lib/finance/queries-fatura'
 import { BankDivergenceAlert } from '@/components/finance/bank-divergence-alert'
 import { AccountCard } from '@/components/finance/account-card'
 import { CicloDoCartaoPendente } from '@/components/finance/ciclo-do-cartao-pendente'
@@ -33,7 +34,9 @@ export default async function AccountsPage() {
   // Conta de investimentos do Open Finance vale o que as posições valem, não o
   // saldo de lançamentos (zerado numa conexão só de investimentos). A mesma
   // regra vale no Dashboard (`calcularPatrimonio`).
-  const valorDe = (a: (typeof accounts)[number]) => valorDaConta(a, valorDasPosicoes)
+  // Cartão vale a fatura aberta, que bate com o banco (`getFaturasAbertas`).
+  const faturasAbertas = await getFaturasAbertas(orgId, accounts)
+  const valorDe = (a: (typeof accounts)[number]) => faturasAbertas.get(a.id) ?? valorDaConta(a, valorDasPosicoes)
   const totalBalanceCents = accounts.reduce((sum, a) => sum + valorDe(a), 0)
   const blocos = agruparPorBloco(accounts).map((b) => ({
     ...b,
@@ -120,6 +123,7 @@ export default async function AccountsPage() {
                       tipoTravado={contasDeInvestimento.has(account.id)}
                       conectadaAoBanco={conectadas.has(account.id)}
                       valorDasPosicoesCents={contasDeInvestimento.has(account.id) ? (valorDasPosicoes.get(account.id) ?? 0) : undefined}
+                      faturaAbertaCents={faturasAbertas.get(account.id)}
                     />
                   ))}
                 </div>

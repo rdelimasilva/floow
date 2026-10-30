@@ -30,6 +30,8 @@ interface AccountCardProps {
    * não o saldo de lançamentos — e por isso não há "Ajustar saldo".
    */
   valorDasPosicoesCents?: number
+  /** Cartão: o valor exibido é a fatura aberta, não o saldo de lançamentos. */
+  faturaAbertaCents?: number
   /** Logo do banco, só para conta vinda do Open Finance. */
   logoUrl?: string
   /**
@@ -39,7 +41,7 @@ interface AccountCardProps {
   conectadaAoBanco?: boolean
 }
 
-export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCents, logoUrl, conectadaAoBanco = false }: AccountCardProps) {
+export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCents, faturaAbertaCents, logoUrl, conectadaAoBanco = false }: AccountCardProps) {
   const fid = useId()
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
@@ -65,7 +67,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
 
   const config = ACCOUNT_TYPE_CONFIG[account.type]
   const { Icon, label } = config
-  const valorExibidoCents = valorDasPosicoesCents ?? account.balanceCents
+  const valorExibidoCents = valorDasPosicoesCents ?? faturaAbertaCents ?? account.balanceCents
   const isNegative = valorExibidoCents < 0
 
   async function handleUpdate() {
@@ -327,6 +329,9 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
           </p>
           {valorDasPosicoesCents !== undefined && (
             <p className="mt-1 text-xs text-gray-500">Valor das posições informadas pelo banco</p>
+          )}
+          {faturaAbertaCents !== undefined && (
+            <p className="mt-1 text-xs text-gray-500">Fatura aberta</p>
           )}
           {(account.branch || account.accountNumber) && (
             <p className="mt-1 text-xs text-gray-500">
