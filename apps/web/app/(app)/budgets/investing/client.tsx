@@ -311,10 +311,10 @@ export function InvestingClient({
                       </span>
                     </div>
                     <div className="flex gap-1">
-                      <button type="button" onClick={() => startEdit(entry)} className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
+                      <button type="button" onClick={() => startEdit(entry)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <button type="button" onClick={() => setDeleteConfirm(entry.id)} className="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
+                      <button type="button" onClick={() => setDeleteConfirm(entry.id)} className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

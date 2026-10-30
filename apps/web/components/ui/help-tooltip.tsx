@@ -36,7 +36,7 @@ export function HelpTooltip({ text, className }: HelpTooltipProps) {
         onBlur={() => setOpen(false)}
         onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
         aria-describedby={open ? id : undefined}
-        className="rounded-full p-0.5 text-gray-500 hover:text-gray-600 transition-colors"
+        className="-m-[3px] rounded-full p-[5px] text-gray-500 hover:text-gray-600 transition-colors"
         aria-label="Ajuda"
       >
         <HelpCircle className="h-3.5 w-3.5" />

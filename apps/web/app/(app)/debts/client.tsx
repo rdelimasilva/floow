@@ -390,10 +390,10 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex justify-end gap-1">
-                          <button type="button" onClick={() => openEdit(debt)} className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
+                          <button type="button" onClick={() => openEdit(debt)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
+                          <button type="button" onClick={() => setDeleteConfirm(debt.id)} className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
