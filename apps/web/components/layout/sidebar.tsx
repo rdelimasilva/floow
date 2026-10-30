@@ -12,6 +12,7 @@ import {
   Tags,
   X,
   Target,
+  Compass,
   Building2,
   BarChart3,
   Gauge,
@@ -91,7 +92,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Futuro',
     items: [
-      { href: '/planning', label: 'Planejamento', icon: Target },
+      { href: '/planning', label: 'Planejamento', icon: Compass },
     ],
   },
   {

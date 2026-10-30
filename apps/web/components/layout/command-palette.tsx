@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Wallet, ArrowLeftRight, TrendingUp, Tags, BarChart3,
-  PiggyBank, Target, Building2, Landmark, HelpCircle, Search,
+  PiggyBank, Target, Compass, Building2, Landmark, HelpCircle, Search,
   Bot, Gauge, RefreshCw, Settings, Coins, Plus,
 } from 'lucide-react'
 import { EVENTO_ABRIR_PALETA } from '@/lib/paleta'
@@ -33,7 +33,7 @@ export const COMMANDS: CommandItem[] = [
   { label: 'Renda passiva', href: '/investments/income', icon: Coins, keywords: ['dividendos', 'proventos', 'juros'] },
   { label: 'Bens', href: '/fixed-assets', icon: Building2, keywords: ['imovel', 'carro', 'bens'] },
   { label: 'Controle de Dívidas', href: '/debts', icon: Landmark, keywords: ['divida', 'emprestimo', 'financiamento'] },
-  { label: 'Planejamento', href: '/planning', icon: Target, keywords: ['aposentadoria', 'fi', 'simulacao'] },
+  { label: 'Planejamento', href: '/planning', icon: Compass, keywords: ['aposentadoria', 'fi', 'simulacao'] },
   { label: 'Simulação', href: '/planning/simulation', icon: BarChart3, keywords: ['cenario', 'projecao'] },
   { label: 'Plano Sucessório', href: '/planning/succession', icon: HelpCircle, keywords: ['heranca', 'itcmd', 'herdeiros'] },
   { label: 'Contas', href: '/accounts', icon: Wallet, keywords: ['conta corrente', 'poupanca', 'cartao'] },
