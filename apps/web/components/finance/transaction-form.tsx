@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -57,6 +57,7 @@ export function TransactionForm({
   categories: initialCategories,
   onSuccess,
 }: TransactionFormProps) {
+  const fid = useId()
   const router = useRouter()
   const { toast } = useToast()
   const [txType, setTxType] = useState<TransactionType>('expense')
@@ -197,8 +198,8 @@ export function TransactionForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       {/* Transaction type toggle */}
       <div className="space-y-1.5">
-        <Label>Tipo</Label>
-        <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
+        <Label id={`${fid}-tipo`}>Tipo</Label>
+        <div role="group" aria-labelledby={`${fid}-tipo`} className="flex rounded-lg border border-gray-200 p-1 gap-1">
           {(['income', 'expense', 'transfer'] as const).map((type) => (
             <button
               key={type}
@@ -228,6 +229,8 @@ export function TransactionForm({
           render={({ field }) => (
             <AccountSelect
               id="accountId"
+              aria-describedby={errors.accountId ? 'accountId-erro' : undefined}
+              aria-invalid={!!errors.accountId || undefined}
               accounts={txType === 'transfer' ? transferAccounts : accounts}
               placeholder="Selecione a conta"
               value={field.value}
@@ -236,7 +239,7 @@ export function TransactionForm({
           )}
         />
         {errors.accountId && (
-          <p className="text-sm text-red-600">{errors.accountId.message}</p>
+          <p id="accountId-erro" className="text-sm text-red-600">{errors.accountId.message}</p>
         )}
       </div>
 
@@ -250,6 +253,8 @@ export function TransactionForm({
             render={({ field }) => (
               <AccountSelect
                 id="transferToAccountId"
+                aria-describedby={errors.transferToAccountId ? 'transferToAccountId-erro' : undefined}
+                aria-invalid={!!errors.transferToAccountId || undefined}
                 accounts={transferAccounts.filter((a) => a.id !== watch('accountId'))}
                 placeholder="Selecione a conta de destino"
                 value={field.value}
@@ -258,7 +263,7 @@ export function TransactionForm({
             )}
           />
           {errors.transferToAccountId && (
-            <p className="text-sm text-red-600">{errors.transferToAccountId.message}</p>
+            <p id="transferToAccountId-erro" className="text-sm text-red-600">{errors.transferToAccountId.message}</p>
           )}
         </div>
       )}
@@ -296,6 +301,7 @@ export function TransactionForm({
           ) : (
             <div className="flex items-center gap-2">
               <Input
+                aria-label="Nome da nova categoria"
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 placeholder={`Nova categoria de ${txType === 'income' ? 'receita' : 'despesa'}`}
@@ -331,11 +337,12 @@ export function TransactionForm({
         <Label htmlFor="amountRaw">Valor (R$)</Label>
         <InputMoeda
           id="amountRaw"
+          aria-describedby={errors.amountRaw ? 'amountRaw-erro' : undefined}
           error={!!errors.amountRaw}
           {...register('amountRaw')}
         />
         {errors.amountRaw && (
-          <p className="text-sm text-red-600">{errors.amountRaw.message}</p>
+          <p id="amountRaw-erro" className="text-sm text-red-600">{errors.amountRaw.message}</p>
         )}
       </div>
 
@@ -344,12 +351,13 @@ export function TransactionForm({
         <Label htmlFor="description">Descrição</Label>
         <Input
           id="description"
+          aria-describedby={errors.description ? 'description-erro' : undefined}
           placeholder="Ex: Mercado semanal"
           error={!!errors.description}
           {...register('description')}
         />
         {errors.description && (
-          <p className="text-sm text-red-600">{errors.description.message}</p>
+          <p id="description-erro" className="text-sm text-red-600">{errors.description.message}</p>
         )}
       </div>
 
@@ -358,6 +366,7 @@ export function TransactionForm({
         <Label htmlFor="date">Data</Label>
         <Input
           id="date"
+          aria-describedby={errors.date ? 'date-erro' : undefined}
           type="date"
           min={`${ANO_MINIMO}-01-01`}
           max={`${ANO_MAXIMO}-12-31`}
@@ -365,7 +374,7 @@ export function TransactionForm({
           {...register('date')}
         />
         {errors.date ? (
-          <p className="text-sm text-red-600">{errors.date.message}</p>
+          <p id="date-erro" className="text-sm text-red-600">{errors.date.message}</p>
         ) : (
           avisoDeDataFutura(watchDate, hojeEmSaoPaulo()) && (
             <p className="text-xs text-amber-700">{avisoDeDataFutura(watchDate, hojeEmSaoPaulo())}</p>
@@ -390,8 +399,9 @@ export function TransactionForm({
         <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
           {/* Frequency */}
           <div className="space-y-1.5">
-            <Label>Frequência</Label>
+            <Label htmlFor={`${fid}-1`}>Frequência</Label>
             <select
+              id={`${fid}-1`}
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as RecurringFrequency)}
               className="h-10 w-full rounded-md border border-gray-200 bg-white px-3 text-sm"
@@ -419,6 +429,7 @@ export function TransactionForm({
               </label>
               {endMode === 'count' && (
                 <Input
+                  aria-label="Número de parcelas"
                   type="number"
                   min={1}
                   max={120}
@@ -442,6 +453,7 @@ export function TransactionForm({
               </label>
               {endMode === 'end_date' && (
                 <Input
+                  aria-label="Data final"
                   type="date" min="1900-01-01" max="2100-12-31"
                   value={recurringEndDate}
                   onChange={(e) => setRecurringEndDate(e.target.value)}

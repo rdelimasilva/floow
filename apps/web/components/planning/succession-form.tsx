@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useId, useMemo, useState, useTransition } from 'react'
 import { HelpTooltip } from '@/components/ui/help-tooltip'
 import { calcItcmd, calcLiquidityGap, ITCMD_RATES_BY_STATE, validateHeirPercentages } from '@floow/core-finance/src/succession'
 import { formatBRL } from '@floow/core-finance/src/balance'
@@ -88,6 +88,7 @@ export function SuccessionForm({
   currentPortfolioCents,
   liquidAssetsCents,
 }: SuccessionFormProps) {
+  const fid = useId()
   const [isPending, startTransition] = useTransition()
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -225,7 +226,7 @@ export function SuccessionForm({
           <div className="space-y-1.5">
             <Label htmlFor="brazilianState">Estado (UF)</Label>
             <Select value={brazilianState} onValueChange={setBrazilianState}>
-              <SelectTrigger>
+              <SelectTrigger id="brazilianState">
                 <SelectValue placeholder="Selecione o estado" />
               </SelectTrigger>
               <SelectContent>
@@ -263,8 +264,9 @@ export function SuccessionForm({
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Custos com Funeral (R$)</Label>
+                <Label htmlFor={`${fid}-1`}>Custos com Funeral (R$)</Label>
                 <Input
+                  id={`${fid}-1`}
                   type="number"
                   step="0.01"
                   min="0"
@@ -273,8 +275,9 @@ export function SuccessionForm({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Honorários Jurídicos (R$)</Label>
+                <Label htmlFor={`${fid}-2`}>Honorários Jurídicos (R$)</Label>
                 <Input
+                  id={`${fid}-2`}
                   type="number"
                   step="0.01"
                   min="0"
@@ -283,8 +286,9 @@ export function SuccessionForm({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Outros Passivos (R$)</Label>
+                <Label htmlFor={`${fid}-3`}>Outros Passivos (R$)</Label>
                 <Input
+                  id={`${fid}-3`}
                   type="number"
                   step="0.01"
                   min="0"

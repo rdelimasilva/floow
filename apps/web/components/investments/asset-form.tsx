@@ -76,11 +76,13 @@ export function AssetForm() {
           <Label htmlFor="ticker">Código (ticker)</Label>
           <Input
             id="ticker"
+            aria-describedby={errors.ticker ? 'ticker-erro' : undefined}
+            aria-invalid={!!errors.ticker || undefined}
             placeholder="Ex: PETR4"
             {...register('ticker')}
           />
           {errors.ticker && (
-            <p className="text-xs text-red-600">{errors.ticker.message}</p>
+            <p id="ticker-erro" className="text-xs text-red-600">{errors.ticker.message}</p>
           )}
         </div>
 
@@ -89,17 +91,19 @@ export function AssetForm() {
           <Label htmlFor="name">Nome</Label>
           <Input
             id="name"
+            aria-describedby={errors.name ? 'name-erro' : undefined}
+            aria-invalid={!!errors.name || undefined}
             placeholder="Ex: Petrobras PN"
             {...register('name')}
           />
           {errors.name && (
-            <p className="text-xs text-red-600">{errors.name.message}</p>
+            <p id="name-erro" className="text-xs text-red-600">{errors.name.message}</p>
           )}
         </div>
 
         {/* Asset class */}
         <div className="space-y-1.5">
-          <Label>Classe</Label>
+          <Label htmlFor="assetClass">Classe</Label>
           <Controller
             name="assetClass"
             control={control}
@@ -108,7 +112,7 @@ export function AssetForm() {
                 onValueChange={(val) => { field.onChange(val); setSelectedClass(val) }}
                 value={field.value}
               >
-                <SelectTrigger>
+                <SelectTrigger id="assetClass" aria-describedby={errors.assetClass ? 'assetClass-erro' : undefined} aria-invalid={!!errors.assetClass || undefined}>
                   <SelectValue placeholder="Selecione a classe do ativo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -122,7 +126,7 @@ export function AssetForm() {
             )}
           />
           {errors.assetClass && (
-            <p className="text-xs text-red-600">{errors.assetClass.message}</p>
+            <p id="assetClass-erro" className="text-xs text-red-600">{errors.assetClass.message}</p>
           )}
           {/* Helper text for fixed income */}
           {selectedClass === 'fixed_income' && (

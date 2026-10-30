@@ -55,6 +55,7 @@ export function LoginForm() {
         <Label htmlFor="login-email">Email</Label>
         <Input
           id="login-email"
+          aria-describedby={errors.email ? 'login-email-erro' : undefined}
           type="email"
           placeholder="seu@email.com"
           autoComplete="email"
@@ -62,7 +63,7 @@ export function LoginForm() {
           {...register('email')}
         />
         {errors.email && (
-          <p className="text-sm text-red-600">{errors.email.message}</p>
+          <p id="login-email-erro" className="text-sm text-red-600">{errors.email.message}</p>
         )}
       </div>
 
@@ -70,6 +71,7 @@ export function LoginForm() {
         <Label htmlFor="login-password">Senha</Label>
         <Input
           id="login-password"
+          aria-describedby={errors.password ? 'login-password-erro' : undefined}
           type="password"
           placeholder="••••••••"
           autoComplete="current-password"
@@ -77,7 +79,7 @@ export function LoginForm() {
           {...register('password')}
         />
         {errors.password && (
-          <p className="text-sm text-red-600">{errors.password.message}</p>
+          <p id="login-password-erro" className="text-sm text-red-600">{errors.password.message}</p>
         )}
       </div>
 

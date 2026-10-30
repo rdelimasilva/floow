@@ -109,11 +109,13 @@ function NovaConta() {
               <Label htmlFor="name">Nome da Conta</Label>
               <Input
                 id="name"
+                aria-describedby={errors.name ? 'name-erro' : undefined}
+                aria-invalid={!!errors.name || undefined}
                 placeholder="Ex: Conta Corrente Itaú"
                 {...register('name')}
               />
               {errors.name && (
-                <p className="text-xs text-red-600">{errors.name.message}</p>
+                <p id="name-erro" className="text-xs text-red-600">{errors.name.message}</p>
               )}
             </div>
 
@@ -141,7 +143,7 @@ function NovaConta() {
             <div className="space-y-1.5">
               <Label htmlFor="type">Tipo</Label>
               <Select value={tipo ?? ''} onValueChange={(val) => setValue('type', val as NewAccountForm['type'])}>
-                <SelectTrigger id="type">
+                <SelectTrigger id="type" aria-describedby={errors.type ? 'type-erro' : undefined} aria-invalid={!!errors.type || undefined}>
                   <SelectValue placeholder="Selecione o tipo de conta" />
                 </SelectTrigger>
                 <SelectContent>
@@ -153,7 +155,7 @@ function NovaConta() {
                 </SelectContent>
               </Select>
               {errors.type && (
-                <p className="text-xs text-red-600">{errors.type.message}</p>
+                <p id="type-erro" className="text-xs text-red-600">{errors.type.message}</p>
               )}
             </div>
 

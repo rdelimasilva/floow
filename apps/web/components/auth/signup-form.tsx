@@ -50,6 +50,7 @@ export function SignupForm() {
         <Label htmlFor="signup-name">Nome completo</Label>
         <Input
           id="signup-name"
+          aria-describedby={errors.fullName ? 'signup-name-erro' : undefined}
           type="text"
           placeholder="Maria Silva"
           autoComplete="name"
@@ -57,7 +58,7 @@ export function SignupForm() {
           {...register('fullName')}
         />
         {errors.fullName && (
-          <p className="text-sm text-red-600">{errors.fullName.message}</p>
+          <p id="signup-name-erro" className="text-sm text-red-600">{errors.fullName.message}</p>
         )}
       </div>
 
@@ -65,6 +66,7 @@ export function SignupForm() {
         <Label htmlFor="signup-email">Email</Label>
         <Input
           id="signup-email"
+          aria-describedby={errors.email ? 'signup-email-erro' : undefined}
           type="email"
           placeholder="seu@email.com"
           autoComplete="email"
@@ -72,7 +74,7 @@ export function SignupForm() {
           {...register('email')}
         />
         {errors.email && (
-          <p className="text-sm text-red-600">{errors.email.message}</p>
+          <p id="signup-email-erro" className="text-sm text-red-600">{errors.email.message}</p>
         )}
       </div>
 
@@ -80,6 +82,7 @@ export function SignupForm() {
         <Label htmlFor="signup-password">Senha</Label>
         <Input
           id="signup-password"
+          aria-describedby={errors.password ? 'signup-password-erro' : undefined}
           type="password"
           placeholder="••••••••"
           autoComplete="new-password"
@@ -87,7 +90,7 @@ export function SignupForm() {
           {...register('password')}
         />
         {errors.password && (
-          <p className="text-sm text-red-600">{errors.password.message}</p>
+          <p id="signup-password-erro" className="text-sm text-red-600">{errors.password.message}</p>
         )}
       </div>
 

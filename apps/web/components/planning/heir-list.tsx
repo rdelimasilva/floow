@@ -80,6 +80,7 @@ export function HeirList({ heirs, onAdd, onRemove, onChange }: HeirListProps) {
               value={heir.name}
               onChange={(e) => onChange(heir.id, 'name', e.target.value)}
               placeholder="Nome do herdeiro"
+              aria-label="Nome"
             />
           </div>
 
@@ -89,7 +90,7 @@ export function HeirList({ heirs, onAdd, onRemove, onChange }: HeirListProps) {
               value={heir.relationship}
               onValueChange={(v) => onChange(heir.id, 'relationship', v)}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Parentesco">
                 <SelectValue placeholder="Parentesco" />
               </SelectTrigger>
               <SelectContent>
@@ -112,6 +113,7 @@ export function HeirList({ heirs, onAdd, onRemove, onChange }: HeirListProps) {
               value={heir.percentageShare === 0 ? '' : heir.percentageShare}
               onChange={(e) => onChange(heir.id, 'percentageShare', parseFloat(e.target.value) || 0)}
               placeholder="0"
+              aria-label="Percentual (%)"
             />
           </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import Link from 'next/link'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,6 +40,7 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCents, logoUrl, conectadaAoBanco = false }: AccountCardProps) {
+  const fid = useId()
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -148,21 +149,21 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div>
-            <Label>Nome</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Label htmlFor={`${fid}-1`}>Nome</Label>
+            <Input id={`${fid}-1`} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <Label>Titular (primeiro nome)</Label>
-            <Input value={titular} onChange={(e) => setTitular(e.target.value)} placeholder="Ex.: Ana" maxLength={30} />
+            <Label htmlFor={`${fid}-2`}>Titular (primeiro nome)</Label>
+            <Input id={`${fid}-2`} value={titular} onChange={(e) => setTitular(e.target.value)} placeholder="Ex.: Ana" maxLength={30} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Agência</Label>
-              <Input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="0001" />
+              <Label htmlFor={`${fid}-3`}>Agência</Label>
+              <Input id={`${fid}-3`} value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="0001" />
             </div>
             <div>
-              <Label>Número</Label>
-              <Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="12345-6" />
+              <Label htmlFor={`${fid}-4`}>Número</Label>
+              <Input id={`${fid}-4`} value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="12345-6" />
             </div>
           </div>
           {tipoTravado ? (
@@ -171,8 +172,9 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             </p>
           ) : (
           <div>
-            <Label>Tipo</Label>
+            <Label htmlFor={`${fid}-5`}>Tipo</Label>
             <select
+              id={`${fid}-5`}
               value={type}
               onChange={(e) => setType(e.target.value as typeof type)}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
@@ -227,10 +229,11 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
                   transação automática com a diferença pra manter histórico consistente.
                 </p>
                 <div>
-                  <Label>Novo saldo</Label>
+                  <Label htmlFor={`${fid}-6`}>Novo saldo</Label>
                   <div className="relative mt-1">
                     <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-500">R$</span>
                     <Input
+                      id={`${fid}-6`}
                       autoFocus
                       type="text"
                       inputMode="decimal"
@@ -243,8 +246,9 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
                   </div>
                 </div>
                 <div>
-                  <Label>Data do ajuste</Label>
+                  <Label htmlFor={`${fid}-7`}>Data do ajuste</Label>
                   <Input
+                    id={`${fid}-7`}
                     type="date" min="1900-01-01" max="2100-12-31"
                     className="mt-1"
                     value={adjustDate}
@@ -255,8 +259,9 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
                   </p>
                 </div>
                 <div>
-                  <Label>Motivo <span className="text-gray-400 font-normal">(opcional)</span></Label>
+                  <Label htmlFor={`${fid}-8`}>Motivo <span className="text-gray-400 font-normal">(opcional)</span></Label>
                   <Input
+                    id={`${fid}-8`}
                     type="text"
                     placeholder="Ex: reconciliação com extrato"
                     value={adjustNote}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useId, useEffect, useRef, useState } from 'react'
 import { createRecurringTemplate, updateRecurringTemplate } from '@/lib/finance/recurring-actions'
 import { createCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
@@ -90,6 +90,7 @@ export function CreateRecurringDialog({
   editTemplate,
   cloneFrom,
 }: CreateRecurringDialogProps) {
+  const fid = useId()
   const { toast } = useToast()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [loading, setLoading] = useState(false)
@@ -251,8 +252,8 @@ export function CreateRecurringDialog({
           <div className="space-y-4">
             {/* Type segmented control */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-              <div className="flex rounded-lg border border-gray-200 p-1 gap-1">
+              <label id={`${fid}-tipo`} className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+              <div role="group" aria-labelledby={`${fid}-tipo`} className="flex rounded-lg border border-gray-200 p-1 gap-1">
                 {(['income', 'expense'] as const).map((t) => (
                   <button
                     key={t}
@@ -271,8 +272,9 @@ export function CreateRecurringDialog({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+              <label htmlFor={`${fid}-1`} className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
               <Input
+                id={`${fid}-1`}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Ex: Aluguel, Netflix, Salário..."
@@ -282,8 +284,9 @@ export function CreateRecurringDialog({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Conta</label>
+                <label htmlFor={`${fid}-2`} className="block text-sm font-medium text-gray-700 mb-1">Conta</label>
                 <select
+                  id={`${fid}-2`}
                   value={accountId}
                   onChange={(e) => setAccountId(e.target.value)}
                   required
@@ -299,8 +302,9 @@ export function CreateRecurringDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
+                <label htmlFor={`${fid}-3`} className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
                 <InputMoeda
+                  id={`${fid}-3`}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required
@@ -310,8 +314,9 @@ export function CreateRecurringDialog({
 
             {/* Category — filtered by type, with inline creation */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <label htmlFor={`${fid}-4`} className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
               <select
+                id={`${fid}-4`}
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
                 className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm"
@@ -334,6 +339,7 @@ export function CreateRecurringDialog({
               ) : (
                 <div className="mt-2 flex items-center gap-2">
                   <Input
+                    aria-label="Nome da nova categoria"
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
                     placeholder={`Nova categoria de ${type === 'income' ? 'receita' : 'despesa'}`}
@@ -384,8 +390,9 @@ export function CreateRecurringDialog({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Frequência</label>
+                <label htmlFor={`${fid}-5`} className="block text-sm font-medium text-gray-700 mb-1">Frequência</label>
                 <select
+                  id={`${fid}-5`}
                   value={frequency}
                   onChange={(e) => setFrequency(e.target.value)}
                   className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm"
@@ -399,10 +406,11 @@ export function CreateRecurringDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor={`${fid}-data`} className="block text-sm font-medium text-gray-700 mb-1">
                   {isEdit ? 'Próxima parcela' : 'Data de início'}
                 </label>
                 <Input
+                  id={`${fid}-data`}
                   type="date" min="1900-01-01" max="2100-12-31"
                   value={nextDueDate}
                   onChange={(e) => setNextDueDate(e.target.value)}
@@ -427,8 +435,9 @@ export function CreateRecurringDialog({
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notas (opcional)</label>
+              <label htmlFor={`${fid}-6`} className="block text-sm font-medium text-gray-700 mb-1">Notas (opcional)</label>
               <Input
+                id={`${fid}-6`}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Observações adicionais..."

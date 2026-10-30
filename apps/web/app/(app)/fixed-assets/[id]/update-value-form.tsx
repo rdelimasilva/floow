@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { updateAssetValue } from '@/lib/fixed-assets/actions'
 import { currencyToCents } from '@floow/core-finance/src/balance'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/toast'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 export function UpdateValueForm({ assetId }: { assetId: string }) {
+  const fid = useId()
   const { toast } = useToast()
   const [value, setValue] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -39,12 +40,12 @@ export function UpdateValueForm({ assetId }: { assetId: string }) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
       <div>
-        <Label className="text-xs">Novo Valor (R$)</Label>
-        <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Ex: 400.000,00" className="h-9 w-48" />
+        <Label htmlFor={`${fid}-1`} className="text-xs">Novo Valor (R$)</Label>
+        <Input id={`${fid}-1`} value={value} onChange={(e) => setValue(e.target.value)} placeholder="Ex: 400.000,00" className="h-9 w-48" />
       </div>
       <div>
-        <Label className="text-xs">Data</Label>
-        <Input type="date" min="1900-01-01" max="2100-12-31" value={date} onChange={(e) => setDate(e.target.value)} className="h-9" />
+        <Label htmlFor={`${fid}-2`} className="text-xs">Data</Label>
+        <Input id={`${fid}-2`} type="date" min="1900-01-01" max="2100-12-31" value={date} onChange={(e) => setDate(e.target.value)} className="h-9" />
       </div>
       <Button type="submit" variant="primary" size="sm" disabled={loading || !value} className="h-9">
         {loading ? 'Salvando...' : 'Atualizar'}
