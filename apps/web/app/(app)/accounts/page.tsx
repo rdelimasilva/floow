@@ -75,7 +75,8 @@ export default async function AccountsPage() {
           ))}
           {blocos.length > 1 && (
             <div className="border-l border-gray-200 pl-10">
-              <p className="text-xs text-gray-500">Patrimônio total</p>
+              {/* Só as contas; o patrimônio do Dashboard soma também os bens do imobilizado. */}
+              <p className="text-xs text-gray-500">Total nas contas</p>
               <p className={`text-lg font-semibold ${totalBalanceCents < 0 ? 'text-red-600' : 'text-green-700'}`}>
                 {formatBRL(totalBalanceCents)}
               </p>
