@@ -84,7 +84,7 @@ const PositionRow = memo(function PositionRow({
           {/* Sem ticker (CDB, CRI, Tesouro do banco) o `ticker` é o próprio
               nome: em monoespaçado quebrava em várias linhas e repetia a
               coluna Nome. */}
-          {position.ticker !== position.name ? position.ticker : <span className="text-gray-400">—</span>}
+          {position.ticker !== position.name ? position.ticker : <span className="text-gray-500">—</span>}
         </td>
         {/* Name; os selos ficam aqui para a coluna Código mostrar só o código */}
         <td className="px-4 py-3 text-sm text-gray-700 max-w-[240px]" title={position.name}>
