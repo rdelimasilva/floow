@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { X } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance/src/balance'
@@ -43,16 +43,17 @@ export function CashFlowLancamentoDialog({ id, onClose }: Props) {
     return () => { cancelado = true }
   }, [id])
 
+  // <dialog> nativo com showModal(): prende o foco, fecha no Esc e devolve o
+  // foco a quem abriu, como no ConfirmDialog.
+  const dialogRef = useRef<HTMLDialogElement>(null)
   useEffect(() => {
-    if (!id) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [id, onClose])
+    const el = dialogRef.current
+    if (!el) return
+    if (id && !el.open) el.showModal()
+    if (!id && el.open) el.close()
+  }, [id])
 
-  if (!id) return null
-
-  const l = lancamento
+  const l = id ? lancamento : null
   const linhas: [string, string | null][] = l ? [
     ['Data', dataLonga(l.date)],
     ['Data da compra', l.purchaseDate && l.purchaseDate !== l.date ? dataLonga(l.purchaseDate) : null],
@@ -66,15 +67,17 @@ export function CashFlowLancamentoDialog({ id, onClose }: Props) {
   const transacoes = l && `/transactions?${new URLSearchParams({ search: l.description, startDate: l.date, endDate: l.date, accountId: l.accountId })}`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="lancamento-titulo"
-        className="w-full max-w-md bg-white shadow-xl"
-        style={{ borderRadius: 14 }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="lancamento-titulo"
+      onClose={onClose}
+      // Clique fora do cartão cai no próprio <dialog> (o backdrop).
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="w-[calc(100%-2rem)] max-w-md bg-white p-0 shadow-xl backdrop:bg-black/40"
+      style={{ borderRadius: 14 }}
+    >
+      {id && (
+      <div>
         <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
           <div className="min-w-0">
             <h2 id="lancamento-titulo" className="break-words text-lg font-semibold text-gray-900">
@@ -110,6 +113,7 @@ export function CashFlowLancamentoDialog({ id, onClose }: Props) {
           </div>
         )}
       </div>
-    </div>
+      )}
+    </dialog>
   )
 }

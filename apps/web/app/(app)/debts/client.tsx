@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -84,6 +84,7 @@ function buildDebtRow(base: Omit<DebtRow, 'remainingCents' | 'progressPct' | 'ne
 }
 
 export function DebtsClient({ debts, categories }: DebtsClientProps) {
+  const fid = useId()
   const { toast } = useToast()
   const [debtRows, setDebtRows] = useState(debts)
   const [showForm, setShowForm] = useState(false)
@@ -244,40 +245,41 @@ export function DebtsClient({ debts, categories }: DebtsClientProps) {
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Nome</label>
-                  <Input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} required placeholder="Ex: Financiamento Imóvel" />
+                  <label htmlFor={`${fid}-1`} className="text-xs font-medium text-gray-600">Nome</label>
+                  <Input id={`${fid}-1`} type="text" value={formName} onChange={(e) => setFormName(e.target.value)} required placeholder="Ex: Financiamento Imóvel" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Tipo</label>
-                  <select value={formType} onChange={(e) => setFormType(e.target.value)} required className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                  <label htmlFor={`${fid}-2`} className="text-xs font-medium text-gray-600">Tipo</label>
+                  <select id={`${fid}-2`} value={formType} onChange={(e) => setFormType(e.target.value)} required className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                     {Object.entries(TYPE_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Valor total (R$)</label>
-                  <InputMoeda value={formTotal} onChange={(e) => setFormTotal(e.target.value)} required placeholder="Ex: 150.000,00" />
+                  <label htmlFor={`${fid}-3`} className="text-xs font-medium text-gray-600">Valor total (R$)</label>
+                  <InputMoeda id={`${fid}-3`} value={formTotal} onChange={(e) => setFormTotal(e.target.value)} required placeholder="Ex: 150.000,00" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Parcelas</label>
-                  <Input type="number" value={formInstallments} onChange={(e) => setFormInstallments(e.target.value)} required min={1} placeholder="Ex: 360" />
+                  <label htmlFor={`${fid}-4`} className="text-xs font-medium text-gray-600">Parcelas</label>
+                  <Input id={`${fid}-4`} type="number" value={formInstallments} onChange={(e) => setFormInstallments(e.target.value)} required min={1} placeholder="Ex: 360" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Valor da parcela (R$)</label>
-                  <InputMoeda value={formInstallmentValue} onChange={(e) => setFormInstallmentValue(e.target.value)} required placeholder="Ex: 1.200,00" />
+                  <label htmlFor={`${fid}-5`} className="text-xs font-medium text-gray-600">Valor da parcela (R$)</label>
+                  <InputMoeda id={`${fid}-5`} value={formInstallmentValue} onChange={(e) => setFormInstallmentValue(e.target.value)} required placeholder="Ex: 1.200,00" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Taxa de juros (%)</label>
-                  <Input type="text" inputMode="decimal" value={formInterestRate} onChange={(e) => setFormInterestRate(e.target.value)} placeholder="Ex: 0,99" />
+                  <label htmlFor={`${fid}-6`} className="text-xs font-medium text-gray-600">Taxa de juros (%)</label>
+                  <Input id={`${fid}-6`} type="text" inputMode="decimal" value={formInterestRate} onChange={(e) => setFormInterestRate(e.target.value)} placeholder="Ex: 0,99" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Data de início</label>
-                  <Input type="date" min="1900-01-01" max="2100-12-31" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} required />
+                  <label htmlFor={`${fid}-7`} className="text-xs font-medium text-gray-600">Data de início</label>
+                  <Input id={`${fid}-7`} type="date" min="1900-01-01" max="2100-12-31" value={formStartDate} onChange={(e) => setFormStartDate(e.target.value)} required />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Categoria</label>
+                  <label htmlFor={`${fid}-8`} className="text-xs font-medium text-gray-600">Categoria</label>
                   <SeletorDeCategoria
+                    id={`${fid}-8`}
                     opcoes={toCategoryOptions(categories)}
                     extras={[{ id: '__new__', label: '+ Criar automaticamente' }]}
                     value={formCategoryId}

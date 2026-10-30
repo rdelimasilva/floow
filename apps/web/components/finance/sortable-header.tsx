@@ -43,7 +43,9 @@ export function SortableHeader({
   }, [filterOpen])
 
   return (
-    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 ${className}`}>
+    <th
+      aria-sort={isActive ? (currentSortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 ${className}`}>
       <div className="flex items-center gap-1">
         <button
           type="button"
@@ -59,7 +61,10 @@ export function SortableHeader({
             <button
               type="button"
               onClick={() => setFilterOpen(!filterOpen)}
-              className={`rounded p-0.5 transition-colors ${
+              aria-label={`Filtrar ${label}`}
+              aria-expanded={filterOpen}
+              // p-1.5 com -m-1: área de toque de 24px sem mudar o tamanho na linha.
+              className={`-m-1 rounded p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 hasActiveFilter ? 'text-blue-600' : 'text-gray-500 hover:text-gray-600'
               }`}
             >

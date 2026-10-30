@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { X } from 'lucide-react'
@@ -76,32 +76,33 @@ export function PacingTransactionsDialog({ category, month, categoryOptions = []
     }
   }, [category, month])
 
+  // <dialog> nativo com showModal(): prende o foco, fecha no Esc e devolve o
+  // foco a quem abriu, como no ConfirmDialog.
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const aberto = !!category
   useEffect(() => {
-    if (!category) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [category, onClose])
-
-  if (!category) return null
+    const el = dialogRef.current
+    if (!el) return
+    if (aberto && !el.open) el.showModal()
+    if (!aberto && el.open) el.close()
+  }, [aberto])
 
   const total = rows?.reduce((s, r) => s + r.spentCents, 0) ?? 0
   // Com filhas no teto, vale mostrar de qual subcategoria veio cada linha.
-  const showCategory = category.memberIds.length > 1
+  const showCategory = (category?.memberIds.length ?? 0) > 1
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="pacing-tx-title"
+      onClose={onClose}
+      // Clique fora do cartão cai no próprio <dialog> (o backdrop).
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="w-[calc(100%-2rem)] max-w-lg bg-white p-0 shadow-xl backdrop:bg-black/40"
+      style={{ borderRadius: 14 }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pacing-tx-title"
-        className="flex max-h-[80vh] w-full max-w-lg flex-col bg-white shadow-xl"
-        style={{ borderRadius: 14 }}
-        onClick={(e) => e.stopPropagation()}
-      >
+      {category && (
+      <div className="flex max-h-[80vh] flex-col">
         <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
           <div>
             <h2 id="pacing-tx-title" className="text-lg font-semibold text-gray-900">
@@ -195,6 +196,7 @@ export function PacingTransactionsDialog({ category, month, categoryOptions = []
           )}
         </div>
       </div>
-    </div>
+      )}
+    </dialog>
   )
 }

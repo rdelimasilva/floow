@@ -61,13 +61,15 @@ export function ForgotPasswordForm() {
         <Label htmlFor="forgot-email">Email</Label>
         <Input
           id="forgot-email"
+          aria-describedby={errors.email ? 'forgot-email-erro' : undefined}
+          aria-invalid={!!errors.email || undefined}
           type="email"
           placeholder="seu@email.com"
           autoComplete="email"
           {...register('email')}
         />
         {errors.email && (
-          <p className="text-sm text-red-600">{errors.email.message}</p>
+          <p id="forgot-email-erro" className="text-sm text-red-600">{errors.email.message}</p>
         )}
       </div>
 

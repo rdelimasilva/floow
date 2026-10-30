@@ -7,7 +7,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <main
-      className={`pt-[calc(3.5rem+env(safe-area-inset-top))] lg:transition-[padding-left] lg:duration-150 lg:ease-out ${
+      id="conteudo"
+      tabIndex={-1}
+      className={`outline-none pt-[calc(3.5rem+env(safe-area-inset-top))] lg:transition-[padding-left] lg:duration-150 lg:ease-out ${
         pinned ? 'lg:pl-56' : 'lg:pl-[68px]'
       }`}
     >

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useSearchParams } from 'next/navigation'
@@ -199,6 +199,21 @@ export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarPro
 
   useEffect(() => { onMobileClose() }, [pathname, onMobileClose])
 
+  // Gaveta aberta no celular: o foco entra pelo botão de fechar, Esc fecha, e ao
+  // fechar o foco volta para quem abriu (o botão de menu da barra do topo).
+  const fecharRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!mobileOpen) return
+    const quemAbriu = document.activeElement as HTMLElement | null
+    fecharRef.current?.focus()
+    const aoTeclar = (e: KeyboardEvent) => { if (e.key === 'Escape') onMobileClose() }
+    document.addEventListener('keydown', aoTeclar)
+    return () => {
+      document.removeEventListener('keydown', aoTeclar)
+      quemAbriu?.focus()
+    }
+  }, [mobileOpen, onMobileClose])
+
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = 'hidden'
@@ -239,8 +254,10 @@ export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarPro
           // Clip overflowing labels in collapsed state
           'lg:overflow-hidden',
           // Mobile slide
-          'transition-transform duration-200 ease-in-out',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          // Fechada, a gaveta some também para o teclado e o leitor de tela
+          // (`invisible`); a transição de visibility espera o slide terminar.
+          'transition-[transform,visibility] duration-200 ease-in-out',
+          mobileOpen ? 'translate-x-0' : 'invisible -translate-x-full lg:visible',
           // Desktop: width + shadow transition with delays
           'lg:translate-x-0 lg:transition-[width,box-shadow] lg:duration-200 lg:ease-out',
           pinned
@@ -253,6 +270,7 @@ export function Sidebar({ cfoBadgeCount, mobileOpen, onMobileClose }: SidebarPro
           {/* Mobile close */}
           <button
             type="button"
+            ref={fecharRef}
             onClick={onMobileClose}
             aria-label="Fechar menu"
             className="rounded p-1 text-muted-foreground hover:text-foreground lg:hidden"

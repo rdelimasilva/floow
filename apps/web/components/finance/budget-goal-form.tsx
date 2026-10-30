@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
@@ -27,6 +27,7 @@ interface BudgetGoalFormProps {
 }
 
 export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
+  const fid = useId()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
 
@@ -68,13 +69,14 @@ export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
       </h3>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Nome</label>
-        <Input name="name" required defaultValue={goal?.name ?? ''} placeholder="Ex: Gastos mensais" />
+        <label htmlFor={`${fid}-1`} className="text-sm font-medium text-gray-700">Nome</label>
+        <Input id={`${fid}-1`} name="name" required defaultValue={goal?.name ?? ''} placeholder="Ex: Gastos mensais" />
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Meta de aporte (R$)</label>
+        <label htmlFor={`${fid}-2`} className="text-sm font-medium text-gray-700">Meta de aporte (R$)</label>
         <Input
+          id={`${fid}-2`}
           name="targetCents"
           type="text"
           inputMode="decimal"
@@ -85,8 +87,9 @@ export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Período</label>
+        <label htmlFor={`${fid}-3`} className="text-sm font-medium text-gray-700">Período</label>
         <select
+          id={`${fid}-3`}
           name="period"
           defaultValue={goal?.period ?? 'monthly'}
           className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -102,10 +105,11 @@ export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
       {type === 'investing' && (
         <>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
+            <label htmlFor={`${fid}-meta`} className="text-sm font-medium text-gray-700">
               Meta patrimonial (R$, opcional)
             </label>
             <Input
+              id={`${fid}-meta`}
               name="patrimonyTargetCents"
               type="text"
               inputMode="decimal"
@@ -115,10 +119,11 @@ export function BudgetGoalForm({ type, goal, onClose }: BudgetGoalFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
+            <label htmlFor={`${fid}-prazo`} className="text-sm font-medium text-gray-700">
               Prazo da meta patrimonial (opcional)
             </label>
             <Input
+              id={`${fid}-prazo`}
               name="patrimonyDeadline"
               type="date" min="1900-01-01" max="2100-12-31"
               defaultValue={deadlineDefault}

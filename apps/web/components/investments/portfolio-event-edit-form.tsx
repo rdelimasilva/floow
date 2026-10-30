@@ -172,13 +172,13 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
 
         {/* Asset select */}
         <div className="space-y-1.5">
-          <Label>Ativo</Label>
+          <Label htmlFor="assetId">Ativo</Label>
           <Controller
             name="assetId"
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger>
+                <SelectTrigger id="assetId" aria-describedby={errors.assetId ? 'assetId-erro' : undefined} aria-invalid={!!errors.assetId || undefined}>
                   <SelectValue placeholder="Selecione o ativo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -192,19 +192,19 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
             )}
           />
           {errors.assetId && (
-            <p className="text-xs text-red-600">{errors.assetId.message}</p>
+            <p id="assetId-erro" className="text-xs text-red-600">{errors.assetId.message}</p>
           )}
         </div>
 
         {/* Account select */}
         <div className="space-y-1.5">
-          <Label>Conta</Label>
+          <Label htmlFor="accountId">Conta</Label>
           <Controller
             name="accountId"
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger>
+                <SelectTrigger id="accountId" aria-describedby={errors.accountId ? 'accountId-erro' : undefined} aria-invalid={!!errors.accountId || undefined}>
                   <SelectValue placeholder="Selecione a conta" />
                 </SelectTrigger>
                 <SelectContent>
@@ -218,13 +218,13 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
             )}
           />
           {errors.accountId && (
-            <p className="text-xs text-red-600">{errors.accountId.message}</p>
+            <p id="accountId-erro" className="text-xs text-red-600">{errors.accountId.message}</p>
           )}
         </div>
 
         {/* Event type select */}
         <div className="space-y-1.5">
-          <Label>Tipo de Evento</Label>
+          <Label htmlFor="eventType">Tipo de Evento</Label>
           <Controller
             name="eventType"
             control={control}
@@ -236,7 +236,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
                 }}
                 value={field.value}
               >
-                <SelectTrigger>
+                <SelectTrigger id="eventType" aria-describedby={errors.eventType ? 'eventType-erro' : undefined} aria-invalid={!!errors.eventType || undefined}>
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -250,7 +250,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
             )}
           />
           {errors.eventType && (
-            <p className="text-xs text-red-600">{errors.eventType.message}</p>
+            <p id="eventType-erro" className="text-xs text-red-600">{errors.eventType.message}</p>
           )}
         </div>
 
@@ -259,11 +259,13 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
           <Label htmlFor="eventDate">Data do Evento</Label>
           <Input
             id="eventDate"
+            aria-describedby={errors.eventDate ? 'eventDate-erro' : undefined}
+            aria-invalid={!!errors.eventDate || undefined}
             type="date" min="1900-01-01" max="2100-12-31"
             {...register('eventDate')}
           />
           {errors.eventDate && (
-            <p className="text-xs text-red-600">{errors.eventDate.message}</p>
+            <p id="eventDate-erro" className="text-xs text-red-600">{errors.eventDate.message}</p>
           )}
         </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { useId, Fragment, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,6 +72,7 @@ export function ImportReview({
   onBack,
   loading,
 }: ImportReviewProps) {
+  const fid = useId()
   const { toast } = useToast()
   const selectedItems = items.filter((item) => selectedIndices.includes(item.index))
 
@@ -237,6 +238,7 @@ export function ImportReview({
                     </TableCell>
                     <TableCell>
                       <select
+                        aria-label="Tipo"
                         value={state.type}
                         onChange={(e) => updateRow(item.index, {
                           type: e.target.value as TxType,
@@ -253,6 +255,7 @@ export function ImportReview({
                     <TableCell>
                       {state.type === 'transfer' ? (
                         <select
+                          aria-label="Conta destino"
                           value={state.transferToAccountId}
                           onChange={(e) => updateRow(item.index, { transferToAccountId: e.target.value })}
                           className="h-8 w-full min-w-[120px] rounded border border-gray-300 text-xs"
@@ -273,8 +276,9 @@ export function ImportReview({
                         <div className="flex flex-wrap items-end gap-3">
                           <div className="text-xs font-medium text-gray-600 mr-1">Nova categoria:</div>
                           <div>
-                            <label className="block text-[10px] text-gray-500 mb-1">Cor</label>
+                            <label htmlFor={`${fid}-1`} className="block text-[10px] text-gray-500 mb-1">Cor</label>
                             <input
+                              id={`${fid}-1`}
                               type="color"
                               value={newCategory.color}
                               onChange={(e) => setNewCategory((prev) => ({ ...prev, color: e.target.value }))}
@@ -282,8 +286,9 @@ export function ImportReview({
                             />
                           </div>
                           <div className="flex-1 min-w-[160px]">
-                            <label className="block text-[10px] text-gray-500 mb-1">Nome</label>
+                            <label htmlFor={`${fid}-2`} className="block text-[10px] text-gray-500 mb-1">Nome</label>
                             <Input
+                              id={`${fid}-2`}
                               autoFocus
                               value={newCategory.name}
                               onChange={(e) => setNewCategory((prev) => ({ ...prev, name: e.target.value }))}
@@ -301,8 +306,9 @@ export function ImportReview({
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] text-gray-500 mb-1">Tipo</label>
+                            <label htmlFor={`${fid}-3`} className="block text-[10px] text-gray-500 mb-1">Tipo</label>
                             <select
+                              id={`${fid}-3`}
                               value={newCategory.type}
                               onChange={(e) => setNewCategory((prev) => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
                               className="h-8 rounded border border-gray-300 px-2 text-xs"

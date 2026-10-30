@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { ChevronDown, ChevronRight, Plus, Search } from 'lucide-react'
 import { createCategory, updateCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
@@ -49,6 +49,7 @@ interface CategoryListProps {
 }
 
 export function CategoryList({ categories }: CategoryListProps) {
+  const fid = useId()
   const { toast } = useToast()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
@@ -164,8 +165,8 @@ export function CategoryList({ categories }: CategoryListProps) {
           {mostrar.map((cat) => (
             editingId === cat.id ? (
               <div key={cat.id} className="flex items-center gap-2 rounded-lg bg-blue-50 p-3">
-                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 rounded border cursor-pointer" />
-                <Input value={name} onChange={(e) => setName(e.target.value)} className="h-9 text-sm flex-1" />
+                <input type="color" aria-label="Cor" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 rounded border cursor-pointer" />
+                <Input aria-label="Nome" value={name} onChange={(e) => setName(e.target.value)} className="h-9 text-sm flex-1" />
                 {type !== 'transfer' && <CashFlowToggle checked={affectsCashFlow} onChange={setAffectsCashFlow} />}
                 <Button size="sm" variant="outline" onClick={() => { setEditingId(null); resetForm() }} className="h-8">Cancelar</Button>
                 <Button size="sm" variant="primary" onClick={() => handleUpdate(cat.id)} disabled={loading} className="h-8">Salvar</Button>
@@ -224,16 +225,16 @@ export function CategoryList({ categories }: CategoryListProps) {
             <h3 className="text-sm font-medium text-gray-700">Nova Categoria</h3>
             <div className="flex flex-wrap items-end gap-3">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Cor</label>
-                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 rounded border" />
+                <label htmlFor={`${fid}-1`} className="block text-xs text-gray-500 mb-1">Cor</label>
+                <input id={`${fid}-1`} type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 rounded border" />
               </div>
               <div className="flex-1 min-w-[160px]">
-                <label className="block text-xs text-gray-500 mb-1">Nome</label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} className="h-9" />
+                <label htmlFor={`${fid}-2`} className="block text-xs text-gray-500 mb-1">Nome</label>
+                <Input id={`${fid}-2`} value={name} onChange={(e) => setName(e.target.value)} className="h-9" />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Tipo</label>
-                <select value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense')} className="h-9 rounded-md border border-gray-300 px-3 text-sm">
+                <label htmlFor={`${fid}-3`} className="block text-xs text-gray-500 mb-1">Tipo</label>
+                <select id={`${fid}-3`} value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense')} className="h-9 rounded-md border border-gray-300 px-3 text-sm">
                   <option value="income">Receita</option>
                   <option value="expense">Despesa</option>
                 </select>

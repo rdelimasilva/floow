@@ -88,13 +88,15 @@ export default function ResetPasswordPage() {
           <Label htmlFor="reset-password">Nova senha</Label>
           <Input
             id="reset-password"
+            aria-describedby={errors.password ? 'reset-password-erro' : undefined}
+            aria-invalid={!!errors.password || undefined}
             type="password"
             placeholder="••••••••"
             autoComplete="new-password"
             {...register('password')}
           />
           {errors.password && (
-            <p className="text-sm text-red-600">{errors.password.message}</p>
+            <p id="reset-password-erro" className="text-sm text-red-600">{errors.password.message}</p>
           )}
         </div>
 

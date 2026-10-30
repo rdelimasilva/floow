@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useId, useState, useRef, useEffect } from 'react'
 import { parseOFXFile, parseCSVFile, lerCabecalhoCsv, type NormalizedTransaction, type CsvColumnMapping } from '@floow/core-finance'
 import { mapeamentoAutomatico } from '@/lib/finance/mapear-colunas-csv'
 import type { Account } from '@floow/db'
@@ -51,6 +51,7 @@ interface ImportFormProps {
 const LAST_ACCOUNT_KEY = 'floow:import-last-account'
 
 export function ImportForm({ accounts, categories }: ImportFormProps) {
+  const fid = useId()
   const [step, setStep] = useState<Step>('select-file')
   const [selectedAccountId, setSelectedAccountId] = useState<string>('')
 
@@ -241,9 +242,9 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Conta de destino</label>
+              <label htmlFor={`${fid}-1`} className="text-sm font-medium">Conta de destino</label>
               <Select value={selectedAccountId} onValueChange={(v) => { setSelectedAccountId(v); localStorage.setItem(LAST_ACCOUNT_KEY, v) }}>
-                <SelectTrigger>
+                <SelectTrigger id={`${fid}-1`}>
                   <SelectValue placeholder="Selecione uma conta" />
                 </SelectTrigger>
                 <SelectContent>
@@ -297,12 +298,12 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Coluna de data</label>
+                  <label htmlFor={`${fid}-2`} className="text-sm font-medium">Coluna de data</label>
                   <Select
                     value={csvMapping.dateColumn}
                     onValueChange={(v) => handleMappingChange('dateColumn', v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={`${fid}-2`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -316,12 +317,12 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Coluna de valor</label>
+                  <label htmlFor={`${fid}-3`} className="text-sm font-medium">Coluna de valor</label>
                   <Select
                     value={csvMapping.amountColumn}
                     onValueChange={(v) => handleMappingChange('amountColumn', v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={`${fid}-3`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -335,12 +336,12 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Coluna de descrição</label>
+                  <label htmlFor={`${fid}-4`} className="text-sm font-medium">Coluna de descrição</label>
                   <Select
                     value={csvMapping.descriptionColumn}
                     onValueChange={(v) => handleMappingChange('descriptionColumn', v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={`${fid}-4`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -354,7 +355,7 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Formato de data</label>
+                  <label htmlFor={`${fid}-5`} className="text-sm font-medium">Formato de data</label>
                   <Select
                     value={csvMapping.dateFormat}
                     onValueChange={(v) =>
@@ -364,7 +365,7 @@ export function ImportForm({ accounts, categories }: ImportFormProps) {
                       )
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={`${fid}-5`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

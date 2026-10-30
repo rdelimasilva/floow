@@ -49,6 +49,7 @@ export function RecurringDurationFields({
         </label>
         {endMode === 'count' && (
           <Input
+            aria-label="Número de parcelas"
             type="number"
             min={1}
             max={120}
@@ -72,6 +73,7 @@ export function RecurringDurationFields({
         </label>
         {endMode === 'end_date' && (
           <Input
+            aria-label="Data final"
             type="date" min="1900-01-01" max="2100-12-31"
             value={endDate}
             onChange={(e) => onEndDateChange(e.target.value)}

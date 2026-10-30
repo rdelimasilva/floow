@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useId, useEffect, useRef, useState } from 'react'
 import { createBudgetEntry } from '@/lib/finance/budget-actions'
 import { createCategory } from '@/lib/finance/category-actions'
 import { useToast } from '@/components/ui/toast'
@@ -54,6 +54,7 @@ export function BudgetEntryDialog({
   initialCategoryId,
   initialAmountCents,
 }: BudgetEntryDialogProps) {
+  const fid = useId()
   const isSpending = type === 'spending'
   const defaultName = isSpending ? '' : 'Aporte mensal'
   const { toast } = useToast()
@@ -192,8 +193,9 @@ export function BudgetEntryDialog({
                   {ACCOUNT_TYPE_LABEL.brokerage}.
                 </p>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                  <label htmlFor={`${fid}-1`} className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                   <Input
+                    id={`${fid}-1`}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ex: Aporte mensal"
@@ -206,8 +208,9 @@ export function BudgetEntryDialog({
             {/* Category — expense only, with inline creation */}
             {isSpending && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                <label htmlFor={`${fid}-2`} className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
                 <select
+                  id={`${fid}-2`}
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
                   required
@@ -234,6 +237,7 @@ export function BudgetEntryDialog({
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       placeholder="Nova categoria de despesa"
+                      aria-label="Nome da nova categoria"
                       className="h-8 text-sm flex-1"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -271,8 +275,9 @@ export function BudgetEntryDialog({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Valor mensal (R$)</label>
+                <label htmlFor={`${fid}-3`} className="block text-sm font-medium text-gray-700 mb-1">Valor mensal (R$)</label>
                 <Input
+                  id={`${fid}-3`}
                   inputMode="decimal"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -282,8 +287,9 @@ export function BudgetEntryDialog({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">A partir de</label>
+                <label htmlFor={`${fid}-4`} className="block text-sm font-medium text-gray-700 mb-1">A partir de</label>
                 <Input
+                  id={`${fid}-4`}
                   type="month"
                   value={startMonth}
                   onChange={(e) => setStartMonth(e.target.value)}
@@ -322,6 +328,7 @@ export function BudgetEntryDialog({
                 {endMode === 'end_month' && (
                   <Input
                     type="month"
+                    aria-label="Mês final"
                     value={endMonth}
                     min={startMonth}
                     onChange={(e) => setEndMonth(e.target.value)}

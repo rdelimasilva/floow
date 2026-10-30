@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useId, useEffect, useRef, useState } from 'react'
 import { createRule, updateRule, previewBulkRecategorize, bulkRecategorize } from '@/lib/finance/rule-actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -35,6 +35,7 @@ interface CreateRuleDialogProps {
 }
 
 export function CreateRuleDialog({ open, onClose, categories, prefill, editRule }: CreateRuleDialogProps) {
+  const fid = useId()
   const { toast } = useToast()
   const dialogRef = useRef<HTMLDialogElement>(null)
 
@@ -148,8 +149,9 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de correspondência</label>
+                <label htmlFor={`${fid}-1`} className="block text-sm font-medium text-gray-700 mb-1">Tipo de correspondência</label>
                 <select
+                  id={`${fid}-1`}
                   value={matchType}
                   onChange={(e) => setMatchType(e.target.value as 'contains' | 'exact')}
                   className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm"
@@ -160,8 +162,9 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Valor</label>
+                <label htmlFor={`${fid}-2`} className="block text-sm font-medium text-gray-700 mb-1">Valor</label>
                 <Input
+                  id={`${fid}-2`}
                   value={matchValue}
                   onChange={(e) => setMatchValue(e.target.value)}
                   placeholder="Ex: Netflix, Spotify..."
@@ -170,8 +173,9 @@ export function CreateRuleDialog({ open, onClose, categories, prefill, editRule 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                <label htmlFor={`${fid}-3`} className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
                 <select
+                  id={`${fid}-3`}
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
                   required

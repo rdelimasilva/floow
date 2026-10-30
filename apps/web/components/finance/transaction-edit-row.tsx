@@ -164,10 +164,10 @@ export function TransactionEditRow({
         <input type="checkbox" aria-label={`Selecionar ${tx.description}`} checked={isSelected} onChange={() => {}} onClick={(e) => onToggleSelect(tx.id, e.shiftKey)} className="h-4 w-4 rounded border-gray-300" />
       </td>
       <td className="px-4 py-2">
-        <Input type="date" min="1900-01-01" max="2100-12-31" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="h-8 text-xs" />
+        <Input type="date" aria-label="Data" min="1900-01-01" max="2100-12-31" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="h-8 text-xs" />
       </td>
       <td className="px-4 py-2">
-        <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="h-8 text-xs" />
+        <Input aria-label="Descrição" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="h-8 text-xs" />
       </td>
       <td className="hidden md:table-cell px-4 py-2">
         {editType === 'transfer' ? (
@@ -175,6 +175,7 @@ export function TransactionEditRow({
         ) : (
           <>
             <select
+              aria-label="Categoria"
               value={editCategoryId}
               onChange={(e) => {
                 if (e.target.value === '__new__') {
@@ -199,6 +200,7 @@ export function TransactionEditRow({
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
                   placeholder="Nome da categoria"
+                  aria-label="Nome da nova categoria"
                   className="h-7 text-xs flex-1"
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategoryInline() } }}
                   autoFocus={newCatName === ''}
@@ -220,6 +222,7 @@ export function TransactionEditRow({
       </td>
       <td className="hidden md:table-cell px-4 py-2">
         <select
+          aria-label="Tipo"
           value={editType}
           onChange={(e) => {
             const newType = e.target.value as 'income' | 'expense' | 'transfer'
@@ -235,6 +238,7 @@ export function TransactionEditRow({
         </select>
         {editType === 'transfer' && (
           <select
+            aria-label="Conta destino"
             value={editDestAccountId}
             onChange={(e) => setEditDestAccountId(e.target.value)}
             className="h-8 w-full rounded border border-gray-300 text-xs mt-1"
@@ -247,7 +251,7 @@ export function TransactionEditRow({
         )}
       </td>
       <td className="px-4 py-2">
-        <Input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="h-8 text-xs text-right" />
+        <Input type="number" aria-label="Valor" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="h-8 text-xs text-right" />
       </td>
       <td className="hidden lg:table-cell whitespace-nowrap px-4 py-2 text-right text-sm text-gray-500">
         {formatBRL(balance)}
