@@ -293,7 +293,7 @@ export function InvestingClient({
                       <button type="button" onClick={handleSaveEdit} disabled={saving} className="rounded p-1 text-green-600 hover:bg-green-50" title="Salvar" aria-label="Salvar">
                         <Check className="h-4 w-4" />
                       </button>
-                      <button type="button" onClick={() => setEditingId(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100" title="Cancelar" aria-label="Cancelar">
+                      <button type="button" onClick={() => setEditingId(null)} className="rounded p-1 text-gray-500 hover:bg-gray-100" title="Cancelar" aria-label="Cancelar">
                         <X className="h-4 w-4" />
                       </button>
                     </div>
@@ -305,16 +305,16 @@ export function InvestingClient({
                     <div>
                       <span className="text-sm font-medium text-gray-900">{entry.name}</span>
                       <span className="ml-2 text-sm text-gray-600">{formatBRL(entry.plannedCents)}/mês</span>
-                      <span className="ml-2 text-xs text-gray-400">
+                      <span className="ml-2 text-xs text-gray-500">
                         de {formatMonth(entry.startMonth)}
                         {entry.endMonth ? ` até ${formatMonth(entry.endMonth)}` : ' em diante'}
                       </span>
                     </div>
                     <div className="flex gap-1">
-                      <button type="button" onClick={() => startEdit(entry)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
+                      <button type="button" onClick={() => startEdit(entry)} className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Editar" aria-label="Editar">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <button type="button" onClick={() => setDeleteConfirm(entry.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
+                      <button type="button" onClick={() => setDeleteConfirm(entry.id)} className="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-600" title="Excluir" aria-label="Excluir">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

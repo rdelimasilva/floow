@@ -56,7 +56,7 @@ function CashFlowToggleButton({
       className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
         estado.excecao
           ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-600'
       }`}
     >
       {estado.label}
@@ -275,11 +275,11 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
         </div>
       </div>
       <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
-        <span className="text-[10px] text-gray-400 uppercase">{TYPE_LABELS[tx.type]}</span>
+        <span className="text-[10px] text-gray-500 uppercase">{TYPE_LABELS[tx.type]}</span>
         <div className="flex items-center gap-1">
           <CashFlowToggleButton tx={tx} loading={loading} onToggle={actions.onToggleCashFlow} />
           {!tx.transferGroupId && (
-            <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-2 text-gray-400 hover:text-gray-700">
+            <button type="button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => actions.onEdit(tx)} className="rounded p-2 text-gray-500 hover:text-gray-700">
               <Pencil className="h-4 w-4" />
             </button>
           )}
@@ -336,7 +336,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
             )}
           </span>
         ) : (
-          <span className="text-xs text-gray-400">&mdash;</span>
+          <span className="text-xs text-gray-500">&mdash;</span>
         )}
       </td>
       <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-500">{TYPE_LABELS[tx.type]}</td>
@@ -355,7 +355,7 @@ export const TransactionDesktopRow = memo(function TransactionDesktopRow({
               title="Editar lançamento"
               aria-label="Editar lançamento"
               onClick={() => actions.onEdit(tx)}
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>

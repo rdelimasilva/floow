@@ -29,7 +29,7 @@ export function AuthTabs({ defaultTab = 'login' }: { defaultTab?: AuthTab }) {
             <span className="w-full border-t border-gray-200" />
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-2 text-gray-400">ou</span>
+            <span className="bg-white px-2 text-gray-500">ou</span>
           </div>
         </div>
 
@@ -87,7 +87,7 @@ export function AuthTabs({ defaultTab = 'login' }: { defaultTab?: AuthTab }) {
             <span className="w-full border-t border-gray-200" />
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-2 text-gray-400">ou</span>
+            <span className="bg-white px-2 text-gray-500">ou</span>
           </div>
         </div>
 

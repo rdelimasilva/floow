@@ -50,7 +50,7 @@ export function WelcomeCard({ estado }: WelcomeCardProps) {
       <button
         type="button"
         onClick={handleDismiss}
-        className="absolute top-3 right-3 rounded-md p-1 text-gray-400 hover:text-gray-600 transition-colors"
+        className="absolute top-3 right-3 rounded-md p-1 text-gray-500 hover:text-gray-600 transition-colors"
         aria-label="Fechar guia"
       >
         <X className="h-4 w-4" />

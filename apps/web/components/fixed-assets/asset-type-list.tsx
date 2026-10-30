@@ -114,7 +114,7 @@ export function AssetTypeList({ types }: AssetTypeListProps) {
               <div key={t.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-foreground">{t.name}</span>
-                  {t.isSystem && <span className="text-[10px] text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">padrão</span>}
+                  {t.isSystem && <span className="text-[10px] text-gray-600 bg-gray-100 rounded px-1.5 py-0.5">padrão</span>}
                 </div>
                 <div className="flex gap-1">
                   <button type="button" onClick={() => startEdit(t)} className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">

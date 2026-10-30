@@ -171,7 +171,7 @@ export function TransactionEditRow({
       </td>
       <td className="hidden md:table-cell px-4 py-2">
         {editType === 'transfer' ? (
-          <span className="text-xs text-gray-400">&mdash;</span>
+          <span className="text-xs text-gray-500">&mdash;</span>
         ) : (
           <>
             <select
@@ -249,11 +249,11 @@ export function TransactionEditRow({
       <td className="px-4 py-2">
         <Input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="h-8 text-xs text-right" />
       </td>
-      <td className="hidden lg:table-cell whitespace-nowrap px-4 py-2 text-right text-sm text-gray-400">
+      <td className="hidden lg:table-cell whitespace-nowrap px-4 py-2 text-right text-sm text-gray-500">
         {formatBRL(balance)}
       </td>
       <td className="px-4 py-2">
-        <span className="text-[10px] text-gray-400">auto-salva ao sair</span>
+        <span className="text-[10px] text-gray-500">auto-salva ao sair</span>
       </td>
     </tr>
   )

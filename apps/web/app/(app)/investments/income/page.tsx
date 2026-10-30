@@ -61,7 +61,7 @@ export default async function IncomePage() {
                 <p className="text-3xl font-bold text-green-700">
                   {formatBRL(monthlyEstimate)}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   {mesesDaMedia === 1 ? 'Média do último mês' : `Média dos últimos ${mesesDaMedia} meses`}
                 </p>
               </CardContent>

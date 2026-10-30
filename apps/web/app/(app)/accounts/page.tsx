@@ -90,7 +90,7 @@ export default async function AccountsPage() {
       {accounts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <p className="text-gray-500">Nenhuma conta cadastrada ainda.</p>
-          <p className="mt-1 max-w-sm text-sm text-gray-400">
+          <p className="mt-1 max-w-sm text-sm text-gray-500">
             Conecte seu banco pelo Open Finance e as contas, os cartões e os lançamentos entram sozinhos.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-3">

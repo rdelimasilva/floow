@@ -207,13 +207,13 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
               aria-label="Limpar data inicial"
               title="Limpar data inicial"
               onClick={() => { setStartDate(''); navigate({ startDate: '' }) }}
-              className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
-        <span className="text-xs text-gray-400">até</span>
+        <span className="text-xs text-gray-500">até</span>
         <div className="flex min-w-0 flex-1 items-center gap-1 md:flex-none">
           <input
             type="date" min="1900-01-01" max="2100-12-31"
@@ -228,7 +228,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
               aria-label="Limpar data final"
               title="Limpar data final"
               onClick={() => { setEndDate(''); navigate({ endDate: '' }) }}
-              className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -238,7 +238,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
 
         {/* Search */}
         <div className="relative w-full md:w-auto md:flex-1 md:min-w-[200px]">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 md:top-2" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 md:top-2" />
           <input
             placeholder="Buscar descrição..."
             value={search}
@@ -254,7 +254,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
                 navigate({ search: e.currentTarget.value })
               }
             }}
-            className={`h-9 w-full rounded-lg border border-gray-200 bg-white pl-9 text-base text-gray-600 md:h-8 md:text-xs placeholder:text-gray-400 ${
+            className={`h-9 w-full rounded-lg border border-gray-200 bg-white pl-9 text-base text-gray-600 md:h-8 md:text-xs placeholder:text-gray-500 ${
               search ? 'pr-8' : 'pr-3'
             }`}
           />
@@ -264,7 +264,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
               aria-label="Limpar busca"
               title="Limpar busca"
               onClick={clearSearch}
-              className="absolute right-1.5 top-2 rounded p-0.5 md:top-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="absolute right-1.5 top-2 rounded p-0.5 md:top-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
             >
               <X className="h-3.5 w-3.5" />
             </button>

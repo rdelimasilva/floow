@@ -13,7 +13,7 @@ export default function VerifyEmailPage() {
           Clique no link para ativar sua conta.
         </p>
       </div>
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-gray-500">
         Não recebeu? Verifique a pasta de spam.
       </p>
       <Link

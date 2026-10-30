@@ -60,7 +60,7 @@ export function SortableHeader({
               type="button"
               onClick={() => setFilterOpen(!filterOpen)}
               className={`rounded p-0.5 transition-colors ${
-                hasActiveFilter ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
+                hasActiveFilter ? 'text-blue-600' : 'text-gray-500 hover:text-gray-600'
               }`}
             >
               <Filter className="h-3 w-3" />

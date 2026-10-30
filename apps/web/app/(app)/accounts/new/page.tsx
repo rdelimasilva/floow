@@ -120,7 +120,7 @@ function NovaConta() {
             {/* Branch & Account Number */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="branch">Agência <span className="text-gray-400 font-normal">(opcional)</span></Label>
+                <Label htmlFor="branch">Agência <span className="text-gray-500 font-normal">(opcional)</span></Label>
                 <Input
                   id="branch"
                   placeholder="Ex: 0001"
@@ -128,7 +128,7 @@ function NovaConta() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="accountNumber">Número <span className="text-gray-400 font-normal">(opcional)</span></Label>
+                <Label htmlFor="accountNumber">Número <span className="text-gray-500 font-normal">(opcional)</span></Label>
                 <Input
                   id="accountNumber"
                   placeholder="Ex: 12345-6"
@@ -170,7 +170,7 @@ function NovaConta() {
             {/* Initial balance */}
             <div className="space-y-1.5">
               <Label htmlFor="initialBalance">
-                Saldo inicial <span className="text-gray-400 font-normal">(opcional)</span>
+                Saldo inicial <span className="text-gray-500 font-normal">(opcional)</span>
               </Label>
               <div className="relative">
                 <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-500">

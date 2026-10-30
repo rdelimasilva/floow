@@ -39,7 +39,7 @@ export function TelaDeErro({ titulo, error, reset }: TelaDeErroProps) {
           Ir para o início
         </Link>
       </div>
-      {error.digest && <p className="text-xs text-gray-400">Código do erro: {error.digest}</p>}
+      {error.digest && <p className="text-xs text-gray-500">Código do erro: {error.digest}</p>}
     </div>
   )
 }

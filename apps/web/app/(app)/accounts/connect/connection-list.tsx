@@ -222,7 +222,7 @@ export function ConnectionList({ connections }: { connections: BankConnectionSum
                   {EXECUTION_LABEL[connection.executionStatus] ?? connection.executionStatus}
                 </p>
               )}
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-gray-500">
                 Consentimento <span className="select-all font-mono">{connection.polpConsentId}</span>
               </p>
             </div>

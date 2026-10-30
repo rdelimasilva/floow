@@ -255,7 +255,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
           </button>
         </div>
         {futureTransactions.length === 0 && (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Sem lançamentos futuros (crie transações recorrentes para projetar)
           </p>
         )}

@@ -82,7 +82,7 @@ export function CashFlowLancamentoDialog({ id, onClose }: Props) {
             </h2>
             {l && <p className="text-xl font-bold tabular-nums text-gray-900">{formatBRL(Math.abs(l.amountCents))}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded p-1 text-gray-400 hover:text-gray-600">
+          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded p-1 text-gray-500 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
         </div>

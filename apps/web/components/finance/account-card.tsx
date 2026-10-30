@@ -255,7 +255,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
                   </p>
                 </div>
                 <div>
-                  <Label>Motivo <span className="text-gray-400 font-normal">(opcional)</span></Label>
+                  <Label>Motivo <span className="text-gray-500 font-normal">(opcional)</span></Label>
                   <Input
                     type="text"
                     placeholder="Ex: reconciliação com extrato"
@@ -299,7 +299,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="rounded p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 sm:p-1"
+              className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 sm:p-1"
               title="Editar"
               aria-label="Editar"
             >
@@ -308,7 +308,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="rounded p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 sm:p-1"
+              className="rounded p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 sm:p-1"
               title="Excluir"
               aria-label="Excluir"
             >
@@ -321,14 +321,14 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             {formatBRL(valorExibidoCents)}
           </p>
           {valorDasPosicoesCents !== undefined && (
-            <p className="mt-1 text-xs text-gray-400">Valor das posições informadas pelo banco</p>
+            <p className="mt-1 text-xs text-gray-500">Valor das posições informadas pelo banco</p>
           )}
           {(account.branch || account.accountNumber) && (
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-gray-500">
               {[account.branch && `Ag ${account.branch}`, account.accountNumber && `Nº ${account.accountNumber}`].filter(Boolean).join(' · ')}
             </p>
           )}
-          <p className="mt-1 text-xs text-gray-400">{account.currency}</p>
+          <p className="mt-1 text-xs text-gray-500">{account.currency}</p>
           <Link
             href={`/accounts/${account.id}`}
             className="mt-2 inline-block text-xs text-blue-600 hover:text-blue-800 hover:underline"

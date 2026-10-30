@@ -126,7 +126,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
       <>
         <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <p className="text-gray-600 font-medium">Nenhuma regra configurada.</p>
-          <p className="mt-1 text-sm text-gray-400">
+          <p className="mt-1 text-sm text-gray-500">
             Crie uma regra para categorizar transações automaticamente.
           </p>
           <Button variant="primary" className="mt-4" onClick={() => setShowCreateDialog(true)}>
@@ -199,7 +199,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
                         disabled={loading}
                         onClick={() => handleToggle(rule)}
                         className={`rounded p-1 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed ${
-                          rule.isEnabled ? 'text-green-600' : 'text-gray-400'
+                          rule.isEnabled ? 'text-green-600' : 'text-gray-500'
                         }`}
                       >
                         <Power className="h-3.5 w-3.5" />
@@ -211,7 +211,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
                         title="Editar regra" aria-label="Editar regra"
                         disabled={loading}
                         onClick={() => setEditingRule(rule)}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -233,7 +233,7 @@ export function RuleList({ rules, categories }: RuleListProps) {
                         title="Remover regra" aria-label="Remover regra"
                         disabled={loading}
                         onClick={() => setDeleteTarget(rule)}
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

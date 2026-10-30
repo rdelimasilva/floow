@@ -220,7 +220,7 @@ export function RecurringTemplateList({
                         {t.isActive ? (
                           <span className="text-green-700 text-sm font-medium">Ativo</span>
                         ) : (
-                          <span className="text-gray-400 text-sm font-medium">Pausado</span>
+                          <span className="text-gray-500 text-sm font-medium">Pausado</span>
                         )}
                       </TableCell>
                       <TableCell>

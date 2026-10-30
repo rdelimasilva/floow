@@ -102,7 +102,7 @@ export function RecurringEntriesList({
                   <button type="button" onClick={onSaveEdit} disabled={saving} className="rounded p-1 text-green-600 hover:bg-green-50" title="Salvar" aria-label="Salvar">
                     <Check className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={onCancelEdit} className="rounded p-1 text-gray-400 hover:bg-gray-100" title="Cancelar" aria-label="Cancelar">
+                  <button type="button" onClick={onCancelEdit} className="rounded p-1 text-gray-500 hover:bg-gray-100" title="Cancelar" aria-label="Cancelar">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -117,7 +117,7 @@ export function RecurringEntriesList({
                     {cat?.name ?? '—'}
                   </span>
                   <span className="ml-2 text-sm text-gray-600">{formatBRL(entry.plannedCents)}/mês</span>
-                  <span className="ml-2 text-xs text-gray-400">
+                  <span className="ml-2 text-xs text-gray-500">
                     de {formatMonth(entry.startMonth)}
                     {entry.endMonth ? ` até ${formatMonth(entry.endMonth)}` : ' em diante'}
                   </span>
@@ -126,7 +126,7 @@ export function RecurringEntriesList({
                   <button
                     type="button"
                     onClick={() => onStartEdit(entry)}
-                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                    className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                     title="Editar"
                     aria-label="Editar"
                   >
@@ -135,7 +135,7 @@ export function RecurringEntriesList({
                   <button
                     type="button"
                     onClick={() => onDelete(entry.id)}
-                    className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                    className="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-600"
                     title="Excluir"
                     aria-label="Excluir"
                   >

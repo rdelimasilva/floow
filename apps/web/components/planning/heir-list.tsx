@@ -120,7 +120,7 @@ export function HeirList({ heirs, onAdd, onRemove, onChange }: HeirListProps) {
             <button
               type="button"
               onClick={() => onRemove(heir.id)}
-              className="text-gray-400 hover:text-red-600 transition-colors text-lg font-medium leading-none"
+              className="text-gray-500 hover:text-red-600 transition-colors text-lg font-medium leading-none"
               aria-label="Remover herdeiro"
             >
               ×
