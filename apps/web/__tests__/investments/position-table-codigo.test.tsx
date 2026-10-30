@@ -30,10 +30,17 @@ describe('PositionTable — coluna Código', () => {
     const nome = "CRI REDE D'OR 100% IPCA · venc. 08/2033"
     const { container } = render(<PositionTable positions={[{ ...base, assetId: 'a1', ticker: nome, name: nome }]} orgId="org-1" />)
     const { codigo, nome: celulaNome } = celulas(container)
-    expect(codigo.textContent).toMatch(/^—/)
-    expect(codigo.textContent).not.toContain('CRI')
-    expect(celulaNome.textContent).toBe(nome)
+    expect(codigo.textContent).toBe('—')
+    expect(celulaNome.firstElementChild?.textContent).toBe(nome)
     expect(celulaNome.getAttribute('title')).toBe(nome)
+  })
+
+  it('selos do Open Finance ficam junto do nome, fora do Código', () => {
+    const { container } = render(<PositionTable positions={[{ ...base, assetId: 'a3', ticker: 'XPML11', name: 'XP Malls', costIsPartial: true }]} orgId="org-1" />)
+    const { codigo, nome } = celulas(container)
+    expect(codigo.textContent).toBe('XPML11')
+    expect(nome.textContent).toContain('Open Finance')
+    expect(nome.textContent).toContain('Custo parcial')
   })
 
   it('ativo com ticker segue com o ticker no Código', () => {
