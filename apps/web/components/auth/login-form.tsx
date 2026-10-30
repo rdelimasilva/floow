@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { loginSchema, type LoginInput } from '@floow/shared'
 import { Button } from '@/components/ui/button'
@@ -11,7 +10,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export function LoginForm() {
-  const router = useRouter()
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
@@ -46,7 +44,9 @@ export function LoginForm() {
     }
 
     const next = new URLSearchParams(window.location.search).get('next')
-    router.replace(next && next.startsWith('/') ? next : '/dashboard')
+    // Recarga inteira: o cache do roteador (staleTimes) guardaria as telas de
+    // quem estava logado antes nesta aba. "//" ou "/\" levaria para outro site.
+    window.location.replace(next && /^\/(?![/\\])/.test(next) ? next : '/dashboard')
   }
 
   return (

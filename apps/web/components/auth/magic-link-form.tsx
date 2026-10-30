@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createClient } from '@/lib/supabase/client'
@@ -15,7 +14,6 @@ import { Label } from '@/components/ui/label'
 // usuário ficaria logado no lugar errado. Digitando o código, a sessão nasce
 // onde ele está.
 export function MagicLinkForm() {
-  const router = useRouter()
   const [email, setEmail] = useState<string | null>(null)
   const [codigo, setCodigo] = useState('')
   const [verificando, setVerificando] = useState(false)
@@ -62,7 +60,9 @@ export function MagicLinkForm() {
     }
 
     const next = new URLSearchParams(window.location.search).get('next')
-    router.replace(next && next.startsWith('/') ? next : '/dashboard')
+    // Recarga inteira: o cache do roteador (staleTimes) guardaria as telas de
+    // quem estava logado antes nesta aba. "//" ou "/\" levaria para outro site.
+    window.location.replace(next && /^\/(?![/\\])/.test(next) ? next : '/dashboard')
   }
 
   if (email) {

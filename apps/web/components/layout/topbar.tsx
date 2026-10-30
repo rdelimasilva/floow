@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useSidebar } from './sidebar-context'
@@ -17,13 +16,12 @@ interface TopbarProps {
 
 export function Topbar({ userEmail, userName, avatarUrl, onMobileMenuOpen }: TopbarProps) {
   const { pinned } = useSidebar()
-  const router = useRouter()
-
   const handleSignOut = useCallback(async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.replace('/auth')
-  }, [router])
+    // Recarga inteira apaga o cache do roteador, que guarda as telas desta conta.
+    window.location.replace('/auth')
+  }, [])
 
   return (
     <header
