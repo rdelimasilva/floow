@@ -79,15 +79,12 @@ const PositionRow = memo(function PositionRow({
   return (
     <>
       <tr className="border-b border-gray-100 hover:bg-gray-50">
-        {/* Ticker */}
-        <td className="whitespace-nowrap px-4 py-3 font-mono text-sm font-semibold text-gray-900">
-          {/* Sem ticker (CDB, CRI, Tesouro do banco) o `ticker` é o próprio
-              nome: em monoespaçado quebrava em várias linhas e repetia a
-              coluna Nome. */}
-          {position.ticker !== position.name ? position.ticker : <span className="text-gray-500">—</span>}
-        </td>
-        {/* Name; os selos ficam aqui para a coluna Código mostrar só o código */}
-        <td className="px-4 py-3 text-sm text-gray-700 max-w-[240px]" title={position.name}>
+        {/* Ativo: sem ticker (CDB, CRI, Tesouro do banco) o `ticker` é o
+            próprio nome, então só o nome aparece. Os selos ficam aqui também. */}
+        <td className="px-4 py-3 text-sm text-gray-700 max-w-[280px]" title={position.name}>
+          {position.ticker !== position.name && (
+            <div className="font-mono font-semibold text-gray-900">{position.ticker}</div>
+          )}
           <div className="truncate">{position.name}</div>
           {positionBadges(position).length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
@@ -100,7 +97,7 @@ const PositionRow = memo(function PositionRow({
           )}
         </td>
         {/* Classe */}
-        <td className="hidden px-4 py-3 text-xs text-gray-500 xl:table-cell">
+        <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-gray-500 xl:table-cell">
           {ASSET_CLASS_LABEL[position.assetClass as AssetClass] ?? position.assetClass}
         </td>
         {/* Qtd */}
@@ -119,20 +116,17 @@ const PositionRow = memo(function PositionRow({
         <td className="px-4 py-3 text-right text-sm tabular-nums font-medium text-gray-900">
           {formatBRL(position.currentValueCents)}
         </td>
-        {/* P&L % */}
-        <td className={`px-4 py-3 text-right text-sm tabular-nums font-medium ${pnlColor}`}>
-          {position.unrealizedPnLPercent > 0 ? '+' : ''}{formatarNumero(position.unrealizedPnLPercent, 2)}%
-        </td>
-        {/* P&L R$ */}
-        <td className={`px-4 py-3 text-right text-sm tabular-nums font-medium ${pnlColor}`}>
-          {position.unrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(position.unrealizedPnLCents)}
+        {/* Resultado: R$ em cima, % embaixo */}
+        <td className={`whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums font-medium ${pnlColor}`}>
+          <div>{position.unrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(position.unrealizedPnLCents)}</div>
+          <div className="text-xs">{position.unrealizedPnLPercent > 0 ? '+' : ''}{formatarNumero(position.unrealizedPnLPercent, 2)}%</div>
         </td>
         {/* Dividendos */}
         <td className={`hidden px-4 py-3 text-right text-sm tabular-nums xl:table-cell ${position.totalDividendsCents > 0 ? 'text-green-700' : 'text-gray-500'}`}>
           {position.totalDividendsCents > 0 ? formatBRL(position.totalDividendsCents) : '—'}
         </td>
         {/* Actions */}
-        <td className="px-4 py-3">
+        <td className="whitespace-nowrap px-4 py-3">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -172,7 +166,7 @@ const PositionRow = memo(function PositionRow({
       {/* Inline price update row */}
       {showPriceInput && (
         <tr className="border-b border-gray-100 bg-blue-50">
-          <td colSpan={11} className="px-4 py-2">
+          <td colSpan={9} className="px-4 py-2">
             <div className="flex items-center gap-3">
               <span className="text-xs font-medium text-gray-700">Novo preço para {position.ticker}:</span>
               <Input
@@ -206,7 +200,7 @@ const PositionRow = memo(function PositionRow({
       {/* Expandable price history panel */}
       {showHistory && (
         <tr className="border-b border-gray-100 bg-gray-50">
-          <td colSpan={11} className="px-4 py-3">
+          <td colSpan={9} className="px-4 py-3">
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-gray-600">Histórico de Preços — {position.ticker}</p>
               <PriceHistoryPanel orgId={orgId} assetId={position.assetId} />
@@ -218,7 +212,7 @@ const PositionRow = memo(function PositionRow({
       {/* Delete confirmation */}
       {confirmDelete && (
         <tr>
-          <td colSpan={11} className="p-0">
+          <td colSpan={9} className="p-0">
             <ConfirmDialog
               open={confirmDelete}
               onClose={() => setConfirmDelete(false)}
@@ -317,16 +311,14 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
       <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200 bg-white">
       <table className="w-full min-w-[760px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Código</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Nome</th>
+          <tr className="whitespace-nowrap border-b border-gray-200 bg-gray-50">
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ativo</th>
             <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 xl:table-cell">Classe</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Qtd</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500" title="Preço médio de compra">Preço médio</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Preço Atual</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Valor Atual</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500" title="Ganho ou perda ainda não realizado">Resultado (%)</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500" title="Ganho ou perda ainda não realizado">Resultado (R$)</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500" title="Ganho ou perda ainda não realizado">Resultado</th>
             <th className="hidden px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 xl:table-cell">Dividendos</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ações</th>
           </tr>
@@ -339,9 +331,9 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
         {/* Totals row */}
         <tfoot>
           <tr className="border-t-2 border-gray-200 bg-gray-50">
-            {/* Classe só aparece em xl: o rótulo cobre Código e Nome, e o vão
-                acompanha a coluna escondida para os totais não desalinharem. */}
-            <td colSpan={2} className="px-4 py-3 text-xs font-semibold text-gray-700">
+            {/* Classe só aparece em xl: o vão acompanha a coluna escondida para
+                os totais não desalinharem. */}
+            <td className="px-4 py-3 text-xs font-semibold text-gray-700">
               Total ({positions.length} ativos)
             </td>
             <td className="hidden xl:table-cell" />
@@ -349,11 +341,9 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
             <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-gray-900">
               {formatBRL(totalValueCents)}
             </td>
-            <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${totalPnLColor}`}>
-              {totalUnrealizedPnLPercent > 0 ? '+' : ''}{formatarNumero(totalUnrealizedPnLPercent, 2)}%
-            </td>
-            <td className={`px-4 py-3 text-right text-sm font-bold tabular-nums ${totalPnLColor}`}>
-              {totalUnrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(totalUnrealizedPnLCents)}
+            <td className={`whitespace-nowrap px-4 py-3 text-right text-sm font-bold tabular-nums ${totalPnLColor}`}>
+              <div>{totalUnrealizedPnLCents >= 0 ? '+' : ''}{formatBRL(totalUnrealizedPnLCents)}</div>
+              <div className="text-xs">{totalUnrealizedPnLPercent > 0 ? '+' : ''}{formatarNumero(totalUnrealizedPnLPercent, 2)}%</div>
             </td>
             <td className={`hidden px-4 py-3 text-right text-sm font-bold tabular-nums xl:table-cell ${totalDividendsCents > 0 ? 'text-green-700' : 'text-gray-500'}`}>
               {totalDividendsCents > 0 ? formatBRL(totalDividendsCents) : '—'}

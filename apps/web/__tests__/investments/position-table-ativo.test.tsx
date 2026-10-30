@@ -5,7 +5,9 @@ import React from 'react'
 /**
  * Revisão de 18/10/2026: ativo sem ticker (CDB, CRI, Tesouro do banco) punha
  * o nome inteiro em monoespaçado na coluna Código, quebrando em 4–5 linhas.
- * Sem ticker, Código fica com "—" e o nome vai só na coluna Nome.
+ * Revisão de 29/10/2026: a coluna Código saiu (vazia na maioria das posições
+ * e empurrava Ações para fora da tela). O ticker, quando existe, vai em cima
+ * do nome na coluna Ativo.
  */
 
 vi.mock('@/lib/investments/actions', () => ({ updateAssetPrice: vi.fn(), deleteAsset: vi.fn() }))
@@ -20,32 +22,26 @@ const base = {
   realizedPnLCents: 0, totalDividendsCents: 0, source: 'openfinance' as const, costIsPartial: false,
 }
 
-function celulas(container: HTMLElement) {
-  const [codigo, nome] = [...container.querySelectorAll('tbody tr:first-child td')]
-  return { codigo, nome }
+function celulaAtivo(container: HTMLElement) {
+  return container.querySelector('tbody tr:first-child td')!
 }
 
-describe('PositionTable — coluna Código', () => {
-  it('ativo sem ticker mostra "—" no Código e o nome completo no Nome', () => {
+describe('PositionTable — coluna Ativo', () => {
+  it('ativo sem ticker mostra só o nome, sem repetir', () => {
     const nome = "CRI REDE D'OR 100% IPCA · venc. 08/2033"
     const { container } = render(<PositionTable positions={[{ ...base, assetId: 'a1', ticker: nome, name: nome }]} orgId="org-1" />)
-    const { codigo, nome: celulaNome } = celulas(container)
-    expect(codigo.textContent).toBe('—')
-    expect(celulaNome.firstElementChild?.textContent).toBe(nome)
-    expect(celulaNome.getAttribute('title')).toBe(nome)
+    const celula = celulaAtivo(container)
+    expect(celula.firstElementChild?.textContent).toBe(nome)
+    expect(celula.textContent?.split(nome).length).toBe(2)
+    expect(celula.getAttribute('title')).toBe(nome)
   })
 
-  it('selos do Open Finance ficam junto do nome, fora do Código', () => {
+  it('ativo com ticker mostra o ticker, o nome e os selos', () => {
     const { container } = render(<PositionTable positions={[{ ...base, assetId: 'a3', ticker: 'XPML11', name: 'XP Malls', costIsPartial: true }]} orgId="org-1" />)
-    const { codigo, nome } = celulas(container)
-    expect(codigo.textContent).toBe('XPML11')
-    expect(nome.textContent).toContain('Open Finance')
-    expect(nome.textContent).toContain('Custo parcial')
-  })
-
-  it('ativo com ticker segue com o ticker no Código', () => {
-    const { container } = render(<PositionTable positions={[{ ...base, assetId: 'a2', ticker: 'PETR4', name: 'Petrobras', source: 'manual' }]} orgId="org-1" />)
-    const { codigo } = celulas(container)
-    expect(codigo.textContent).toMatch(/^PETR4/)
+    const celula = celulaAtivo(container)
+    expect(celula.firstElementChild?.textContent).toBe('XPML11')
+    expect(celula.textContent).toContain('XP Malls')
+    expect(celula.textContent).toContain('Open Finance')
+    expect(celula.textContent).toContain('Custo parcial')
   })
 })
