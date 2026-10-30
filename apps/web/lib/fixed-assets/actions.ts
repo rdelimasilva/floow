@@ -229,6 +229,42 @@ export async function updateAssetValue(formData: FormData) {
   revalidateFixedAssetData(orgId)
 }
 
+/**
+ * Registra a venda: o bem sai do patrimônio (`isActive = false`) e guarda a
+ * entrada que recebeu o dinheiro. Data e valor vêm do próprio lançamento,
+ * para não divergirem do que caiu na conta.
+ */
+export async function sellFixedAsset(formData: FormData) {
+  const orgId = await getOrgId()
+  const db = getDb()
+  const id = formData.get('id') as string
+  const saleTransactionId = formData.get('saleTransactionId') as string
+  if (!id) throw new Error('ID é obrigatório')
+  if (!saleTransactionId) throw new Error('Escolha o lançamento da venda')
+
+  const [venda] = await db
+    .select({ id: transactions.id, date: transactions.date, amountCents: transactions.amountCents })
+    .from(transactions)
+    .where(and(eq(transactions.id, saleTransactionId), eq(transactions.orgId, orgId)))
+    .limit(1)
+
+  if (!venda) throw new Error('Lançamento da venda não encontrado nesta organização.')
+  if (venda.amountCents <= 0) throw new Error('A venda precisa ser uma entrada de dinheiro.')
+
+  await db
+    .update(fixedAssets)
+    .set({
+      isActive: false,
+      soldAt: venda.date instanceof Date ? venda.date : new Date(venda.date as unknown as string),
+      saleValueCents: venda.amountCents,
+      saleTransactionId: venda.id,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(fixedAssets.id, id), eq(fixedAssets.orgId, orgId)))
+
+  revalidateFixedAssetData(orgId)
+}
+
 export async function deleteFixedAsset(formData: FormData) {
   const orgId = await getOrgId()
   const db = getDb()

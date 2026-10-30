@@ -51,12 +51,21 @@ export const fixedAssets = pgTable(
      * de `counterparty.ts` descreve. A FK existe no banco (migration 00040).
      */
     acquisitionTransactionId: uuid('acquisition_transaction_id'),
+    /**
+     * Venda (migration 00083). Data e valor são copiados do lançamento para
+     * o resultado sobreviver se ele for apagado. Bem vendido também fica com
+     * `isActive = false`; `soldAt` preenchido é o que o separa do excluído.
+     */
+    soldAt: date('sold_at', { mode: 'date' }),
+    saleValueCents: integer('sale_value_cents'),
+    saleTransactionId: uuid('sale_transaction_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     idxOrgId: index('idx_fixed_assets_org_id').on(table.orgId),
     idxAcquisitionTx: index('idx_fixed_assets_acquisition_tx').on(table.acquisitionTransactionId),
+    idxSaleTx: index('idx_fixed_assets_sale_tx').on(table.saleTransactionId),
   })
 )
 

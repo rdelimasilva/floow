@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { getDb, fixedAssets, fixedAssetTypes, transactions } from '@floow/db'
-import { eq, and, or, isNull, desc, lt } from 'drizzle-orm'
+import { eq, and, or, isNull, isNotNull, desc, lt, gt } from 'drizzle-orm'
 import { getOrgId } from '@/lib/finance/queries'
 import { fixedAssetsTag, fixedAssetTypesTag } from '@/lib/cache-tags'
 
@@ -35,6 +35,22 @@ export const getFixedAssets = cache(async (orgId: string) => {
   )()
 })
 
+/** Bens vendidos, para a página Bens manter o acesso a eles depois da venda. */
+export const getSoldFixedAssets = cache(async (orgId: string) => {
+  return unstable_cache(
+    async () => {
+      const db = getDb()
+      return db
+        .select()
+        .from(fixedAssets)
+        .where(and(eq(fixedAssets.orgId, orgId), isNotNull(fixedAssets.soldAt)))
+        .orderBy(desc(fixedAssets.soldAt))
+    },
+    ['fixed-assets-sold', orgId],
+    { tags: [fixedAssetsTag(orgId)], revalidate: 300 },
+  )()
+})
+
 export const getFixedAssetById = cache(async (orgId: string, id: string) => {
   const db = getDb()
   const [asset] = await db
@@ -62,7 +78,7 @@ export interface AcquisitionCandidate {
  */
 const ACQUISITION_CANDIDATE_LIMIT = 300
 
-export const getAcquisitionCandidates = cache(async (orgId: string): Promise<AcquisitionCandidate[]> => {
+async function getCandidates(orgId: string, sinal: 'saida' | 'entrada'): Promise<AcquisitionCandidate[]> {
   const db = getDb()
   const rows = await db
     .select({
@@ -72,7 +88,11 @@ export const getAcquisitionCandidates = cache(async (orgId: string): Promise<Acq
       amountCents: transactions.amountCents,
     })
     .from(transactions)
-    .where(and(eq(transactions.orgId, orgId), eq(transactions.isIgnored, false), lt(transactions.amountCents, 0)))
+    .where(and(
+      eq(transactions.orgId, orgId),
+      eq(transactions.isIgnored, false),
+      sinal === 'saida' ? lt(transactions.amountCents, 0) : gt(transactions.amountCents, 0),
+    ))
     .orderBy(desc(transactions.date))
     .limit(ACQUISITION_CANDIDATE_LIMIT)
 
@@ -80,14 +100,19 @@ export const getAcquisitionCandidates = cache(async (orgId: string): Promise<Acq
     ...row,
     date: row.date instanceof Date ? row.date : new Date(row.date as unknown as string),
   }))
-})
+}
+
+export const getAcquisitionCandidates = cache((orgId: string) => getCandidates(orgId, 'saida'))
+
+/** Entradas recentes, para apontar qual recebeu o dinheiro da venda do bem. */
+export const getSaleCandidates = cache((orgId: string) => getCandidates(orgId, 'entrada'))
 
 /**
- * O lançamento vinculado a um bem, para a tela do ativo mostrar a compra.
+ * O lançamento vinculado a um bem, para a tela do ativo mostrar a compra ou a venda.
  * Filtra por org também aqui: o id vem de `fixed_assets`, mas a checagem é
  * barata e fecha o caminho caso um vínculo antigo aponte para fora da org.
  */
-export const getAcquisitionTransaction = cache(async (orgId: string, transactionId: string | null) => {
+export const getLinkedTransaction = cache(async (orgId: string, transactionId: string | null) => {
   if (!transactionId) return null
 
   const db = getDb()

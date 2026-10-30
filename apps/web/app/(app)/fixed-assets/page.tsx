@@ -1,18 +1,20 @@
 import Link from 'next/link'
 import { getOrgId } from '@/lib/finance/queries'
-import { getFixedAssets, getFixedAssetTypes } from '@/lib/fixed-assets/queries'
+import { getFixedAssets, getFixedAssetTypes, getSoldFixedAssets } from '@/lib/fixed-assets/queries'
 import { estimateAssetValue, formatBRL } from '@floow/core-finance'
 import { AssetTypeList } from '@/components/fixed-assets/asset-type-list'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { formatarNumero } from '@/lib/formatar-numero'
+import { formatarDia } from '@/lib/formatar-dia'
 
 export default async function FixedAssetsPage() {
   const orgId = await getOrgId()
-  const [assets, types] = await Promise.all([
+  const [assets, types, sold] = await Promise.all([
     getFixedAssets(orgId),
     getFixedAssetTypes(orgId),
+    getSoldFixedAssets(orgId),
   ])
 
   const typeMap = new Map(types.map((t) => [t.id, t.name]))
@@ -40,6 +42,7 @@ export default async function FixedAssetsPage() {
       <Tabs defaultValue="assets">
         <TabsList>
           <TabsTrigger value="assets">Bens</TabsTrigger>
+          {sold.length > 0 && <TabsTrigger value="sold">Vendidos</TabsTrigger>}
           <TabsTrigger value="types">Tipos</TabsTrigger>
         </TabsList>
 
@@ -125,6 +128,31 @@ export default async function FixedAssetsPage() {
               </div>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="sold">
+          <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+            {sold.map((a) => {
+              const resultado = (a.saleValueCents ?? 0) - a.purchaseValueCents
+              return (
+                <li key={a.id}>
+                  <Link href={`/fixed-assets/${a.id}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3 hover:bg-gray-50">
+                    <span className="min-w-0">
+                      <span className="text-sm font-medium text-gray-900">{a.name}</span>
+                      {/* unstable_cache devolve a data como string */}
+                      <span className="ml-2 text-xs text-gray-500">vendido em {formatarDia(new Date(a.soldAt!))}</span>
+                    </span>
+                    <span className="text-sm tabular-nums">
+                      <span className="font-semibold text-gray-900">{formatBRL(a.saleValueCents ?? 0)}</span>
+                      <span className={`ml-2 text-xs ${resultado >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                        {resultado >= 0 ? '+' : ''}{formatBRL(resultado)}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
         </TabsContent>
 
         <TabsContent value="types">
