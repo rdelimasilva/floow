@@ -140,6 +140,20 @@ describe('previsão vencida', () => {
     const totais = totaisPorFatura([l({ ehPrevisao: true, balanceApplied: true })], 8, { dueDay: 15, hoje: '2026-10-08' })
     expect(totais.get('2026-10-08')).toBe(-300000)
   })
+  it('recorrência com data futura fica fora da fatura aberta, não das seguintes', () => {
+    const rec = { ehPrevisao: true, ehRecorrencia: true, balanceApplied: false }
+    const totais = totaisPorFatura([
+      l({ ...rec, date: '2026-11-01', amountCents: -350000 }),
+      l({ ...rec, date: '2026-12-01', amountCents: -350000 }),
+      l({ date: '2026-10-28', amountCents: -41580 }),
+    ], 8, { dueDay: 15, hoje: '2026-10-30' })
+    expect(totais.get('2026-11-08')).toBe(-41580)
+    expect(totais.get('2026-12-08')).toBe(-350000)
+  })
+  it('parcela prevista continua na fatura aberta', () => {
+    const totais = totaisPorFatura([l({ ehPrevisao: true, balanceApplied: false, date: '2026-11-05', amountCents: -9999 })], 8, { dueDay: 15, hoje: '2026-10-30' })
+    expect(totais.get('2026-11-08')).toBe(-9999)
+  })
 })
 
 describe('fatura fechada pelo banco (bill_id)', () => {

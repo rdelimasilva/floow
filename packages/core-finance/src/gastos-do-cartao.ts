@@ -1,4 +1,4 @@
-import { ciclosDasCompras, entraNaFatura, type LancamentoDaFatura } from './fatura'
+import { lancamentosDasFaturas, type LancamentoDaFatura } from './fatura'
 
 export interface LancamentoComCategoria extends LancamentoDaFatura {
   categoryName: string | null
@@ -27,8 +27,7 @@ export function gastosPorFatura<T extends LancamentoComCategoria>(
   dueDay: number | null,
   hoje: string | null,
 ): GastoDaFatura<T>[] {
-  const entram = lancamentos.filter((l) => entraNaFatura(l, hoje))
-  const { fechamentos } = ciclosDasCompras(entram, closingDay, dueDay)
+  const { entram, fechamentos } = lancamentosDasFaturas(lancamentos, closingDay, dueDay, hoje)
   const porFatura = new Map<string, GastoDaFatura<T>>()
   entram.forEach((l, i) => {
     const f = fechamentos[i]

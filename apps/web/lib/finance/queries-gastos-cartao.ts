@@ -105,6 +105,7 @@ export async function getGastosDosCartoes(orgId: string): Promise<CartaoComGasto
             date: iso(l.date)!,
             purchaseDate: iso(l.purchaseDate),
             ehPrevisao: l.recurringTemplateId != null || l.isInstallmentForecast,
+            ehRecorrencia: l.recurringTemplateId != null,
           })),
         c.closingDay,
         c.dueDay,

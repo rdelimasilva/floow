@@ -93,6 +93,7 @@ export async function getFaturasDoExtrato(
           date: iso(l.date)!,
           purchaseDate: iso(l.purchaseDate),
           ehPrevisao: l.recurringTemplateId != null || l.isInstallmentForecast,
+          ehRecorrencia: l.recurringTemplateId != null,
         })),
       c.closingDay,
       { dueDay: c.dueDay, hoje, faturasDoBanco: doBanco.filter((f) => f.accountId === c.id) },

@@ -97,6 +97,8 @@ export interface LancamentoDaFatura extends LancamentoNoCiclo {
   matchedTransactionId: string | null
   /** Previsão de recorrência ou de parcela, não lançamento real. */
   ehPrevisao?: boolean
+  /** Previsão vinda de recorrência (não de parcela). */
+  ehRecorrencia?: boolean
   balanceApplied?: boolean
   /** Fatura em que o banco fechou o lançamento. */
   billId?: string | null
@@ -184,14 +186,35 @@ export function ciclosDasCompras(
   return { fechamentos: lancamentos.map((l, i) => doCiclo(l, proprios[i])), doCiclo }
 }
 
+/**
+ * Os lançamentos que somam em cada fatura e o fechamento de cada um.
+ *
+ * Recorrência prevista e não confirmada também fica fora da fatura aberta, mesmo
+ * com data futura: o ciclo já começou e o gasto real dele chega pelo extrato.
+ * A recorrência de supermercado do dia 1º somava R$ 3.500 às compras do
+ * mercado na fatura de novembro do Master Black. Parcela prevista continua: o
+ * banco põe a parcela na fatura logo que o ciclo abre.
+ */
+export function lancamentosDasFaturas<T extends LancamentoDaFatura>(
+  lancamentos: readonly T[],
+  closingDay: number,
+  dueDay: number | null,
+  hoje: string | null,
+): { entram: T[]; fechamentos: string[]; doCiclo: (l: LancamentoDaFatura, proprio: string) => string } {
+  const entram = lancamentos.filter((l) => entraNaFatura(l, hoje) && !(
+    hoje && l.ehRecorrencia && !l.balanceApplied
+    && fechamentoAnterior(fechamentoDoLancamento(l, closingDay, dueDay), closingDay) < hoje
+  ))
+  return { entram, ...ciclosDasCompras(entram, closingDay, dueDay) }
+}
+
 export function totaisPorFatura(
   lancamentos: readonly LancamentoDaFatura[],
   closingDay: number,
   opts: { dueDay?: number | null; hoje?: string | null; faturasDoBanco?: readonly FaturaDoBanco[] } = {},
 ): Map<string, number> {
   const dueDay = opts.dueDay ?? null
-  const entram = lancamentos.filter((l) => entraNaFatura(l, opts.hoje ?? null))
-  const { fechamentos, doCiclo } = ciclosDasCompras(entram, closingDay, dueDay)
+  const { entram, fechamentos, doCiclo } = lancamentosDasFaturas(lancamentos, closingDay, dueDay, opts.hoje ?? null)
 
   const compras = new Map<string, number>()
   entram.forEach((l, i) => {
