@@ -38,10 +38,10 @@ const STATUS_RANK: Record<PacingStatus, number> = {
 }
 
 const STATUS_STYLE: Record<PacingStatus, { label: string; fg: string; bg: string }> = {
-  estourado: { label: 'Estourado', fg: '#EB5A4F', bg: '#FDECEA' },
-  risco: { label: 'Risco', fg: '#C9463C', bg: '#FDECEA' },
-  atencao: { label: 'Atenção', fg: '#8A6D1F', bg: '#FAF1DC' },
-  ok: { label: 'No ritmo', fg: '#3F7F76', bg: '#E8F3F1' },
+  estourado: { label: 'Estourado', fg: '#B8463D', bg: '#FDECEA' },
+  risco: { label: 'Risco', fg: '#BC4238', bg: '#FDECEA' },
+  atencao: { label: 'Atenção', fg: '#846A1D', bg: '#FAF1DC' },
+  ok: { label: 'No ritmo', fg: '#3A766E', bg: '#E8F3F1' },
 }
 
 function StatusBadge({ status }: { status: PacingStatus }) {
@@ -170,7 +170,7 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
                 <strong className="tabular-nums">{formatBRL(total.unbudgetedCents)}</strong> em
                 categorias sem teto definido
               </span>
-              <span style={{ color: '#6E6E6E' }}>
+              <span style={{ color: '#666666' }}>
                 Fora da conta acima — defina um teto para acompanhá-las
               </span>
             </div>
