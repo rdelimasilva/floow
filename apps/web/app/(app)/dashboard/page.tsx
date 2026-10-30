@@ -21,6 +21,7 @@ import { sumBudgetedSpending, rollUpSpendingToBudgeted } from '@/lib/finance/bud
 import { WelcomeCard } from '@/components/finance/welcome-card'
 import { getEstadoDoCadastro } from '@/lib/onboarding/estado-do-cadastro'
 import { CfoDashboardStrip } from '@/components/cfo/cfo-dashboard-strip'
+import { getTopInsights } from '@/lib/cfo/queries'
 
 // -- Async sub-components for Suspense streaming ----------------------------
 
@@ -55,7 +56,11 @@ async function StatsSection({ orgId }: { orgId: string }) {
 async function ChartSection({ orgId }: { orgId: string }) {
   // A consulta devolve do mais novo para o mais antigo; o gráfico lê da esquerda
   // para a direita, como a tela Fluxo de Caixa (que ordena do mesmo jeito).
-  const cashFlowData = [...(await getMonthlyCashFlowSummary(orgId, 6))].sort((a, b) => a.month.localeCompare(b.month))
+  // A consulta pega desde o mesmo dia de 6 meses atrás e devolve 7 meses (o
+  // primeiro pela metade); o título promete 6.
+  const cashFlowData = [...(await getMonthlyCashFlowSummary(orgId, 6))]
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .slice(-6)
   return (
     <Card>
       <CardHeader>
@@ -88,12 +93,14 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
 
   // Metas de aporte: as da tela Meta de Investimentos (`budget_entries`), com
   // o aportado do mês pela mesma consulta que ela usa.
-  const [budgetEntriesData, spendingData, investingEntries, contributed, categories] = await Promise.all([
+  const [budgetEntriesData, spendingData, investingEntries, contributed, categories, insights] = await Promise.all([
     getSpendingPlanForMonth(orgId, currentMonth, currentMonthEnd),
     getSpendingByCategory(orgId, currentMonth, currentMonthEnd),
     getBudgetEntriesForMonth(orgId, currentMonth, 'investing'),
     getInvestmentContributions(orgId, currentMonth, currentMonthEnd),
     getCategories(orgId),
+    // Mesma chamada da faixa do Consultor (fica em cache): o que ela mostra não se repete aqui.
+    getTopInsights(orgId, 3),
   ])
 
   const alerts: { name: string; currentCents: number; limitCents: number; href: string }[] = []
@@ -104,7 +111,8 @@ async function BudgetAlertSection({ orgId }: { orgId: string }) {
     rollUpSpendingToBudgeted(spendingData, categories, budgetEntriesData),
     budgetEntriesData,
   )
-  if (totalPlanned > 0) {
+  const consultorJaAvisou = insights.some((i) => i.type === 'budget_pacing_month_over')
+  if (totalPlanned > 0 && !consultorJaAvisou) {
     const pct = (totalSpent / totalPlanned) * 100
     if (pct >= 80) {
       alerts.push({ name: 'Orçamento mensal', currentCents: totalSpent, limitCents: totalPlanned, href: '/budgets/spending' })
@@ -135,23 +143,16 @@ export default async function DashboardPage() {
         description="Visão geral do seu patrimônio e fluxo de caixa"
       />
 
-      {/* Onboarding — auto-hides once steps are completed */}
-      <Suspense fallback={null}>
+      {/* Números do mês primeiro; o passo a passo (some quando termina) vem
+          logo abaixo, no mesmo Suspense, para não empurrar a tela ao chegar. */}
+      <Suspense fallback={<SectionSkeleton />}>
+        <StatsSection orgId={orgId} />
         <OnboardingSection orgId={orgId} />
       </Suspense>
 
-      {/* Stats Row */}
+      {/* Consultor (os 3 alertas mais graves do dia) e metas em risco chegam juntos. */}
       <Suspense fallback={<SectionSkeleton />}>
-        <StatsSection orgId={orgId} />
-      </Suspense>
-
-      {/* Consultor: os 3 alertas mais graves do dia */}
-      <Suspense fallback={null}>
         <CfoDashboardStrip orgId={orgId} />
-      </Suspense>
-
-      {/* Budget Alerts */}
-      <Suspense fallback={null}>
         <BudgetAlertSection orgId={orgId} />
       </Suspense>
 
