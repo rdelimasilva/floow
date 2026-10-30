@@ -56,7 +56,17 @@ export function LinhaDaFila({
         />
         <div className="min-w-0 sm:contents">
           <div className="flex min-w-0 items-baseline gap-3 sm:contents">
-            <span className="min-w-0 flex-1 truncate font-medium text-gray-900" title={item.description}>{item.description}</span>
+            {/* A linha toda abre com o mouse; pelo teclado quem abre é este
+                botão, já que a linha tem checkbox e botões dentro. */}
+            <button
+              type="button"
+              aria-expanded={aberto}
+              className="min-w-0 flex-1 truncate rounded-sm text-left font-medium text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title={item.description}
+              onClick={(e) => { e.stopPropagation(); onAbrir() }}
+            >
+              {item.description}
+            </button>
             <span className="shrink-0 text-sm text-gray-500">{diaMes(item.date)}</span>
             <span className="shrink-0 text-right text-sm font-medium tabular-nums text-gray-900">{valorComSinal(item.amountCents)}</span>
           </div>

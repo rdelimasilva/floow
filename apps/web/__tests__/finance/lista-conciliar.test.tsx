@@ -162,6 +162,21 @@ describe('ListaConciliar — o detalhe', () => {
     expect(recusarDuplicata).toHaveBeenCalledWith('d-a')
     expect(botao('Confirmar')).toBeInTheDocument()
   })
+  it('pelo teclado: a descrição é um botão com aria-expanded que abre e fecha o detalhe', () => {
+    montar([{ ...base, id: 'a', description: 'LOJA X', classificacao: { ...classificacao, categoryId: null } }])
+    const abrir = botao('LOJA X')
+    expect(abrir).toHaveAttribute('type', 'button')
+    expect(abrir).toHaveAttribute('aria-expanded', 'false')
+    abrir.focus()
+    expect(abrir).toHaveFocus()
+    // Enter e espaço num <button> nativo disparam o click.
+    fireEvent.click(abrir)
+    expect(abrir).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('combobox', { name: 'Categoria' })).toBeInTheDocument()
+    fireEvent.click(abrir)
+    expect(abrir).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('combobox', { name: 'Categoria' })).not.toBeInTheDocument()
+  })
   it('"Lançar como novo" com candidatas marca sem vínculo antes de classificar', async () => {
     montar([{ ...base, id: 'a', description: 'NETFLIX', candidatas: [cand('p1')], classificacao }])
     fireEvent.click(screen.getByText('NETFLIX'))
