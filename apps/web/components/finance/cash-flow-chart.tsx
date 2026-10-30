@@ -53,8 +53,8 @@ const LABELS: Record<string, string> = {
 
 /** Bolinha das legendas fora do gráfico, onde as variáveis --color-* não chegam. */
 export const SWATCH = {
-  income: 'bg-[#2a78d6] dark:bg-[#3987e5]',
-  expense: 'bg-[#eb6834] dark:bg-[#d95926]',
+  income: 'bg-[#2a78d6]',
+  expense: 'bg-[#eb6834]',
 }
 
 // Os tons do modo escuro são outros passos da mesma escala, validados contra o fundo escuro.
