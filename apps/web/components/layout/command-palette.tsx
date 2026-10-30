@@ -142,7 +142,7 @@ export function CommandPalette() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[100] bg-black/40 animate-in fade-in duration-100"
+        className="fixed inset-0 z-[100] bg-black/40"
         onClick={() => setOpen(false)}
       />
 
@@ -151,7 +151,7 @@ export function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-label="Buscar página ou ação"
-        className="fixed inset-x-0 top-[15%] z-[101] mx-auto w-full max-w-lg px-4 animate-in fade-in slide-in-from-top-2 duration-150"
+        className="fixed inset-x-0 top-[15%] z-[101] mx-auto w-full max-w-lg px-4"
       >
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
           {/* Search input */}

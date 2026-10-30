@@ -42,7 +42,7 @@ export function HelpTooltip({ text, className }: HelpTooltipProps) {
         <HelpCircle className="h-3.5 w-3.5" />
       </button>
       {open && (
-        <div id={id} role="tooltip" className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-64 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md animate-in fade-in slide-in-from-bottom-1 duration-150">
+        <div id={id} role="tooltip" className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-64 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
           {text}
           <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-popover" />
         </div>
