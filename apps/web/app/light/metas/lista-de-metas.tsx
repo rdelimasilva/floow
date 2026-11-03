@@ -88,11 +88,11 @@ function LinhaDeMeta({ linha, mes }: { linha: Linha; mes: string }) {
   }
 
   return (
-    <li className="flex min-h-14 items-center justify-between gap-4 py-2">
+    <li className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2">
       <span className="font-medium text-gray-800">{linha.nome}</span>
       {editando ? (
         <form
-          className="flex items-center gap-2"
+          className="flex w-full items-center gap-2 sm:w-auto"
           onSubmit={(e) => { e.preventDefault(); confirmar() }}
         >
           <Input
@@ -101,26 +101,26 @@ function LinhaDeMeta({ linha, mes }: { linha: Linha; mes: string }) {
             placeholder="0,00"
             value={valor}
             onChange={(e) => setValor(e.target.value)}
-            className="w-32 text-right"
+            className="h-11 min-w-0 flex-1 text-right sm:h-9 sm:w-32 sm:flex-none"
             aria-label={`Meta de ${linha.nome}`}
           />
-          <Button type="submit" size="sm" disabled={pendente}>Salvar</Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setEditando(false)} disabled={pendente}>Cancelar</Button>
+          <Button type="submit" size="sm" className="h-11 sm:h-8" disabled={pendente}>Salvar</Button>
+          <Button type="button" size="sm" variant="ghost" className="h-11 sm:h-8" onClick={() => setEditando(false)} disabled={pendente}>Cancelar</Button>
         </form>
       ) : (
         <div className="flex items-center gap-2">
           {linha.meta ? (
             <>
               <span className="tabular-nums text-gray-900">{formatBRL(linha.meta.plannedCents)}</span>
-              <Button size="sm" variant="ghost" onClick={() => { setValor((linha.meta!.plannedCents / 100).toFixed(2).replace('.', ',')); setEditando(true) }}>
+              <Button size="sm" variant="ghost" className="h-11 sm:h-8" onClick={() => { setValor((linha.meta!.plannedCents / 100).toFixed(2).replace('.', ',')); setEditando(true) }}>
                 Editar
               </Button>
-              <Button size="sm" variant="ghost" className="text-gray-500" disabled={pendente} onClick={() => executar(() => encerrar(linha.meta!, mes))}>
+              <Button size="sm" variant="ghost" className="h-11 text-gray-500 sm:h-8" disabled={pendente} onClick={() => executar(() => encerrar(linha.meta!, mes))}>
                 Remover
               </Button>
             </>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => { setValor(''); setEditando(true) }}>
+            <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => { setValor(''); setEditando(true) }}>
               Definir meta
             </Button>
           )}
@@ -133,11 +133,11 @@ function LinhaDeMeta({ linha, mes }: { linha: Linha; mes: string }) {
 export function ListaDeMetas({ linhas, mes }: { linhas: Linha[]; mes: string }) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="p-4 sm:p-6">
         <CardTitle>Metas</CardTitle>
         <p className="text-sm text-gray-500">Quanto você quer gastar por mês em cada categoria. Vale a partir deste mês.</p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
         <ul className="divide-y">
           {linhas.map((l) => <LinhaDeMeta key={l.categoryId} linha={l} mes={mes} />)}
         </ul>
