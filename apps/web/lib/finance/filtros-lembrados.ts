@@ -96,6 +96,20 @@ export function getPeriodDates(key: PeriodKey, hoje: string = hojeEmSaoPaulo()):
   }
 }
 
+/**
+ * O mês que as setas da tela mostram e de onde elas andam: o da data inicial,
+ * ou o da final, ou o de hoje quando o recorte está aberto. Formato "YYYY-MM".
+ */
+export function mesDoRecorte(startDate: string, endDate: string, hoje: string = hojeEmSaoPaulo()): string {
+  return (startDate || endDate || hoje).slice(0, 7)
+}
+
+/** O mês inteiro `delta` meses depois de "YYYY-MM". */
+export function mesInteiro(mes: string, delta: number): { startDate: string; endDate: string } {
+  const [y, m1] = mes.split('-').map(Number)
+  return { startDate: dia(y, m1 - 1 + delta, 1), endDate: dia(y, m1 + delta, 0) }
+}
+
 export function detectActivePeriod(startDate: string, endDate: string, hoje: string = hojeEmSaoPaulo()): PeriodKey | null {
   if (!startDate || !endDate) return null
   for (const key of PERIOD_KEYS) {

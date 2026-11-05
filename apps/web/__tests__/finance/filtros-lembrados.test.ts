@@ -7,6 +7,8 @@ import {
   restaurarFiltros,
   temFiltroNaUrl,
   urlDeTransacoes,
+  mesDoRecorte,
+  mesInteiro,
 } from '@/lib/finance/filtros-lembrados'
 
 /**
@@ -180,5 +182,19 @@ describe('urlDeTransacoes', () => {
 
   it('leva o tamanho de página escolhido', () => {
     expect(urlDeTransacoes({ 'tx-page-size': '50' }, HOJE)).toBe('/transactions?pageSize=50')
+  })
+})
+
+describe('setas de mês', () => {
+  it('andam a partir do mês da data inicial, ou de hoje sem recorte', () => {
+    expect(mesDoRecorte('2026-08-15', '2026-10-05', '2026-11-05')).toBe('2026-08')
+    expect(mesDoRecorte('', '2026-10-05', '2026-11-05')).toBe('2026-10')
+    expect(mesDoRecorte('', '', '2026-11-05')).toBe('2026-11')
+  })
+
+  it('pegam o mês inteiro e viram o ano', () => {
+    expect(mesInteiro('2026-01', -1)).toEqual({ startDate: '2025-12-01', endDate: '2025-12-31' })
+    expect(mesInteiro('2026-12', 1)).toEqual({ startDate: '2027-01-01', endDate: '2027-01-31' })
+    expect(mesInteiro('2028-03', -1)).toEqual({ startDate: '2028-02-01', endDate: '2028-02-29' })
   })
 })

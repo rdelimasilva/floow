@@ -6,6 +6,7 @@ import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
 import { CardDigitsFilter } from './card-digits-filter'
 import { PeriodFilter } from './period-filter'
+import { MonthNavigator } from './month-navigator'
 import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
 import {
   PERIOD_LABELS,
@@ -14,6 +15,8 @@ import {
   getPeriodDates,
   detectActivePeriod,
   lembrarFiltros,
+  mesDoRecorte,
+  mesInteiro,
 } from '@/lib/finance/filtros-lembrados'
 
 // Filtros de coluna e ordenação vivem na tabela; trocar período, busca ou
@@ -133,6 +136,16 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     navigate({ startDate: s, endDate: e })
   }
 
+  // As setas trocam o recorte pelo mês inteiro vizinho; o seletor de período
+  // e as datas continuam valendo como antes.
+  const mes = mesDoRecorte(startDate, endDate)
+  function andarMes(delta: number) {
+    const { startDate: s, endDate: e } = mesInteiro(mes, delta)
+    setStartDate(s)
+    setEndDate(e)
+    navigate({ startDate: s, endDate: e })
+  }
+
   function clearSearch() {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
     setSearch('')
@@ -191,6 +204,9 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
           )}
         </button>
       </div>
+      <div className="flex justify-center md:hidden">
+        <MonthNavigator month={mes} onShift={andarMes} />
+      </div>
 
       {/* Filters row — always visible on desktop, collapsible on mobile */}
       <div className={`flex-wrap items-center gap-2 ${filtersOpen ? 'flex' : 'hidden md:flex'}`}>
@@ -201,6 +217,9 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
             custom={!activePeriod && Boolean(startDate || endDate)}
             onChange={escolherPeriodo}
           />
+        </div>
+        <div className="hidden md:block">
+          <MonthNavigator month={mes} onShift={andarMes} />
         </div>
 
         {/* Date range — cada ponta se solta pelo × ao lado dela */}
