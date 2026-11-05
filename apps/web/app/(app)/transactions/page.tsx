@@ -164,6 +164,9 @@ export default async function TransactionsPage({ searchParams }: Props) {
   return (
     <InlineTransactionFormProvider>
     <div className="space-y-4">
+      {/* Do cabeçalho à paginação de cima fica preso sob a barra do topo; só a
+          lista rola. No celular não: o bloco ocuparia a tela quase toda. */}
+      <div className="space-y-4 bg-gray-50 pb-1 md:sticky md:top-[calc(3.5rem+env(safe-area-inset-top))] md:z-20">
       <PageHeader
         title="Transações"
         description={totalCount > 0
@@ -217,6 +220,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
           baseUrl="/transactions"
           searchParams={paginationParams}
         />
+      </div>
       </div>
 
       <TransactionListWrapper
