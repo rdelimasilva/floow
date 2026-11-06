@@ -246,7 +246,8 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
 
   return (
     <>
-      <div className="space-y-1.5">
+      {/* Preso logo abaixo do cabeçalho fixo, no computador. */}
+      <div className="space-y-1.5 bg-gray-50 md:sticky md:top-[calc(3.5rem+env(safe-area-inset-top)+var(--altura-cabecalho,0px))] md:z-20 md:pb-2">
         <div className="flex flex-wrap items-center gap-2">
           <CashFlowPeriodFilter startDate={startDate} endDate={endDate} onChange={escolherPeriodo} />
           <AccountFilter accounts={accounts} selected={accountIds} onChange={setAccountIds} />
