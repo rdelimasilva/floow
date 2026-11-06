@@ -153,7 +153,7 @@ describe('getShellProfile', () => {
 
     const profile = await getShellProfile()
 
-    expect(profile).toEqual({ userId: USER, email: 'ana@example.com', name: 'Ana', avatarUrl: 'https://x/a.png' })
+    expect(profile).toEqual({ userId: USER, email: 'ana@example.com', name: 'Ana', avatarUrl: 'https://x/a.png', favoritos: [] })
     expect(h.getUser).not.toHaveBeenCalled()
   })
 
@@ -172,7 +172,24 @@ describe('getShellProfile', () => {
   it('sem metadata, nome e avatar vêm nulos e o e-mail segue', async () => {
     h.getClaims.mockResolvedValue({ data: { claims: { sub: USER, email: 'c@x.com' } }, error: null })
 
-    expect(await getShellProfile()).toEqual({ userId: USER, email: 'c@x.com', name: null, avatarUrl: null })
+    expect(await getShellProfile()).toEqual({ userId: USER, email: 'c@x.com', name: null, avatarUrl: null, favoritos: [] })
+  })
+
+  it('favoritos: só itens do menu, sem repetição, no máximo 5', async () => {
+    h.getClaims.mockResolvedValue({
+      data: {
+        claims: {
+          sub: USER,
+          email: 'd@x.com',
+          user_metadata: {
+            sidebar_favorites: ['/cfo', 'https://mal.com', '/cfo', 42, '/debts', '/accounts', '/categories', '/planning', '/dashboard'],
+          },
+        },
+      },
+      error: null,
+    })
+
+    expect((await getShellProfile())?.favoritos).toEqual(['/cfo', '/debts', '/accounts', '/categories', '/planning'])
   })
 
   it('devolve null quando a assinatura não confere', async () => {

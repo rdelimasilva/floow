@@ -18,7 +18,7 @@ vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined })
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
 vi.mock('next/dynamic', () => ({ default: () => () => null }))
 vi.mock('@/lib/auth/session', () => ({
-  getShellProfile: async () => ({ email: 'ana@exemplo.com', name: 'Ana', avatarUrl: null }),
+  getShellProfile: async () => ({ email: 'ana@exemplo.com', name: 'Ana', avatarUrl: null, favoritos: [] }),
 }))
 vi.mock('@/components/layout/app-shell', () => ({ AppShell: () => null }))
 vi.mock('@/components/layout/sidebar-layout', async () => {

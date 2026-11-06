@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { getOrgId, getTransactionsWithCount, getTransactionCount, getAccounts, getCategories, getCategoryUsageOrder } from '@/lib/finance/queries'
 import { paginaQueAbre, filtrosAteHoje, contaAteHojeParaAbrir } from '@/lib/finance/pagination'
 import { contasParaLancamento, contasDeTransferencia } from '@/lib/finance/account-options'
+import { opcoesDeCategoriaParaLancamento } from '@/lib/finance/category-options'
 import { contasDoFiltro } from '@/lib/finance/queries-transactions'
 import { getFaturasDoExtrato } from '@/lib/finance/queries-fatura'
 import { CicloDoCartaoPendente } from '@/components/finance/ciclo-do-cartao-pendente'
@@ -150,16 +151,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (pageSize !== DEFAULT_PAGE_SIZE) paginationParams.pageSize = String(pageSize)
 
   const accountOptions = contasParaLancamento(accounts)
-  const categoryOrderMap = new Map(categoryOrder.map((id, i) => [id, i]))
-  const categoryOptions = categories
-    // `affectsCashFlow` vai junto para a linha recem-criada pela linha rapida
-    // saber mostrar "no fluxo" ou "fora do fluxo" sem esperar recarregar.
-    .map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId, affectsCashFlow: c.affectsCashFlow }))
-    .sort((a, b) => {
-      const aIdx = categoryOrderMap.get(a.id) ?? 999
-      const bIdx = categoryOrderMap.get(b.id) ?? 999
-      return aIdx - bIdx
-    })
+  const categoryOptions = opcoesDeCategoriaParaLancamento(categories, categoryOrder)
 
   return (
     <InlineTransactionFormProvider>

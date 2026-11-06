@@ -7,17 +7,19 @@ import {
   PiggyBank, Target, Compass, Building2, Landmark, HelpCircle, Search,
   Bot, Gauge, RefreshCw, Settings, Coins, Plus,
 } from 'lucide-react'
-import { EVENTO_ABRIR_PALETA } from '@/lib/paleta'
+import { EVENTO_ABRIR_PALETA, abrirNovaTransacao } from '@/lib/paleta'
 
 interface CommandItem {
   label: string
   href: string
   icon: React.ComponentType<{ className?: string }>
   keywords: string[]
+  /** Ação no lugar da navegação; o `href` fica como destino de reserva. */
+  acao?: () => void
 }
 
 export const COMMANDS: CommandItem[] = [
-  { label: 'Nova transação', href: '/transactions?nova=1', icon: Plus, keywords: ['lancar', 'registrar', 'despesa', 'receita', 'adicionar'] },
+  { label: 'Nova transação', href: '/transactions?nova=1', icon: Plus, keywords: ['lancar', 'registrar', 'despesa', 'receita', 'adicionar'], acao: abrirNovaTransacao },
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, keywords: ['inicio', 'home', 'visao geral'] },
   { label: 'Consultor Financeiro', href: '/cfo', icon: Bot, keywords: ['cfo', 'assistente', 'chat', 'insights'] },
   { label: 'Análises', href: '/cash-flow', icon: BarChart3, keywords: ['fluxo', 'caixa', 'grafico', 'cartao', 'fatura', 'analise'] },
@@ -64,14 +66,15 @@ export function CommandPalette() {
 
   const filtered = filtrarComandos(query)
 
-  const navigate = useCallback((href: string) => {
+  const navigate = useCallback((cmd: CommandItem) => {
     setOpen(false)
     setQuery('')
-    router.push(href)
+    if (cmd.acao) cmd.acao()
+    else router.push(cmd.href)
   }, [router])
 
   // Ctrl+K abre; o botão de busca do topo abre pelo evento. N, fora de campo
-  // de texto, vai direto para uma nova transação.
+  // de texto, abre o modal de nova transação.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -83,7 +86,7 @@ export function CommandPalette() {
       const alvo = e.target as HTMLElement | null
       if (alvo?.closest('input, textarea, select, [contenteditable="true"]')) return
       e.preventDefault()
-      router.push('/transactions?nova=1')
+      abrirNovaTransacao()
     }
     const abrir = () => setOpen(true)
     document.addEventListener('keydown', handleKeyDown)
@@ -92,7 +95,7 @@ export function CommandPalette() {
       document.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener(EVENTO_ABRIR_PALETA, abrir)
     }
-  }, [router])
+  }, [])
 
   // Focus input when opened
   useEffect(() => {
@@ -115,7 +118,7 @@ export function CommandPalette() {
         setSelectedIndex((prev) => Math.max(prev - 1, 0))
       } else if (e.key === 'Enter' && filtered[selectedIndex]) {
         e.preventDefault()
-        navigate(filtered[selectedIndex].href)
+        navigate(filtered[selectedIndex])
       } else if (e.key === 'Escape') {
         setOpen(false)
       }
@@ -179,7 +182,7 @@ export function CommandPalette() {
                 <button
                   key={cmd.href}
                   type="button"
-                  onClick={() => navigate(cmd.href)}
+                  onClick={() => navigate(cmd)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                     i === selectedIndex
                       ? 'bg-gray-100 text-gray-900'

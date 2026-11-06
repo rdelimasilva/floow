@@ -6,7 +6,7 @@ const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
 
 import { CommandPalette, filtrarComandos } from '@/components/layout/command-palette'
-import { abrirPaleta } from '@/lib/paleta'
+import { abrirPaleta, EVENTO_NOVA_TRANSACAO } from '@/lib/paleta'
 
 /**
  * A paleta só abria por Ctrl+K — sem nada na tela que dissesse isso, e sem
@@ -27,13 +27,30 @@ describe('paleta — ações e atalhos', () => {
     expect(acao.href).toBe('/transactions?nova=1')
   })
 
-  it('N abre uma nova transação de qualquer tela', () => {
+  it('N abre o modal de nova transação, sem sair da tela', () => {
+    const abriu = vi.fn()
+    window.addEventListener(EVENTO_NOVA_TRANSACAO, abriu)
     render(<CommandPalette />)
     fireEvent.keyDown(document.body, { key: 'n' })
-    expect(push).toHaveBeenCalledWith('/transactions?nova=1')
+    window.removeEventListener(EVENTO_NOVA_TRANSACAO, abriu)
+    expect(abriu).toHaveBeenCalledTimes(1)
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('"Nova transação" na paleta abre o modal em vez de navegar', () => {
+    const abriu = vi.fn()
+    window.addEventListener(EVENTO_NOVA_TRANSACAO, abriu)
+    render(<CommandPalette />)
+    act(() => abrirPaleta())
+    fireEvent.click(screen.getByRole('button', { name: 'Nova transação' }))
+    window.removeEventListener(EVENTO_NOVA_TRANSACAO, abriu)
+    expect(abriu).toHaveBeenCalledTimes(1)
+    expect(push).not.toHaveBeenCalled()
   })
 
   it('N digitado num campo de texto é só uma letra', () => {
+    const abriu = vi.fn()
+    window.addEventListener(EVENTO_NOVA_TRANSACAO, abriu)
     render(
       <>
         <input aria-label="busca" />
@@ -41,6 +58,7 @@ describe('paleta — ações e atalhos', () => {
       </>,
     )
     fireEvent.keyDown(screen.getByLabelText('busca'), { key: 'n' })
-    expect(push).not.toHaveBeenCalled()
+    window.removeEventListener(EVENTO_NOVA_TRANSACAO, abriu)
+    expect(abriu).not.toHaveBeenCalled()
   })
 })

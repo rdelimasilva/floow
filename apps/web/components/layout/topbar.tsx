@@ -42,12 +42,9 @@ export function Topbar({ userEmail, userName, avatarUrl, onMobileMenuOpen }: Top
       {/* Left spacer on desktop */}
       <div className="hidden lg:block" />
 
-      {/* Right: version + user */}
+      {/* Right: busca + usuário (a versão fica no rodapé do menu) */}
       <div className="flex items-center gap-3">
         <BotaoDeBusca />
-        <span className="hidden text-[10px] text-muted-foreground sm:inline">
-          v{process.env.NEXT_PUBLIC_APP_VERSION}
-        </span>
         <UserMenu
           userName={userName}
           userEmail={userEmail}

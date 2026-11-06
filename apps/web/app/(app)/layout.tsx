@@ -9,6 +9,7 @@ import { ApplyDueProvider } from '@/components/providers/apply-due-provider'
 import dynamic from 'next/dynamic'
 
 const CommandPalette = dynamic(() => import('@/components/layout/command-palette').then(m => ({ default: m.CommandPalette })))
+const NovaTransacaoDialog = dynamic(() => import('@/components/layout/nova-transacao-dialog').then(m => ({ default: m.NovaTransacaoDialog })))
 export default async function AppLayout({
   children,
 }: {
@@ -46,7 +47,10 @@ export default async function AppLayout({
               userEmail={profile.email}
               userName={profile.name}
               avatarUrl={profile.avatarUrl}
+              favoritos={profile.favoritos}
             />
+            {/* Depois do menu: o modal, de mesmo z-index, precisa ficar por cima dele. */}
+            <NovaTransacaoDialog />
             <SidebarLayout>
               {children}
             </SidebarLayout>

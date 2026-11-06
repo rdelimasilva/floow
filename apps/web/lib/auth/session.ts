@@ -3,6 +3,7 @@ import { asc, eq } from 'drizzle-orm'
 import { getDb, orgMembers } from '@floow/db'
 import { createClient } from '@/lib/supabase/server'
 import { JWKS_DO_AUTH } from '@/lib/supabase/jwks'
+import { favoritosValidos } from '@/components/layout/nav-config'
 
 /**
  * Identidade do requisitante, derivada exclusivamente de um JWT cuja assinatura
@@ -72,6 +73,8 @@ export interface ShellProfile {
   email: string
   name: string | null
   avatarUrl: string | null
+  /** Telas fixadas no topo do menu, na ordem em que foram fixadas. */
+  favoritos: string[]
 }
 
 function readString(obj: unknown, ...keys: string[]): string | null {
@@ -102,6 +105,7 @@ export const getShellProfile = cache(async function getShellProfile(): Promise<S
     email: typeof claims.email === 'string' ? claims.email : '',
     name: readString(meta, 'full_name', 'name'),
     avatarUrl: readString(meta, 'avatar_url', 'picture'),
+    favoritos: favoritosValidos((meta as Record<string, unknown> | undefined)?.sidebar_favorites),
   }
 })
 

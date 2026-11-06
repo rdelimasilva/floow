@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import React from 'react'
 
+// No app o menu fica dentro do ToastProvider (favoritos avisam por toast).
+vi.mock('@/components/ui/toast', () => ({ useToast: () => ({ toast: vi.fn() }) }))
 vi.mock('next/navigation', () => ({ usePathname: () => '/debts', useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push: vi.fn() }) }))
 
 import { Sidebar } from '@/components/layout/sidebar'

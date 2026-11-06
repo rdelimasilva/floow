@@ -79,3 +79,17 @@ export function filtrarCategorias<T extends CategoryLike>(categories: T[], termo
 export function toCategoryOptions<T extends CategoryLike>(categories: T[]): (T & { label: string })[] {
   return sortCategoryTree(categories).map((category) => ({ ...category, label: categoryLabel(category) }))
 }
+
+/**
+ * Categorias no formato que o formulário de transação recebe, as mais usadas
+ * primeiro. `affectsCashFlow` vai junto para a linha recém-criada saber mostrar
+ * "no fluxo" ou "fora do fluxo" sem esperar recarregar.
+ */
+export function opcoesDeCategoriaParaLancamento<
+  T extends { id: string; name: string; type: string; parentId: string | null; affectsCashFlow: boolean },
+>(categories: readonly T[], ordemDeUso: readonly string[]) {
+  const posicao = new Map(ordemDeUso.map((id, i) => [id, i]))
+  return categories
+    .map((c): Pick<T, 'id' | 'name' | 'type' | 'parentId' | 'affectsCashFlow'> => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId, affectsCashFlow: c.affectsCashFlow }))
+    .sort((a, b) => (posicao.get(a.id) ?? 999) - (posicao.get(b.id) ?? 999))
+}

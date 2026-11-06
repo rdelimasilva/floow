@@ -21,6 +21,8 @@ import React from 'react'
  */
 
 const usePathnameMock = vi.fn(() => '/dashboard')
+// No app o menu fica dentro do ToastProvider (favoritos avisam por toast).
+vi.mock('@/components/ui/toast', () => ({ useToast: () => ({ toast: vi.fn() }) }))
 vi.mock('next/navigation', () => ({ usePathname: () => usePathnameMock(), useSearchParams: () => new URLSearchParams() }))
 vi.mock('@/components/layout/sidebar-context', () => ({
   useSidebar: () => ({ pinned: true, togglePin: () => {} }),
@@ -28,7 +30,6 @@ vi.mock('@/components/layout/sidebar-context', () => ({
 
 const { Sidebar } = await import('@/components/layout/sidebar')
 
-const ATIVO = 'bg-gray-100 text-foreground'
 
 describe('filas ficam fora do menu lateral', () => {
   it('não existe item "Conciliações" no menu', () => {
@@ -48,7 +49,7 @@ describe('filas ficam fora do menu lateral', () => {
 
     render(React.createElement(Sidebar, { mobileOpen: false, onMobileClose: () => {} }))
 
-    expect(screen.getByText('Transações').closest('a')?.className).toContain(ATIVO)
+    expect(screen.getByText('Transações').closest('a')?.getAttribute('aria-current')).toBe('page')
   })
 
   it('em /transactions/duplicates, "Transações" fica ativo', () => {
@@ -56,7 +57,7 @@ describe('filas ficam fora do menu lateral', () => {
 
     render(React.createElement(Sidebar, { mobileOpen: false, onMobileClose: () => {} }))
 
-    expect(screen.getByText('Transações').closest('a')?.className).toContain(ATIVO)
+    expect(screen.getByText('Transações').closest('a')?.getAttribute('aria-current')).toBe('page')
   })
 
   it('em /transactions/conciliar, "Transações" fica ativo (sem item próprio)', () => {
@@ -64,7 +65,7 @@ describe('filas ficam fora do menu lateral', () => {
 
     render(React.createElement(Sidebar, { mobileOpen: false, onMobileClose: () => {} }))
 
-    expect(screen.getByText('Transações').closest('a')?.className).toContain(ATIVO)
+    expect(screen.getByText('Transações').closest('a')?.getAttribute('aria-current')).toBe('page')
     expect(screen.queryByText('Conciliar')).toBeNull()
   })
 
@@ -75,7 +76,7 @@ describe('filas ficam fora do menu lateral', () => {
 
     render(React.createElement(Sidebar, { mobileOpen: false, onMobileClose: () => {} }))
 
-    expect(screen.getByText('Recorrentes').closest('a')?.className).toContain(ATIVO)
-    expect(screen.getByText('Transações').closest('a')?.className).not.toContain(ATIVO)
+    expect(screen.getByText('Recorrentes').closest('a')?.getAttribute('aria-current')).toBe('page')
+    expect(screen.getByText('Transações').closest('a')?.getAttribute('aria-current')).toBeNull()
   })
 })

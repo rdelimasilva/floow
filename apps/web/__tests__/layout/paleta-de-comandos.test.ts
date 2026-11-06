@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { COMMANDS, filtrarComandos } from '@/components/layout/command-palette'
-import { NAV_SECTIONS } from '@/components/layout/sidebar'
+import { NAV_SECTIONS } from '@/components/layout/nav-config'
 
 /**
  * A paleta (Ctrl+K) tinha duas entradas para páginas que nunca existiram

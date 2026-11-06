@@ -4,6 +4,8 @@ import React from 'react'
 
 let caminho = '/budgets/spending'
 let params = new URLSearchParams('month=2026-08')
+// No app o menu fica dentro do ToastProvider (favoritos avisam por toast).
+vi.mock('@/components/ui/toast', () => ({ useToast: () => ({ toast: vi.fn() }) }))
 vi.mock('next/navigation', () => ({
   usePathname: () => caminho,
   useSearchParams: () => params,

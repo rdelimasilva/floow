@@ -1,7 +1,7 @@
 import { ehContaDeInvestimento } from '@floow/core-finance'
 
 /** O que os seletores das telas de transacao consomem. */
-interface OpcaoDeConta {
+export interface OpcaoDeConta {
   id: string
   name: string
   /** De quem é a conta, para o atalho por pessoa do filtro. */
