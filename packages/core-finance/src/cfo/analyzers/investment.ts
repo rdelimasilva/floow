@@ -7,7 +7,7 @@ type Position = InvestmentAnalyzerInput['positions'][number]
  * Junta os lotes do mesmo ativo (mesmo nome e classe). A posição chega por
  * snapshot de ativo, e o mesmo título comprado em datas diferentes vira linhas
  * separadas: três lotes de NTN-F mediam 52% cada um enquanto o ativo somava
- * 62%. O resultado consolidado sai do custo de cada lote
+ * 62%. Hoje serve ao prejuízo. O resultado consolidado sai do custo de cada lote
  * (valor / (1 + pnl)), não da média simples dos percentuais.
  */
 function consolidarPorAtivo(positions: Position[]): Position[] {
@@ -33,20 +33,8 @@ export function analyzeInvestment(input: InvestmentAnalyzerInput): InsightResult
 
   if (positions.length === 0) return []
 
-  for (const pos of positions) {
-    if (pos.allocation > 40) {
-      insights.push({
-        type: 'investment_concentration',
-        category: 'investment',
-        severity: 'warning',
-        title: `Concentração alta: ${pos.asset}`,
-        body: `${pos.asset} representa ${pct(pos.allocation)} da sua carteira. Considere diversificar.`,
-        metric: { allocation: pos.allocation },
-        suggestedAction: { type: 'view_investments', params: {} },
-      })
-    }
-  }
-
+  // Concentração saiu daqui: a aba Diagnóstico da carteira mede por ativo,
+  // emissor e classe, sobre o patrimônio todo.
   for (const pos of positions) {
     if (pos.pnlPercent < -20) {
       insights.push({

@@ -25,6 +25,8 @@ export const orgs = pgTable('orgs', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   /** Portão da fila de revisão: setado na primeira vez que a org zera a fila. */
   reviewGateClearedAt: timestamp('review_gate_cleared_at', { withTimezone: true }),
+  /** Perfil de risco respondido na aba Diagnóstico. Nulo até a resposta. */
+  perfilInvestidor: text('perfil_investidor', { enum: ['conservador', 'moderado', 'arrojado'] }),
 })
 
 export const profiles = pgTable('profiles', {

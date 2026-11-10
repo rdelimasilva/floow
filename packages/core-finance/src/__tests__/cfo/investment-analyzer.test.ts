@@ -7,7 +7,7 @@ describe('analyzeInvestment', () => {
     expect(analyzeInvestment({ positions: [], totalInvested: 0, dividendsReceived: 0, dividendsExpected: 0 })).toEqual([])
   })
 
-  it('returns warning for concentration > 40%', () => {
+  it('não avisa concentração: o Diagnóstico da carteira cuida disso', () => {
     const input: InvestmentAnalyzerInput = {
       positions: [
         { asset: 'PETR4', class: 'br_equity', allocation: 45, pnlPercent: 10 },
@@ -15,23 +15,7 @@ describe('analyzeInvestment', () => {
       ],
       totalInvested: 100000, dividendsReceived: 0, dividendsExpected: 0,
     }
-    expect(analyzeInvestment(input).find((r) => r.type === 'investment_concentration')).toBeDefined()
-  })
-
-  it('consolida os lotes do mesmo ativo antes de medir a concentração', () => {
-    const input: InvestmentAnalyzerInput = {
-      positions: [
-        { asset: 'NTN-F', class: 'treasury', allocation: 52.1, pnlPercent: 2.56 },
-        { asset: 'CDB XP', class: 'fixed_income', allocation: 38, pnlPercent: 10 },
-        { asset: 'NTN-F', class: 'treasury', allocation: 7.8, pnlPercent: -2.88 },
-        { asset: 'NTN-F', class: 'treasury', allocation: 2.1, pnlPercent: 7.86 },
-      ],
-      totalInvested: 100000, dividendsReceived: 0, dividendsExpected: 0,
-    }
-    const conc = analyzeInvestment(input).filter((r) => r.type === 'investment_concentration')
-    expect(conc).toHaveLength(1)
-    expect(conc[0].metric.allocation).toBeCloseTo(62, 5)
-    expect(conc[0].body).toContain('62%')
+    expect(analyzeInvestment(input).find((r) => r.type === 'investment_concentration')).toBeUndefined()
   })
 
   it('prejuízo é medido no ativo consolidado, não por lote', () => {
