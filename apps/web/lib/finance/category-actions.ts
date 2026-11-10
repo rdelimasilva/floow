@@ -34,6 +34,7 @@ import { revalidateCategoryData, revalidateTransactionData } from './revalidate'
 import { planejarHierarquia } from './category-hierarchy'
 import { redirecionarCodigoPolp } from './polp-redirect'
 import { assertNameIsFree } from './category-name'
+import { lerCategoriaMae } from './category-parent'
 
 type Db = ReturnType<typeof getDb>
 
@@ -63,11 +64,13 @@ export async function createCategory(formData: FormData) {
   if (!(VALID_TYPES as readonly string[]).includes(type)) throw new Error('Invalid category type')
 
   await assertNameIsFree(db, orgId, name)
+  const parentId = await lerCategoriaMae(db, orgId, formData, type)
 
   const [category] = await db
     .insert(categories)
     .values({
       orgId,
+      parentId: parentId ?? null,
       name,
       type: type as CategoryType,
       color: color || null,
@@ -106,22 +109,31 @@ export async function updateCategory(formData: FormData) {
   const existing = await requireVisibleCategory(db, orgId, id, 'updateCategory')
 
   await assertNameIsFree(db, orgId, name, id)
+  const maeEscolhida = await lerCategoriaMae(db, orgId, formData, type, id)
+  const parentId = maeEscolhida === undefined ? existing.parentId : maeEscolhida
 
   const updated =
     existing.orgId === null
-      ? await forkSystemCategory(db, orgId, existing, {
-          name,
-          type: type as CategoryType,
-          color: color || null,
-          icon: icon || null,
-          affectsCashFlow: parseAffectsCashFlow(formData),
-        })
+      ? await forkSystemCategory(
+          db,
+          orgId,
+          existing,
+          {
+            name,
+            type: type as CategoryType,
+            color: color || null,
+            icon: icon || null,
+            affectsCashFlow: parseAffectsCashFlow(formData),
+          },
+          parentId,
+        )
       : await applyUpdate(db, id, {
           name,
           type: type as CategoryType,
           color: color || null,
           icon: icon || null,
           affectsCashFlow: parseAffectsCashFlow(formData),
+          parentId,
         })
 
   // A original de sistema ficou escondida: as filhas dela passam para a cópia,
@@ -290,7 +302,7 @@ interface CategoryValues {
   affectsCashFlow: boolean
 }
 
-async function applyUpdate(db: Db, id: string, values: CategoryValues) {
+async function applyUpdate(db: Db, id: string, values: CategoryValues & { parentId: string | null }) {
   const [updated] = await db.update(categories).set(values).where(eq(categories.id, id)).returning()
   return updated
 }

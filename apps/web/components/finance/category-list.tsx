@@ -44,6 +44,29 @@ function CashFlowToggle({ checked, onChange }: { checked: boolean; onChange: (v:
   )
 }
 
+/** Só raiz do mesmo tipo serve de mãe: a árvore tem dois níveis. */
+function MaeSelect({ id, value, onChange, opcoes }: {
+  id?: string
+  value: string
+  onChange: (v: string) => void
+  opcoes: Category[]
+}) {
+  return (
+    <select
+      id={id}
+      aria-label={id ? undefined : 'Categoria mãe'}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-9 max-w-[200px] rounded-md border border-gray-300 px-2 text-sm"
+    >
+      <option value="">Nenhuma (principal)</option>
+      {opcoes.map((c) => (
+        <option key={c.id} value={c.id}>{c.name}</option>
+      ))}
+    </select>
+  )
+}
+
 interface CategoryListProps {
   categories: Category[]
 }
@@ -56,6 +79,7 @@ export function CategoryList({ categories }: CategoryListProps) {
   const [showCreate, setShowCreate] = useState(false)
   const [loading, setLoading] = useState(false)
   const [busca, setBusca] = useState('')
+  const temFilhas = new Set(categories.map((c) => c.parentId).filter(Boolean))
   // Mães abertas. Fechadas por padrão: com ~145 categorias da Polp, a lista
   // aberta inteira não cabe em tela nenhuma.
   const [abertas, setAbertas] = useState<Set<string>>(new Set())
@@ -75,6 +99,7 @@ export function CategoryList({ categories }: CategoryListProps) {
   const [icon, setIcon] = useState('')
   // Categoria antiga vem sem a coluna; o default é o comportamento de hoje.
   const [affectsCashFlow, setAffectsCashFlow] = useState(true)
+  const [parentId, setParentId] = useState('')
 
   function startEdit(cat: Category) {
     setEditingId(cat.id)
@@ -83,6 +108,7 @@ export function CategoryList({ categories }: CategoryListProps) {
     setColor(cat.color ?? '#6b7280')
     setIcon(cat.icon ?? '')
     setAffectsCashFlow(cat.affectsCashFlow ?? true)
+    setParentId(cat.parentId ?? '')
   }
 
   function resetForm() {
@@ -91,6 +117,7 @@ export function CategoryList({ categories }: CategoryListProps) {
     setColor('#6b7280')
     setIcon('')
     setAffectsCashFlow(true)
+    setParentId('')
   }
 
   async function handleCreate() {
@@ -102,6 +129,7 @@ export function CategoryList({ categories }: CategoryListProps) {
       if (color) formData.append('color', color)
       if (icon) formData.append('icon', icon)
       formData.append('affectsCashFlow', String(affectsCashFlow))
+      formData.append('parentId', parentId)
       await createCategory(formData)
       setShowCreate(false)
       resetForm()
@@ -123,6 +151,8 @@ export function CategoryList({ categories }: CategoryListProps) {
       if (color) formData.append('color', color)
       if (icon) formData.append('icon', icon)
       formData.append('affectsCashFlow', String(affectsCashFlow))
+      // Quem tem filhas não ganha o seletor; sem o campo, a mãe fica como está.
+      if (!temFilhas.has(catId)) formData.append('parentId', parentId)
       await updateCategory(formData)
       setEditingId(null)
       resetForm()
@@ -149,7 +179,8 @@ export function CategoryList({ categories }: CategoryListProps) {
   const incomeCategories = sortCategoryTree(visiveis.filter((c) => c.type === 'income'))
   const expenseCategories = sortCategoryTree(visiveis.filter((c) => c.type === 'expense'))
   const transferCategories = sortCategoryTree(visiveis.filter((c) => c.type === 'transfer'))
-  const temFilhas = new Set(categories.map((c) => c.parentId).filter(Boolean))
+  const maesPossiveis = (tipo: Category['type'], exceto?: string) =>
+    sortCategoryTree(categories.filter((c) => !c.parentId && c.type === tipo && c.id !== exceto))
 
   function renderCategoryGroup(title: string, cats: Category[]) {
     if (cats.length === 0) return null
@@ -167,6 +198,9 @@ export function CategoryList({ categories }: CategoryListProps) {
               <div key={cat.id} className="flex items-center gap-2 rounded-lg bg-blue-50 p-3">
                 <input type="color" aria-label="Cor" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 rounded border cursor-pointer" />
                 <Input aria-label="Nome" value={name} onChange={(e) => setName(e.target.value)} className="h-9 text-sm flex-1" />
+                {!temFilhas.has(cat.id) && (
+                  <MaeSelect value={parentId} onChange={setParentId} opcoes={maesPossiveis(cat.type, cat.id)} />
+                )}
                 {type !== 'transfer' && <CashFlowToggle checked={affectsCashFlow} onChange={setAffectsCashFlow} />}
                 <Button size="sm" variant="outline" onClick={() => { setEditingId(null); resetForm() }} className="h-8">Cancelar</Button>
                 <Button size="sm" variant="primary" onClick={() => handleUpdate(cat.id)} disabled={loading} className="h-8">Salvar</Button>
@@ -234,10 +268,14 @@ export function CategoryList({ categories }: CategoryListProps) {
               </div>
               <div>
                 <label htmlFor={`${fid}-3`} className="block text-xs text-gray-500 mb-1">Tipo</label>
-                <select id={`${fid}-3`} value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense')} className="h-9 rounded-md border border-gray-300 px-3 text-sm">
+                <select id={`${fid}-3`} value={type} onChange={(e) => { setType(e.target.value as 'income' | 'expense'); setParentId('') }} className="h-9 rounded-md border border-gray-300 px-3 text-sm">
                   <option value="income">Receita</option>
                   <option value="expense">Despesa</option>
                 </select>
+              </div>
+              <div>
+                <label htmlFor={`${fid}-4`} className="block text-xs text-gray-500 mb-1">Categoria mãe</label>
+                <MaeSelect id={`${fid}-4`} value={parentId} onChange={setParentId} opcoes={maesPossiveis(type)} />
               </div>
               <div className="pb-2">
                 <CashFlowToggle checked={affectsCashFlow} onChange={setAffectsCashFlow} />
