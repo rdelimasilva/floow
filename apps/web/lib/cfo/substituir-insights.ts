@@ -25,7 +25,7 @@ export interface SubstituirInsightsInput {
  *
  * Por que por categoria, e não por tipo ou título: o tipo não identifica o
  * assunto (`budget_pacing_risk` sai uma vez por categoria de orçamento, e
- * `investment_concentration` uma por ativo), e o título é reescrito pelo LLM.
+ * `investment_large_loss` uma por ativo), e o título é reescrito pelo LLM.
  * A categoria é a unidade que o engine de fato roda — um budget_changed roda
  * só `budget` —, então a execução nova responde por ela inteira. Isso também
  * apaga o insight que não se repetiu porque o problema acabou, o que uma

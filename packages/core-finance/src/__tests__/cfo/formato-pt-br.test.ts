@@ -38,19 +38,6 @@ describe('formato pt-BR dos textos do consultor', () => {
     expect(norm(ins.body)).toContain('R$ 10.000')
   })
 
-  it('concentração não mostra o percentual cru', () => {
-    const out = analyzeInvestment({
-      positions: [
-        { asset: 'NTN-F', class: 'treasury', allocation: 52.297685731749056, pnlPercent: 2 },
-        { asset: 'CDB', class: 'fixed_income', allocation: 47.702314268250944, pnlPercent: 1 },
-      ],
-      totalInvested: 100, dividendsReceived: 0, dividendsExpected: 0,
-    })
-    const ins = out.find((i) => i.type === 'investment_concentration' && i.title.includes('NTN-F'))!
-    expect(ins.body).toContain('52%')
-    expect(ins.body).not.toContain('52.29')
-  })
-
   it('prejuízo sai com uma casa e vírgula', () => {
     const [ins] = analyzeInvestment({
       positions: [{ asset: 'CRA', class: 'credit_fixed_income', allocation: 0.2, pnlPercent: -65.12 }],
