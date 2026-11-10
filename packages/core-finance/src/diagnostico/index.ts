@@ -6,6 +6,7 @@ import {
   type Diagnostico,
 } from './tipos'
 import { regraR02, regraR03, regraR04 } from './caixa-e-rendimento'
+import { regraR05, regraR06, regraR07 } from './concentracao'
 
 export * from './tipos'
 
@@ -16,6 +17,7 @@ export function diagnosticar(ctx: ContextoDiagnostico): Diagnostico {
   const r04 = regraR04(ctx)
   if (r04) achados.push(r04)
   achados.push(...regraR02(ctx, new Set(r03?.posicoes ?? [])))
+  achados.push(...regraR05(ctx), ...regraR06(ctx), ...regraR07(ctx))
   const ordenados = ordenarAchados(achados)
   return {
     achados: ordenados,
