@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["gru1"],
+  "regions": [
+    "gru1"
+  ],
   "crons": [
     {
       "path": "/api/cfo/run-daily",
@@ -13,6 +15,10 @@
     {
       "path": "/api/cron/auditar-conciliacao",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/mercado-bcb",
+      "schedule": "0 9 * * *"
     }
   ]
 }

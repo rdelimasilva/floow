@@ -26,6 +26,7 @@ const PUBLIC_ROUTE_PREFIXES = [
   '/api/openfinance/import-transactions', // Cron 3x/dia — usa CRON_SECRET / SERVICE_ROLE_KEY
   '/api/category-suggestions/run-weekly', // Cron semanal — usa CRON_SECRET / SERVICE_ROLE_KEY
   '/api/cron/auditar-conciliacao', // Cron diário — usa CRON_SECRET / SERVICE_ROLE_KEY
+  '/api/cron/mercado-', // Crons de dados de mercado — usam CRON_SECRET / SERVICE_ROLE_KEY
   '/api/email/unsubscribe', // Link do rodapé do e-mail — autoriza pelo token assinado
 ]
 
