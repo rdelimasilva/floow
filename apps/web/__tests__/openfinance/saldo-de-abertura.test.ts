@@ -40,7 +40,7 @@ const extrato = (over: Partial<{ incompleto: boolean }> = {}) => ({
   somaAte: (apuracao: Date) => (apuracao >= new Date('2026-10-15T00:00:00Z') ? -23560 + 10000 : -23560),
   ...over,
 })
-const args = (db: any, client: any, e = extrato(), refazer = false) =>
+const args = (db: any, client: any, e = extrato(), refazer: boolean | 'se-aplicacao-automatica' = false) =>
   [db, client, { orgId: 'org', accountId: 'itau', polpResourceId: 'r', extrato: e, refazer }] as const
 
 describe('registrarSaldoDeAbertura', () => {
@@ -74,6 +74,29 @@ describe('registrarSaldoDeAbertura', () => {
     expect(inseridas).toHaveLength(0)
     expect(atualizadas[0]).toMatchObject({ amountCents: 26952, type: 'income' })
     expect(atualizadas).toHaveLength(2)
+  })
+
+  it('refazer se houver aplicação automática: sem ela, não mexe', async () => {
+    const { db, client, atualizadas } = montar({ jaTem: { amountCents: 69863, date: '2025-09-07' } })
+
+    expect(await registrarSaldoDeAbertura(...args(db, client, extrato(), 'se-aplicacao-automatica'))).toBeNull()
+    expect(atualizadas).toHaveLength(0)
+  })
+
+  // Itaú com poupança automática: a abertura saiu do disponível (−R$ 9.884,34)
+  // em vez do total (R$ 28.819,34), e a conta ficou negativa no app.
+  it('refazer se houver aplicação automática: com ela, refaz pelo total', async () => {
+    const { db, client, atualizadas } = montar({ jaTem: { amountCents: -3788100, date: '2025-09-07' } })
+    client.getResourceDetail = async () => ({
+      balance: {
+        available_amount: { amount: '-9884.34' },
+        automatically_invested_amount: { amount: '28819.34' },
+        update_date_time: '2026-10-14T15:28:34Z',
+      },
+    })
+
+    expect(await registrarSaldoDeAbertura(...args(db, client, extrato(), 'se-aplicacao-automatica'))).toBe(2881934 + 23560)
+    expect(atualizadas[0]).toMatchObject({ amountCents: 2905494, type: 'income' })
   })
 
   it('já gravado e igual: não mexe', async () => {

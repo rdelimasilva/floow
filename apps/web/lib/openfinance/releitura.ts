@@ -41,7 +41,8 @@ import { registrarSaldoDeAbertura, somarExtratoAte } from './saldo-de-abertura'
 // 6: saldo de abertura refeito pela leitura nova, cortado no instante da apuração.
 // 7: saldo de abertura refeito uma última vez; dali em diante fica (`saldo-de-abertura.ts`).
 // 8: saldo de abertura da conta conectada depois da 4, que nascia na versão atual e nunca o recebia.
-export const VERSAO_DO_SYNC = 8
+// 9: saldo do banco com a aplicação automática; refaz a abertura só dessas contas.
+export const VERSAO_DO_SYNC = 9
 
 /**
  * A releitura que refaz o saldo de abertura. A 6 o refez com o extrato
@@ -51,8 +52,16 @@ export const VERSAO_DO_SYNC = 8
  */
 const VERSAO_QUE_REFAZ_A_ABERTURA = 7
 
-export function refazAbertura(syncVersionDoRecurso: number): boolean {
-  return syncVersionDoRecurso < VERSAO_QUE_REFAZ_A_ABERTURA
+/**
+ * A 9 refaz só a conta com aplicação automática, cuja abertura saiu do
+ * disponível em vez do total. Nas demais o saldo lido não mudou, e refazer
+ * traria de volta o risco do extrato atrasado da 6.
+ */
+const VERSAO_DA_APLICACAO_AUTOMATICA = 9
+
+export function refazAbertura(syncVersionDoRecurso: number): boolean | 'se-aplicacao-automatica' {
+  if (syncVersionDoRecurso < VERSAO_QUE_REFAZ_A_ABERTURA) return true
+  return syncVersionDoRecurso < VERSAO_DA_APLICACAO_AUTOMATICA ? 'se-aplicacao-automatica' : false
 }
 
 type Enriquecivel = Pick<

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extrairApuracaoDoSaldo, extrairSaldoDisponivelCents } from '../../openfinance/saldo-do-banco'
+import { extrairApuracaoDoSaldo, extrairSaldoDisponivelCents, temAplicacaoAutomatica } from '../../openfinance/saldo-do-banco'
 
 /**
  * O saldo que o BANCO informa, extraido do detalhe do recurso.
@@ -45,6 +45,32 @@ describe('extrairSaldoDisponivelCents', () => {
     const detalhe = { balance: { available_amount: { amount: '-1751.44', currency: 'BRL' } } }
 
     expect(extrairSaldoDisponivelCents(detalhe)).toBe(-175144)
+  })
+
+  // Itaú com poupança automática, 10/11/2026: débitos da manhã deixaram a conta
+  // em −R$ 9.884,34 até o resgate. O saldo do usuário é o total, R$ 28.819,34.
+  it('com aplicacao automatica, le o saldo que a inclui', () => {
+    const detalhe = {
+      balance: {
+        available_amount: { amount: '-9884.34', currency: 'BRL' },
+        automatically_invested_amount: { amount: '28819.34', currency: 'BRL' },
+      },
+    }
+
+    expect(extrairSaldoDisponivelCents(detalhe)).toBe(2881934)
+    expect(temAplicacaoAutomatica(detalhe)).toBe(true)
+  })
+
+  it('sem aplicacao automatica, o banco repete o disponivel nos dois campos', () => {
+    const detalhe = {
+      balance: {
+        available_amount: { amount: '550.59', currency: 'BRL' },
+        automatically_invested_amount: { amount: '550.59', currency: 'BRL' },
+      },
+    }
+
+    expect(extrairSaldoDisponivelCents(detalhe)).toBe(55059)
+    expect(temAplicacaoAutomatica(detalhe)).toBe(false)
   })
 
   it('devolve null no cartao de credito, que nao tem saldo', () => {

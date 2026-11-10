@@ -1,6 +1,6 @@
 import { and, eq, lt, or, sql } from 'drizzle-orm'
 import { accounts, transactions } from '@floow/db'
-import { extrairApuracaoDoSaldo, extrairSaldoDisponivelCents, type PolpClient } from '@floow/core-finance'
+import { extrairApuracaoDoSaldo, extrairSaldoDisponivelCents, temAplicacaoAutomatica, type PolpClient } from '@floow/core-finance'
 import type { Db } from './persist-page'
 
 /**
@@ -81,8 +81,11 @@ export async function registrarSaldoDeAbertura(
     accountId: string
     polpResourceId: string
     extrato: ExtratoLido
-    /** Troca o valor já gravado pela leitura de agora. Sem isso, o gravado fica. */
-    refazer: boolean
+    /**
+     * Troca o valor já gravado pela leitura de agora. Sem isso, o gravado fica.
+     * `se-aplicacao-automatica`: só quando o banco informa aplicação automática.
+     */
+    refazer: boolean | 'se-aplicacao-automatica'
   },
 ): Promise<number | null> {
   const { orgId, accountId, polpResourceId, extrato, refazer } = args
@@ -116,6 +119,7 @@ export async function registrarSaldoDeAbertura(
   const saldo = extrairSaldoDisponivelCents(detalhe)
   const apuracao = extrairApuracaoDoSaldo(detalhe)
   if (saldo == null || !apuracao) throw new Error('banco sem saldo nesta leitura: saldo de abertura fica para a próxima passada')
+  if (jaTem && refazer === 'se-aplicacao-automatica' && !temAplicacaoAutomatica(detalhe)) return null
 
   const abertura = calcularSaldoDeAbertura(saldo, extrato.somaAte(apuracao))
 

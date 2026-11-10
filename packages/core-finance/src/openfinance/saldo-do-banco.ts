@@ -32,17 +32,33 @@ function ehObjeto(valor: unknown): valor is Record<string, unknown> {
  * A Polp mistura string e number no mesmo payload — `available_amount.amount`
  * vem `"6151.18"` enquanto `limits[].unbilled_amount.amount` vem `11685.4` —
  * entao os dois sao aceitos.
+ *
+ * Conta com aplicação automática (a poupança automática do Itaú) traz o total
+ * em `automatically_invested_amount`. O `available_amount` mostra só o que está
+ * na conta, e fica negativo quando um débito chega antes do resgate: em
+ * 10/11/2026 veio −R$ 9.884,34 com R$ 28.819,34 de total e cheque especial
+ * zerado. Sem aplicação, os bancos repetem o disponível nos dois campos. O
+ * extrato não traz a ida e volta para a aplicação, então quem acompanha a soma
+ * dele é o total.
  */
 export function extrairSaldoDisponivelCents(detalhe: unknown): number | null {
-  if (!ehObjeto(detalhe)) return null
-
-  const balance = detalhe.balance
+  const balance = ehObjeto(detalhe) ? detalhe.balance : null
   if (!ehObjeto(balance)) return null
+  return centavos(balance.automatically_invested_amount) ?? centavos(balance.available_amount)
+}
 
-  const disponivel = balance.available_amount
-  if (!ehObjeto(disponivel)) return null
+/** O total da conta difere do que está nela: há dinheiro na aplicação automática. */
+export function temAplicacaoAutomatica(detalhe: unknown): boolean {
+  const balance = ehObjeto(detalhe) ? detalhe.balance : null
+  if (!ehObjeto(balance)) return false
+  const total = centavos(balance.automatically_invested_amount)
+  return total !== null && total !== centavos(balance.available_amount)
+}
 
-  const bruto = disponivel.amount
+function centavos(campo: unknown): number | null {
+  if (!ehObjeto(campo)) return null
+
+  const bruto = campo.amount
   if (typeof bruto !== 'string' && typeof bruto !== 'number') return null
 
   const valor = typeof bruto === 'string' ? Number(bruto) : bruto

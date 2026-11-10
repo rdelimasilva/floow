@@ -99,9 +99,12 @@ describe('refazAbertura', () => {
   it('refaz no recurso lido antes da versão 7', () => {
     expect(refazAbertura(6)).toBe(true)
   })
+  it('da 7 à 8, refaz só a conta com aplicação automática', () => {
+    expect(refazAbertura(7)).toBe('se-aplicacao-automatica')
+    expect(refazAbertura(8)).toBe('se-aplicacao-automatica')
+  })
   it('não refaz nas releituras seguintes', () => {
-    expect(refazAbertura(7)).toBe(false)
-    expect(refazAbertura(8)).toBe(false)
+    expect(refazAbertura(9)).toBe(false)
   })
 })
 
