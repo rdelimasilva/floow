@@ -27,6 +27,14 @@
     {
       "path": "/api/cron/mercado-cvm-extrato",
       "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/mercado-tesouro",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/mercado-b3",
+      "schedule": "30 21 * * 1-5"
     }
   ]
 }
