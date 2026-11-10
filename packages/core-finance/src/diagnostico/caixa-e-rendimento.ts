@@ -86,29 +86,39 @@ export function regraR04(ctx: ContextoDiagnostico): Achado | null {
     exposicaoCents: null,
     dica:
       `Dá para resgatar ${brlCurto(liquido)} em até um dia, contra ${brlCurto(alvo)} de ${C.r04MesesColchao} meses de gasto. ` +
-      'A conta considera só conta corrente, poupança, dinheiro e Tesouro Selic: o banco não informa se o CDB tem liquidez diária.',
+      'A conta considera só conta corrente, poupança, dinheiro, Tesouro Selic e títulos que vencem até amanhã: o banco não informa se o CDB tem liquidez diária.',
   }
 }
 
 export function regraR02(ctx: ContextoDiagnostico, jaNaR03: Set<string>): Achado[] {
   const cdi = ctx.cdi12m
   if (cdi === null) return []
-  const achados: Achado[] = []
+
+  // O mesmo papel pode chegar em vários lotes: junta por nome, emissor e taxa.
+  const papeis = new Map<string, PosicaoDiagnostico[]>()
   for (const p of ctx.posicoes) {
     if (!rfPosCdi(p) || jaNaR03.has(p.assetId) || p.valorCents <= 0) continue
+    const chave = `${p.nome}|${p.cnpjEmissor?.replace(/\D/g, '') ?? ''}|${p.percentualIndexador}`
+    papeis.set(chave, [...(papeis.get(chave) ?? []), p])
+  }
+
+  const achados: Achado[] = []
+  for (const lotes of papeis.values()) {
+    const p = lotes[0]
     const diff = cdi * (1 - p.percentualIndexador!)
     if (diff <= C.r02MargemPp) continue
-    const impacto = Math.round(diff * p.valorCents)
+    const valor = lotes.reduce((s, l) => s + l.valorCents, 0)
+    const impacto = Math.round(diff * valor)
     achados.push({
       ruleId: 'R02',
       severidade: impacto > C.r02AltaCents ? 'alta' : 'media',
       titulo: `${p.nome} rende ${pctDe(p.percentualIndexador!)} do CDI`,
-      posicoes: [p.assetId],
-      metricas: { percentualIndexador: p.percentualIndexador!, diferencaAnual: diff, valorCents: p.valorCents },
+      posicoes: lotes.map((l) => l.assetId),
+      metricas: { percentualIndexador: p.percentualIndexador!, diferencaAnual: diff, valorCents: valor },
       impactoAnualCents: impacto,
       exposicaoCents: null,
       dica:
-        `Com o CDI de 12 meses em ${pctDe(cdi, 1)}, os ${brlCurto(p.valorCents)} rendem ~${brlCurto(impacto)}/ano a menos que a 100% do CDI. ` +
+        `Com o CDI de 12 meses em ${pctDe(cdi, 1)}, os ${brlCurto(valor)} rendem ~${brlCurto(impacto)}/ano a menos que a 100% do CDI. ` +
         'CDB com 100% do CDI existe na maioria das corretoras. Veja antes o custo de resgatar antes do vencimento.',
     })
   }

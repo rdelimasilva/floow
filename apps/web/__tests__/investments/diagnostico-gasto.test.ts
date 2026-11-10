@@ -37,4 +37,13 @@ describe('gasto mensal para o diagnóstico', () => {
     const meses = ['2025-10', '2025-11', '2025-12'].map((month) => ({ month, expense: 100_000 }))
     expect(gastoMensalDosMeses(meses, '2026-01-15')).toBe(100_000)
   })
+
+  it('mês sem despesa não conta como histórico', () => {
+    const meses = [
+      { month: '2026-08', expense: 0 },
+      { month: '2026-09', expense: 300_000 },
+      { month: '2026-10', expense: 300_000 },
+    ]
+    expect(gastoMensalDosMeses(meses, hoje)).toBeNull()
+  })
 })

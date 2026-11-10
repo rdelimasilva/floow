@@ -13,6 +13,12 @@ import {
 } from './tipos'
 
 const RENDA_FIXA = new Set(['fixed_income', 'credit_fixed_income'])
+const SEM_TITULAR = 'sem titular'
+
+/** Peso no título: com uma casa quando o arredondamento cairia no próprio limite. */
+function pesoNoTitulo(peso: number, limite: number): string {
+  return pctDe(peso, Math.round(peso * 100) <= Math.round(limite * 100) ? 1 : 0)
+}
 
 interface Grupo {
   chave: string
@@ -45,7 +51,7 @@ export function regraR05(ctx: ContextoDiagnostico): Achado[] {
   const avulsos = ctx.posicoes.filter((p) => p.classe === 'br_equity' || p.classe === 'fii')
   const rf = ctx.posicoes.filter((p) => RENDA_FIXA.has(p.classe))
   const grupos = [
-    ...agrupar(avulsos, (p) => p.assetId).map((g) => ({ g, nome: g.posicoes[0].ticker ?? g.posicoes[0].nome })),
+    ...agrupar(avulsos, (p) => p.ticker?.trim().toUpperCase() || p.assetId).map((g) => ({ g, nome: g.posicoes[0].ticker ?? g.posicoes[0].nome })),
     ...agrupar(rf, (p) => conglomerado(p.cnpjEmissor, p.assetId)).map((g) => ({ g, nome: nomeDoEmissor(g, g.chave) })),
   ]
 
@@ -56,7 +62,7 @@ export function regraR05(ctx: ContextoDiagnostico): Achado[] {
     achados.push({
       ruleId: 'R05',
       severidade: peso > C.r05Alta ? 'alta' : 'media',
-      titulo: `${pctDe(peso)} da carteira em ${nome}`,
+      titulo: `${pesoNoTitulo(peso, C.r05Limite)} da carteira em ${nome}`,
       posicoes: g.posicoes.map((p) => p.assetId),
       metricas: { peso, valorCents: g.soma },
       impactoAnualCents: null,
@@ -75,7 +81,7 @@ export function regraR06(ctx: ContextoDiagnostico): Achado[] {
   const cobertos = ctx.posicoes.filter((p) => fgc.includes((p.subtipo ?? '').trim().toUpperCase()))
   const grupos = agrupar(
     cobertos,
-    (p) => `${p.titular ?? 'sem titular'}\u0000${conglomerado(p.cnpjEmissor, p.assetId)}`,
+    (p) => `${p.titular ?? SEM_TITULAR}\u0000${conglomerado(p.cnpjEmissor, p.assetId)}`,
   )
 
   const achados: Achado[] = []
@@ -86,7 +92,7 @@ export function regraR06(ctx: ContextoDiagnostico): Achado[] {
     achados.push({
       ruleId: 'R06',
       severidade: 'media',
-      titulo: `${brlCurto(g.soma)} em ${nomeDoEmissor(g, banco)} (titular: ${titular})`,
+      titulo: `${brlCurto(g.soma)} em ${nomeDoEmissor(g, banco)}${titular === SEM_TITULAR ? '' : ` (titular: ${titular})`}`,
       posicoes: g.posicoes.map((p) => p.assetId),
       metricas: { valorCents: g.soma, limiteCents: C.r06LimiteFgcCents },
       impactoAnualCents: null,
@@ -135,7 +141,7 @@ export function regraR07(ctx: ContextoDiagnostico): Achado[] {
     achados.push({
       ruleId: 'R07',
       severidade: 'media',
-      titulo: `${pctDe(peso)} da carteira em ${b.nome}`,
+      titulo: `${pesoNoTitulo(peso, C.r07Limite)} da carteira em ${b.nome}`,
       posicoes: chave === 'caixa' ? [] : ctx.posicoes.filter((p) => (BALDE[p.classe]?.chave ?? p.classe) === chave).map((p) => p.assetId),
       metricas: { peso, valorCents: b.soma },
       impactoAnualCents: null,

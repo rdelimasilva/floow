@@ -40,22 +40,24 @@ const RENDA_FIXA = new Set(['fixed_income', 'credit_fixed_income'])
 const COM_TICKER = new Set(['br_equity', 'fii', 'etf'])
 
 function incompleta(p: PosicaoDiagnostico): boolean {
+  // Valor 0 que chega aqui é ativo manual sem cotação (o encerrado já saiu antes).
+  if (p.valorCents <= 0) return true
   if (RENDA_FIXA.has(p.classe)) return p.percentualIndexador === null && p.taxaPrefixada === null
   if (COM_TICKER.has(p.classe)) return !p.ticker
   return false
 }
 
 export function regraR12(ctx: ContextoDiagnostico): Achado | null {
-  const faltando = ctx.posicoes.filter((p) => p.valorCents > 0 && incompleta(p))
+  const faltando = ctx.posicoes.filter(incompleta)
   const semGasto = ctx.gastoMensalCents === null
   if (faltando.length === 0 && !semGasto) return null
 
   const partes: string[] = []
   if (faltando.length > 0) {
-    partes.push(`Sem taxa ou sem ticker: ${faltando.map((p) => p.nome).join(', ')}.`)
+    partes.push(`Sem taxa, sem ticker ou sem cotação: ${faltando.map((p) => p.nome).join(', ')}.`)
   }
   if (semGasto) {
-    partes.push('Gasto mensal sem histórico de gastos suficiente (menos de 3 meses): colchão e dinheiro parado não foram avaliados.')
+    partes.push('O fluxo de caixa está sem histórico de gastos suficiente (menos de 3 meses), então colchão e dinheiro parado não foram avaliados.')
   }
 
   const n = faltando.length
@@ -67,6 +69,6 @@ export function regraR12(ctx: ContextoDiagnostico): Achado | null {
     metricas: { posicoes: n },
     impactoAnualCents: null,
     exposicaoCents: null,
-    dica: `${partes.join(' ')} Essas posições ficam fora das regras que dependem do dado.`,
+    dica: n > 0 ? `${partes.join(' ')} Essas posições ficam fora das regras que dependem do dado.` : partes.join(' '),
   }
 }

@@ -16,7 +16,7 @@ export function gastoMensalDosMeses(meses: { month: string; expense: number }[],
     const d = new Date(Date.UTC(ano, mes - 1 - i, 1))
     janela.add(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`)
   }
-  const dentro = meses.filter((m) => janela.has(m.month))
+  const dentro = meses.filter((m) => janela.has(m.month) && m.expense !== 0)
   if (dentro.length < MINIMO) return null
   return Math.round(dentro.reduce((s, m) => s + Math.abs(m.expense), 0) / dentro.length)
 }
