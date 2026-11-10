@@ -50,6 +50,31 @@ async function emLotes<T>(linhas: T[], gravar: (lote: T[]) => Promise<unknown>):
 
 const excluido = (coluna: string) => sql.raw(`excluded.${coluna}`)
 
+/**
+ * Upsert de fundos_cvm. O cadastro de reserva não traz prazo de resgate, então
+ * prazo vazio não apaga o que o extrato já tinha gravado. Idem o CNPJ de classe.
+ */
+export function upsertDeFundos(db: Db, lote: (FundoCvm & { cnpjClasse?: string | null })[]) {
+  const manter = (coluna: string) => sql.raw(`coalesce(excluded.${coluna}, "fundos_cvm"."${coluna}")`)
+  return db
+    .insert(fundosCvm)
+    .values(lote.map((f) => ({ ...f, atualizadoEm: new Date() })))
+    .onConflictDoUpdate({
+      target: fundosCvm.cnpj,
+      set: {
+        cnpjClasse: manter('cnpj_classe'),
+        nome: excluido('nome'),
+        classeAnbima: excluido('classe_anbima'),
+        taxaAdm: excluido('taxa_adm'),
+        taxaPerformance: excluido('taxa_performance'),
+        diasConversaoResgate: manter('dias_conversao_resgate'),
+        diasPagamentoResgate: manter('dias_pagamento_resgate'),
+        dataReferencia: excluido('data_referencia'),
+        atualizadoEm: excluido('atualizado_em'),
+      },
+    })
+}
+
 export function repoDrizzle(db: Db = getServiceDb()): RepoMercado {
   return {
     gravarIndicadores: (l) =>
@@ -66,27 +91,7 @@ export function repoDrizzle(db: Db = getServiceDb()): RepoMercado {
           set: { cota: excluido('cota'), patrimonio: excluido('patrimonio'), subclasse: excluido('subclasse') },
         }),
       ),
-    gravarFundos: (l) =>
-      emLotes(l, (lote) =>
-        db
-          .insert(fundosCvm)
-          .values(lote.map((f) => ({ ...f, atualizadoEm: new Date() })))
-          .onConflictDoUpdate({
-            target: fundosCvm.cnpj,
-            set: {
-              // Sem de-para novo, mantém o CNPJ de classe que já estava gravado.
-              cnpjClasse: sql`coalesce(excluded.cnpj_classe, ${fundosCvm.cnpjClasse})`,
-              nome: excluido('nome'),
-              classeAnbima: excluido('classe_anbima'),
-              taxaAdm: excluido('taxa_adm'),
-              taxaPerformance: excluido('taxa_performance'),
-              diasConversaoResgate: excluido('dias_conversao_resgate'),
-              diasPagamentoResgate: excluido('dias_pagamento_resgate'),
-              dataReferencia: excluido('data_referencia'),
-              atualizadoEm: excluido('atualizado_em'),
-            },
-          }),
-      ),
+    gravarFundos: (l) => emLotes(l, (lote) => upsertDeFundos(db, lote)),
     gravarTesouro: (l) =>
       emLotes(l, (lote) =>
         db.insert(tesouroPrecos).values(lote).onConflictDoUpdate({

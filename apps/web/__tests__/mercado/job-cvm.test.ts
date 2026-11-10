@@ -134,6 +134,19 @@ describe('rodarCvmExtrato', () => {
     expect([...tabelas.fundos.keys()].sort()).toEqual(['00017024000153', '11111111000111'])
   })
 
+  it('em janeiro lê também o extrato do ano anterior, e o do ano novo pode nem existir', async () => {
+    const { repo, tabelas } = repoMemoria()
+    const fetch = fetchDe({ 'extrato_fi_2026.csv': [CAB_EXT, `CLASSES - FIF;${DO_UNIVERSO};FUNDO DI;2026-07-07;Renda Fixa;0.3;;0;1`].join('\n') })
+    const r = await rodarCvmExtrato({ fetch: fetch as never, repo, hoje: new Date('2027-01-11T12:00:00Z'), cnpjs: CNPJS })
+    expect(r).toMatchObject({ linhas: 1, naoEncontrados: 0 })
+    expect(tabelas.fundos.has('00017024000153')).toBe(true)
+  })
+
+  it('no resto do ano, extrato do ano que não existe é falha', async () => {
+    const { repo } = repoMemoria()
+    await expect(rodarCvmExtrato({ fetch: fetchDe({}) as never, repo, hoje: new Date('2026-11-09T12:00:00Z'), cnpjs: CNPJS })).rejects.toThrow(/404/)
+  })
+
   it('todos no extrato: nem baixa o cadastro', async () => {
     const { repo } = repoMemoria()
     const fetch = fetchDe({ 'extrato_fi_2026.csv': [CAB_EXT, `CLASSES - FIF;${DO_UNIVERSO};FUNDO DI;2026-07-07;Renda Fixa;0.3;;0;1`].join('\n') })
