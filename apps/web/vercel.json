@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/mercado-bcb",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/mercado-cvm-cotas",
+      "schedule": "30 9 * * *"
+    },
+    {
+      "path": "/api/cron/mercado-cvm-extrato",
+      "schedule": "0 9 * * 1"
     }
   ]
 }

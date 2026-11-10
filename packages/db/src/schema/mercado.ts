@@ -81,6 +81,8 @@ export const execucoesMercado = pgTable(
     fim: timestamp('fim', { withTimezone: true }).notNull(),
     ok: boolean('ok').notNull(),
     linhas: integer('linhas').notNull(),
+    // Fundos da carteira que a fonte não trouxe (CNPJ que não casa com a CVM).
+    naoEncontrados: integer('nao_encontrados'),
     erro: text('erro'),
   },
   (t) => [index('idx_execucoes_mercado_job_inicio').on(t.job, t.inicio.desc())],

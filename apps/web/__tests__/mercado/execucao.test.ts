@@ -42,6 +42,13 @@ describe('executarJob', () => {
     expect((await executarJob('tesouro', repo, async () => ({ linhas: 95, invalidas: 5, total: 100 }))).ok).toBe(true)
   })
 
+  it('guarda quantos fundos não foram encontrados na fonte, sem falhar o job', async () => {
+    const { repo, execucoes } = repoMemoria()
+    const r = await executarJob('cvm_cotas', repo, async () => ({ linhas: 10, invalidas: 0, total: 10, naoEncontrados: 3 }))
+    expect(r.ok).toBe(true)
+    expect(execucoes[0].naoEncontrados).toBe(3)
+  })
+
   it('universo vazio termina bem, com zero linhas', async () => {
     const { repo, execucoes } = repoMemoria()
     expect(await executarJob('b3', repo, async () => ({ linhas: 0, invalidas: 0, total: 0 }))).toEqual({ ok: true, linhas: 0 })

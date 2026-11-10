@@ -14,7 +14,15 @@ import type { Fechamento } from './brapi'
 
 export type Job = 'bcb' | 'cvm_cotas' | 'cvm_extrato' | 'tesouro' | 'b3'
 
-export type Execucao = { job: Job; inicio: Date; fim: Date; ok: boolean; linhas: number; erro: string | null }
+export type Execucao = {
+  job: Job
+  inicio: Date
+  fim: Date
+  ok: boolean
+  linhas: number
+  naoEncontrados?: number | null
+  erro: string | null
+}
 
 /** O que os jobs precisam do banco. Os testes usam uma versão em memória. */
 export interface RepoMercado {

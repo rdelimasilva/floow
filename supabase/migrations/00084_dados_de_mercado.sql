@@ -68,6 +68,7 @@ CREATE TABLE public.execucoes_mercado (
   fim    timestamptz NOT NULL,
   ok     boolean NOT NULL,
   linhas integer NOT NULL,
+  nao_encontrados integer,
   erro   text
 );
 
