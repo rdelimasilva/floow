@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { acumular } from '@floow/core-finance'
-import { acumuladoNoPeriodo, retornoPorPreco } from '@/lib/mercado/leitura'
+import { acumuladoNoPeriodo, retornoPorPreco, daMesmaSubclasse } from '@/lib/mercado/leitura'
 
 describe('acumuladoNoPeriodo', () => {
   const cdi = [
@@ -56,5 +56,20 @@ describe('frescor', () => {
     await repo.registrarExecucao({ job: 'bcb', inicio: new Date('2026-11-05T09:00:00Z'), fim: new Date('2026-11-05T09:00:05Z'), ok: true, linhas: 6, erro: null })
     await repo.registrarExecucao({ job: 'bcb', inicio: new Date('2026-11-06T09:00:00Z'), fim: new Date('2026-11-06T09:00:05Z'), ok: false, linhas: 0, erro: 'x' })
     expect(await frescor(repo)).toEqual({ bcb: '2026-11-05' })
+  })
+})
+
+describe('daMesmaSubclasse', () => {
+  it('fica só com as cotas da subclasse da cota mais recente', () => {
+    const linhas = [
+      { data: '2026-01-02', preco: 1.0, subclasse: 'A' },
+      { data: '2026-01-05', preco: 0.7, subclasse: 'B' },
+      { data: '2026-06-01', preco: 1.1, subclasse: 'A' },
+    ]
+    expect(daMesmaSubclasse(linhas).map((l) => l.preco)).toEqual([1.0, 1.1])
+  })
+
+  it('lista vazia continua vazia', () => {
+    expect(daMesmaSubclasse([])).toEqual([])
   })
 })

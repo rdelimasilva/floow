@@ -4,7 +4,8 @@ import { soDigitos } from './util'
 // Arquivos de dados abertos da CVM: `;`, ponto decimal, datas ISO, CNPJ com
 // pontuação. Decodificar o latin-1 fica com quem baixa; aqui já chega string.
 
-export type CotaFundo = { cnpj: string; data: string; cota: number; patrimonio: number | null }
+/** subclasse: ID_SUBCLASSE do informe, '' quando a linha é da classe. Subclasses têm cotas diferentes. */
+export type CotaFundo = { cnpj: string; data: string; cota: number; patrimonio: number | null; subclasse: string }
 
 export type FundoCvm = {
   cnpj: string
@@ -54,7 +55,7 @@ export function linhaDoInforme(cabecalho: string[], linha: string, cnpjs: Set<st
   const data = valor('DT_COMPTC')?.trim() ?? ''
   const cota = numero(valor('VL_QUOTA'))
   if (!DATA_ISO.test(data) || cota === null) return 'invalida'
-  return { cnpj, data, cota, patrimonio: numero(valor('VL_PATRIM_LIQ')) }
+  return { cnpj, data, cota, patrimonio: numero(valor('VL_PATRIM_LIQ')), subclasse: valor('ID_SUBCLASSE')?.trim() ?? '' }
 }
 
 function linhas(csv: string): Record<string, string>[] {

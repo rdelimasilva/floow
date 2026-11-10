@@ -14,8 +14,13 @@ describe('linhaDoInforme', () => {
 
   it('lê a cota de um fundo do universo', () => {
     expect(linhaDoInforme(CAB_INFORME, LINHA, cnpjs)).toEqual({
-      cnpj: '00017024000153', data: '2026-11-03', cota: 45.3607553, patrimonio: 1228659.83,
+      cnpj: '00017024000153', data: '2026-11-03', cota: 45.3607553, patrimonio: 1228659.83, subclasse: '',
     })
+  })
+
+  it('guarda a subclasse da linha', () => {
+    const c = linhaDoInforme(CAB_INFORME, LINHA.replace(';;2026-11-03', ';RBMFN1;2026-11-03'), cnpjs)
+    expect(c).toMatchObject({ subclasse: 'RBMFN1' })
   })
 
   it('fundo fora do universo nem é validado', () => {

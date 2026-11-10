@@ -34,6 +34,12 @@ export function retornoPorPreco(linhas: { data: string; preco: number }[], de: s
   return fim.preco / inicio.preco - 1
 }
 
+/** Só as cotas da subclasse da cota mais recente: comparar cotas de subclasses diferentes inventa retorno. */
+export function daMesmaSubclasse<T extends { data: string; subclasse: string }>(linhas: T[]): T[] {
+  const ultima = [...linhas].sort((a, b) => a.data.localeCompare(b.data)).at(-1)
+  return ultima ? linhas.filter((l) => l.subclasse === ultima.subclasse) : []
+}
+
 async function serie(db: Db, nome: 'cdi' | 'ipca', de: string, ate: string) {
   return db
     .select({ data: indicadoresDiarios.data, valor: indicadoresDiarios.valor })
@@ -52,11 +58,11 @@ export async function ipcaAcumulado(db: Db, de: string, ate: string): Promise<nu
 
 export async function retornoDoFundo(db: Db, cnpj: string, de: string, ate: string): Promise<number | null> {
   const linhas = await db
-    .select({ data: cotasFundos.data, preco: cotasFundos.cota })
+    .select({ data: cotasFundos.data, preco: cotasFundos.cota, subclasse: cotasFundos.subclasse })
     .from(cotasFundos)
     .where(and(eq(cotasFundos.cnpj, cnpj), lte(cotasFundos.data, ate)))
     .orderBy(asc(cotasFundos.data))
-  return retornoPorPreco(linhas, de, ate)
+  return retornoPorPreco(daMesmaSubclasse(linhas), de, ate)
 }
 
 export async function retornoDoTicker(db: Db, ticker: string, de: string, ate: string): Promise<number | null> {

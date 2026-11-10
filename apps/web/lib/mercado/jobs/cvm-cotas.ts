@@ -14,6 +14,25 @@ function mesesParaBaixar(hoje: Date): string[] {
   return meses
 }
 
+/**
+ * Uma cota por fundo e dia. Subclasses do mesmo fundo têm cotas bem diferentes
+ * (1,13 e 0,81 no mesmo dia), e trocar de subclasse no meio da série inventa
+ * retorno. Fica a de maior patrimônio no último dia do arquivo, em todos os
+ * dias: não sabemos em qual a pessoa está, e é a mais representativa.
+ */
+function umaSubclassePorFundo(linhas: CotaFundo[]): CotaFundo[] {
+  const escolhida = new Map<string, CotaFundo>()
+  for (const l of linhas) {
+    const atual = escolhida.get(l.cnpj)
+    const maisRecente = !atual || l.data > atual.data
+    const mesmoDiaMaior = atual && l.data === atual.data && (l.patrimonio ?? 0) > (atual.patrimonio ?? 0)
+    if (maisRecente || mesmoDiaMaior) escolhida.set(l.cnpj, l)
+  }
+  const porChave = new Map<string, CotaFundo>()
+  for (const l of linhas) if (escolhida.get(l.cnpj)!.subclasse === l.subclasse) porChave.set(`${l.cnpj}|${l.data}`, l)
+  return [...porChave.values()]
+}
+
 export async function rodarCvmCotas(deps: {
   fetch: typeof fetch
   repo: RepoMercado
@@ -29,10 +48,7 @@ export async function rodarCvmCotas(deps: {
   const procurados = new Set(deps.cnpjs)
   for (const [classe, cnpj] of classeParaCnpj) if (deps.cnpjs.has(cnpj)) procurados.add(classe)
 
-  // Uma cota por fundo e dia. Com várias subclasses no mesmo dia, fica a de
-  // maior patrimônio: não sabemos em qual a pessoa está, e o upsert não aceita
-  // a mesma chave duas vezes no mesmo INSERT.
-  const cotas = new Map<string, CotaFundo>()
+  const linhas: CotaFundo[] = []
   const achados = new Set<string>()
   let invalidas = 0
   let baixados = 0
@@ -57,14 +73,13 @@ export async function rodarCvmCotas(deps: {
       }
       const cnpj = deps.cnpjs.has(c.cnpj) ? c.cnpj : (classeParaCnpj.get(c.cnpj) ?? c.cnpj)
       achados.add(cnpj)
-      const chave = `${cnpj}|${c.data}`
-      const atual = cotas.get(chave)
-      if (!atual || (c.patrimonio ?? 0) > (atual.patrimonio ?? 0)) cotas.set(chave, { ...c, cnpj })
+      linhas.push({ ...c, cnpj })
     })
   }
   if (baixados === 0) throw new Error('CVM: nenhum informe diário disponível')
 
-  await deps.repo.gravarCotas([...cotas.values()])
+  const cotas = umaSubclassePorFundo(linhas)
+  await deps.repo.gravarCotas(cotas)
   const naoEncontrados = [...deps.cnpjs].filter((c) => !achados.has(c)).length
-  return { linhas: cotas.size, invalidas, total: cotas.size + invalidas, naoEncontrados }
+  return { linhas: cotas.length, invalidas, total: cotas.length + invalidas, naoEncontrados }
 }

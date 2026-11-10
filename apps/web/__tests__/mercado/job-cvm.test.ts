@@ -75,6 +75,23 @@ describe('rodarCvmCotas', () => {
     expect([...tabelas.cotas.keys()]).toEqual(['11111111000111|2026-11-18'])
   })
 
+  it('a subclasse escolhida é a mesma em todos os dias do fundo', async () => {
+    const { repo, tabelas } = repoMemoria()
+    const fetch = fetchDe({
+      '202611.zip': zipInforme(
+        // Dia 17 a RBMFN1 tem mais patrimônio; no dia 18 (último), a MZMRC1.
+        `CLASSES - FIF;${DO_UNIVERSO};RBMFN1;2026-11-17;1;1.13;900;0;0;1`,
+        `CLASSES - FIF;${DO_UNIVERSO};MZMRC1;2026-11-17;1;0.81;800;0;0;1`,
+        `CLASSES - FIF;${DO_UNIVERSO};RBMFN1;2026-11-18;1;1.14;700;0;0;1`,
+        `CLASSES - FIF;${DO_UNIVERSO};MZMRC1;2026-11-18;1;0.82;850;0;0;1`,
+      ),
+    })
+    await rodarCvmCotas({ fetch: fetch as never, repo, hoje: new Date('2026-11-20T12:00:00Z'), cnpjs: CNPJS })
+    const gravadas = [...tabelas.cotas.values()] as { subclasse: string; cota: number }[]
+    expect(gravadas.map((c) => c.subclasse)).toEqual(['MZMRC1', 'MZMRC1'])
+    expect(gravadas.map((c) => c.cota)).toEqual([0.81, 0.82])
+  })
+
   it('com várias subclasses no mesmo dia, fica a de maior patrimônio (uma linha por chave)', async () => {
     const { repo, tabelas } = repoMemoria()
     const gravadas: unknown[][] = []

@@ -63,7 +63,7 @@ export function repoDrizzle(db: Db = getServiceDb()): RepoMercado {
       emLotes(l, (lote) =>
         db.insert(cotasFundos).values(lote).onConflictDoUpdate({
           target: [cotasFundos.cnpj, cotasFundos.data],
-          set: { cota: excluido('cota'), patrimonio: excluido('patrimonio') },
+          set: { cota: excluido('cota'), patrimonio: excluido('patrimonio'), subclasse: excluido('subclasse') },
         }),
       ),
     gravarFundos: (l) =>

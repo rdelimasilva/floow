@@ -34,6 +34,7 @@ CREATE TABLE public.cotas_fundos (
   data       date NOT NULL,
   cota       numeric(28, 12) NOT NULL,
   patrimonio numeric(20, 2),
+  subclasse  text NOT NULL DEFAULT '',
   PRIMARY KEY (cnpj, data)
 );
 

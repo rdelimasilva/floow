@@ -40,6 +40,8 @@ export const cotasFundos = pgTable(
     data: date('data').notNull(),
     cota: numero(28, 12)('cota').notNull(),
     patrimonio: numero(20, 2)('patrimonio'),
+    // Subclasses do mesmo fundo têm cotas diferentes; retorno só compara cotas da mesma.
+    subclasse: text('subclasse').notNull().default(''),
   },
   (t) => [primaryKey({ columns: [t.cnpj, t.data] })],
 )
