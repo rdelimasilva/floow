@@ -40,6 +40,14 @@ describe('rodarB3', () => {
     expect(r.linhas).toBe(2)
   })
 
+  it('dois tickers que a brapi devolve com o mesmo símbolo não quebram o insert', async () => {
+    const { repo, tabelas } = repoMemoria()
+    const fetch = vi.fn(async () => cotacao('ALOS3'))
+    const r = await rodarB3({ fetch: fetch as never, repo, token: 't', tickers: ['BRML3', 'ALOS3'], agora: () => 0 })
+    expect(r.linhas).toBe(2)
+    expect([...tabelas.fechamentos.keys()].sort()).toEqual(['ALOS3|2026-11-06', 'BRML3|2026-11-06'])
+  })
+
   it('começa pelo ticker com fechamento mais antigo', async () => {
     const { repo } = repoMemoria()
     await repo.gravarFechamentos([{ ticker: 'A', data: '2026-11-05', fechamento: 1 }, { ticker: 'B', data: '2026-11-01', fechamento: 1 }])

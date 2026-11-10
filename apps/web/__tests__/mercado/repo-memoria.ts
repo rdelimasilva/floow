@@ -13,6 +13,9 @@ export function repoMemoria() {
   const upsert =
     <T>(m: Map<string, unknown>, chave: (l: T) => string) =>
     async (ls: T[]) => {
+      // Como o Postgres: ON CONFLICT não aceita a mesma chave duas vezes no mesmo INSERT.
+      const chaves = ls.map(chave)
+      if (new Set(chaves).size !== chaves.length) throw new Error('ON CONFLICT DO UPDATE command cannot affect row a second time')
       for (const l of ls) m.set(chave(l), l)
       return ls.length
     }

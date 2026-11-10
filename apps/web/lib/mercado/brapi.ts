@@ -82,7 +82,9 @@ export async function buscarCotacao(ticker: string, deps: DepsBrapi): Promise<Re
   const preco = item?.data?.regularMarketPrice
   const hora = item?.data?.regularMarketTime
   if (!item || preco == null || !hora) return { tipo: 'sem_dado' }
-  return { tipo: 'ok', linhas: [{ ticker: normalizarTicker(item.symbol), data: dataEmBrasilia(new Date(hora)), fechamento: preco }] }
+  // Grava sob o ticker pedido: a brapi troca ticker renomeado (BRML3 → ALOS3),
+  // e é pelo nome da carteira que as regras procuram.
+  return { tipo: 'ok', linhas: [{ ticker: normalizarTicker(ticker), data: dataEmBrasilia(new Date(hora)), fechamento: preco }] }
 }
 
 export async function buscarHistorico(ticker: string, deps: DepsBrapi): Promise<ResultadoBrapi> {
@@ -90,7 +92,7 @@ export async function buscarHistorico(ticker: string, deps: DepsBrapi): Promise<
   if (corpo === 'sem_dado' || corpo === 'limite') return { tipo: corpo }
   const item = Historico.parse(corpo).results?.[0]
   const linhas: Fechamento[] = (item?.data?.historicalDataPrice ?? []).flatMap((p) =>
-    p.close == null ? [] : [{ ticker: normalizarTicker(item!.symbol), data: dataEmBrasilia(new Date(p.date * 1000)), fechamento: p.close }],
+    p.close == null ? [] : [{ ticker: normalizarTicker(ticker), data: dataEmBrasilia(new Date(p.date * 1000)), fechamento: p.close }],
   )
   return linhas.length ? { tipo: 'ok', linhas } : { tipo: 'sem_dado' }
 }

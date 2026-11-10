@@ -29,6 +29,11 @@ describe('brapi', () => {
     expect(r).toMatchObject({ tipo: 'ok', linhas: [{ ticker: 'IFIX' }] })
   })
 
+  it('ticker renomeado pela brapi é gravado com o nome que pedimos', async () => {
+    const r = await buscarCotacao('BRML3', deps(json(cotacao('ALOS3', 22.1))))
+    expect(r).toMatchObject({ tipo: 'ok', linhas: [{ ticker: 'BRML3', fechamento: 22.1 }] })
+  })
+
   it('data do pregão no horário de Brasília', async () => {
     const r = await buscarCotacao('PETR4', deps(json(cotacao('PETR4', 45, '2026-11-07T01:30:00.000Z'))))
     expect(r).toMatchObject({ linhas: [{ data: '2026-11-06' }] })
