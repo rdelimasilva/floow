@@ -41,6 +41,13 @@ describe('rodarCvmCotas', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
+  it('carga inicial escolhe os meses', async () => {
+    const { repo } = repoMemoria()
+    const fetch = fetchDe({ '202601.zip': zipInforme() })
+    await rodarCvmCotas({ fetch: fetch as never, repo, hoje: new Date('2026-11-03T12:00:00Z'), cnpjs: CNPJS, meses: ['202601'] })
+    expect(fetch.mock.calls.map((c) => c[0])).toEqual(['https://dados.cvm.gov.br/dados/FI/DOC/INF_DIARIO/DADOS/inf_diario_fi_202601.zip'])
+  })
+
   it('universo vazio não baixa nada', async () => {
     const { repo } = repoMemoria()
     const fetch = fetchDe({})

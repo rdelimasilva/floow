@@ -27,6 +27,13 @@ describe('rodarBcb', () => {
     expect(urls.find((u) => u.includes('sgs.433/'))).toContain('dataInicial=28/08/2026')
   })
 
+  it('carga inicial pede uma janela maior', async () => {
+    const { repo } = repoMemoria()
+    const fetch = fetchFalso()
+    await rodarBcb({ fetch: fetch as unknown as typeof globalThis.fetch, repo, hoje, janelaDias: 365 })
+    expect(fetch.mock.calls.every((c) => String((c as unknown[])[0]).includes('dataInicial=06/11/2025'))).toBe(true)
+  })
+
   it('rodar duas vezes não duplica', async () => {
     const { repo, tabelas } = repoMemoria()
     const fetch = fetchFalso() as unknown as typeof globalThis.fetch
