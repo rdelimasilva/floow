@@ -8,6 +8,7 @@ const ABAS = [
   { href: '/investments', label: 'Posições' },
   { href: '/investments/dashboard', label: 'Resumo' },
   { href: '/investments/income', label: 'Renda Passiva' },
+  { href: '/investments/diagnostico', label: 'Diagnóstico' },
   { href: '/investments/new', label: 'Novo Ativo / Evento' },
 ]
 

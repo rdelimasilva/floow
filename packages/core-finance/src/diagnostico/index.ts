@@ -28,3 +28,4 @@ export function diagnosticar(ctx: ContextoDiagnostico): Diagnostico {
     patrimonioCents: patrimonioCents(ctx),
   }
 }
+export { brl } from '../cfo/formato'
