@@ -5,11 +5,17 @@ import {
   type ContextoDiagnostico,
   type Diagnostico,
 } from './tipos'
+import { regraR02, regraR03, regraR04 } from './caixa-e-rendimento'
 
 export * from './tipos'
 
 export function diagnosticar(ctx: ContextoDiagnostico): Diagnostico {
   const achados: Achado[] = []
+  const r03 = regraR03(ctx)
+  if (r03) achados.push(r03)
+  const r04 = regraR04(ctx)
+  if (r04) achados.push(r04)
+  achados.push(...regraR02(ctx, new Set(r03?.posicoes ?? [])))
   const ordenados = ordenarAchados(achados)
   return {
     achados: ordenados,

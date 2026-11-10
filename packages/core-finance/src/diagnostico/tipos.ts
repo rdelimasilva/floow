@@ -110,3 +110,14 @@ export function ordenarAchados(achados: Achado[]): Achado[] {
     (a, b) => PESO[a.severidade] - PESO[b.severidade] || valor(b) - valor(a),
   )
 }
+
+/** Dias corridos de `de` até `ate`, ambos aaaa-MM-dd. */
+export function diasEntre(de: string, ate: string): number {
+  const utc = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10))
+  return Math.round((utc(ate) - utc(de)) / 86_400_000)
+}
+
+/** Fração em percentual com vírgula: pctDe(0.109, 1) => "10,9%". */
+export function pctDe(fracao: number, casas = 0): string {
+  return `${(fracao * 100).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })}%`
+}
