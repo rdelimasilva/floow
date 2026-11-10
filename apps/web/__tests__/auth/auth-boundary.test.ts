@@ -77,6 +77,7 @@ describe('toda route handler tem guarda de autenticação', () => {
   const AUTH_GUARDS = [
     "@/lib/auth/session",   // getVerifiedIdentity / requireIdentity / getOrgId
     "@/lib/auth/service-auth", // isAuthorizedService (cron, máquina-a-máquina)
+    "@/lib/mercado/rota", // rotaDeMercado: isAuthorizedService com CRON_SECRET antes de rodar o job
   ]
 
   const routeFiles = sourceFiles.filter((f) => /(^|\/)route\.tsx?$/.test(rel(f)))
