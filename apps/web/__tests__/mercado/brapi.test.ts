@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { buscarCotacao, buscarHistorico, normalizarTicker, BrapiNaoAutorizada } from '@/lib/mercado/brapi'
+import { buscarCotacao, buscarHistorico, normalizarTicker, usoDaCota, BrapiNaoAutorizada } from '@/lib/mercado/brapi'
 
 const json = (corpo: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(corpo), { status, headers: { 'content-type': 'application/json', ...headers } })
@@ -71,6 +71,19 @@ describe('brapi', () => {
     const r = await buscarHistorico('KNRI11', d)
     expect(r).toEqual({ tipo: 'ok', linhas: [{ ticker: 'KNRI11', data: new Date(1793934000 * 1000 - 3 * 3600_000).toISOString().slice(0, 10), fechamento: 160.1 }] })
     expect((d.chamadas.mock.calls[0] as unknown as [string])[0]).toBe('https://brapi.dev/api/v2/stocks/historical?symbols=KNRI11&range=3mo&interval=1d')
+  })
+
+  it('cada chamada tem prazo, para um servidor travado não segurar o job', async () => {
+    const d = deps(json(cotacao('PETR4', 45.56)))
+    await buscarCotacao('PETR4', d)
+    const [, init] = d.chamadas.mock.calls[0] as unknown as [string, RequestInit]
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('lê o uso da cota da conta', async () => {
+    const d = deps(json({ usage: { planLimit: 15000, currentUsage: 120 } }))
+    expect(await usoDaCota(d)).toEqual({ usado: 120, limite: 15000 })
+    expect((d.chamadas.mock.calls[0] as unknown as [string])[0]).toBe('https://brapi.dev/api/v2/user/usage')
   })
 
   it('normalizarTicker', () => {
