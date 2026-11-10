@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
-import { getDb } from '@floow/db'
+import { getDb, getServiceDb } from '@floow/db'
 import { isAuthorizedService } from '@/lib/auth/service-auth'
 import { auditarConciliacao } from '@/lib/finance/conciliacao/auditoria'
+import { repoDrizzle } from '@/lib/mercado/repo'
+import { jobsParados } from '@/lib/mercado/frescor'
 
 /**
  * GET /api/cron/auditar-conciliacao — diário, read-only.
@@ -36,6 +38,16 @@ export async function POST(request: Request) {
         tags: { auditoria: 'conciliacao', achado: e.achado },
         extra: { total: e.total, contas: e.contas },
       })
+    }
+
+    // Carona nesta rotina diária: avisa quando um job de mercado parou. Erro aqui
+    // não pode derrubar a auditoria de conciliação.
+    try {
+      for (const job of jobsParados(await repoDrizzle(getServiceDb()).ultimoOkPorJob(), new Date())) {
+        Sentry.captureMessage(`mercado: job ${job} parado`, { level: 'warning', tags: { mercado: job } })
+      }
+    } catch (err) {
+      console.error('[auditar-conciliacao] não conferiu os jobs de mercado:', err)
     }
 
     return NextResponse.json({

@@ -10,8 +10,20 @@ vi.mock('@/lib/finance/conciliacao/auditoria', async () => {
 })
 vi.mock('@floow/db', async () => {
   const actual = await vi.importActual<typeof import('@floow/db')>('@floow/db')
-  return { ...actual, getDb: () => ({}) }
+  return { ...actual, getDb: () => ({}), getServiceDb: () => ({}) }
 })
+
+let ultimoOk: Record<string, Date> = {}
+let falharFrescor = false
+vi.mock('@/lib/mercado/repo', () => ({
+  repoDrizzle: () => ({
+    ultimoOkPorJob: async () => {
+      if (falharFrescor) throw new Error('banco fora')
+      return ultimoOk
+    },
+  }),
+}))
+const emDia = () => Object.fromEntries(['bcb', 'cvm_cotas', 'cvm_extrato', 'tesouro', 'b3'].map((j) => [j, new Date()]))
 
 const { GET } = await import('@/app/api/cron/auditar-conciliacao/route')
 const { divergenciasRelevantes } = await import('@/lib/finance/conciliacao/auditoria')
@@ -23,6 +35,8 @@ beforeEach(() => {
   capturar.mockClear()
   process.env.CRON_SECRET = 'segredo'
   achados = { paresQueMovemSaldo: [], divergencias: [], invarianteQuebrado: [] }
+  ultimoOk = emDia()
+  falharFrescor = false
 })
 
 describe('cron auditar-conciliacao', () => {
@@ -51,6 +65,21 @@ describe('cron auditar-conciliacao', () => {
     expect(contexto.level).toBe('warning')
     expect(contexto.tags).toMatchObject({ auditoria: 'conciliacao', achado: 'par_move_saldo' })
     expect(contexto.extra).toEqual({ total: 2, contas: [{ accountId: 'nubank', pares: 2 }] })
+  })
+})
+
+describe('cron auditar-conciliacao: jobs de mercado', () => {
+  it('job de mercado parado vira um aviso no Sentry', async () => {
+    ultimoOk = { ...emDia(), bcb: new Date('2020-01-01') }
+    const r = await GET(pedido('segredo'))
+    expect(r.status).toBe(200)
+    expect(capturar).toHaveBeenCalledWith('mercado: job bcb parado', expect.objectContaining({ level: 'warning', tags: { mercado: 'bcb' } }))
+  })
+
+  it('erro ao ler o frescor não derruba a auditoria', async () => {
+    falharFrescor = true
+    const r = await GET(pedido('segredo'))
+    expect(r.status).toBe(200)
   })
 })
 
