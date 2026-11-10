@@ -45,7 +45,7 @@ O cálculo é feito na hora em que a página abre, num server component. Não h�
 
 ### Entrada das regras
 
-- **Posições:** as mesmas de `getPositions(orgId)`, sem as encerradas. Valor de mercado, classe, subtipo, emissor (`cnpj`, `issuerName`), indexador, taxa (`indexerPercentage`, `preFixedRate`), vencimento (`dueDate`) e data da primeira compra (do primeiro `portfolio_event`).
+- **Posições:** as mesmas de `getPositions(orgId)`, sem as encerradas. Valor de mercado, classe, subtipo, emissor (`cnpj`, `issuerName`), indexador, taxa (`indexerPercentage`, `preFixedRate`), vencimento (`dueDate`). `getPositions` ganha os campos que faltarem.
 - **Titular:** vem da conta de cada ativo (`getContasDosAtivos`), campo `accounts.titular`. Se o ativo estiver em mais de uma conta, vale a de maior saldo (decisão minha). Titular vazio vira o grupo "sem titular".
 - **Caixa:** soma dos saldos das contas `checking` (corrente), `savings` (poupança), `cash` (dinheiro) e `brokerage` (o dinheiro parado na corretora, fora das posições). Cartão de crédito fica de fora. Todo o caixa conta como liquidez D+0 na R04. Na R03, cada tipo entra com uma taxa: a poupança rende 6,17% a.a. (0,5% a.m. com Selic acima de 8,5%), que é dividido pelo CDI 12m para virar taxa relativa ao CDI; os outros tipos entram com taxa 0. Decisão minha.
 - **Gasto mensal:** média das despesas dos últimos 6 meses fechados do fluxo de caixa, sem transferências entre contas, aplicações e pagamento de fatura. Usar o mesmo filtro que o fluxo de caixa já aplica. Com menos de 3 meses de histórico, o gasto fica `null`, R03 e R04 não disparam e a R12 registra "sem histórico de gastos suficiente".
