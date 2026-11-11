@@ -5,7 +5,7 @@ import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { CashFlowLancamentoDialog } from './cash-flow-lancamento-dialog'
-import { limitesDoMes, linkDoTotal } from '@/lib/finance/link-do-total'
+import { limitesDoMes, linkDeCelulaDoFluxo } from '@/lib/finance/link-do-total'
 
 type Grouping = 'daily' | 'monthly' | 'quarterly' | 'semiannual' | 'annual'
 
@@ -34,11 +34,9 @@ interface AggregatedRow {
 interface CashFlowBreakdownProps {
   transactions: RawTransaction[]
   /**
-   * Recorte da tela, para a célula abrir os lançamentos em Transações. Só vale
-   * no realizado com transferências ocultas: com elas à mostra a célula soma
-   * transferência pelo sinal, e `types` de Transações não reproduz isso.
+   * Recorte da tela, para a célula abrir os lançamentos em Transações.
    */
-  recorte?: { startDate: string; endDate: string; accountIds: string[]; realizadoSemTransferencias: boolean }
+  recorte?: { startDate: string; endDate: string; accountIds: string[]; visao: 'realized' | 'projected' | 'both'; ocultarTransferencias: boolean }
 }
 
 /** Primeiro e último dia do período da chave de grupo. */
@@ -163,12 +161,13 @@ export function CashFlowBreakdown({ transactions = [], recorte }: CashFlowBreakd
   }, [aberta, deferredTransactions, grouping])
 
   // O período da célula cortado pelo período da tela, como a tabela corta por dia.
-  function linkDaCelula(key: string, type: Aberta['type']) {
+  function linkDaCelula(key: string, type: Aberta['type']): string | null {
+    if (!recorte) return null
     const g = limitesDoGrupo(key, grouping)
-    const inicio = recorte?.startDate && recorte.startDate > g.inicio ? recorte.startDate : g.inicio
-    const fim = recorte?.endDate && recorte.endDate < g.fim ? recorte.endDate : g.fim
-    return linkDoTotal({
-      inicio, fim, accountIds: recorte?.accountIds, tipos: [type], caixa: true, situacao: 'realizado',
+    return linkDeCelulaDoFluxo({
+      inicio: recorte.startDate && recorte.startDate > g.inicio ? recorte.startDate : g.inicio,
+      fim: recorte.endDate && recorte.endDate < g.fim ? recorte.endDate : g.fim,
+      tipo: type, visao: recorte.visao, ocultarTransferencias: recorte.ocultarTransferencias, accountIds: recorte.accountIds,
     })
   }
 
@@ -250,11 +249,11 @@ export function CashFlowBreakdown({ transactions = [], recorte }: CashFlowBreakd
                         <td colSpan={4} className="px-4 py-2">
                           <p className="mb-1 text-xs font-medium text-muted-foreground">
                             {aberta.type === 'income' ? 'Receitas' : 'Despesas'} de {r.label} · {lancamentos.length} lançamento{lancamentos.length === 1 ? '' : 's'}
-                            {recorte?.realizadoSemTransferencias && (
+                            {linkDaCelula(r.key, aberta.type) && (
                               <>
                                 {' · '}
                                 <Link
-                                  href={linkDaCelula(r.key, aberta.type)}
+                                  href={linkDaCelula(r.key, aberta.type)!}
                                   aria-label={`Ver lançamentos de ${aberta.type === 'income' ? 'receitas' : 'despesas'} de ${r.label}`}
                                   className="text-[#4A5899] hover:underline"
                                 >

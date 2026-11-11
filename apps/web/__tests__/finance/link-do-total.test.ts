@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { and } from 'drizzle-orm'
-import { idsComFilhas, limitesDoMes, linkDeGastoDoMes, linkDoTotal } from '@/lib/finance/link-do-total'
+import { idsComFilhas, limitesDoMes, linkDeCelulaDoFluxo, linkDeGastoDoMes, linkDoTotal } from '@/lib/finance/link-do-total'
 import { FILTER_KEYS } from '@/lib/finance/filtros-lembrados'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { buildTransactionConditions } from '@/lib/finance/queries-transactions'
@@ -94,5 +94,24 @@ describe('soma: a lista de Transações usa os mesmos critérios de getSpendingB
   it('o link nunca perde o fim do mês', () => {
     const p = new URL(linkDeGastoDoMes('2026-10-01', ['c1']), 'http://x').searchParams
     expect(p.get('endDate')).toBe('2026-10-31')
+  })
+})
+
+describe('linkDeCelulaDoFluxo', () => {
+  const base = { inicio: '2026-10-01', fim: '2026-10-31', tipo: 'expense' as const, ocultarTransferencias: true }
+  const sit = (visao: 'realized' | 'projected' | 'both') =>
+    new URL(linkDeCelulaDoFluxo({ ...base, visao })!, 'http://x').searchParams.get('situacao')
+
+  it('situacao segue a visão e Ambos omite', () => {
+    expect(sit('realized')).toBe('realizado')
+    expect(sit('projected')).toBe('previsto')
+    expect(sit('both')).toBeNull()
+  })
+  it('mantém caixa, tipo e período', () => {
+    const p = new URL(linkDeCelulaDoFluxo({ ...base, visao: 'both' })!, 'http://x').searchParams
+    expect([p.get('caixa'), p.get('types'), p.get('startDate'), p.get('endDate')]).toEqual(['1', 'expense', '2026-10-01', '2026-10-31'])
+  })
+  it('sem link com transferências à mostra', () => {
+    expect(linkDeCelulaDoFluxo({ ...base, visao: 'realized', ocultarTransferencias: false })).toBeNull()
   })
 })

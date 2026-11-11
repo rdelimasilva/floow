@@ -73,3 +73,22 @@ export function idsComFilhas(
     .map((c) => c.id)
   return [categoryId, ...filhas]
 }
+
+/**
+ * Célula do detalhamento do Fluxo de caixa. `situacao` vem da visão (Ambos omite).
+ * Sem link com transferências à mostra: a célula as soma pelo sinal e nenhum filtro de Transações reproduz isso.
+ */
+export function linkDeCelulaDoFluxo(o: {
+  inicio: string
+  fim: string
+  tipo: 'income' | 'expense'
+  visao: 'realized' | 'projected' | 'both'
+  ocultarTransferencias: boolean
+  accountIds?: string[]
+}): string | null {
+  if (!o.ocultarTransferencias) return null
+  const situacao = o.visao === 'realized' ? 'realizado' : o.visao === 'projected' ? 'previsto' : undefined
+  return linkDoTotal({
+    inicio: o.inicio, fim: o.fim, accountIds: o.accountIds, tipos: [o.tipo], caixa: true, situacao,
+  })
+}

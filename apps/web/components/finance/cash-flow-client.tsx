@@ -361,7 +361,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts, sta
       {/* Breakdown */}
       <CashFlowBreakdown
         transactions={deferredActiveTransactions}
-        recorte={{ startDate, endDate, accountIds, realizadoSemTransferencias: viewMode === 'realized' && hideTransfers }}
+        recorte={{ startDate, endDate, accountIds, visao: viewMode, ocultarTransferencias: hideTransfers }}
       />
     </>
   )
