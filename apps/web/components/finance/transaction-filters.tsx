@@ -5,6 +5,7 @@ import { useState, useCallback, useRef, useEffect, useTransition } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
 import { CardDigitsFilter } from './card-digits-filter'
+import { PILULA_BASE, PILULA_OFF } from './filtros/pilula'
 import { PeriodFilter } from './period-filter'
 import { MonthNavigator } from './month-navigator'
 import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
@@ -53,9 +54,6 @@ const ACCOUNTS_COOKIE = 'tx-accounts'
 function persistirContas(ids: string[]) {
   document.cookie = `${ACCOUNTS_COOKIE}=${ids.join(',')}; path=/; max-age=31536000; SameSite=Lax`
 }
-
-const PILL_BASE = 'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors'
-const PILL_OFF = 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
 
 /**
  * Cada filtro se desliga onde foi ligado.
@@ -330,8 +328,8 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
               ? 'Clique para ocultar o que ainda não aconteceu'
               : 'Incluir os lançamentos previstos com data futura'
           }
-          className={`${PILL_BASE} h-8 whitespace-nowrap ${
-            includeFuture ? 'bg-amber-100 border border-amber-300 text-amber-800' : PILL_OFF
+          className={`${PILULA_BASE} ${
+            includeFuture ? 'bg-amber-100 border border-amber-300 text-amber-800' : PILULA_OFF
           }`}
         >
           Lançamentos futuros
@@ -341,7 +339,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
           <button
             type="button"
             onClick={limparFiltrosDeColuna}
-            className={`${PILL_BASE} h-9 gap-1.5 whitespace-nowrap bg-gray-900 text-white md:hidden`}
+            className={`rounded-lg px-3 text-xs font-medium transition-colors h-9 gap-1.5 whitespace-nowrap bg-gray-900 text-white md:hidden`}
           >
             Tipo, categoria ou valor
             <X className="h-3.5 w-3.5" aria-hidden />

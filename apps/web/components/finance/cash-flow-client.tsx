@@ -4,6 +4,7 @@ import { useState, useMemo, useDeferredValue, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { CashFlowPeriodFilter } from './cash-flow-period-filter'
 import { AccountFilter } from './account-filter'
+import { PILULA_BASE, PILULA_OFF, PILULA_ON } from './filtros/pilula'
 import { PERIOD_GROUPS, detectActivePeriod, getPeriodDates, hojeEmSaoPaulo, type PeriodKey } from '@/lib/finance/filtros-lembrados'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
 import dynamic from 'next/dynamic'
@@ -59,11 +60,6 @@ const VIEW_LABELS: Record<ViewMode, string> = {
   projected: 'Projetado',
   both: 'Ambos',
 }
-
-// As mesmas pílulas da tela de Transações.
-const PILL_BASE = 'h-8 whitespace-nowrap rounded-lg px-3 text-xs font-medium transition-colors'
-const PILL_OFF = 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-const PILL_ON = 'bg-gray-900 border border-gray-900 text-white'
 
 interface CashFlowClientProps {
   transactions: RawTransaction[]
@@ -257,7 +253,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
               type="button"
               aria-pressed={viewMode === mode}
               onClick={() => trocarVisao(mode)}
-              className={`${PILL_BASE} ${viewMode === mode ? PILL_ON : PILL_OFF}`}
+              className={`${PILULA_BASE} ${viewMode === mode ? PILULA_ON : PILULA_OFF}`}
             >
               {VIEW_LABELS[mode]}
             </button>
@@ -266,7 +262,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
             type="button"
             aria-pressed={hideTransfers}
             onClick={() => setHideTransfers((v) => !v)}
-            className={`${PILL_BASE} ${hideTransfers ? PILL_ON : PILL_OFF}`}
+            className={`${PILULA_BASE} ${hideTransfers ? PILULA_ON : PILULA_OFF}`}
           >
             Ocultar transferências
           </button>

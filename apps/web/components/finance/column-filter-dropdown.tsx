@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ListaComCaixas } from '@/components/finance/filtros/lista-com-caixas'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 
 // ── Type Filter ─────────────────────────────────────────────
@@ -19,29 +20,14 @@ interface TypeFilterProps {
 }
 
 export function TypeFilter({ selected, onChange }: TypeFilterProps) {
-  function toggle(value: string) {
-    if (selected.includes(value)) {
-      onChange(selected.filter((v) => v !== value))
-    } else {
-      onChange([...selected, value])
-    }
-  }
-
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-gray-500">Tipo</p>
-      {TYPE_OPTIONS.map((opt) => (
-        <label key={opt.value} className="flex items-center gap-2 text-sm cursor-pointer">
-          <input
-            type="checkbox"
-            checked={selected.includes(opt.value)}
-            onChange={() => toggle(opt.value)}
-            className="rounded border-gray-300"
-          />
-          {opt.label}
-        </label>
-      ))}
-    </div>
+    <ListaComCaixas
+      rotulo="Tipo"
+      rotuloTodos="Todos os tipos"
+      opcoes={TYPE_OPTIONS.map((o) => ({ valor: o.value, rotulo: o.label }))}
+      marcados={selected}
+      aoMudar={onChange}
+    />
   )
 }
 
@@ -60,31 +46,14 @@ interface CategoryFilterProps {
 }
 
 export function CategoryFilter({ categories, selected, onChange }: CategoryFilterProps) {
-  function toggle(id: string) {
-    if (selected.includes(id)) {
-      onChange(selected.filter((v) => v !== id))
-    } else {
-      onChange([...selected, id])
-    }
-  }
-
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-gray-500">Categoria</p>
-      <div className="max-h-48 overflow-y-auto space-y-1">
-        {toCategoryOptions(categories).map((cat) => (
-          <label key={cat.id} className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={selected.includes(cat.id)}
-              onChange={() => toggle(cat.id)}
-              className="rounded border-gray-300"
-            />
-            {cat.name}
-          </label>
-        ))}
-      </div>
-    </div>
+    <ListaComCaixas
+      rotulo="Categoria"
+      rotuloTodos="Todas as categorias"
+      opcoes={toCategoryOptions(categories).map((c) => ({ valor: c.id, rotulo: c.name }))}
+      marcados={selected}
+      aoMudar={onChange}
+    />
   )
 }
 
