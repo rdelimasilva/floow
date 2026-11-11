@@ -56,3 +56,12 @@ describe('ListaComCaixas', () => {
     expect(aoMudar).toHaveBeenCalledWith(['a', 'b'])
   })
 })
+
+describe('CategoryFilter no cabeçalho', () => {
+  it('mostra as caixas direto, sem segundo botão que abre painel', async () => {
+    const { CategoryFilter } = await import('@/components/finance/column-filter-dropdown')
+    render(<CategoryFilter categories={[{ id: 'x', name: 'Mercado' }]} selected={[]} onChange={() => {}} />)
+    expect(screen.getByLabelText('Mercado')).toBeDefined()
+    expect(document.querySelector('[aria-expanded]')).toBeNull()
+  })
+})

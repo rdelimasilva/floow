@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ListaComCaixas } from '@/components/finance/filtros/lista-com-caixas'
+import { CorpoDaLista } from '@/components/finance/filtros/lista-com-caixas'
 import { toCategoryOptions } from '@/lib/finance/category-options'
 
 // ── Type Filter ─────────────────────────────────────────────
@@ -21,13 +21,15 @@ interface TypeFilterProps {
 
 export function TypeFilter({ selected, onChange }: TypeFilterProps) {
   return (
-    <ListaComCaixas
-      rotulo="Tipo"
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-gray-500">Tipo</p>
+    <CorpoDaLista
       rotuloTodos="Todos os tipos"
       opcoes={TYPE_OPTIONS.map((o) => ({ valor: o.value, rotulo: o.label }))}
       marcados={selected}
       aoMudar={onChange}
     />
+    </div>
   )
 }
 
@@ -47,13 +49,15 @@ interface CategoryFilterProps {
 
 export function CategoryFilter({ categories, selected, onChange }: CategoryFilterProps) {
   return (
-    <ListaComCaixas
-      rotulo="Categoria"
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-gray-500">Categoria</p>
+    <CorpoDaLista
       rotuloTodos="Todas as categorias"
       opcoes={toCategoryOptions(categories).map((c) => ({ valor: c.id, rotulo: c.name }))}
       marcados={selected}
       aoMudar={onChange}
     />
+    </div>
   )
 }
 

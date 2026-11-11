@@ -5,7 +5,9 @@ import { Check, ChevronDown } from 'lucide-react'
 
 interface Opcao<T extends string> {
   valor: T
-  rotulo: string
+  rotulo: React.ReactNode
+  // Texto puro para o resumo do botão, quando `rotulo` não é string.
+  rotuloTexto?: string
   grupo?: string
 }
 
@@ -59,20 +61,15 @@ export function ListaComCaixas<T extends string>({
     }
   }, [aberto])
 
-  function alternar(valor: T) {
-    aoMudar(marcados.includes(valor) ? marcados.filter((v) => v !== valor) : [...marcados, valor])
-  }
-
   let texto = rotuloTodos
   if (marcados.length > 0) {
     texto = resumo
       ? resumo(marcados)
       : marcados.length === 1
-        ? (opcoes.find((o) => o.valor === marcados[0])?.rotulo ?? '1 selecionado')
+        ? rotuloDe(opcoes.find((o) => o.valor === marcados[0])) ?? '1 selecionado'
         : `${marcados.length} selecionados`
   }
 
-  let grupoAtual: string | undefined
   return (
     <div className="relative" ref={caixaRef}>
       <button
@@ -97,44 +94,76 @@ export function ListaComCaixas<T extends string>({
           aria-label={rotulo}
           className={`absolute ${alinhar === 'direita' ? 'right-0' : 'left-0'} z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg`}
         >
-          <button
-            type="button"
-            onClick={() => aoMudar([])}
-            disabled={marcados.length === 0}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-400 disabled:hover:bg-transparent"
-          >
-            {marcados.length === 0 && <Check className="h-3.5 w-3.5 text-gray-900" />}
-            {rotuloTodos}
-          </button>
-          {atalhos && (
-            <>
-              <div className="my-1 h-px bg-gray-100" />
-              {atalhos}
-            </>
-          )}
-          <div className="my-1 h-px bg-gray-100" />
-          <div className="max-h-56 space-y-0.5 overflow-y-auto">
-            {opcoes.map((opcao) => {
-              const cabecalho = opcao.grupo !== grupoAtual && opcao.grupo
-              grupoAtual = opcao.grupo
-              return (
-                <div key={opcao.valor}>
-                  {cabecalho && <p className="px-2 pt-1 text-xs font-medium text-gray-500">{cabecalho}</p>}
-                  <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
-                    <input
-                      type="checkbox"
-                      checked={marcados.includes(opcao.valor)}
-                      onChange={() => alternar(opcao.valor)}
-                      className="rounded border-gray-300"
-                    />
-                    {opcao.rotulo}
-                  </label>
-                </div>
-              )
-            })}
-          </div>
+          <CorpoDaLista
+            rotuloTodos={rotuloTodos}
+            opcoes={opcoes}
+            marcados={marcados}
+            aoMudar={aoMudar}
+            atalhos={atalhos}
+          />
         </div>
       )}
     </div>
+  )
+}
+
+function rotuloDe<T extends string>(o?: Opcao<T>): string | undefined {
+  return o?.rotuloTexto ?? (typeof o?.rotulo === 'string' ? o.rotulo : undefined)
+}
+
+interface CorpoProps<T extends string> {
+  rotuloTodos: string
+  opcoes: Opcao<T>[]
+  marcados: T[]
+  aoMudar: (v: T[]) => void
+  atalhos?: React.ReactNode
+}
+
+/** Só a lista (item "todos", atalhos e caixas): o cabeçalho da coluna a usa direto no popover que já tem. */
+export function CorpoDaLista<T extends string>({ rotuloTodos, opcoes, marcados, aoMudar, atalhos }: CorpoProps<T>) {
+  function alternar(valor: T) {
+    aoMudar(marcados.includes(valor) ? marcados.filter((v) => v !== valor) : [...marcados, valor])
+  }
+
+  let grupoAtual: string | undefined
+  return (
+    <>
+    <button
+      type="button"
+      onClick={() => aoMudar([])}
+      disabled={marcados.length === 0}
+      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-400 disabled:hover:bg-transparent"
+    >
+      {marcados.length === 0 && <Check className="h-3.5 w-3.5 text-gray-900" />}
+      {rotuloTodos}
+    </button>
+    {atalhos && (
+      <>
+        <div className="my-1 h-px bg-gray-100" />
+        {atalhos}
+      </>
+    )}
+    <div className="my-1 h-px bg-gray-100" />
+    <div className="max-h-56 space-y-0.5 overflow-y-auto">
+      {opcoes.map((opcao) => {
+        const cabecalho = opcao.grupo !== grupoAtual && opcao.grupo
+        grupoAtual = opcao.grupo
+        return (
+          <div key={opcao.valor}>
+            {cabecalho && <p className="px-2 pt-1 text-xs font-medium text-gray-500">{cabecalho}</p>}
+            <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={marcados.includes(opcao.valor)}
+                onChange={() => alternar(opcao.valor)}
+                className="rounded border-gray-300"
+              />
+              {opcao.rotulo}
+            </label>
+          </div>
+        )
+      })}
+    </div>
+    </>
   )
 }
