@@ -37,7 +37,8 @@ export interface TransactionFilterOpts {
   /** `situacao`: só o realizado, ou só a previsão ainda por vencer. */
   situacao?: SituacaoDoFiltro;
   /** `fatura`: fechamento do cartão; filtra pelos ids que `comFatura` resolveu antes. */
-  fatura?: string; idsDaFatura?: string[];
+  fatura?: string
+  idsDaFatura?: string[]
 }
 
 interface TransactionQueryOpts extends TransactionFilterOpts {

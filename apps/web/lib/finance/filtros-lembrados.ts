@@ -131,7 +131,8 @@ export function serializarFiltros(url: URLSearchParams, hoje: string = hojeEmSao
   const out = new URLSearchParams()
   for (const key of FILTER_KEYS) {
     const v = url.get(key)
-    if (v) out.set(key, v)
+    // A fatura é de um clique em Cartões: lembrada, voltaria sozinha dias depois.
+    if (v && key !== 'fatura') out.set(key, v)
   }
   const period = detectActivePeriod(out.get('startDate') ?? '', out.get('endDate') ?? '', hoje)
   if (period) {
@@ -149,7 +150,7 @@ export function restaurarFiltros(cookie: string, hoje: string = hojeEmSaoPaulo()
   const out = new URLSearchParams()
   for (const key of FILTER_KEYS) {
     const v = salvo.get(key)
-    if (v) out.set(key, v)
+    if (v && key !== 'fatura') out.set(key, v)
   }
   const period = salvo.get('period')
   if (period && (PERIOD_KEYS as string[]).includes(period)) {

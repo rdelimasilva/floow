@@ -5,11 +5,12 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { and } from 'drizzle-orm'
 
-const linhas = vi.hoisted(() => ({ valor: [] as Record<string, unknown>[] }))
+const linhas = vi.hoisted(() => ({ valor: [] as Record<string, unknown>[], where: null as unknown }))
 vi.mock('@/lib/db/rls', () => ({
   withUserDb: (fn: (db: unknown) => unknown) => {
     const cadeia: Record<string, unknown> = {}
-    for (const m of ['select', 'from', 'leftJoin', 'where']) cadeia[m] = () => cadeia
+    for (const m of ['select', 'from', 'leftJoin']) cadeia[m] = () => cadeia
+    cadeia.where = (w: unknown) => { linhas.where = w; return cadeia }
     cadeia.then = (r: (v: unknown[]) => void) => r(linhas.valor)
     return fn(cadeia)
   },
@@ -30,7 +31,8 @@ vi.mock('@/lib/finance/queries-categories', () => ({
 vi.mock('@/lib/finance/recurring-budget-queries', () => ({ getSpendingPlanForMonth: async () => [] }))
 
 import { getGastosDosCartoes } from '@/lib/finance/queries-gastos-cartao'
-import { comFatura } from '@/lib/finance/fatura-do-filtro'
+import { comFatura, periodoDaBusca } from '@/lib/finance/fatura-do-filtro'
+import { serializarFiltros } from '@/lib/finance/filtros-lembrados'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { idsComFilhas, linkDaFatura } from '@/lib/finance/link-do-total'
 import { buildTransactionConditions } from '@/lib/finance/queries-transactions'
@@ -111,6 +113,21 @@ describe('fatura do cartão abre os lançamentos dela', () => {
       expect(f.idsDaFatura).toBeUndefined()
     }
     expect(filtrosDaUrl({ fatura: '10/10/2026' }).fatura).toBeUndefined()
+  })
+
+  it('busca com a janela da tela: padrão de 12 meses, ou desde o mês anterior para fatura antiga', async () => {
+    const limiteInferior = () => dialect.sqlToQuery(linhas.where as never).params.find((p) => p instanceof Date || typeof p === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(p))
+    await comFatura('org-1', filtrosDaUrl({ accountId: 'c1', fatura: '2026-10-10' }))
+    expect(new Date(limiteInferior() as string).toISOString().slice(0, 10)).toBe('2025-10-01')
+    await comFatura('org-1', filtrosDaUrl({ accountId: 'c1', fatura: '2025-03-10' }))
+    expect(new Date(limiteInferior() as string).toISOString().slice(0, 10)).toBe('2025-01-01')
+    expect(periodoDaBusca('2025-03-10', '2026-11-11')).toEqual({ inicio: '2025-02-01', fim: '2025-03-10' })
+    expect(periodoDaBusca('2026-10-10', '2026-11-11')).toEqual({ inicio: '', fim: '' })
+  })
+
+  it('a fatura não fica lembrada no cookie', () => {
+    const salvo = serializarFiltros(new URLSearchParams({ accountId: 'c1', fatura: '2026-10-10', search: 'x' }), '2026-11-11')
+    expect(salvo).toBe('accountId=c1&search=x')
   })
 
   it('sem lançamento na fatura não há link', () => {
