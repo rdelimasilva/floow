@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useDeferredValue, useEffect } from 'react'
 import { useFiltrosNaUrl } from './filtros/use-filtros-na-url'
+import { GavetaDeFiltros } from './filtros/gaveta-de-filtros'
 import { useGravarRecorteNaChegada } from './filtros/use-gravar-recorte-na-chegada'
 import { visaoInicial, type ViewMode } from '@/lib/finance/visao-do-fluxo'
 import { formatBRL } from '@floow/core-finance/src/balance'
@@ -236,32 +237,49 @@ export function CashFlowClient({ transactions, futureTransactions, accounts, sta
     ), contas)
   }, [accounts, viewMode, preparedTransactions, preparedFutureTransactions, accountIds, startDate, endDate])
 
+  const opcoes = (
+    <>
+      <AccountFilter accounts={accounts} selected={accountIds} onChange={(ids) => trocar({ accountId: ids.join(',') })} />
+      {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          aria-pressed={viewMode === mode}
+          onClick={() => trocarVisao(mode)}
+          className={`${PILULA_BASE} ${viewMode === mode ? PILULA_ON : PILULA_OFF}`}
+        >
+          {VIEW_LABELS[mode]}
+        </button>
+      ))}
+      <button
+        type="button"
+        aria-pressed={hideTransfers}
+        onClick={() => setHideTransfers((v) => !v)}
+        className={`${PILULA_BASE} ${hideTransfers ? PILULA_ON : PILULA_OFF}`}
+      >
+        Ocultar transferências
+      </button>
+    </>
+  )
+
   return (
     <>
       {/* Preso logo abaixo do cabeçalho fixo, no computador. */}
       <div className="space-y-1.5 bg-gray-50 md:sticky md:top-[calc(3.5rem+env(safe-area-inset-top)+var(--altura-cabecalho,0px))] md:z-20 md:pb-2">
         <div className="flex flex-wrap items-center gap-2">
-          <SeletorDePeriodo modo="intervalo" startDate={startDate} endDate={endDate} aoMudar={escolherPeriodo} />
-          <AccountFilter accounts={accounts} selected={accountIds} onChange={(ids) => trocar({ accountId: ids.join(',') })} />
-          {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              aria-pressed={viewMode === mode}
-              onClick={() => trocarVisao(mode)}
-              className={`${PILULA_BASE} ${viewMode === mode ? PILULA_ON : PILULA_OFF}`}
-            >
-              {VIEW_LABELS[mode]}
-            </button>
-          ))}
-          <button
-            type="button"
-            aria-pressed={hideTransfers}
-            onClick={() => setHideTransfers((v) => !v)}
-            className={`${PILULA_BASE} ${hideTransfers ? PILULA_ON : PILULA_OFF}`}
-          >
-            Ocultar transferências
-          </button>
+          {/* Celular: período e setas à vista; contas e visão na gaveta. */}
+          <SeletorDePeriodo
+            modo="intervalo"
+            startDate={startDate}
+            endDate={endDate}
+            aoMudar={escolherPeriodo}
+            acaoNoCelular={
+              <GavetaDeFiltros contador={[accountIds.length > 0, viewMode !== 'realized', !hideTransfers].filter(Boolean).length}>
+                <div className="flex flex-wrap items-center gap-2">{opcoes}</div>
+              </GavetaDeFiltros>
+            }
+          />
+          <div className="hidden md:contents">{opcoes}</div>
         </div>
         {futureTransactions.length === 0 && (
           <p className="text-xs text-gray-500">

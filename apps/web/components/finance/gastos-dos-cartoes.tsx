@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { GavetaDeFiltros } from './filtros/gaveta-de-filtros'
 import { ListaComCaixas } from './filtros/lista-com-caixas'
 import { SeletorDePeriodo } from './filtros/seletor-de-periodo'
 import { useFiltrosNaUrl } from './filtros/use-filtros-na-url'
@@ -144,33 +145,46 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
     )
   }
 
+  // Os mesmos controles servem à linha do desktop e à gaveta do celular.
+  const filtros = () => (
+    <>
+      {cartoes.length > 1 && (
+        <ListaComCaixas
+          rotulo="Cartão"
+          rotuloTodos="Todos os cartões"
+          opcoes={cartoes.map((c) => ({ valor: c.id, rotulo: c.titular ? `${c.name} · ${c.titular}` : c.name }))}
+          marcados={accountIds}
+          aoMudar={(ids) => { setEscolhido(null); trocar({ accountId: ids.join(',') }) }}
+        />
+      )}
+      {opcoesDeCategoria.length > 1 && (
+        <ListaComCaixas
+          rotulo="Categoria"
+          rotuloTodos="Todas as categorias"
+          opcoes={opcoesDeCategoria.map((c) => ({ valor: c.id, rotulo: c.name }))}
+          marcados={nomesEscolhidos.length ? categoryIds.filter((id) => opcoesDeCategoria.some((c) => c.id === id)) : []}
+          aoMudar={(ids) => { setEscolhido(null); trocar({ categoryIds: ids.join(',') }) }}
+        />
+      )}
+    </>
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
+        {/* Celular: período e setas à vista; cartões e categorias na gaveta. */}
         <SeletorDePeriodo
           modo="intervalo"
           startDate={startDate}
           endDate={endDate}
           aoMudar={(p) => { setEscolhido(null); trocar({ startDate: p.startDate, endDate: p.endDate }) }}
+          acaoNoCelular={
+            <GavetaDeFiltros contador={(cartoes.length > 1 && accountIds.length > 0 ? 1 : 0) + (opcoesDeCategoria.length > 1 && nomesEscolhidos.length > 0 ? 1 : 0)}>
+              <div className="flex flex-wrap items-center gap-2">{filtros()}</div>
+            </GavetaDeFiltros>
+          }
         />
-        {cartoes.length > 1 && (
-          <ListaComCaixas
-            rotulo="Cartão"
-            rotuloTodos="Todos os cartões"
-            opcoes={cartoes.map((c) => ({ valor: c.id, rotulo: c.titular ? `${c.name} · ${c.titular}` : c.name }))}
-            marcados={accountIds}
-            aoMudar={(ids) => { setEscolhido(null); trocar({ accountId: ids.join(',') }) }}
-          />
-        )}
-        {opcoesDeCategoria.length > 1 && (
-          <ListaComCaixas
-            rotulo="Categoria"
-            rotuloTodos="Todas as categorias"
-            opcoes={opcoesDeCategoria.map((c) => ({ valor: c.id, rotulo: c.name }))}
-            marcados={nomesEscolhidos.length ? categoryIds.filter((id) => opcoesDeCategoria.some((c) => c.id === id)) : []}
-            aoMudar={(ids) => { setEscolhido(null); trocar({ categoryIds: ids.join(',') }) }}
-          />
-        )}
+        <div className="hidden md:contents">{filtros()}</div>
       </div>
 
       {meses.length === 0 ? (

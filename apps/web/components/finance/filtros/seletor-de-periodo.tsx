@@ -24,23 +24,9 @@ interface Props {
   children?: ReactNode
 }
 
-/** O mesmo controle de período para todas as telas; só muda o quanto dele aparece. */
-export function SeletorDePeriodo({
-  modo, startDate, endDate, aoMudar, acaoNoCelular, datasNoCelular = true, children,
-}: Props) {
-  const mes = mesDoRecorte(startDate, endDate)
-  const andar = (delta: number) => aoMudar(mesInteiro(mes, delta), null)
-
-  if (modo === 'mes') return <MonthNavigator month={mes} onShift={andar}>{children}</MonthNavigator>
-
-  const active = detectActivePeriod(startDate, endDate)
-  const custom = !active && Boolean(startDate || endDate)
-
-  function escolher(key: PeriodKey | null) {
-    aoMudar(key ? getPeriodDates(key) : { startDate: '', endDate: '' }, key)
-  }
-
-  const data = (valor: string, rotulo: string, mudar: (v: string) => void) => (
+/** Um campo de data com o × dentro; a gaveta do celular o usa para o período personalizado. */
+export function CampoDeData({ valor, rotulo, mudar }: { valor: string; rotulo: string; mudar: (v: string) => void }) {
+  return (
     <div className="flex min-w-0 flex-1 items-center gap-1 md:flex-none">
       <input
         type="date" min="1900-01-01" max="2100-12-31"
@@ -62,6 +48,23 @@ export function SeletorDePeriodo({
       )}
     </div>
   )
+}
+
+/** O mesmo controle de período para todas as telas; só muda o quanto dele aparece. */
+export function SeletorDePeriodo({
+  modo, startDate, endDate, aoMudar, acaoNoCelular, datasNoCelular = true, children,
+}: Props) {
+  const mes = mesDoRecorte(startDate, endDate)
+  const andar = (delta: number) => aoMudar(mesInteiro(mes, delta), null)
+
+  if (modo === 'mes') return <MonthNavigator month={mes} onShift={andar}>{children}</MonthNavigator>
+
+  const active = detectActivePeriod(startDate, endDate)
+  const custom = !active && Boolean(startDate || endDate)
+
+  function escolher(key: PeriodKey | null) {
+    aoMudar(key ? getPeriodDates(key) : { startDate: '', endDate: '' }, key)
+  }
 
   return (
     // `contents` no desktop: os campos entram na linha de filtros de quem usa.
@@ -91,9 +94,9 @@ export function SeletorDePeriodo({
         <MonthNavigator month={mes} onShift={andar} />
       </div>
       <div className={datasNoCelular ? 'flex w-full items-center gap-2 md:contents' : 'hidden md:contents'}>
-        {data(startDate, 'Data inicial', (v) => aoMudar({ startDate: v, endDate }, null))}
+        <CampoDeData valor={startDate} rotulo="Data inicial" mudar={(v) => aoMudar({ startDate: v, endDate }, null)} />
         <span className="text-xs text-gray-500">até</span>
-        {data(endDate, 'Data final', (v) => aoMudar({ startDate, endDate: v }, null))}
+        <CampoDeData valor={endDate} rotulo="Data final" mudar={(v) => aoMudar({ startDate, endDate: v }, null)} />
       </div>
     </div>
   )

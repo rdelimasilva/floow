@@ -156,6 +156,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
         hideAccountFilter
         baseUrl={`/accounts/${accountId}`}
         includeFuture={filters.includeFuture}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }))}
       />
 
       {/* Transaction count */}

@@ -196,7 +196,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
         <PendingQueuesSlot orgId={orgId} userId={userId} />
       </Suspense>
 
-      <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} cardDigitsOptions={finaisDoCartao} />
+      <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} cardDigitsOptions={finaisDoCartao} categories={categoryOptions} />
 
       {/* No celular a paginação fica só embaixo: em cima ocupava três linhas
           antes do primeiro lançamento. */}
