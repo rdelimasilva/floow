@@ -7,6 +7,10 @@
  * do dia da volta; datas digitadas à mão voltam como estão.
  *
  * Datas vazias significam ponta aberta ("Todo o período").
+ *
+ * Contas: a chegada na tela preserva as contas do cookie que a tela não lista
+ * (ex.: investimento); mexer no seletor da tela substitui as contas do recorte.
+ * O recorte não é alterado por essa tela até o usuário mexer no seletor dela.
  */
 import {
   FILTERS_COOKIE, PERIOD_KEYS, detectActivePeriod, getPeriodDates, hojeEmSaoPaulo,
@@ -27,6 +31,16 @@ export function RECORTE_PADRAO(hoje: string = hojeEmSaoPaulo()): Recorte {
 
 const MES = /^\d{4}-\d{2}-01$/
 const DIA = /^\d{4}-\d{2}-\d{2}$/
+
+/** Chaves da URL que compõem o recorte. */
+export const CHAVES_DO_RECORTE = ['startDate', 'endDate', 'accountId', 'month']
+
+/** Dia que existe no calendário (2026-02-30 não): ida e volta pelo Date. */
+export function diaExiste(v: string): boolean {
+  if (!DIA.test(v)) return false
+  const d = new Date(`${v}T00:00:00Z`)
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v
+}
 
 const lista = (v: string | null | undefined) => (v ? v.split(',').filter(Boolean) : [])
 
@@ -74,15 +88,15 @@ export function lerRecorte(cookies: Params, hoje: string = hojeEmSaoPaulo()): Re
 export function recorteDaUrl(params: Params): Partial<Recorte> {
   const out: Partial<Recorte> = {}
   // Valor malformado na URL (link velho, digitado) é ignorado em vez de virar data inválida.
-  if (params.month && MES.test(params.month)) Object.assign(out, mesInteiro(params.month.slice(0, 7), 0))
-  if (params.startDate !== undefined && (params.startDate === '' || DIA.test(params.startDate))) out.startDate = params.startDate
-  if (params.endDate !== undefined && (params.endDate === '' || DIA.test(params.endDate))) out.endDate = params.endDate
+  if (params.month && MES.test(params.month) && diaExiste(params.month)) Object.assign(out, mesInteiro(params.month.slice(0, 7), 0))
+  if (params.startDate !== undefined && (params.startDate === '' || diaExiste(params.startDate))) out.startDate = params.startDate
+  if (params.endDate !== undefined && (params.endDate === '' || diaExiste(params.endDate))) out.endDate = params.endDate
   if (params.accountId !== undefined) out.accountIds = lista(params.accountId)
   return out
 }
 
 export function temRecorteNaUrl(params: Params): boolean {
-  return ['startDate', 'endDate', 'accountId', 'month'].some((k) => params[k] !== undefined)
+  return CHAVES_DO_RECORTE.some((k) => params[k] !== undefined)
 }
 
 /** Conta que a tela não conhece sai; as outras ficam. */

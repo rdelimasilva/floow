@@ -34,7 +34,7 @@ export interface TransactionFilterOpts {
   includeFuture?: boolean;
   /** `caixa=1`: só o que entra nas análises. Exige o join com categories. */
   soAnalises?: boolean;
-  /** `situacao`: só o realizado, ou só a previsão ainda por vencer. */
+  /** `situacao`: realizado, previsto ou ambos (sem corte). */
   situacao?: SituacaoDoFiltro;
   /** `fatura`: fechamento do cartão; filtra pelos ids que `comFatura` resolveu antes. */
   fatura?: string

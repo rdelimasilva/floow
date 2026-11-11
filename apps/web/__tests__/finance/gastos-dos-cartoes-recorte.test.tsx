@@ -79,6 +79,15 @@ describe('Cartões no recorte', () => {
     expect(grafico()).toContain('2026-10=1230')
   })
 
+  it('uma categoria só: seletor aparece quando categoryIds está na URL', () => {
+    const uma = { ...base, categoriasDeCima: [{ id: 'k1', name: 'Mercado' }] }
+    const { unmount } = render(<GastosDosCartoes {...uma} />)
+    const sem = screen.getAllByRole('button', { name: /Mercado/ }).length
+    unmount()
+    render(<GastosDosCartoes {...uma} categoryIds={['k1']} />)
+    expect(screen.getAllByRole('button', { name: /Mercado/ }).length).toBeGreaterThan(sem)
+  })
+
   it('trocar o cartão grava accountId', () => {
     render(<GastosDosCartoes {...base} />)
     fireEvent.click(screen.getByRole('button', { name: /Todos os cartões/ }))

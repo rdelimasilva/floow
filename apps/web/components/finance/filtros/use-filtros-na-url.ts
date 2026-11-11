@@ -2,9 +2,7 @@
 
 import { useCallback, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { gravarRecorte, recorteDaUrl } from '@/lib/finance/recorte'
-
-const CHAVES_DO_RECORTE = ['startDate', 'endDate', 'accountId', 'month']
+import { CHAVES_DO_RECORTE, gravarRecorte, recorteDaUrl } from '@/lib/finance/recorte'
 
 type Opcoes = {
   /** Grava período e contas no cookie `recorte`. Padrão: true. */

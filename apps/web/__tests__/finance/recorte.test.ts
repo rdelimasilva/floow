@@ -72,3 +72,11 @@ describe('recorte malformado na URL', () => {
     expect(mesParaTelaDeMes({ startDate: '', endDate: 'lixo', accountIds: [] }, '2026-11-11')).toBe('2026-11-01')
   })
 })
+
+describe('datas impossíveis', () => {
+  it('recorteDaUrl trata 2026-02-30 e 2026-13 como ausentes', () => {
+    expect(recorteDaUrl({ startDate: '2026-02-30', endDate: '2026-04-31', month: '2026-13-01' })).toEqual({})
+    expect(recorteDaUrl({ startDate: '2024-02-29' })).toEqual({ startDate: '2024-02-29' })
+  })
+})
+

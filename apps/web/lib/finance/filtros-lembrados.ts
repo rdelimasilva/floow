@@ -105,12 +105,6 @@ export function mesDoRecorte(startDate: string, endDate: string, hoje: string = 
   return (startDate || endDate || hoje).slice(0, 7)
 }
 
-/** O primeiro dia do mês `delta` meses depois de "YYYY-MM" ou "YYYY-MM-01". */
-export function andarMes(mes: string, delta: number): string {
-  const [y, m1] = mes.split('-').map(Number)
-  return dia(y, m1 - 1 + delta, 1)
-}
-
 /** O mês inteiro `delta` meses depois de "YYYY-MM". */
 export function mesInteiro(mes: string, delta: number): { startDate: string; endDate: string } {
   const [y, m1] = mes.split('-').map(Number)
@@ -126,13 +120,15 @@ export function detectActivePeriod(startDate: string, endDate: string, hoje: str
   return null
 }
 
+// Vêm de um clique (Cartões, Análises): lembrados, voltariam sozinhos dias depois.
+const NAO_LEMBRADOS: string[] = ['fatura', 'caixa', 'situacao']
+
 /** O que vai para o cookie, a partir da URL que a tela vai mostrar. */
 export function serializarFiltros(url: URLSearchParams, hoje: string = hojeEmSaoPaulo()): string {
   const out = new URLSearchParams()
   for (const key of FILTER_KEYS) {
     const v = url.get(key)
-    // A fatura é de um clique em Cartões: lembrada, voltaria sozinha dias depois.
-    if (v && key !== 'fatura') out.set(key, v)
+    if (v && !NAO_LEMBRADOS.includes(key)) out.set(key, v)
   }
   const period = detectActivePeriod(out.get('startDate') ?? '', out.get('endDate') ?? '', hoje)
   if (period) {
@@ -150,7 +146,7 @@ export function restaurarFiltros(cookie: string, hoje: string = hojeEmSaoPaulo()
   const out = new URLSearchParams()
   for (const key of FILTER_KEYS) {
     const v = salvo.get(key)
-    if (v && key !== 'fatura') out.set(key, v)
+    if (v && !NAO_LEMBRADOS.includes(key)) out.set(key, v)
   }
   const period = salvo.get('period')
   if (period && (PERIOD_KEYS as string[]).includes(period)) {

@@ -8,7 +8,6 @@ import {
   temFiltroNaUrl,
   mesDoRecorte,
   mesInteiro,
-  andarMes,
 } from '@/lib/finance/filtros-lembrados'
 
 /**
@@ -163,10 +162,13 @@ describe('setas de mês', () => {
   })
 })
 
-describe('andarMes', () => {
-  it('vira o ano nos dois sentidos e devolve o dia 1', () => {
-    expect(andarMes('2026-01-01', -1)).toBe('2025-12-01')
-    expect(andarMes('2026-12-01', 1)).toBe('2027-01-01')
-    expect(andarMes('2026-10', 3)).toBe('2027-01-01')
+describe('caixa e situacao não são lembrados', () => {
+  it('contam como filtro na URL mas ficam fora do cookie', () => {
+    const url = new URLSearchParams('caixa=1&situacao=previsto&search=x')
+    expect(temFiltroNaUrl({ caixa: '1' })).toBe(true)
+    const cookie = serializarFiltros(url)
+    expect(cookie).toBe('search=x')
+    expect(restaurarFiltros('caixa=1&situacao=previsto&search=x').toString()).toBe('search=x')
   })
 })
+

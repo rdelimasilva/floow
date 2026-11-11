@@ -2,9 +2,7 @@
 
 import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { gravarRecorte, recorteDaUrl, recorteDoNavegador, type Recorte } from '@/lib/finance/recorte'
-
-const CHAVES = ['startDate', 'endDate', 'accountId', 'month']
+import { CHAVES_DO_RECORTE as CHAVES, gravarRecorte, mesParaTelaDeMes, recorteDaUrl, recorteDoNavegador, type Recorte } from '@/lib/finance/recorte'
 
 /**
  * Chegada com recorte na URL (link, menu, importação) grava o recorte que a
@@ -21,6 +19,10 @@ export function useGravarRecorteNaChegada(contasDaTela: { id: string }[] | null)
   useEffect(() => {
     const p = Object.fromEntries(new URLSearchParams(searchParams.toString()))
     if (!CHAVES.some((k) => p[k] !== undefined)) return
+    // Abrir um lançamento (link com busca) não é escolher recorte.
+    if (p.search !== undefined) return
+    // Menu e redirect montam ?month= do próprio cookie: regravar achataria "Este ano" num mês.
+    if (p.month && p.month === mesParaTelaDeMes(recorteDoNavegador())) return
     const lido = recorteDaUrl(p)
     if (!Object.keys(lido).length) return // `month` inválido não apaga o período
     const { startDate = '', endDate = '', accountIds } = lido

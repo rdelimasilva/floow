@@ -170,7 +170,7 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
           aoMudar={(ids) => { setEscolhido(null); trocar({ accountId: ids.join(',') }) }}
         />
       )}
-      {opcoesDeCategoria.length > 1 && (
+      {(opcoesDeCategoria.length > 1 || nomesEscolhidos.length > 0) && (
         <ListaComCaixas
           naGaveta={naGaveta}
           rotulo="Categoria"
@@ -193,7 +193,7 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
           endDate={endDate}
           aoMudar={(p) => { setEscolhido(null); trocar({ startDate: p.startDate, endDate: p.endDate }) }}
           acaoNoCelular={
-            <GavetaDeFiltros contador={(cartoes.length > 1 && accountIds.length > 0 ? 1 : 0) + (opcoesDeCategoria.length > 1 && nomesEscolhidos.length > 0 ? 1 : 0)}>
+            <GavetaDeFiltros contador={(cartoes.length > 1 && accountIds.length > 0 ? 1 : 0) + (nomesEscolhidos.length > 0 ? 1 : 0)}>
               <div className="space-y-4">{filtros(true)}</div>
             </GavetaDeFiltros>
           }

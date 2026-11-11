@@ -1,8 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { destinoComRecorte, lerRecorte, mesParaTelaDeMes } from '@/lib/finance/recorte'
-
-const MES = /^\d{4}-\d{2}/
+import { destinoComRecorte, diaExiste, lerRecorte, mesParaTelaDeMes } from '@/lib/finance/recorte'
 
 /**
  * Mês ("YYYY-MM-01") de uma tela de mês. `month` válido na URL vale; ausente ou
@@ -14,7 +12,8 @@ export async function mesDaTela(
   padrao: () => string = () => mesParaTelaDeMes(null),
   soComFim = false,
 ): Promise<string> {
-  if (MES.test(params.month ?? '')) return `${params.month!.slice(0, 7)}-01`
+  const mes = `${(params.month ?? '').slice(0, 7)}-01`
+  if (diaExiste(mes)) return mes
   const jar = await cookies()
   const lidos = Object.fromEntries(jar.getAll().map((c) => [c.name, c.value]))
   const lido = lerRecorte(lidos)
