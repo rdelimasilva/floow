@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import { AlertTriangle, TrendingUp, Check, List } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
-import { MonthNavigator } from '@/components/finance/month-navigator'
+import { SeletorDePeriodo } from '@/components/finance/filtros/seletor-de-periodo'
 import { PacingTransactionsDialog } from '@/components/finance/pacing-transactions-dialog'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import type { BudgetPacingResult, PacingStatus } from '@floow/core-finance'
@@ -59,12 +59,6 @@ function StatusBadge({ status }: { status: PacingStatus }) {
   )
 }
 
-function shiftMonth(monthStr: string, delta: number): string {
-  const [y, m] = monthStr.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
-}
-
 export function PacingClient({ result, categoryNames, memberIds, categoryOptions, selectedMonth }: Props) {
   const router = useRouter()
   const [openCategory, setOpenCategory] = useState<{
@@ -86,8 +80,8 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
       b.projectedCents - a.projectedCents,
   )
 
-  function go(delta: number) {
-    router.push(`/budgets/pacing?month=${shiftMonth(selectedMonth, delta)}`)
+  function go(p: { startDate: string }) {
+    router.replace(`/budgets/pacing?month=${p.startDate}`, { scroll: false })
   }
 
   return (
@@ -99,13 +93,13 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
         <LinkDeAjuda topico="ritmo-de-gastos" />
       </PageHeader>
 
-      <MonthNavigator month={selectedMonth} onShift={go}>
+      <SeletorDePeriodo modo="mes" startDate={selectedMonth} endDate="" aoMudar={go}>
         {total.daysElapsed > 0 && (
           <span className="ml-2 text-sm" style={{ color: '#6E6E6E' }}>
             dia {total.daysElapsed} de {total.daysInMonth}
           </span>
         )}
-      </MonthNavigator>
+      </SeletorDePeriodo>
 
       <Card style={{ borderRadius: 14 }}>
         <CardContent className="space-y-5 pt-6">

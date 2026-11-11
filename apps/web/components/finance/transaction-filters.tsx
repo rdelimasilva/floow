@@ -6,18 +6,11 @@ import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
 import { CardDigitsFilter } from './card-digits-filter'
 import { PILULA_BASE, PILULA_OFF } from './filtros/pilula'
-import { PeriodFilter } from './period-filter'
-import { MonthNavigator } from './month-navigator'
+import { SeletorDePeriodo } from './filtros/seletor-de-periodo'
 import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
 import {
-  PERIOD_LABELS,
-  PERIOD_GROUPS,
-  type PeriodKey,
-  getPeriodDates,
   detectActivePeriod,
   lembrarFiltros,
-  mesDoRecorte,
-  mesInteiro,
 } from '@/lib/finance/filtros-lembrados'
 
 // Filtros de coluna e ordenação vivem na tabela; trocar período, busca ou
@@ -127,21 +120,10 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     })
   }, [router, baseUrl, search, accountIds, startDate, endDate, searchParams, startTransition])
 
-  function escolherPeriodo(key: PeriodKey | null) {
-    const { startDate: s, endDate: e } = key ? getPeriodDates(key) : { startDate: '', endDate: '' }
-    setStartDate(s)
-    setEndDate(e)
-    navigate({ startDate: s, endDate: e })
-  }
-
-  // As setas trocam o recorte pelo mês inteiro vizinho; o seletor de período
-  // e as datas continuam valendo como antes.
-  const mes = mesDoRecorte(startDate, endDate)
-  function andarMes(delta: number) {
-    const { startDate: s, endDate: e } = mesInteiro(mes, delta)
-    setStartDate(s)
-    setEndDate(e)
-    navigate({ startDate: s, endDate: e })
+  function mudarPeriodo(p: { startDate: string; endDate: string }) {
+    setStartDate(p.startDate)
+    setEndDate(p.endDate)
+    navigate(p)
   }
 
   function clearSearch() {
@@ -174,101 +156,35 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   const limparFiltrosDeColuna = () => navigate({ types: '', categoryIds: '', minAmount: '', maxAmount: '' })
 
   return (
-    <div className="space-y-2">
-      {/* Celular: onze pílulas ocupavam meia tela antes do primeiro lançamento.
-          O seletor nativo abre a roleta do iPhone e cabe numa linha. */}
-      <div className="flex items-center gap-2 md:hidden">
-        <select
-          aria-label="Período"
-          value={activePeriod ?? (startDate || endDate ? 'custom' : '')}
-          onChange={(e) => escolherPeriodo((e.target.value as PeriodKey) || null)}
-          className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-base text-gray-700"
-        >
-          <option value="">Todo o período</option>
-          {!activePeriod && (startDate || endDate) && <option value="custom" disabled>Datas personalizadas</option>}
-          {PERIOD_GROUPS.map((group) => (
-            <optgroup key={group.label} label={group.label}>
-              {group.keys.map((key) => <option key={key} value={key}>{PERIOD_LABELS[key]}</option>)}
-            </optgroup>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={() => setFiltersOpen((v) => !v)}
-          aria-expanded={filtersOpen}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-          Filtros
-          {filtrosNoBotao + filtrosDeColuna > 0 && (
-            <span className="rounded-full bg-blue-600 px-1.5 text-xs font-semibold tabular-nums text-white">
-              {filtrosNoBotao + filtrosDeColuna}
-            </span>
-          )}
-        </button>
-      </div>
-      <div className="flex justify-center md:hidden">
-        <MonthNavigator month={mes} onShift={andarMes} />
-      </div>
+    <div className="space-y-2 md:flex md:flex-wrap md:items-center md:gap-2 md:space-y-0">
+      {/* O seletor traz atalhos, setas e datas; o botão "Filtros" fica ao lado
+          do seletor nativo no celular e as datas só abrem com ele. */}
+      <SeletorDePeriodo
+        modo="intervalo"
+        startDate={startDate}
+        endDate={endDate}
+        aoMudar={mudarPeriodo}
+        datasNoCelular={filtersOpen}
+        acaoNoCelular={
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {filtrosNoBotao + filtrosDeColuna > 0 && (
+              <span className="rounded-full bg-blue-600 px-1.5 text-xs font-semibold tabular-nums text-white">
+                {filtrosNoBotao + filtrosDeColuna}
+              </span>
+            )}
+          </button>
+        }
+      />
 
-      {/* Filters row — always visible on desktop, collapsible on mobile */}
-      <div className={`flex-wrap items-center gap-2 ${filtersOpen ? 'flex' : 'hidden md:flex'}`}>
-        {/* Desktop: um botão com os atalhos; no celular é o <select> lá de cima */}
-        <div className="hidden md:block">
-          <PeriodFilter
-            active={activePeriod}
-            custom={!activePeriod && Boolean(startDate || endDate)}
-            onChange={escolherPeriodo}
-          />
-        </div>
-        <div className="hidden md:block">
-          <MonthNavigator month={mes} onShift={andarMes} />
-        </div>
-
-        {/* Date range — cada ponta se solta pelo × ao lado dela */}
-        <div className="flex w-full items-center gap-2 md:contents">
-        <div className="flex min-w-0 flex-1 items-center gap-1 md:flex-none">
-          <input
-            type="date" min="1900-01-01" max="2100-12-31"
-            aria-label="Data inicial"
-            value={startDate}
-            onChange={(e) => { setStartDate(e.target.value); navigate({ startDate: e.target.value }) }}
-            className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 text-base text-gray-600 md:h-8 md:flex-none md:px-3 md:text-xs"
-          />
-          {startDate && (
-            <button
-              type="button"
-              aria-label="Limpar data inicial"
-              title="Limpar data inicial"
-              onClick={() => { setStartDate(''); navigate({ startDate: '' }) }}
-              className="rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-        <span className="text-xs text-gray-500">até</span>
-        <div className="flex min-w-0 flex-1 items-center gap-1 md:flex-none">
-          <input
-            type="date" min="1900-01-01" max="2100-12-31"
-            aria-label="Data final"
-            value={endDate}
-            onChange={(e) => { setEndDate(e.target.value); navigate({ endDate: e.target.value }) }}
-            className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 text-base text-gray-600 md:h-8 md:flex-none md:px-3 md:text-xs"
-          />
-          {endDate && (
-            <button
-              type="button"
-              aria-label="Limpar data final"
-              title="Limpar data final"
-              onClick={() => { setEndDate(''); navigate({ endDate: '' }) }}
-              className="rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-        </div>
+      {/* Demais filtros — sempre visíveis no desktop, recolhidos no celular */}
+      <div className={`flex-wrap items-center gap-2 md:contents ${filtersOpen ? 'flex' : 'hidden'}`}>
 
         {/* Search */}
         <div className="relative w-full md:w-auto md:flex-1 md:min-w-[200px]">

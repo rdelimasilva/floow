@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useDeferredValue, useEffect } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
-import { CashFlowPeriodFilter } from './cash-flow-period-filter'
+import { SeletorDePeriodo } from './filtros/seletor-de-periodo'
 import { AccountFilter } from './account-filter'
 import { PILULA_BASE, PILULA_OFF, PILULA_ON } from './filtros/pilula'
 import { PERIOD_GROUPS, detectActivePeriod, getPeriodDates, hojeEmSaoPaulo, type PeriodKey } from '@/lib/finance/filtros-lembrados'
@@ -176,8 +176,8 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
     return porMes(filteredRealized, filteredFuture)
   }, [viewMode, filteredRealized, filteredFuture])
 
-  function escolherPeriodo(s: string, e: string, key: PeriodKey | null) {
-    setPeriodo({ startDate: s, endDate: e })
+  function escolherPeriodo(p: { startDate: string; endDate: string }, key: PeriodKey | null) {
+    setPeriodo(p)
     // Atalho de passado ou de futuro já leva ao modo que tem dado para ele.
     if (key && PERIOD_GROUPS[0].keys.includes(key)) setViewMode('realized')
     if (key && PERIOD_GROUPS[2].keys.includes(key)) setViewMode('projected')
@@ -245,7 +245,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
       {/* Preso logo abaixo do cabeçalho fixo, no computador. */}
       <div className="space-y-1.5 bg-gray-50 md:sticky md:top-[calc(3.5rem+env(safe-area-inset-top)+var(--altura-cabecalho,0px))] md:z-20 md:pb-2">
         <div className="flex flex-wrap items-center gap-2">
-          <CashFlowPeriodFilter startDate={startDate} endDate={endDate} onChange={escolherPeriodo} />
+          <SeletorDePeriodo modo="intervalo" startDate={startDate} endDate={endDate} aoMudar={escolherPeriodo} />
           <AccountFilter accounts={accounts} selected={accountIds} onChange={setAccountIds} />
           {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
             <button

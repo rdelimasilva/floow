@@ -104,6 +104,12 @@ export function mesDoRecorte(startDate: string, endDate: string, hoje: string = 
   return (startDate || endDate || hoje).slice(0, 7)
 }
 
+/** O primeiro dia do mês `delta` meses depois de "YYYY-MM" ou "YYYY-MM-01". */
+export function andarMes(mes: string, delta: number): string {
+  const [y, m1] = mes.split('-').map(Number)
+  return dia(y, m1 - 1 + delta, 1)
+}
+
 /** O mês inteiro `delta` meses depois de "YYYY-MM". */
 export function mesInteiro(mes: string, delta: number): { startDate: string; endDate: string } {
   const [y, m1] = mes.split('-').map(Number)
