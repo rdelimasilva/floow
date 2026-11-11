@@ -7,7 +7,8 @@ import { sqlPrevisaoAindaPorVencer, sqlValorNoSaldo } from './balance-sql'
 import { futureTransactionsTag, recentTransactionsTag } from '@/lib/cache-tags'
 import { effectiveAffectsCashFlow } from './affects-cash-flow'
 import { condicaoDeConta, contasDoFiltro, finaisDoFiltro } from './filtro-de-contas'
-import { condicoesDeCriterio, type SituacaoDoFiltro } from './condicoes-de-criterio'
+import { condicoesDeCriterio } from './condicoes-de-criterio'
+import type { SituacaoDoFiltro } from './filtros-da-url'
 
 export { contasDoFiltro, finaisDoFiltro }
 

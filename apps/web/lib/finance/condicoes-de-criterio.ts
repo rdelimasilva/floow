@@ -3,13 +3,7 @@ import { transactions } from '@floow/db'
 import { effectiveAffectsCashFlow } from './affects-cash-flow'
 import { sqlPrevisaoAindaPorVencer } from './balance-sql'
 import { somenteRealizado } from './realized-spending'
-
-export type SituacaoDoFiltro = 'realizado' | 'previsto'
-
-/** Só `realizado` e `previsto` valem; qualquer outro valor da URL é ignorado. */
-export function situacaoDaUrl(valor?: string): SituacaoDoFiltro | undefined {
-  return valor === 'realizado' || valor === 'previsto' ? valor : undefined
-}
+import type { SituacaoDoFiltro } from './filtros-da-url'
 
 /**
  * Os critérios que as análises aplicam, como filtro visível da lista.

@@ -1,3 +1,4 @@
+import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { NextRequest, NextResponse } from 'next/server'
 import { getTransactionsWithCount } from '@/lib/finance/queries'
 import { getVerifiedIdentity, getOrgId } from '@/lib/auth/session'
@@ -30,19 +31,8 @@ export async function GET(request: NextRequest) {
     const orgId = await getOrgId()
     const params = request.nextUrl.searchParams
 
-    const filters = {
-      accountId: params.get('accountId') || undefined,
-      search: params.get('search') || undefined,
-      startDate: params.get('startDate') || undefined,
-      endDate: params.get('endDate') || undefined,
-      sortBy: params.get('sortBy') || 'date',
-      // Crescente como na tela: o CSV é a mesma lista, salva em arquivo.
-      sortDir: params.get('sortDir') || 'asc',
-      types: params.get('types') || undefined,
-      categoryIds: params.get('categoryIds') || undefined,
-      minAmount: params.get('minAmount') ? parseInt(params.get('minAmount')!, 10) : undefined,
-      maxAmount: params.get('maxAmount') ? parseInt(params.get('maxAmount')!, 10) : undefined,
-    }
+    // Mesmo leitor da tela: o arquivo leva o recorte que a lista mostra.
+    const filters = filtrosDaUrl(Object.fromEntries(params.entries()))
 
     // Fetch all matching transactions (no pagination limit)
     const { transactions } = await getTransactionsWithCount(orgId, {

@@ -1,4 +1,9 @@
-import { situacaoDaUrl } from './condicoes-de-criterio'
+export type SituacaoDoFiltro = 'realizado' | 'previsto'
+
+/** Só `realizado` e `previsto` valem; qualquer outro valor da URL é ignorado. */
+export function situacaoDaUrl(valor?: string): SituacaoDoFiltro | undefined {
+  return valor === 'realizado' || valor === 'previsto' ? valor : undefined
+}
 
 /** Teto de "selecionar todas do filtro": meses de extrato, sem mandar dezenas de milhares de ids. */
 export const LIMITE_DA_SELECAO = 2000

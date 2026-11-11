@@ -25,4 +25,3 @@ export function finaisDoFiltro(opts?: { cardDigits?: string }): string[] {
   if (!opts?.cardDigits) return []
   return [...new Set(opts.cardDigits.split(',').filter((f) => /^\d{4}$/.test(f)))]
 }
-

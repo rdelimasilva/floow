@@ -4,13 +4,16 @@ import React from 'react'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { and } from 'drizzle-orm'
-import { buildTransactionConditions, consultaDaPagina } from '@/lib/finance/queries-transactions'
+import { buildTransactionConditions, consultaDaPagina, getTransactionCount } from '@/lib/finance/queries-transactions'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { FILTER_KEYS } from '@/lib/finance/filtros-lembrados'
 
 const dialect = new PgDialect()
 const sqlDe = (opts?: Parameters<typeof buildTransactionConditions>[1]) =>
   dialect.sqlToQuery(and(...buildTransactionConditions('org-1', opts))!).sql.toLowerCase()
+
+const dbFalso = vi.hoisted(() => ({ atual: null as unknown }))
+vi.mock('@floow/db', async (orig) => ({ ...(await orig<object>()), getDb: () => dbFalso.atual }))
 
 let params = new URLSearchParams()
 const replace = vi.fn()
@@ -81,5 +84,48 @@ describe('pílulas de critério', () => {
     params = new URLSearchParams()
     render(<TransactionFilters accounts={[]} />)
     expect(screen.queryByText(/Só /)).toBeNull()
+  })
+})
+
+describe('contagem e export', () => {
+  it('getTransactionCount junta categories com caixa=1', async () => {
+    const real = drizzle.mock()
+    let gerado = ''
+    // Os métodos do builder devolvem `this`: o `then` próprio captura o SQL sem ir ao banco.
+    const db = {
+      select: (...a: unknown[]) => {
+        const builder: any = (real.select as any)(...a)
+        const from = builder.from.bind(builder)
+        builder.from = (t: unknown) => {
+          const query: any = from(t)
+          query.then = (ok: (v: unknown) => unknown) => {
+            gerado = query.toSQL().sql.toLowerCase()
+            return Promise.resolve([{ total: 0 }]).then(ok)
+          }
+          return query
+        }
+        return builder
+      },
+    }
+    dbFalso.atual = db
+    await getTransactionCount('org-1', { soAnalises: true })
+    expect(gerado).toContain('left join "categories"')
+    expect(gerado).toContain('"categories"."affects_cash_flow"')
+  })
+
+  it('o export lê caixa e situacao pelo mesmo filtrosDaUrl da tela', async () => {
+    vi.resetModules()
+    const getTransactionsWithCount = vi.fn().mockResolvedValue({ transactions: [], totalCount: 0 })
+    vi.doMock('@/lib/finance/queries', () => ({ getTransactionsWithCount }))
+    vi.doMock('@/lib/auth/session', () => ({
+      getVerifiedIdentity: async () => ({ userId: 'u' }),
+      getOrgId: async () => 'org-1',
+    }))
+    vi.doMock('@/lib/audit/record', () => ({ recordAudit: async () => {} }))
+    const { GET } = await import('@/app/api/transactions/export/route')
+    await GET({ nextUrl: new URL('http://x/api/transactions/export?caixa=1&situacao=realizado') } as any)
+    expect(getTransactionsWithCount).toHaveBeenCalledWith('org-1', expect.objectContaining({
+      soAnalises: true, situacao: 'realizado',
+    }))
   })
 })
