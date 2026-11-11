@@ -5,7 +5,9 @@ import {
   type ContextoDiagnostico,
   type Diagnostico,
 } from './tipos'
-import { regraR02, regraR03, regraR04 } from './caixa-e-rendimento'
+// A R04 (colchão) fica fora até a Polp informar a liquidez de cada investimento:
+// sem isso ela só enxerga a conta corrente e alarma à toa.
+import { regraR02, regraR03 } from './caixa-e-rendimento'
 import { regraR05, regraR06, regraR07 } from './concentracao'
 import { regraR11, regraR12 } from './vencimento-e-dados'
 
@@ -15,8 +17,6 @@ export function diagnosticar(ctx: ContextoDiagnostico): Diagnostico {
   const achados: Achado[] = []
   const r03 = regraR03(ctx)
   if (r03) achados.push(r03)
-  const r04 = regraR04(ctx)
-  if (r04) achados.push(r04)
   achados.push(...regraR02(ctx, new Set(r03?.posicoes ?? [])))
   achados.push(...regraR05(ctx), ...regraR06(ctx), ...regraR07(ctx), ...regraR11(ctx))
   const r12 = regraR12(ctx)
