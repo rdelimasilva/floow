@@ -72,6 +72,13 @@ describe('telas de mês seguem o recorte', () => {
     expect(mesAbertoEmGastos.mock.calls.at(-1)![0].getMonth()).toBe(7)
   })
 
+  it('Dívidas com recorte só de contas não vai para o mês atual', async () => {
+    cookiesLidos = [{ name: 'recorte', value: serializarRecorte({ startDate: '', endDate: '', accountIds: ['a1'] }) }]
+    const r = (await abrir(DebtsPage as never, {})) as { props: { children: { props: { selectedMonth: string } }[] } }
+    expect(redirect).not.toHaveBeenCalled()
+    expect(r.props.children[1].props.selectedMonth).toBe('2026-12-01')
+  })
+
   it('Dívidas sem recorte mantém a próxima fatura com parcela', async () => {
     const r = (await abrir(DebtsPage as never, {})) as { props: { children: { props: { selectedMonth: string } }[] } }
     expect(r.props.children[1].props.selectedMonth).toBe('2026-12-01')

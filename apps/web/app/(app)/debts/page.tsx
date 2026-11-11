@@ -13,7 +13,7 @@ interface Props {
 export default async function DebtsPage({ searchParams }: Props) {
   const params = await searchParams
   // Com recorte, abre no mês dele (redirect antes de consultar o banco).
-  const mesDaUrl = await mesDaTela('/debts', params, () => '')
+  const mesDaUrl = await mesDaTela('/debts', params, () => '', true)
   const orgId = await getOrgId()
   const [debtsData, categories, parcelados] = await Promise.all([
     getDebtsWithProgress(orgId),
