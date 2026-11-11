@@ -50,7 +50,7 @@ export const NOME_DO_RECURSO: Record<Recurso, string> = {
   importacao: 'Importar extratos',
   open_finance: 'Conectar banco pelo Open Finance',
   investimentos: 'Investimentos',
-  planejamento: 'Planejamento',
+  planejamento: 'Planos Futuros',
   contas: `Mais de ${LIMITE_DE_CONTAS_FREE} contas`,
 }
 

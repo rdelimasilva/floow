@@ -114,7 +114,7 @@ export default async function PlanningPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Planejamento Financeiro"
+        title="Planos Futuros"
         description="Simulações, independência financeira e planejamento patrimonial"
       />
 

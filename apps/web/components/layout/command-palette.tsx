@@ -35,7 +35,7 @@ export const COMMANDS: CommandItem[] = [
   { label: 'Renda passiva', href: '/investments/income', icon: Coins, keywords: ['dividendos', 'proventos', 'juros'] },
   { label: 'Bens', href: '/fixed-assets', icon: Building2, keywords: ['imovel', 'carro', 'bens'] },
   { label: 'Controle de Dívidas', href: '/debts', icon: Landmark, keywords: ['divida', 'emprestimo', 'financiamento'] },
-  { label: 'Planejamento', href: '/planning', icon: Compass, keywords: ['aposentadoria', 'fi', 'simulacao'] },
+  { label: 'Planos Futuros', href: '/planning', icon: Compass, keywords: ['aposentadoria', 'fi', 'simulacao'] },
   { label: 'Simulação', href: '/planning/simulation', icon: BarChart3, keywords: ['cenario', 'projecao'] },
   { label: 'Plano Sucessório', href: '/planning/succession', icon: HelpCircle, keywords: ['heranca', 'itcmd', 'herdeiros'] },
   { label: 'Contas', href: '/accounts', icon: Wallet, keywords: ['conta corrente', 'poupanca', 'cartao'] },

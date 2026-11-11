@@ -49,7 +49,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/budgets/pacing', label: 'Ritmo de Gastos', icon: Gauge },
       { href: '/budgets/spending', label: 'Plano de Gastos', icon: PiggyBank },
       { href: '/budgets/investing', label: 'Meta de Investimentos', icon: Target },
-      { href: '/planning', label: 'Planejamento', icon: Compass },
+      { href: '/planning', label: 'Planos Futuros', icon: Compass },
     ],
   },
   {
