@@ -5,7 +5,7 @@ import { useState, useCallback, useRef, useEffect, useTransition } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
 import { CardDigitsFilter } from './card-digits-filter'
-import { PILULA_BASE, PILULA_OFF } from './filtros/pilula'
+import { PILULA_BASE, PILULA_OFF, PILULA_ON } from './filtros/pilula'
 import { SeletorDePeriodo } from './filtros/seletor-de-periodo'
 import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
 import {
@@ -255,7 +255,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
           <button
             type="button"
             onClick={limparFiltrosDeColuna}
-            className={`rounded-lg px-3 text-xs font-medium transition-colors h-9 gap-1.5 whitespace-nowrap bg-gray-900 text-white md:hidden`}
+            className={`${PILULA_BASE} ${PILULA_ON} h-9 gap-1.5 md:hidden`}
           >
             Tipo, categoria ou valor
             <X className="h-3.5 w-3.5" aria-hidden />

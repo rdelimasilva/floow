@@ -26,7 +26,9 @@ export function CardDigitsFilter({ options, selected, onChange }: CardDigitsFilt
     <ListaComCaixas
       rotulo="Final do cartão"
       rotuloTodos="Todos os finais do cartão"
-      opcoes={options.map((o) => ({ valor: o.digits, rotuloTexto: `Final ${o.digits}`,
+      opcoes={options.map((o) => ({
+        valor: o.digits,
+        rotuloTexto: `Final ${o.digits}`,
         rotulo: (
           <>
             <span className="font-mono">•{o.digits}</span>

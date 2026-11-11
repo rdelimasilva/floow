@@ -23,12 +23,12 @@ export function TypeFilter({ selected, onChange }: TypeFilterProps) {
   return (
     <div className="space-y-1.5">
       <p className="text-xs font-medium text-gray-500">Tipo</p>
-    <CorpoDaLista
-      rotuloTodos="Todos os tipos"
-      opcoes={TYPE_OPTIONS.map((o) => ({ valor: o.value, rotulo: o.label }))}
-      marcados={selected}
-      aoMudar={onChange}
-    />
+      <CorpoDaLista
+        rotuloTodos="Todos os tipos"
+        opcoes={TYPE_OPTIONS.map((o) => ({ valor: o.value, rotulo: o.label }))}
+        marcados={selected}
+        aoMudar={onChange}
+      />
     </div>
   )
 }
@@ -51,12 +51,12 @@ export function CategoryFilter({ categories, selected, onChange }: CategoryFilte
   return (
     <div className="space-y-1.5">
       <p className="text-xs font-medium text-gray-500">Categoria</p>
-    <CorpoDaLista
-      rotuloTodos="Todas as categorias"
-      opcoes={toCategoryOptions(categories).map((c) => ({ valor: c.id, rotulo: c.name }))}
-      marcados={selected}
-      aoMudar={onChange}
-    />
+      <CorpoDaLista
+        rotuloTodos="Todas as categorias"
+        opcoes={toCategoryOptions(categories).map((c) => ({ valor: c.id, rotulo: c.name }))}
+        marcados={selected}
+        aoMudar={onChange}
+      />
     </div>
   )
 }

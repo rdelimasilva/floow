@@ -76,7 +76,6 @@ export function ListaComCaixas<T extends string>({
         ref={botaoRef}
         type="button"
         aria-expanded={aberto}
-        aria-haspopup="true"
         onClick={() => setAberto((v) => !v)}
         className={`flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs ${
           marcados.length > 0
@@ -128,42 +127,42 @@ export function CorpoDaLista<T extends string>({ rotuloTodos, opcoes, marcados, 
   let grupoAtual: string | undefined
   return (
     <>
-    <button
-      type="button"
-      onClick={() => aoMudar([])}
-      disabled={marcados.length === 0}
-      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-400 disabled:hover:bg-transparent"
-    >
-      {marcados.length === 0 && <Check className="h-3.5 w-3.5 text-gray-900" />}
-      {rotuloTodos}
-    </button>
-    {atalhos && (
-      <>
-        <div className="my-1 h-px bg-gray-100" />
-        {atalhos}
-      </>
-    )}
-    <div className="my-1 h-px bg-gray-100" />
-    <div className="max-h-56 space-y-0.5 overflow-y-auto">
-      {opcoes.map((opcao) => {
-        const cabecalho = opcao.grupo !== grupoAtual && opcao.grupo
-        grupoAtual = opcao.grupo
-        return (
-          <div key={opcao.valor}>
-            {cabecalho && <p className="px-2 pt-1 text-xs font-medium text-gray-500">{cabecalho}</p>}
-            <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
-              <input
-                type="checkbox"
-                checked={marcados.includes(opcao.valor)}
-                onChange={() => alternar(opcao.valor)}
-                className="rounded border-gray-300"
-              />
-              {opcao.rotulo}
-            </label>
-          </div>
-        )
-      })}
-    </div>
+      <button
+        type="button"
+        onClick={() => aoMudar([])}
+        disabled={marcados.length === 0}
+        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-400 disabled:hover:bg-transparent"
+      >
+        {marcados.length === 0 && <Check className="h-3.5 w-3.5 text-gray-900" />}
+        {rotuloTodos}
+      </button>
+      {atalhos && (
+        <>
+          <div className="my-1 h-px bg-gray-100" />
+          {atalhos}
+        </>
+      )}
+      <div className="my-1 h-px bg-gray-100" />
+      <div className="max-h-56 space-y-0.5 overflow-y-auto">
+        {opcoes.map((opcao) => {
+          const cabecalho = opcao.grupo !== grupoAtual && opcao.grupo
+          grupoAtual = opcao.grupo
+          return (
+            <div key={opcao.valor}>
+              {cabecalho && <p className="px-2 pt-1 text-xs font-medium text-gray-500">{cabecalho}</p>}
+              <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={marcados.includes(opcao.valor)}
+                  onChange={() => alternar(opcao.valor)}
+                  className="rounded border-gray-300"
+                />
+                {opcao.rotulo}
+              </label>
+            </div>
+          )
+        })}
+      </div>
     </>
   )
 }
