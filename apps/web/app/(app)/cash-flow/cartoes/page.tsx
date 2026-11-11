@@ -1,13 +1,15 @@
 import { Suspense } from 'react'
 import { getOrgId } from '@/lib/finance/queries'
-import { getGastosDosCartoes } from '@/lib/finance/queries-gastos-cartao'
+import { getGastosDosCartoes, getMetasDosMeses } from '@/lib/finance/queries-gastos-cartao'
 import { GastosDosCartoes } from '@/components/finance/gastos-dos-cartoes'
 import { PageHeader } from '@/components/ui/page-header'
 
 async function Conteudo({ orgId }: { orgId: string }) {
   const cartoes = await getGastosDosCartoes(orgId)
+  const meses = [...new Set(cartoes.flatMap((c) => c.faturas.map((f) => f.fechamento.slice(0, 7))))]
+  const metas = await getMetasDosMeses(orgId, meses)
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  return <GastosDosCartoes cartoes={cartoes} hoje={hoje} />
+  return <GastosDosCartoes cartoes={cartoes} metas={metas} hoje={hoje} />
 }
 
 export default async function GastosDosCartoesPage() {

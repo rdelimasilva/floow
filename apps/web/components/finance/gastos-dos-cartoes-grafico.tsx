@@ -1,6 +1,6 @@
 'use client'
 
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, XAxis, YAxis } from 'recharts'
+import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { nomeDoMes } from '@/lib/finance/nome-do-mes'
@@ -9,9 +9,14 @@ export interface MesDoGrafico {
   mes: string
   totalCents: number
   aberta: boolean
+  /** Meta da categoria escolhida no mês; sem categoria ou sem meta, ausente. */
+  metaCents?: number
 }
 
-const chartConfig = { gasto: { label: 'Gasto', theme: { light: '#eb6834', dark: '#d95926' } } }
+const chartConfig = {
+  gasto: { label: 'Gasto', theme: { light: '#eb6834', dark: '#d95926' } },
+  meta: { label: 'Meta', theme: { light: '#15803d', dark: '#22c55e' } },
+}
 
 const eixoY = new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', notation: 'compact', minimumFractionDigits: 0, maximumFractionDigits: 1,
@@ -24,6 +29,11 @@ function Dica({ active, payload }: { active?: boolean; payload?: { payload: MesD
     <div className="rounded-lg border bg-card px-3 py-2 text-xs shadow-md">
       <p className="font-medium">{nomeDoMes(d.mes)}{d.aberta && ' (aberta)'}</p>
       <p className="tabular-nums text-muted-foreground">{formatBRL(d.totalCents)}</p>
+      {d.metaCents != null && (
+        <p className={d.totalCents > d.metaCents ? 'text-red-600' : 'text-green-700'}>
+          Meta {formatBRL(d.metaCents)} · {d.totalCents > d.metaCents ? 'acima' : 'dentro'}
+        </p>
+      )}
     </div>
   )
 }
@@ -40,7 +50,7 @@ export function GastosDosCartoesGrafico({
 }) {
   return (
     <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
-      <BarChart data={meses} margin={{ top: mostrarValores ? 20 : 5 }} onClick={(e) => e?.activeLabel && onSelecionar(String(e.activeLabel))}>
+      <ComposedChart data={meses} margin={{ top: mostrarValores ? 20 : 5 }} onClick={(e) => e?.activeLabel && onSelecionar(String(e.activeLabel))}>
         <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
         <XAxis dataKey="mes" tickLine={false} axisLine={false} tickMargin={10} tickFormatter={(m) => nomeDoMes(m, 'short')} minTickGap={8} />
         <YAxis tickLine={false} axisLine={false} width={72} tickFormatter={(c: number) => eixoY.format(c / 100)} />
@@ -68,7 +78,11 @@ export function GastosDosCartoesGrafico({
             />
           )}
         </Bar>
-      </BarChart>
+        <Line
+          dataKey="metaCents" type="stepAfter" stroke="var(--color-meta)" strokeWidth={2}
+          dot={{ r: 2, fill: "var(--color-meta)" }} activeDot={false} connectNulls={false} isAnimationActive={false}
+        />
+      </ComposedChart>
     </ChartContainer>
   )
 }

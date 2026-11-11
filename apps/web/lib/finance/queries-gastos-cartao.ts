@@ -5,6 +5,7 @@ import { gastosPorFatura } from '@floow/core-finance/src/gastos-do-cartao'
 import { fechamentoDoLancamento } from '@floow/core-finance/src/fatura'
 import { getAccounts } from './queries-accounts'
 import { getCategories } from './queries-categories'
+import { getSpendingPlanForMonth } from './recurring-budget-queries'
 
 export interface GastoMensalDoCartao {
   fechamento: string
@@ -31,6 +32,14 @@ export interface CartaoComGastos {
 }
 
 const MESES = 12
+
+async function agrupadorDeCategorias(orgId: string) {
+  const porId = new Map((await getCategories(orgId)).map((c) => [c.id, c]))
+  return (categoryId: string | null, nome: string | null) => {
+    const pai = categoryId ? porId.get(porId.get(categoryId)?.parentId ?? '') : undefined
+    return pai ? { categoryName: pai.name, subcategoria: nome } : { categoryName: nome, subcategoria: null }
+  }
+}
 
 function iso(d: Date | null): string | null {
   return d ? d.toISOString().slice(0, 10) : null
@@ -79,11 +88,7 @@ export async function getGastosDosCartoes(orgId: string): Promise<CartaoComGasto
 
   // Agrupa pela categoria de cima: "Alimentação" junta mercado, restaurante e
   // delivery. Categoria escondida pela org some do mapa e fica com o próprio nome.
-  const porId = new Map((await getCategories(orgId)).map((c) => [c.id, c]))
-  const grupoDe = (categoryId: string | null, nome: string | null) => {
-    const pai = categoryId ? porId.get(porId.get(categoryId)?.parentId ?? '') : undefined
-    return pai ? { categoryName: pai.name, subcategoria: nome } : { categoryName: nome, subcategoria: null }
-  }
+  const grupoDe = await agrupadorDeCategorias(orgId)
 
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const corte = new Date(inicio)
@@ -120,4 +125,26 @@ export async function getGastosDosCartoes(orgId: string): Promise<CartaoComGasto
         })),
     }
   })
+}
+
+/**
+ * Meta de gasto de cada mês ('YYYY-MM') por categoria de cima, a mesma conta
+ * da tela de Metas (recorrentes incluídas). Meta de subcategoria soma na mãe,
+ * como o gasto do gráfico.
+ */
+export async function getMetasDosMeses(orgId: string, meses: string[]): Promise<Record<string, Record<string, number>>> {
+  const [grupoDe, categorias] = await Promise.all([agrupadorDeCategorias(orgId), getCategories(orgId)])
+  const nomeDe = new Map(categorias.map((c) => [c.id, c.name]))
+  const planos = await Promise.all(meses.map((mes) => {
+    const [y, m] = mes.split('-').map(Number)
+    return getSpendingPlanForMonth(orgId, new Date(y, m - 1, 1), new Date(y, m, 0))
+  }))
+  return Object.fromEntries(meses.map((mes, i) => {
+    const porCategoria: Record<string, number> = {}
+    for (const linha of planos[i]) {
+      const nome = grupoDe(linha.categoryId, nomeDe.get(linha.categoryId ?? '') ?? null).categoryName
+      if (nome) porCategoria[nome] = (porCategoria[nome] ?? 0) + linha.plannedCents
+    }
+    return [mes, porCategoria]
+  }))
 }
