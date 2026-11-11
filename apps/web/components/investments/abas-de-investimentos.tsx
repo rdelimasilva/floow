@@ -26,7 +26,8 @@ export function AbasDeInvestimentos() {
 
   return (
     <div className="border-b border-gray-200">
-      <nav className="flex gap-6 overflow-x-auto" aria-label="Investimentos">
+      {/* Rola de lado no celular sem mostrar a barra, que cobria o sublinhado da aba. */}
+      <nav className="flex gap-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Investimentos">
         {ABAS.map((aba) => {
           const selecionada = aba.href === ativa
           return (

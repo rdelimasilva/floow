@@ -64,7 +64,8 @@ function Variacao({ atual, anterior }: { atual: number; anterior: number | undef
   return (
     <span className={cn('tabular-nums', diff > 0 ? 'text-red-600' : 'text-green-700')}>
       {diff > 0 ? '+' : '−'}{formatBRL(Math.abs(diff))}
-      {pct != null && <span className="ml-1 text-xs">({diff > 0 ? '+' : ''}{pct}%)</span>}
+      {/* No celular a porcentagem desce para a linha de baixo: a coluna não cabe em 375 px. */}
+      {pct != null && <span className="block text-xs sm:ml-1 sm:inline">({diff > 0 ? '+' : ''}{pct}%)</span>}
     </span>
   )
 }
@@ -230,7 +231,8 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          {/* grid-cols-1 = minmax(0,1fr): sem ele a coluna cresce até a largura mínima da tabela. */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Mês a mês{filtrando && <span className="font-normal text-muted-foreground"> · {rotuloDaSerie}</span>}</CardTitle>
@@ -239,9 +241,9 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="px-6 py-2 font-medium">Fatura</th>
+                      <th className="px-4 py-2 font-medium sm:px-6">Fatura</th>
                       <th className="px-2 py-2 text-right font-medium">Gasto</th>
-                      <th className="px-6 py-2 text-right font-medium">vs. mês anterior</th>
+                      <th className="px-4 py-2 text-right font-medium sm:px-6">vs. <span className="hidden sm:inline">mês </span>anterior</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -254,14 +256,14 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
                           onClick={() => setEscolhido(m.mes)}
                           className={cn('cursor-pointer border-b last:border-0 hover:bg-muted/50', ativo && 'bg-muted')}
                         >
-                          <td className="px-6 py-2.5">
+                          <td className="px-4 py-2.5 sm:px-6">
                             <button type="button" className="focus-visible:underline focus-visible:outline-none" onClick={() => setEscolhido(m.mes)}>
                               {nomeDoMes(m.mes)}
                             </button>
                             {m.aberta && <span className="ml-2 text-xs text-muted-foreground">aberta</span>}
                           </td>
                           <td className="px-2 py-2.5 text-right font-medium tabular-nums">{formatBRL(m.totalCents)}</td>
-                          <td className="px-6 py-2.5 text-right"><Variacao atual={m.totalCents} anterior={ant?.totalCents} /></td>
+                          <td className="px-4 py-2.5 text-right sm:px-6"><Variacao atual={m.totalCents} anterior={ant?.totalCents} /></td>
                         </tr>
                       )
                     })}
