@@ -14,7 +14,7 @@ function input(day: number, over: { plannedCents?: number } = {}): BudgetPacingA
       series: [],
       total: {
         plannedCents: over.plannedCents ?? 100000, spentCents: 90000, unbudgetedCents: 0, committedCents: 0,
-        projectedCents: 180000, confidence: 'normal', daysElapsed: day, daysInMonth: 30,
+        projectedCents: 180000, overallSpentCents: 0, overallProjectedCents: 0, confidence: 'normal', daysElapsed: day, daysInMonth: 30,
       },
       byCategory: [{ categoryId: 'a', plannedCents: 100000, spentCents: 120000, committedCents: 0, projectedCents: 240000, status: 'estourado' }],
     },

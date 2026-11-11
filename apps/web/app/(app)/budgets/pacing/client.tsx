@@ -109,16 +109,17 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-sm" style={{ color: '#6E6E6E' }}>
-                Gasto nas categorias orçadas
+                Gasto no mês
               </p>
               <p className="text-3xl font-semibold tabular-nums" style={{ color: '#000' }}>
-                {formatBRL(total.spentCents)}
-                {total.plannedCents > 0 && (
-                  <span className="ml-2 text-lg font-normal" style={{ color: '#6E6E6E' }}>
-                    de {formatBRL(total.plannedCents)} · {pct}%
-                  </span>
-                )}
+                {formatBRL(total.overallSpentCents)}
               </p>
+              {total.plannedCents > 0 && (
+                <p className="mt-1 text-sm" style={{ color: '#6E6E6E' }}>
+                  <strong className="tabular-nums" style={{ color: '#333' }}>{formatBRL(total.spentCents)}</strong>{' '}
+                  nas categorias com teto, de {formatBRL(total.plannedCents)} · {pct}%
+                </p>
+              )}
               {total.committedCents > 0 && (
                 <p className="mt-1 text-sm" style={{ color: '#6E6E6E' }}>
                   + <strong className="tabular-nums" style={{ color: '#333' }}>{formatBRL(total.committedCents)}</strong>{' '}
@@ -130,18 +131,19 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
               )}
             </div>
 
-            {total.plannedCents > 0 && total.daysElapsed > 0 && (
+            {total.daysElapsed > 0 && (
               <div className="text-right">
                 <p className="text-sm" style={{ color: '#6E6E6E' }}>
                   Projeção de fechamento
                 </p>
-                <p
-                  className="text-2xl font-semibold tabular-nums"
-                  style={{ color: overBudget ? '#EB5A4F' : '#3F7F76' }}
-                >
-                  {formatBRL(total.projectedCents)}
-                  <span className="ml-2 text-base font-normal">({projPct}%)</span>
+                <p className="text-2xl font-semibold tabular-nums" style={{ color: '#000' }}>
+                  {formatBRL(total.overallProjectedCents)}
                 </p>
+                {total.plannedCents > 0 && (
+                  <p className="text-sm tabular-nums" style={{ color: overBudget ? '#EB5A4F' : '#3F7F76' }}>
+                    com teto: {formatBRL(total.projectedCents)} ({projPct}%)
+                  </p>
+                )}
                 {total.confidence === 'low' && (
                   <p className="text-xs" style={{ color: '#8A6D1F' }}>
                     Estimativa pouco confiável tão cedo no mês
@@ -168,7 +170,7 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
                 categorias sem teto definido
               </span>
               <span style={{ color: '#666666' }}>
-                Fora da conta acima.{' '}
+                Já entram no gasto do mês.{' '}
                 <Link href="/budgets/spending" className="font-medium underline underline-offset-2" style={{ color: '#333' }}>
                   Definir tetos
                 </Link>

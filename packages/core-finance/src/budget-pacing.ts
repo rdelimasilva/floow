@@ -92,6 +92,10 @@ export interface BudgetPacingResult {
     /** Parcelas e recorrências a vencer nas categorias com teto. */
     committedCents: number
     projectedCents: number
+    /** Gasto até hoje em todas as categorias, com e sem teto. */
+    overallSpentCents: number
+    /** Fechamento do mês em todas as categorias: a projeção que a tela mostra. */
+    overallProjectedCents: number
     confidence: Confidence
     daysElapsed: number
     daysInMonth: number
@@ -206,11 +210,12 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
   const spentByCategory = new Map<string, number>()
   const fixedByCategory = new Map<string, number>()
   let fixedCents = 0
+  let overallFixedCents = 0
   for (const row of input.daily) {
-    if (row.categoryId === null) continue
     const idx = indexByDate.get(row.date)
     if (idx === undefined || idx > spendIdx) continue
-    if (!capByCategory.has(row.categoryId)) continue
+    if (row.fixed) overallFixedCents += row.cents
+    if (row.categoryId === null || !capByCategory.has(row.categoryId)) continue
     spentByCategory.set(row.categoryId, (spentByCategory.get(row.categoryId) ?? 0) + row.cents)
     if (row.fixed) {
       fixedByCategory.set(row.categoryId, (fixedByCategory.get(row.categoryId) ?? 0) + row.cents)
@@ -225,7 +230,9 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
   // Mês encerrado: o valor é final. Previsão que ficou sem vínculo não é
   // gasto que ainda vai acontecer.
   const committedByCategory = new Map<string, number>()
+  let overallCommittedCents = 0
   for (const c of isPastMonth ? [] : (input.committed ?? [])) {
+    overallCommittedCents += c.cents
     if (!capByCategory.has(c.categoryId)) continue
     committedByCategory.set(c.categoryId, (committedByCategory.get(c.categoryId) ?? 0) + c.cents)
   }
@@ -259,6 +266,12 @@ export function computeBudgetPacing(input: BudgetPacingInput): BudgetPacingResul
       unbudgetedCents: asOfToday.unbudgetedCum,
       committedCents,
       projectedCents: projectWith(asOfToday.budgetedCum, fixedCents, committedCents),
+      overallSpentCents: asOfToday.budgetedCum + asOfToday.unbudgetedCum,
+      overallProjectedCents: projectWith(
+        asOfToday.budgetedCum + asOfToday.unbudgetedCum,
+        overallFixedCents,
+        overallCommittedCents,
+      ),
       confidence,
       daysElapsed,
       daysInMonth,

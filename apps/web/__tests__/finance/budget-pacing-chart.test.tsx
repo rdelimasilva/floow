@@ -38,6 +38,8 @@ function resultadoDoDia18(): BudgetPacingResult {
       unbudgetedCents: 0,
       committedCents: 0,
       projectedCents: 93_000,
+      overallSpentCents: 54_000,
+      overallProjectedCents: 93_000,
       confidence: 'normal',
       daysElapsed: 18,
       daysInMonth,

@@ -59,7 +59,10 @@ type Point = { day: number; projecao: number | null } & Partial<Record<AccountKi
 
 export function BudgetPacingChart({ result }: Props) {
   const { series, total } = result
-  const { daysElapsed, daysInMonth, plannedCents, spentCents, projectedCents } = total
+  // A área empilha todo o gasto, com e sem teto; a projeção parte do mesmo total.
+  const { daysElapsed, daysInMonth, plannedCents } = total
+  const spentCents = total.overallSpentCents
+  const projectedCents = total.overallProjectedCents
 
   const last = series[series.length - 1]
   // Só os tipos que tiveram gasto entram: uma série achatada em zero polui a leitura.

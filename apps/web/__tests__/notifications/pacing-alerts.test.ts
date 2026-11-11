@@ -15,6 +15,8 @@ function pacing(
       unbudgetedCents: 0,
       committedCents: 0,
       projectedCents: 100_000,
+      overallSpentCents: 50_000,
+      overallProjectedCents: 100_000,
       confidence,
       daysElapsed,
       daysInMonth: 30,

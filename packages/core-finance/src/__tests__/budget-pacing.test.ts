@@ -434,6 +434,25 @@ describe('computeBudgetPacing', () => {
     })
   })
 
+  it('a projeção do mês inteiro soma as categorias sem teto, com o mesmo ritmo, fixo e a vencer', () => {
+    // Dia 10 de 30. Com teto: 300 variável. Sem teto: 200 variável + 1.000 fixo, e 500 a vencer.
+    const result = computeBudgetPacing({
+      daily: [
+        { date: '2026-09-05', accountType: 'checking', categoryId: 'alim', cents: 30000 },
+        { date: '2026-09-06', accountType: 'credit_card', categoryId: 'livre', cents: 20000 },
+        { date: '2026-09-07', accountType: 'checking', categoryId: 'livre', cents: 100000, fixed: true },
+      ],
+      budgets: [{ categoryId: 'alim', plannedCents: 120000 }],
+      committed: [{ categoryId: 'livre', cents: 50000 }],
+      monthStart: utc(2026, 9, 1),
+      today: utc(2026, 9, 10),
+    })
+
+    expect(result.total.projectedCents).toBe(90000)
+    expect(result.total.overallSpentCents).toBe(150000)
+    expect(result.total.overallProjectedCents).toBe(90000 + 60000 + 100000 + 50000)
+  })
+
   it('em mês encerrado o que "vence" é ignorado: o valor é final', () => {
     const result = computeBudgetPacing({
       daily: [{ date: '2026-08-05', accountType: 'checking', categoryId: 'casa', cents: 10000 }],
