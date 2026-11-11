@@ -4,7 +4,10 @@ import { useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ListaComCaixas } from './filtros/lista-com-caixas'
+import { SeletorDePeriodo } from './filtros/seletor-de-periodo'
+import { useFiltrosNaUrl } from './filtros/use-filtros-na-url'
+import { useGravarRecorteNaChegada } from './filtros/use-gravar-recorte-na-chegada'
 import { cn } from '@/lib/utils'
 import { SEM_CATEGORIA } from '@floow/core-finance/src/gastos-do-cartao'
 import type { CartaoComGastos, LancamentoDoGasto } from '@/lib/finance/queries-gastos-cartao'
@@ -25,9 +28,6 @@ interface Mes {
   porCategoria: Record<string, number>
   lancamentos: LancamentoDoGasto[]
 }
-
-const TODOS = 'todos'
-const TODAS = 'todas'
 
 /**
  * Soma as faturas dos cartões escolhidos pelo mês do fechamento: cartões com
@@ -63,26 +63,50 @@ function Variacao({ atual, anterior }: { atual: number; anterior: number | undef
   )
 }
 
-export function GastosDosCartoes({ cartoes, metas, hoje }: { cartoes: CartaoComGastos[]; metas: Record<string, Record<string, number>>; hoje: string }) {
-  const [cartao, setCartao] = useState(TODOS)
+interface Props {
+  cartoes: CartaoComGastos[]
+  metas: Record<string, Record<string, number>>
+  hoje: string
+  startDate: string
+  endDate: string
+  /** Cartões marcados no recorte; vazio é todos. */
+  accountIds: string[]
+  /** Categorias de cima marcadas; vazio é todas. Não vai para o recorte. */
+  categoryIds: string[]
+  categoriasDeCima: { id: string; name: string }[]
+}
+
+export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, accountIds, categoryIds, categoriasDeCima }: Props) {
+  const { trocar } = useFiltrosNaUrl('/cash-flow/cartoes')
+  // Contas do recorte que não são cartão ficam no cookie: a tela só lista cartões.
+  useGravarRecorteNaChegada(cartoes)
   const meses = useMemo(
-    () => somarPorMes(cartao === TODOS ? cartoes : cartoes.filter((c) => c.id === cartao), hoje),
-    [cartoes, cartao, hoje],
+    () => somarPorMes(accountIds.length ? cartoes.filter((c) => accountIds.includes(c.id)) : cartoes, hoje),
+    [cartoes, accountIds, hoje],
   )
   const fechadas = meses.filter((m) => !m.aberta)
   // Categorias do período, a de maior gasto primeiro, para o seletor.
   const opcoesDeCategoria = useMemo(() => {
     const totais = new Map<string, number>()
     for (const m of meses) for (const [cat, v] of Object.entries(m.porCategoria)) totais.set(cat, (totais.get(cat) ?? 0) + v)
-    return [...totais.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([cat]) => cat)
-  }, [meses])
-  const [categoriaDaSerie, setCategoriaDaSerie] = useState(TODAS)
+    return categoriasDeCima
+      .filter((c) => (totais.get(c.name) ?? 0) > 0)
+      .sort((a, b) => totais.get(b.name)! - totais.get(a.name)!)
+  }, [meses, categoriasDeCima])
+  // Id da URL que não existe mais (ou sem gasto no período) não filtra nada.
+  const nomesEscolhidos = opcoesDeCategoria.filter((c) => categoryIds.includes(c.id)).map((c) => c.name)
+  const filtrando = nomesEscolhidos.length > 0
+  const somar = (porCategoria: Record<string, number> | undefined) => nomesEscolhidos.reduce((s, n) => s + (porCategoria?.[n] ?? 0), 0)
+  const rotuloDaSerie = nomesEscolhidos.join(', ')
   const [mostrarValores, setMostrarValores] = useState(false)
   // Gráfico e tabela mês a mês seguem a categoria escolhida; o painel por
   // categoria continua mostrando a fatura inteira.
-  const serie = categoriaDaSerie === TODAS
+  const serie = !filtrando
     ? meses
-    : meses.map((m) => ({ ...m, totalCents: m.porCategoria[categoriaDaSerie] ?? 0, metaCents: metas[m.mes]?.[categoriaDaSerie] }))
+    : meses.map((m) => {
+      const metasDoMes = nomesEscolhidos.filter((n) => metas[m.mes]?.[n] != null)
+      return { ...m, totalCents: somar(m.porCategoria), metaCents: metasDoMes.length ? somar(metas[m.mes]) : undefined }
+    })
   const temMeta = serie.some((m) => 'metaCents' in m && m.metaCents != null)
   const serieFechada = serie.filter((m) => !m.aberta)
   const mediaCents = serieFechada.length ? Math.round(serieFechada.reduce((s, m) => s + m.totalCents, 0) / serieFechada.length) : 0
@@ -122,41 +146,41 @@ export function GastosDosCartoes({ cartoes, metas, hoje }: { cartoes: CartaoComG
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-wrap items-center gap-2">
+        <SeletorDePeriodo
+          modo="intervalo"
+          startDate={startDate}
+          endDate={endDate}
+          aoMudar={(p) => { setEscolhido(null); trocar({ startDate: p.startDate, endDate: p.endDate }) }}
+        />
         {cartoes.length > 1 && (
-          <Select value={cartao} onValueChange={(v) => { setCartao(v); setEscolhido(null); setCategoriaDaSerie(TODAS) }}>
-            <SelectTrigger className="w-full sm:w-64" aria-label="Cartão">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todos os cartões</SelectItem>
-              {cartoes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.titular ? `${c.name} · ${c.titular}` : c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ListaComCaixas
+            rotulo="Cartão"
+            rotuloTodos="Todos os cartões"
+            opcoes={cartoes.map((c) => ({ valor: c.id, rotulo: c.titular ? `${c.name} · ${c.titular}` : c.name }))}
+            marcados={accountIds}
+            aoMudar={(ids) => { setEscolhido(null); trocar({ accountId: ids.join(',') }) }}
+          />
         )}
         {opcoesDeCategoria.length > 1 && (
-          <Select value={categoriaDaSerie} onValueChange={setCategoriaDaSerie}>
-            <SelectTrigger className="w-full sm:w-64" aria-label="Categoria">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODAS}>Todas as categorias</SelectItem>
-              {opcoesDeCategoria.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <ListaComCaixas
+            rotulo="Categoria"
+            rotuloTodos="Todas as categorias"
+            opcoes={opcoesDeCategoria.map((c) => ({ valor: c.id, rotulo: c.name }))}
+            marcados={nomesEscolhidos.length ? categoryIds.filter((id) => opcoesDeCategoria.some((c) => c.id === id)) : []}
+            aoMudar={(ids) => { setEscolhido(null); trocar({ categoryIds: ids.join(',') }) }}
+          />
         )}
       </div>
 
       {meses.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">Nenhuma compra no cartão nos últimos 12 meses.</Card>
+        <Card className="p-8 text-center text-sm text-muted-foreground">Nenhuma fatura de cartão neste período.</Card>
       ) : (
         <>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
-                Gasto por fatura{categoriaDaSerie !== TODAS && <span className="font-normal text-muted-foreground"> · {categoriaDaSerie}</span>}
+                Gasto por fatura{filtrando && <span className="font-normal text-muted-foreground"> · {rotuloDaSerie}</span>}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Média das faturas fechadas: <span className="font-medium tabular-nums text-foreground">{formatBRL(mediaCents)}</span>.
@@ -181,7 +205,7 @@ export function GastosDosCartoes({ cartoes, metas, hoje }: { cartoes: CartaoComG
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Mês a mês{categoriaDaSerie !== TODAS && <span className="font-normal text-muted-foreground"> · {categoriaDaSerie}</span>}</CardTitle>
+                <CardTitle className="text-base">Mês a mês{filtrando && <span className="font-normal text-muted-foreground"> · {rotuloDaSerie}</span>}</CardTitle>
               </CardHeader>
               <CardContent className="px-0 pb-2">
                 <table className="w-full text-sm">

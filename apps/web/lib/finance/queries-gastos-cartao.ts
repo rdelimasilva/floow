@@ -41,6 +41,23 @@ async function agrupadorDeCategorias(orgId: string) {
   }
 }
 
+/**
+ * Recorte da tela em janela de faturas. `desde` é onde buscar compras (um mês
+ * a mais de folga: a compra do começo cai numa fatura que fechou antes e ficaria
+ * pela metade); `primeiroFechamento` e `ultimoFechamento` cortam as faturas.
+ * Sem período nenhum, as últimas 12; data vazia é aberta.
+ */
+export function janelaDasFaturas(inicio: string, fim: string, hoje: string) {
+  const base = inicio || (fim ? '' : new Date(`${hoje}T12:00:00Z`).toISOString())
+  if (!base) return { desde: null, primeiroFechamento: '', ultimoFechamento: fim }
+  const d = new Date(base)
+  d.setUTCDate(1)
+  d.setUTCMonth(d.getUTCMonth() - (inicio ? 1 : MESES + 1))
+  const corte = new Date(d)
+  corte.setUTCMonth(corte.getUTCMonth() + 1)
+  return { desde: d, primeiroFechamento: inicio || corte.toISOString().slice(0, 10), ultimoFechamento: fim }
+}
+
 function iso(d: Date | null): string | null {
   return d ? d.toISOString().slice(0, 10) : null
 }
@@ -49,15 +66,16 @@ function iso(d: Date | null): string | null {
  * Gasto de cada cartão nas últimas faturas, por categoria. Só cartão com dia
  * de fechamento cadastrado: sem ele não há como saber em que fatura cai a compra.
  */
-export async function getGastosDosCartoes(orgId: string): Promise<CartaoComGastos[]> {
+export async function getGastosDosCartoes(
+  orgId: string,
+  { inicio, fim }: { inicio: string; fim: string } = { inicio: '', fim: '' },
+): Promise<CartaoComGastos[]> {
   const cartoes = (await getAccounts(orgId))
     .filter((a): a is typeof a & { closingDay: number } => a.type === 'credit_card' && a.closingDay != null)
   if (cartoes.length === 0) return []
 
-  // Um mês a mais de folga: a compra do começo da janela cai numa fatura que
-  // fechou antes dela e ficaria pela metade; ela sai no corte abaixo.
-  const inicio = new Date()
-  inicio.setUTCMonth(inicio.getUTCMonth() - MESES - 1, 1)
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const { desde, primeiroFechamento, ultimoFechamento } = janelaDasFaturas(inicio, fim, hoje)
   const linhas = await withUserDb((db) => db
     .select({
       id: transactions.id,
@@ -83,21 +101,17 @@ export async function getGastosDosCartoes(orgId: string): Promise<CartaoComGasto
     .where(and(
       eq(transactions.orgId, orgId),
       inArray(transactions.accountId, cartoes.map((c) => c.id)),
-      gte(transactions.date, inicio),
+      desde ? gte(transactions.date, desde) : undefined,
     )))
 
   // Agrupa pela categoria de cima: "Alimentação" junta mercado, restaurante e
   // delivery. Categoria escondida pela org some do mapa e fica com o próprio nome.
   const grupoDe = await agrupadorDeCategorias(orgId)
 
-  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const corte = new Date(inicio)
-  corte.setUTCMonth(corte.getUTCMonth() + 1)
-  const primeiroFechamento = corte.toISOString().slice(0, 10)
   return cartoes.map((c) => {
     // Até a fatura aberta: as seguintes só têm parcela prevista.
     const aberta = fechamentoDoLancamento({ date: hoje, purchaseDate: null, installmentTotal: null }, c.closingDay)
-      return {
+    return {
       id: c.id,
       name: c.name,
       titular: c.titular,
@@ -116,7 +130,7 @@ export async function getGastosDosCartoes(orgId: string): Promise<CartaoComGasto
         c.dueDay,
         hoje,
       )
-        .filter((g) => g.fechamento >= primeiroFechamento && g.fechamento <= aberta)
+        .filter((g) => g.fechamento >= primeiroFechamento && g.fechamento <= aberta && (!ultimoFechamento || g.fechamento <= ultimoFechamento))
       .map((g) => ({
           fechamento: g.fechamento,
           totalCents: g.totalCents,
