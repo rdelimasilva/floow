@@ -5,6 +5,7 @@ import { getContasDosAtivos } from '@/lib/investments/contas-dos-ativos'
 import { PositionTable } from '@/components/investments/position-table'
 import { FiltroDeContaDaCarteira } from '@/components/investments/filtro-de-conta-da-carteira'
 import { MostrarEncerrados } from '@/components/investments/mostrar-encerrados'
+import { comConta, contaDaUrl } from '@/lib/investments/conta-na-url'
 import { estaEncerrada } from '@/lib/investments/encerrados'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -27,6 +28,7 @@ export default async function InvestmentsPage({ searchParams }: InvestmentsPageP
   const daConta = marcadas.size === 0
     ? todas
     : todas.filter((p) => [...(porAtivo.get(p.assetId) ?? [])].some((id) => marcadas.has(id)))
+  const conta = contaDaUrl(sp.accountId)
   const verEncerrados = sp.encerrados === '1'
   const encerrados = daConta.filter(estaEncerrada).length
   const positions = verEncerrados ? daConta : daConta.filter((p) => !estaEncerrada(p))
@@ -39,7 +41,7 @@ export default async function InvestmentsPage({ searchParams }: InvestmentsPageP
         description="Acompanhe sua carteira de investimentos e evolução patrimonial"
       >
         <Button asChild variant="primary">
-          <Link href="/investments/new">Novo Ativo / Evento</Link>
+          <Link href={comConta('/investments/new', conta)}>Novo Ativo / Evento</Link>
         </Button>
       </PageHeader>
 
@@ -67,12 +69,12 @@ export default async function InvestmentsPage({ searchParams }: InvestmentsPageP
           </p>
           <div className="mt-6">
             <Button asChild variant="primary">
-              <Link href="/investments/new">Novo Ativo</Link>
+              <Link href={comConta('/investments/new', conta)}>Novo Ativo</Link>
             </Button>
           </div>
         </div>
       ) : (
-        <PositionTable positions={positions} orgId={orgId} />
+        <PositionTable positions={positions} orgId={orgId} accountId={conta} />
       )}
     </div>
   )

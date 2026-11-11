@@ -7,10 +7,12 @@ import { PageHeader } from '@/components/ui/page-header'
 
 interface Props {
   params: Promise<{ assetId: string }>
+  searchParams: Promise<{ accountId?: string }>
 }
 
-export default async function EditAssetPage({ params }: Props) {
+export default async function EditAssetPage({ params, searchParams }: Props) {
   const { assetId } = await params
+  const { accountId } = await searchParams
   if (!ehIdDeRota(assetId)) notFound()
   const orgId = await getOrgId()
   const assets = await getAssets(orgId)
@@ -21,7 +23,7 @@ export default async function EditAssetPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <PageHeader title="Editar Ativo" />
-      <AssetEditForm asset={{
+      <AssetEditForm accountId={accountId} asset={{
         ...asset,
         createdAt: asset.createdAt instanceof Date ? asset.createdAt.toISOString() : asset.createdAt,
         updatedAt: asset.updatedAt instanceof Date ? asset.updatedAt.toISOString() : asset.updatedAt,

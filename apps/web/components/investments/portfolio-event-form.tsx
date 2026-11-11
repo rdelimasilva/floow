@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import type { Asset, Account } from '@floow/db'
 import { ativosManuais } from '@/lib/investments/ativos-manuais'
+import { comConta } from '@/lib/investments/conta-na-url'
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,8 @@ type EventType = 'buy' | 'sell' | 'dividend' | 'interest' | 'split' | 'amortizat
 interface PortfolioEventFormProps {
   assets: Asset[]
   accounts: Account[]
+  /** Conta escolhida em Posições; o fim do formulário devolve ela. */
+  accountId?: string
 }
 
 // ── Labels ─────────────────────────────────────────────────────────────────────
@@ -76,7 +79,7 @@ function showSplitRatio(type: EventType): boolean {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps) {
+export function PortfolioEventForm({ assets, accounts, accountId }: PortfolioEventFormProps) {
   const router = useRouter()
   const [eventType, setEventType] = useState<EventType>('buy')
 
@@ -139,7 +142,7 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
     if (data.notes) formData.append('notes', data.notes)
 
     await createPortfolioEvent(formData)
-    router.push('/investments')
+    router.push(comConta('/investments', accountId))
   }
 
   return (
@@ -330,7 +333,7 @@ export function PortfolioEventForm({ assets, accounts }: PortfolioEventFormProps
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={() => router.push('/investments')}>
+          <Button type="button" variant="outline" onClick={() => router.push(comConta('/investments', accountId))}>
             Cancelar
           </Button>
           <Button type="submit" variant="primary" disabled={isSubmitting}>

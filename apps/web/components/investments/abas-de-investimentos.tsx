@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { comConta, contaDaUrl } from '@/lib/investments/conta-na-url'
 
 const ABAS = [
   { href: '/investments', label: 'Posições' },
@@ -20,6 +21,8 @@ function abaDaRota(caminho: string) {
 
 export function AbasDeInvestimentos() {
   const ativa = abaDaRota(usePathname())
+  // Só Posições filtra por conta, mas as outras abas guardam a escolha para o retorno.
+  const conta = contaDaUrl(useSearchParams()?.get('accountId'))
 
   return (
     <div className="border-b border-gray-200">
@@ -29,7 +32,7 @@ export function AbasDeInvestimentos() {
           return (
             <Link
               key={aba.href}
-              href={aba.href}
+              href={comConta(aba.href, conta)}
               aria-current={selecionada ? 'page' : undefined}
               className={cn(
                 'whitespace-nowrap border-b-2 pb-3 text-sm font-medium',

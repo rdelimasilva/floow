@@ -1,9 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import React from 'react'
 
 let caminho = '/investments'
-vi.mock('next/navigation', () => ({ usePathname: () => caminho }))
+let query = ''
+vi.mock('next/navigation', () => ({
+  usePathname: () => caminho,
+  useSearchParams: () => new URLSearchParams(query),
+}))
 
 import { AbasDeInvestimentos } from '@/components/investments/abas-de-investimentos'
 
@@ -33,5 +37,18 @@ describe('AbasDeInvestimentos', () => {
     caminho = '/investments/abc-123'
     render(<AbasDeInvestimentos />)
     expect(abaAtiva()).toEqual(['Posições'])
+  })
+
+  it('leva a conta escolhida para as outras abas, sem aceitar id inválido', () => {
+    const a = '11111111-1111-4111-8111-111111111111'
+    query = `accountId=${a}`
+    render(<AbasDeInvestimentos />)
+    const hrefs = screen.getAllByRole('link').map((l) => l.getAttribute('href'))
+    expect(hrefs).toContain(`/investments/dashboard?accountId=${a}`)
+    cleanup()
+    query = 'accountId=<x>'
+    render(<AbasDeInvestimentos />)
+    expect(screen.getAllByRole('link').map((l) => l.getAttribute('href'))).toContain('/investments/dashboard')
+    query = ''
   })
 })

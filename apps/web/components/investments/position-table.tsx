@@ -14,12 +14,15 @@ import { positionBadges } from './position-badges'
 import type { EnrichedPosition } from '@/lib/investments/queries'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 import { formatarNumero } from '@/lib/formatar-numero'
+import { comConta } from '@/lib/investments/conta-na-url'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PositionTableProps {
   positions: EnrichedPosition[]
   orgId: string
+  /** Conta escolhida no filtro; o detalhe do ativo devolve ela no Voltar. */
+  accountId?: string
 }
 
 // ── Row Component ──────────────────────────────────────────────────────────────
@@ -27,9 +30,11 @@ interface PositionTableProps {
 const PositionRow = memo(function PositionRow({
   position,
   orgId,
+  accountId,
 }: {
   position: EnrichedPosition
   orgId: string
+  accountId?: string
 }) {
   const { toast } = useToast()
   const [showHistory, setShowHistory] = useState(false)
@@ -148,7 +153,7 @@ const PositionRow = memo(function PositionRow({
               </button>
             )}
             <Link
-              href={`/investments/${position.assetId}`}
+              href={comConta(`/investments/${position.assetId}`, accountId)}
               className="text-xs text-gray-500 hover:text-gray-800 underline"
             >
               Editar
@@ -234,7 +239,7 @@ const PositionRow = memo(function PositionRow({
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export function PositionTable({ positions, orgId }: PositionTableProps) {
+export function PositionTable({ positions, orgId, accountId }: PositionTableProps) {
   // Compute totals once with useMemo to avoid recalculating on every render
   const { totalValueCents, totalUnrealizedPnLCents, totalDividendsCents, totalUnrealizedPnLPercent } = useMemo(() => {
     const value = positions.reduce((sum, p) => sum + p.currentValueCents, 0)
@@ -290,7 +295,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
                 </div>
               </div>
               <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
-                <Link href={`/investments/${position.assetId}`} className="text-xs text-blue-600 hover:underline">Editar</Link>
+                <Link href={comConta(`/investments/${position.assetId}`, accountId)} className="text-xs text-blue-600 hover:underline">Editar</Link>
               </div>
             </div>
           )
@@ -328,7 +333,7 @@ export function PositionTable({ positions, orgId }: PositionTableProps) {
         </thead>
         <tbody>
           {positions.map((position) => (
-            <PositionRow key={position.assetId} position={position} orgId={orgId} />
+            <PositionRow key={position.assetId} position={position} orgId={orgId} accountId={accountId} />
           ))}
         </tbody>
         {/* Totals row */}

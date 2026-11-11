@@ -4,7 +4,12 @@ import { AssetForm } from '@/components/investments/asset-form'
 import { PortfolioEventForm } from '@/components/investments/portfolio-event-form'
 import { PageHeader } from '@/components/ui/page-header'
 
-export default async function InvestmentsNewPage() {
+export default async function InvestmentsNewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ accountId?: string }>
+}) {
+  const { accountId } = await searchParams
   const orgId = await getOrgId()
 
   const [accounts, assets] = await Promise.all([
@@ -21,10 +26,10 @@ export default async function InvestmentsNewPage() {
 
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Asset registration form */}
-        <AssetForm />
+        <AssetForm accountId={accountId} />
 
         {/* Portfolio event form */}
-        <PortfolioEventForm assets={assets} accounts={accounts} />
+        <PortfolioEventForm assets={assets} accounts={accounts} accountId={accountId} />
       </div>
     </div>
   )

@@ -33,16 +33,16 @@ beforeEach(() => {
 
 describe('rota de ativo inexistente vira 404', () => {
   it('id que não é uuid não chega a consultar o banco', async () => {
-    await expect(PaginaDoAtivo({ params: Promise.resolve({ assetId: 'nao-existe' }) })).rejects.toThrow('NEXT_NOT_FOUND')
+    await expect(PaginaDoAtivo({ params: Promise.resolve({ assetId: 'nao-existe' }), searchParams: Promise.resolve({}) })).rejects.toThrow('NEXT_NOT_FOUND')
     expect(getPortfolioEvents).not.toHaveBeenCalled()
   })
 
   it('uuid que não é ativo da org também é 404', async () => {
-    await expect(PaginaDoAtivo({ params: Promise.resolve({ assetId: UUID }) })).rejects.toThrow('NEXT_NOT_FOUND')
+    await expect(PaginaDoAtivo({ params: Promise.resolve({ assetId: UUID }), searchParams: Promise.resolve({}) })).rejects.toThrow('NEXT_NOT_FOUND')
   })
 
   it('edição de ativo inexistente é 404', async () => {
-    await expect(EdicaoDoAtivo({ params: Promise.resolve({ assetId: 'abc' }) })).rejects.toThrow('NEXT_NOT_FOUND')
+    await expect(EdicaoDoAtivo({ params: Promise.resolve({ assetId: 'abc' }), searchParams: Promise.resolve({}) })).rejects.toThrow('NEXT_NOT_FOUND')
     expect(getAssets).not.toHaveBeenCalled()
   })
 

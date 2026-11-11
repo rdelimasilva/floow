@@ -5,6 +5,8 @@ import { withUserDb } from '@/lib/db/rls'
 export interface ContaComAtivos {
   id: string
   name: string
+  /** Para o atalho por titular do filtro de conta. */
+  titular: string | null
 }
 
 export interface ContasDosAtivos {
@@ -51,7 +53,7 @@ export async function getContasDosAtivos(orgId: string): Promise<ContasDosAtivos
     const contas = ids.length === 0
       ? []
       : await db
-          .select({ id: accounts.id, name: accounts.name })
+          .select({ id: accounts.id, name: accounts.name, titular: accounts.titular })
           .from(accounts)
           .where(and(eq(accounts.orgId, orgId), inArray(accounts.id, ids)))
           .orderBy(asc(accounts.name))

@@ -1,7 +1,6 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useTransition } from 'react'
+import { useFiltrosNaUrl } from '@/components/finance/filtros/use-filtros-na-url'
 import { PILULA_BASE, PILULA_OFF, PILULA_ON } from '@/components/finance/filtros/pilula'
 
 /**
@@ -9,23 +8,13 @@ import { PILULA_BASE, PILULA_OFF, PILULA_ON } from '@/components/finance/filtros
  * clique (`?encerrados=1`) — somem da vista, não do histórico.
  */
 export function MostrarEncerrados({ quantidade, ativo }: { quantidade: number; ativo: boolean }) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [, startTransition] = useTransition()
-
-  function alternar() {
-    const params = new URLSearchParams(searchParams.toString())
-    if (ativo) params.delete('encerrados')
-    else params.set('encerrados', '1')
-    const query = params.toString()
-    startTransition(() => router.replace(query ? `/investments?${query}` : '/investments', { scroll: false }))
-  }
+  const { trocar } = useFiltrosNaUrl('/investments', { gravaRecorte: false })
 
   return (
     <button
       type="button"
       aria-pressed={ativo}
-      onClick={alternar}
+      onClick={() => trocar({ encerrados: ativo ? '' : '1' })}
       className={`${PILULA_BASE} ${ativo ? PILULA_ON : PILULA_OFF}`}
     >
       {ativo ? 'Ocultar encerrados' : `Mostrar encerrados (${quantidade})`}

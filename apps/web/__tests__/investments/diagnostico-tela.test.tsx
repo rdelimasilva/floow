@@ -4,7 +4,7 @@ import React from 'react'
 import type { Achado, Diagnostico } from '@floow/core-finance'
 
 let caminho = '/investments/diagnostico'
-vi.mock('next/navigation', () => ({ usePathname: () => caminho, useRouter: () => ({ replace: vi.fn() }) }))
+vi.mock('next/navigation', () => ({ usePathname: () => caminho, useRouter: () => ({ replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }))
 vi.mock('@/lib/investments/diagnostico/perfil-action', () => ({ salvarPerfilInvestidor: vi.fn(async () => ({})) }))
 
 import { TelaDeDiagnostico } from '@/components/investments/diagnostico/tela-de-diagnostico'

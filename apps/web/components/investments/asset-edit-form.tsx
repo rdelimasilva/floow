@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ASSET_CLASS_LABEL, assetDisplayName, type AssetClass } from '@/lib/investments/asset-labels'
 import type { Asset } from '@floow/db'
+import { comConta } from '@/lib/investments/conta-na-url'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 const ASSET_CLASSES = (Object.entries(ASSET_CLASS_LABEL) as [AssetClass, string][]).map(
@@ -22,9 +23,11 @@ type SerializedAsset = Omit<Asset, 'createdAt' | 'updatedAt'> & {
 
 interface AssetEditFormProps {
   asset: SerializedAsset
+  /** Conta escolhida em Posições; o fim do formulário devolve ela. */
+  accountId?: string
 }
 
-export function AssetEditForm({ asset }: AssetEditFormProps) {
+export function AssetEditForm({ asset, accountId }: AssetEditFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
@@ -35,7 +38,7 @@ export function AssetEditForm({ asset }: AssetEditFormProps) {
       formData.append('id', asset.id)
       await updateAsset(formData)
       toast('Ativo atualizado com sucesso')
-      router.push('/investments')
+      router.push(comConta('/investments', accountId))
     } catch (e) {
       toast(mensagemDeErro(e, 'Erro ao atualizar ativo'), 'error')
     } finally {

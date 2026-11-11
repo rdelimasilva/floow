@@ -7,6 +7,7 @@ import { deletePortfolioEvent } from '@/lib/investments/actions'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
 import { formatarDia } from '@/lib/formatar-dia'
+import { comConta } from '@/lib/investments/conta-na-url'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
 
 interface EventRow {
@@ -25,9 +26,11 @@ interface AssetEventListProps {
   events: EventRow[]
   /** Ativo do Open Finance: sem editar/excluir, o banco é a fonte da verdade. */
   readOnly?: boolean
+  /** Conta escolhida em Posições, para o Voltar do formulário devolver. */
+  accountId?: string
 }
 
-export function AssetEventList({ events, readOnly = false }: AssetEventListProps) {
+export function AssetEventList({ events, readOnly = false, accountId }: AssetEventListProps) {
   const { toast } = useToast()
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -90,7 +93,7 @@ export function AssetEventList({ events, readOnly = false }: AssetEventListProps
                   <td className="py-2">
                     <div className="flex items-center gap-2">
                       <Link
-                        href={`/investments/events/${event.id}/edit?voltar=ativo`}
+                        href={comConta(`/investments/events/${event.id}/edit?voltar=ativo`, accountId)}
                         className="text-xs text-gray-500 hover:text-gray-800 underline"
                       >
                         Editar

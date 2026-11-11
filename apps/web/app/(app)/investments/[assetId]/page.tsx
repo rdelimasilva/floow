@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatBRL } from '@floow/core-finance'
+import { comConta } from '@/lib/investments/conta-na-url'
 import { ehIdDeRota } from '@/lib/investments/id-de-rota'
 import { getOrgId } from '@/lib/finance/queries'
 import { getAssets, getPortfolioEvents } from '@/lib/investments/queries'
@@ -11,6 +12,7 @@ import { PageHeader } from '@/components/ui/page-header'
 
 interface Props {
   params: Promise<{ assetId: string }>
+  searchParams: Promise<{ accountId?: string }>
 }
 
 /** 'YYYY-MM-DD' -> 'dd/MM/yyyy', sem passar por Date (evita o fuso mudar o dia). */
@@ -19,8 +21,9 @@ function formatarDataReferencia(iso: string): string {
   return `${dia}/${mes}/${ano}`
 }
 
-export default async function AssetDetailPage({ params }: Props) {
+export default async function AssetDetailPage({ params, searchParams }: Props) {
   const { assetId } = await params
+  const { accountId } = await searchParams
   if (!ehIdDeRota(assetId)) notFound()
   const orgId = await getOrgId()
 
@@ -56,14 +59,14 @@ export default async function AssetDetailPage({ params }: Props) {
       >
         {!isFromBank && (
           <Link
-            href={`/investments/${assetId}/edit`}
+            href={comConta(`/investments/${assetId}/edit`, accountId)}
             className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
           >
             Editar Ativo
           </Link>
         )}
         <Link
-          href="/investments"
+          href={comConta('/investments', accountId)}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
         >
           Voltar
@@ -140,7 +143,7 @@ export default async function AssetDetailPage({ params }: Props) {
         {enrichedEvents.length === 0 ? (
           <p className="text-sm text-gray-500">Nenhum evento registrado para este ativo.</p>
         ) : (
-          <AssetEventList events={enrichedEvents} readOnly={isFromBank} />
+          <AssetEventList events={enrichedEvents} readOnly={isFromBank} accountId={accountId} />
         )}
       </div>
     </div>

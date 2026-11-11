@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { comConta } from '@/lib/investments/conta-na-url'
 import { ehIdDeRota } from '@/lib/investments/id-de-rota'
 import { getOrgId, getAccounts } from '@/lib/finance/queries'
 import { getAssets, getPortfolioEventById } from '@/lib/investments/queries'
@@ -7,7 +8,7 @@ import { PageHeader } from '@/components/ui/page-header'
 
 interface Props {
   params: Promise<{ eventId: string }>
-  searchParams: Promise<{ voltar?: string }>
+  searchParams: Promise<{ voltar?: string; accountId?: string }>
 }
 
 export default async function EditPortfolioEventPage({ params, searchParams }: Props) {
@@ -23,8 +24,11 @@ export default async function EditPortfolioEventPage({ params, searchParams }: P
 
   if (!event) notFound()
   // Aberto pelo detalhe do ativo, volta para ele; senão, para Renda Passiva.
-  const { voltar } = await searchParams
-  const voltarPara = voltar === 'ativo' && event.assetId ? `/investments/${event.assetId}` : '/investments/income'
+  const { voltar, accountId } = await searchParams
+  const voltarPara = comConta(
+    voltar === 'ativo' && event.assetId ? `/investments/${event.assetId}` : '/investments/income',
+    accountId,
+  )
 
   return (
     <div className="space-y-6">

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ASSET_CLASS_LABEL, type AssetClass } from '@/lib/investments/asset-labels'
+import { comConta } from '@/lib/investments/conta-na-url'
 
 // ── Labels ─────────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,8 @@ type AssetFormData = z.infer<typeof assetFormSchema>
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function AssetForm() {
+/** `accountId`: conta escolhida em Posições; o fim do formulário devolve ela. */
+export function AssetForm({ accountId }: { accountId?: string }) {
   const router = useRouter()
   const [selectedClass, setSelectedClass] = useState<string | null>(null)
 
@@ -64,7 +66,7 @@ export function AssetForm() {
     if (data.notes) formData.append('notes', data.notes)
 
     await createAsset(formData)
-    router.push('/investments')
+    router.push(comConta('/investments', accountId))
   }
 
   return (
@@ -159,7 +161,7 @@ export function AssetForm() {
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={() => router.push('/investments')}>
+          <Button type="button" variant="outline" onClick={() => router.push(comConta('/investments', accountId))}>
             Cancelar
           </Button>
           <Button type="submit" variant="primary" disabled={isSubmitting}>
