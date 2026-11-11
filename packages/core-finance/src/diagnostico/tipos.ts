@@ -75,6 +75,8 @@ export const CONFIG_DIAGNOSTICO = {
   /** Poupança com Selic acima de 8,5%: 0,5% a.m. */
   poupancaAnual: 0.0617,
   subtiposFgc: ['CDB', 'LCI', 'LCA', 'LC', 'RDB'],
+  /** Renda fixa pós-CDI que costuma ter resgate diário; o banco não informa. */
+  subtiposLiquidezProvavel: ['CDB', 'RDB'],
 } as const
 
 export function patrimonioCents(ctx: ContextoDiagnostico): number {

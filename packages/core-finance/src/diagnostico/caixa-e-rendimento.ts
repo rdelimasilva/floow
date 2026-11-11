@@ -75,18 +75,40 @@ export function regraR04(ctx: ContextoDiagnostico): Achado | null {
   const alvo = C.r04MesesColchao * ctx.gastoMensalCents
   if (liquido >= alvo) return null
 
+  // O banco não informa a liquidez do CDB. O pós-fixado costuma ter resgate
+  // diário, então entra à parte, como provável, e nunca soma no confirmado.
+  const jaContados = new Set(resgataveis.map((p) => p.assetId))
+  const subtipos: readonly string[] = C.subtiposLiquidezProvavel
+  const provaveis = ctx.posicoes.filter(
+    (p) =>
+      !jaContados.has(p.assetId) &&
+      p.valorCents > 0 &&
+      subtipos.includes((p.subtipo ?? '').trim().toUpperCase()) &&
+      ehPosCdi(p),
+  )
+  const provavel = provaveis.reduce((s, p) => s + p.valorCents, 0)
   const falta = alvo - liquido
+  const coberto = liquido + provavel >= alvo
+  const base =
+    `Dá para resgatar ${brlCurto(liquido)} em até um dia, contra ${brlCurto(alvo)} de ${C.r04MesesColchao} meses de gasto. ` +
+    'Esse valor conta conta corrente, poupança, dinheiro, Tesouro Selic e títulos que vencem até amanhã.'
+  const cdb = provavel > 0
+    ? ` Outros ${brlCurto(provavel)} estão em CDB pós-fixado, que pode ter liquidez diária: o banco não informa.`
+    : ''
+
   return {
     ruleId: 'R04',
-    severidade: 'alta',
-    titulo: `Faltam ${brlCurto(falta)} para ${C.r04MesesColchao} meses de gasto à mão`,
-    posicoes: resgataveis.map((p) => p.assetId),
-    metricas: { liquidoCents: liquido, alvoCents: alvo, faltaCents: falta },
+    severidade: coberto ? 'info' : 'alta',
+    titulo: coberto
+      ? `Colchão de ${C.r04MesesColchao} meses depende da liquidez de ${brlCurto(provavel)} em CDB`
+      : `Faltam ${brlCurto(falta)} para ${C.r04MesesColchao} meses de gasto à mão`,
+    posicoes: [...resgataveis, ...provaveis].map((p) => p.assetId),
+    metricas: { liquidoCents: liquido, provavelCents: provavel, alvoCents: alvo, faltaCents: falta },
     impactoAnualCents: null,
     exposicaoCents: null,
-    dica:
-      `Dá para resgatar ${brlCurto(liquido)} em até um dia, contra ${brlCurto(alvo)} de ${C.r04MesesColchao} meses de gasto. ` +
-      'A conta considera só conta corrente, poupança, dinheiro, Tesouro Selic e títulos que vencem até amanhã: o banco não informa se o CDB tem liquidez diária.',
+    dica: coberto
+      ? `${base}${cdb} Se tiver, o colchão está coberto. Vale conferir no banco.`
+      : `${base}${cdb}`,
   }
 }
 

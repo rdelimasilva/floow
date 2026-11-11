@@ -73,7 +73,7 @@ Os limites ficam num objeto de config em `core-finance`, nunca soltos no código
 
 Detalhes:
 
-- **R04, o que conta como líquido:** conta corrente, Tesouro Selic e RF que vence em até 1 dia. A Polp não informa a liquidez diária de CDB, então CDB não conta. O texto do achado diz isso ("considerando só conta corrente e Tesouro Selic"). Assim um falso alarme fica explicado, em vez de parecer erro. Decisão minha.
+- **R04, o que conta como líquido:** conta corrente, poupança, dinheiro, Tesouro Selic e RF que vence em até 1 dia. A Polp não informa a liquidez diária de CDB, então CDB não entra nesse valor confirmado. CDB e RDB pós-CDI entram à parte, como "provável". Se confirmado + provável cobre os 3 meses, o achado cai para info e pede para conferir a liquidez no banco. Se nem a soma cobre, fica alta. (Ajuste de 11/11/2026, depois do primeiro uso: o alerta alta de R$ 193 mil era falso alarme para quem tem CDB com liquidez diária.)
 - **R02, sem exigência de idade:** a spec pede posição com mais de 12 meses porque mede o retorno pela variação de preço. Para RF pós-CDI, o retorno sai da taxa contratada, então a idade não muda o resultado. Além disso, o Open Finance só traz 12 meses de movimentação, e a data da primeira compra não seria confiável. Decisão minha.
 - **R06, conglomerado:** é o nome do banco que `bancoEmissor(cnpj)` devolve. Quando o CNPJ não está mapeado, usa a raiz do CNPJ (8 dígitos).
 - **R07, classes:** caixa, renda fixa (`fixed_income` + `credit_fixed_income` + `treasury`), ações, FII, ETF e fundos. Sem perfil respondido, a R07 não roda.

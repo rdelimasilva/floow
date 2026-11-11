@@ -51,7 +51,7 @@ describe('R04: colchão de liquidez', () => {
   it('dispara com líquido de R$ 29.999,99 para gasto de R$ 10 mil', () => {
     const r = regraR04(contexto({ caixa: [caixa(2_999_999)] }))
     expect(r?.severidade).toBe('alta')
-    expect(r?.metricas).toEqual({ liquidoCents: 2_999_999, alvoCents: 3_000_000, faltaCents: 1 })
+    expect(r?.metricas).toEqual({ liquidoCents: 2_999_999, provavelCents: 0, alvoCents: 3_000_000, faltaCents: 1 })
     expect(r?.impactoAnualCents).toBeNull()
   })
 
@@ -117,5 +117,30 @@ describe('diagnosticar com R02 e R03', () => {
     const { achados } = diagnosticar(contexto({ posicoes: [p] }))
     expect(achados.filter((a) => a.ruleId === 'R03')).toHaveLength(1)
     expect(achados.filter((a) => a.ruleId === 'R02')).toHaveLength(0)
+  })
+})
+
+describe('R04: CDB que pode ter liquidez diária', () => {
+  it('cai para informativo quando o CDB pós-fixado cobre o que falta', () => {
+    const cdb = posicao({ subtipo: 'CDB', valorCents: 2_900_000 })
+    const r = regraR04(contexto({ caixa: [caixa(200_000)], posicoes: [cdb] }))
+    expect(r?.severidade).toBe('info')
+    expect(r?.metricas).toMatchObject({ liquidoCents: 200_000, provavelCents: 2_900_000, alvoCents: 3_000_000 })
+    expect(r?.dica).toContain('pode ter liquidez diária')
+  })
+
+  it('continua alta quando nem a soma cobre', () => {
+    const cdb = posicao({ subtipo: 'CDB', valorCents: 1_000_000 })
+    const r = regraR04(contexto({ caixa: [caixa(200_000)], posicoes: [cdb] }))
+    expect(r?.severidade).toBe('alta')
+    expect(r?.metricas.faltaCents).toBe(2_800_000)
+  })
+
+  it('LCI e CDB prefixado não contam como provável', () => {
+    const lci = posicao({ subtipo: 'LCI', valorCents: 5_000_000 })
+    const pre = posicao({ subtipo: 'CDB', indexador: 'PRE_FIXADO', percentualIndexador: null, taxaPrefixada: 0.13, valorCents: 5_000_000 })
+    const r = regraR04(contexto({ posicoes: [lci, pre] }))
+    expect(r?.severidade).toBe('alta')
+    expect(r?.metricas.provavelCents).toBe(0)
   })
 })
