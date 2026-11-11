@@ -2,7 +2,7 @@
 
 import { useCallback, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { gravarRecorte, recorteDaUrl, temRecorteNaUrl } from '@/lib/finance/recorte'
+import { gravarRecorte, recorteDaUrl } from '@/lib/finance/recorte'
 
 const CHAVES_DO_RECORTE = ['startDate', 'endDate', 'accountId', 'month']
 
@@ -29,11 +29,13 @@ export function useFiltrosNaUrl(baseUrl: string, opts: Opcoes = {}) {
     }
     // Sem `page`: o servidor reabre na página certa para a ordem escolhida.
     novos.delete('page')
-    // Chave de recorte desligada some da URL, mas o cookie precisa saber que ficou vazia.
-    const obj: Record<string, string> = Object.fromEntries(novos)
-    for (const k of CHAVES_DO_RECORTE) if (over[k] === '') obj[k] = ''
-    // Só grava quando a URL traz recorte, senão apagaria o cookie com o padrão.
-    if (gravaRecorte && temRecorteNaUrl(obj)) gravarRecorte(recorteDaUrl(obj))
+    // O recorte só muda no que o usuário mexeu agora: o resto da URL (busca,
+    // colunas, contas que a tela não conhece) não toca o cookie. Chave desligada
+    // some da URL mas entra vazia, para o cookie saber que ficou vazia.
+    const mexidas = CHAVES_DO_RECORTE.filter((k) => k in over)
+    if (gravaRecorte && mexidas.length) {
+      gravarRecorte(recorteDaUrl(Object.fromEntries(mexidas.map((k) => [k, novos.get(k) ?? '']))))
+    }
     aoMudar?.(novos)
     startTransition(() => {
       router.replace(`${baseUrl}?${novos.toString()}`, { scroll: false })

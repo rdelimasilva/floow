@@ -31,7 +31,16 @@ describe('useFiltrosNaUrl', () => {
     act(() => result.current.trocar({ startDate: '2026-10-01' }))
     const r = lerRecorte({ recorte: cookieRecorte() })
     expect(r?.startDate).toBe('2026-10-01')
-    expect(r?.accountIds).toEqual(['a'])
+    expect(r?.accountIds).toEqual([])
+  })
+
+  it('mexer na busca não toca o cookie; mexer na conta grava só a conta', () => {
+    const { result } = renderHook(() => useFiltrosNaUrl('/transactions'))
+    act(() => result.current.trocar({ search: 'x' }))
+    expect(cookieRecorte()).toBeUndefined()
+    act(() => result.current.trocar({ accountId: 'b' }))
+    const r = lerRecorte({ recorte: cookieRecorte() })
+    expect(r?.accountIds).toEqual(['b'])
   })
 
   it('gravaRecorte: false não mexe no cookie', () => {

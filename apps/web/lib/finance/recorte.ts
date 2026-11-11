@@ -123,12 +123,16 @@ export function fundirRecorte(atual: Recorte | null, parcial: Partial<Recorte>, 
 }
 
 /** Cliente: grava o recorte antes de navegar, para o servidor lê-lo já nesta ida. */
-export function gravarRecorte(parcial: Partial<Recorte>): void {
+export function recorteDoNavegador(): Recorte | null {
   const cookies: Params = {}
   for (const par of document.cookie.split('; ')) {
     const i = par.indexOf('=')
     if (i > 0) cookies[par.slice(0, i)] = par.slice(i + 1)
   }
-  const r = fundirRecorte(lerRecorte(cookies), parcial)
+  return lerRecorte(cookies)
+}
+
+export function gravarRecorte(parcial: Partial<Recorte>): void {
+  const r = fundirRecorte(recorteDoNavegador(), parcial)
   document.cookie = `${RECORTE_COOKIE}=${encodeURIComponent(serializarRecorte(r))}; path=/; max-age=31536000; SameSite=Lax`
 }

@@ -25,7 +25,7 @@ import { getVerifiedIdentity } from '@/lib/auth/session'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 import { lerRecorte, temRecorteNaUrl } from '@/lib/finance/recorte'
-import { destinoDeTransacoes } from '@/lib/finance/url-do-menu'
+import { destinoDeTransacoes, destinoSoComContasValidas } from '@/lib/finance/url-do-menu'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const
 const DEFAULT_PAGE_SIZE = 30
@@ -60,6 +60,12 @@ export default async function TransactionsPage({ searchParams }: Props) {
     const comContas = (lerRecorte(cookiesLidos)?.accountIds.length ?? 0) > 0
     const permitidas = comContas ? contasParaLancamento(await getAccounts(orgId)).map((a) => a.id) : null
     const destino = destinoDeTransacoes(params, cookiesLidos, permitidas)
+    if (destino) redirect(destino)
+  }
+
+  // Link ou menu com conta de investimento: a tela não a conhece, então sai da URL.
+  if (params.accountId) {
+    const destino = destinoSoComContasValidas(params, contasParaLancamento(await getAccounts(orgId)).map((a) => a.id))
     if (destino) redirect(destino)
   }
 

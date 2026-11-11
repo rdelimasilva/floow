@@ -6,6 +6,7 @@ import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
 import { CardDigitsFilter } from './card-digits-filter'
 import { PILULA_BASE, PILULA_OFF, PILULA_ON } from './filtros/pilula'
+import { gravarRecorte, recorteDaUrl, recorteDoNavegador, temRecorteNaUrl } from '@/lib/finance/recorte'
 import { SeletorDePeriodo } from './filtros/seletor-de-periodo'
 import { useFiltrosNaUrl } from './filtros/use-filtros-na-url'
 import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
@@ -77,6 +78,21 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   useEffect(() => {
     if (baseUrl === '/transactions') lembrarFiltros(new URLSearchParams(searchParams.toString()))
   }, [baseUrl, searchParams])
+
+  // Chegada com recorte explícito na URL (link, menu) grava o recorte. Contas que
+  // esta tela não lista (investimento) ficam no cookie: ela não as aplica nem as apaga.
+  const urlToda = searchParams.toString()
+  useEffect(() => {
+    const p = new URLSearchParams(urlToda)
+    if (!temRecorteNaUrl(Object.fromEntries(p))) return
+    const parcial = recorteDaUrl(Object.fromEntries(p))
+    if (parcial.accountIds) {
+      const naoListadas = (recorteDoNavegador()?.accountIds ?? []).filter((id) => !accounts.some((a) => a.id === id))
+      parcial.accountIds = [...parcial.accountIds, ...naoListadas.filter((id) => !parcial.accountIds!.includes(id))]
+    }
+    gravarRecorte(parcial)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `accounts` chega como array novo a cada render
+  }, [urlToda])
 
   const activePeriod = detectActivePeriod(startDate, endDate)
 

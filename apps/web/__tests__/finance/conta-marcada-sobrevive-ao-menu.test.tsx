@@ -111,3 +111,15 @@ describe('filtro de contas', () => {
     expect(contasNoCookie()).toEqual([])
   })
 })
+
+describe('chegada com recorte na URL', () => {
+  it('link com período e conta grava o recorte, e guarda a conta que a tela não lista', () => {
+    document.cookie = `recorte=${encodeURIComponent('v=1&accounts=invest')}; path=/`
+    params = new URLSearchParams({ startDate: '2026-10-01', endDate: '2026-10-31', accountId: 'acc-1' })
+    render(<TransactionFilters accounts={CONTAS} />)
+
+    const r = lerRecorte({ recorte: /(?:^|; )recorte=([^;]*)/.exec(document.cookie)?.[1] })
+    expect(r?.startDate).toBe('2026-10-01')
+    expect(r?.accountIds).toEqual(['acc-1', 'invest'])
+  })
+})

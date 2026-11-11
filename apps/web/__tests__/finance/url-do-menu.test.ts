@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { destinoDeTransacoes, urlDeAnalises, urlDeOrcamento, urlDeTransacoes } from '@/lib/finance/url-do-menu'
+import { destinoSoComContasValidas, destinoDeTransacoes, urlDeAnalises, urlDeOrcamento, urlDeTransacoes } from '@/lib/finance/url-do-menu'
 import { serializarRecorte } from '@/lib/finance/recorte'
 
 const HOJE = '2026-11-11'
@@ -71,5 +71,19 @@ describe('links do menu', () => {
 describe('menu sem nada lembrado', () => {
   it('Transações fica pura', () => {
     expect(urlDeTransacoes({}, HOJE)).toBe('/transactions')
+  })
+})
+
+describe('contas que Transações não conhece', () => {
+  it('sai o investimento e fica a corrente, com o resto da URL', () => {
+    expect(destinoSoComContasValidas({ accountId: 'inv,cc', startDate: '2026-10-01' }, ['cc']))
+      .toBe('/transactions?accountId=cc&startDate=2026-10-01')
+  })
+  it('só investimento: URL sem accountId', () => {
+    expect(destinoSoComContasValidas({ accountId: 'inv', startDate: '2026-10-01' }, ['cc']))
+      .toBe('/transactions?startDate=2026-10-01')
+  })
+  it('tudo conhecido: não redireciona', () => {
+    expect(destinoSoComContasValidas({ accountId: 'cc' }, ['cc'])).toBeNull()
   })
 })
