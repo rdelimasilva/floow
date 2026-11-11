@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { and } from 'drizzle-orm'
-import { idsComFilhas, limitesDoMes, linkDeCelulaDoFluxo, linkDeGastoDoMes, linkDoTotal } from '@/lib/finance/link-do-total'
+import { idsComFilhas, limitesDoGrupo, periodoDaCelula, limitesDoMes, linkDeCelulaDoFluxo, linkDeGastoDoMes, linkDoTotal } from '@/lib/finance/link-do-total'
 import { FILTER_KEYS } from '@/lib/finance/filtros-lembrados'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { buildTransactionConditions } from '@/lib/finance/queries-transactions'
+import { situacaoDaUrl } from '@/lib/finance/filtros-da-url'
 
 const dbFalso = vi.hoisted(() => ({ where: null as unknown }))
 vi.mock('next/cache', () => ({ unstable_cache: (fn: () => unknown) => fn }))
@@ -89,6 +90,8 @@ describe('soma: a lista de Transações usa os mesmos critérios de getSpendingB
     const criterios = gasto.filter((c) => !soDaConsulta(c))
     expect(criterios.length).toBe(5) // type, review_state, is_ignored, balance_applied, affects_cash_flow
     for (const c of criterios) expect(lista).toContain(c)
+    // Outro sentido: a lista não pode ter filtro a mais, que esconderia linhas do total.
+    for (const c of lista.filter((c) => !soDaConsulta(c))) expect(gasto).toContain(c)
   })
 
   it('o link nunca perde o fim do mês', () => {
@@ -102,10 +105,10 @@ describe('linkDeCelulaDoFluxo', () => {
   const sit = (visao: 'realized' | 'projected' | 'both') =>
     new URL(linkDeCelulaDoFluxo({ ...base, visao })!, 'http://x').searchParams.get('situacao')
 
-  it('situacao segue a visão e Ambos omite', () => {
+  it('situacao segue a visão (Ambos = ambos)', () => {
     expect(sit('realized')).toBe('realizado')
     expect(sit('projected')).toBe('previsto')
-    expect(sit('both')).toBeNull()
+    expect(sit('both')).toBe('ambos')
   })
   it('mantém caixa, tipo e período', () => {
     const p = new URL(linkDeCelulaDoFluxo({ ...base, visao: 'both' })!, 'http://x').searchParams
@@ -113,5 +116,43 @@ describe('linkDeCelulaDoFluxo', () => {
   })
   it('sem link com transferências à mostra', () => {
     expect(linkDeCelulaDoFluxo({ ...base, visao: 'realized', ocultarTransferencias: false })).toBeNull()
+  })
+})
+
+describe('situacao=ambos', () => {
+  const sqlDe = (params: Record<string, string>) =>
+    dialect.sqlToQuery(and(...buildTransactionConditions('org-1', filtrosDaUrl(params)))!).sql.toLowerCase()
+
+  it('a URL aceita ambos', () => {
+    expect(situacaoDaUrl('ambos')).toBe('ambos')
+    expect(situacaoDaUrl('xis')).toBeUndefined()
+  })
+  it('gera realizado OU previsão por vencer', () => {
+    const q = sqlDe({ situacao: 'ambos' })
+    expect(q).toMatch(/"balance_applied" = \$\d+ or \("transactions"\."balance_applied" = \$\d+ and/)
+    expect(q).toContain('forecast_match_proposals')
+  })
+  it('sem endDate não corta em hoje', () => {
+    expect(sqlDe({ situacao: 'ambos' })).not.toMatch(/"date" <= \$\d+::date/)
+    expect(sqlDe({ situacao: 'realizado' })).toMatch(/"date" <= \$\d+::date/)
+  })
+})
+
+describe('período da célula', () => {
+  const tela = { startDate: '', endDate: '' }
+  it('trimestre e semestre', () => {
+    expect(limitesDoGrupo('2026-Q4', 'quarterly')).toEqual({ inicio: '2026-10-01', fim: '2026-12-31' })
+    expect(limitesDoGrupo('2026-Q1', 'quarterly')).toEqual({ inicio: '2026-01-01', fim: '2026-03-31' })
+    expect(limitesDoGrupo('2026-S1', 'semiannual')).toEqual({ inicio: '2026-01-01', fim: '2026-06-30' })
+    expect(limitesDoGrupo('2026-S2', 'semiannual')).toEqual({ inicio: '2026-07-01', fim: '2026-12-31' })
+    expect(limitesDoGrupo('2026', 'annual')).toEqual({ inicio: '2026-01-01', fim: '2026-12-31' })
+    expect(limitesDoGrupo('2026-10-05', 'daily')).toEqual({ inicio: '2026-10-05', fim: '2026-10-05' })
+  })
+  it('corta pelo período da tela', () => {
+    expect(periodoDaCelula('2026-Q4', 'quarterly', { startDate: '2026-11-10', endDate: '2026-11-20' }))
+      .toEqual({ inicio: '2026-11-10', fim: '2026-11-20' })
+    expect(periodoDaCelula('2026-Q4', 'quarterly', tela)).toEqual({ inicio: '2026-10-01', fim: '2026-12-31' })
+    expect(periodoDaCelula('2026-10', 'monthly', { startDate: '2026-01-01', endDate: '2026-12-31' }))
+      .toEqual({ inicio: '2026-10-01', fim: '2026-10-31' })
   })
 })

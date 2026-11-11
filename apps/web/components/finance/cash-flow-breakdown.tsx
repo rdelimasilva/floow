@@ -5,7 +5,7 @@ import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { CashFlowLancamentoDialog } from './cash-flow-lancamento-dialog'
-import { limitesDoMes, linkDeCelulaDoFluxo } from '@/lib/finance/link-do-total'
+import { linkDeCelulaDoFluxo, periodoDaCelula } from '@/lib/finance/link-do-total'
 
 type Grouping = 'daily' | 'monthly' | 'quarterly' | 'semiannual' | 'annual'
 
@@ -39,22 +39,6 @@ interface CashFlowBreakdownProps {
   recorte?: { startDate: string; endDate: string; accountIds: string[]; visao: 'realized' | 'projected' | 'both'; ocultarTransferencias: boolean }
 }
 
-/** Primeiro e último dia do período da chave de grupo. */
-function limitesDoGrupo(key: string, grouping: Grouping): { inicio: string; fim: string } {
-  switch (grouping) {
-    case 'daily': return { inicio: key, fim: key }
-    case 'monthly': return limitesDoMes(key)
-    case 'quarterly': {
-      const [y, q] = key.split('-Q').map(Number)
-      return { inicio: limitesDoMes(`${y}-${(q - 1) * 3 + 1}`).inicio, fim: limitesDoMes(`${y}-${q * 3}`).fim }
-    }
-    case 'semiannual': {
-      const [y, s] = key.split('-S').map(Number)
-      return { inicio: limitesDoMes(`${y}-${s === 1 ? 1 : 7}`).inicio, fim: limitesDoMes(`${y}-${s === 1 ? 6 : 12}`).fim }
-    }
-    case 'annual': return { inicio: `${key}-01-01`, fim: `${key}-12-31` }
-  }
-}
 
 const GROUPING_LABELS: Record<Grouping, string> = {
   daily: 'Diário',
@@ -163,13 +147,12 @@ export function CashFlowBreakdown({ transactions = [], recorte }: CashFlowBreakd
   // O período da célula cortado pelo período da tela, como a tabela corta por dia.
   function linkDaCelula(key: string, type: Aberta['type']): string | null {
     if (!recorte) return null
-    const g = limitesDoGrupo(key, grouping)
     return linkDeCelulaDoFluxo({
-      inicio: recorte.startDate && recorte.startDate > g.inicio ? recorte.startDate : g.inicio,
-      fim: recorte.endDate && recorte.endDate < g.fim ? recorte.endDate : g.fim,
+      ...periodoDaCelula(key, grouping, recorte),
       tipo: type, visao: recorte.visao, ocultarTransferencias: recorte.ocultarTransferencias, accountIds: recorte.accountIds,
     })
   }
+  const linkAberto = aberta ? linkDaCelula(aberta.key, aberta.type) : null
 
   function alternar(key: string, type: Aberta['type']) {
     setAberta(aberta?.key === key && aberta.type === type ? null : { key, type })
@@ -249,11 +232,11 @@ export function CashFlowBreakdown({ transactions = [], recorte }: CashFlowBreakd
                         <td colSpan={4} className="px-4 py-2">
                           <p className="mb-1 text-xs font-medium text-muted-foreground">
                             {aberta.type === 'income' ? 'Receitas' : 'Despesas'} de {r.label} · {lancamentos.length} lançamento{lancamentos.length === 1 ? '' : 's'}
-                            {linkDaCelula(r.key, aberta.type) && (
+                            {linkAberto && (
                               <>
                                 {' · '}
                                 <Link
-                                  href={linkDaCelula(r.key, aberta.type)!}
+                                  href={linkAberto}
                                   aria-label={`Ver lançamentos de ${aberta.type === 'income' ? 'receitas' : 'despesas'} de ${r.label}`}
                                   className="text-[#4A5899] hover:underline"
                                 >

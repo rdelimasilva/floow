@@ -109,8 +109,8 @@ export function buildTransactionConditions(orgId: string, opts?: TransactionFilt
   // ou pelo toggle de previsoes.
   //
   // `endDate` explicito manda: quem pediu 2031 quer ver 2031.
-  // `previsto` é o futuro por definição: o corte em hoje o esvaziaria.
-  if (!opts?.includeFuture && !opts?.endDate && opts?.situacao !== 'previsto') {
+  // previsto e ambos incluem o futuro por definição: o corte em hoje o esvaziaria.
+  if (!opts?.includeFuture && !opts?.endDate && opts?.situacao !== 'previsto' && opts?.situacao !== 'ambos') {
     conditions.push(lte(transactions.date, sql`${hojeSP()}::date`))
   }
 

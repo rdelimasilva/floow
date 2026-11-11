@@ -8,7 +8,7 @@ export interface OpcoesDoLink {
   accountIds?: string[]
   tipos?: ('income' | 'expense')[]
   caixa?: boolean
-  situacao?: 'realizado' | 'previsto'
+  situacao?: 'realizado' | 'previsto' | 'ambos'
 }
 
 /** Link de Transações que lista os lançamentos de um total. Chaves na ordem de `FILTER_KEYS`. */
@@ -75,7 +75,7 @@ export function idsComFilhas(
 }
 
 /**
- * Célula do detalhamento do Fluxo de caixa. `situacao` vem da visão (Ambos omite).
+ * Célula do detalhamento do Fluxo de caixa. A situação vem da visão (Ambos = realizado ou previsão por vencer).
  * Sem link com transferências à mostra: a célula as soma pelo sinal e nenhum filtro de Transações reproduz isso.
  */
 export function linkDeCelulaDoFluxo(o: {
@@ -87,8 +87,38 @@ export function linkDeCelulaDoFluxo(o: {
   accountIds?: string[]
 }): string | null {
   if (!o.ocultarTransferencias) return null
-  const situacao = o.visao === 'realized' ? 'realizado' : o.visao === 'projected' ? 'previsto' : undefined
+  const situacao = o.visao === 'realized' ? 'realizado' : o.visao === 'projected' ? 'previsto' : 'ambos'
   return linkDoTotal({
     inicio: o.inicio, fim: o.fim, accountIds: o.accountIds, tipos: [o.tipo], caixa: true, situacao,
   })
+}
+
+export type AgrupamentoDoFluxo = 'daily' | 'monthly' | 'quarterly' | 'semiannual' | 'annual'
+
+/** Primeiro e último dia do período da chave de grupo do detalhamento. */
+export function limitesDoGrupo(key: string, grouping: AgrupamentoDoFluxo): { inicio: string; fim: string } {
+  switch (grouping) {
+    case 'daily': return { inicio: key, fim: key }
+    case 'monthly': return limitesDoMes(key)
+    case 'quarterly': {
+      const [y, q] = key.split('-Q').map(Number)
+      return { inicio: limitesDoMes(`${y}-${(q - 1) * 3 + 1}`).inicio, fim: limitesDoMes(`${y}-${q * 3}`).fim }
+    }
+    case 'semiannual': {
+      const [y, s] = key.split('-S').map(Number)
+      return { inicio: limitesDoMes(`${y}-${s === 1 ? 1 : 7}`).inicio, fim: limitesDoMes(`${y}-${s === 1 ? 6 : 12}`).fim }
+    }
+    case 'annual': return { inicio: `${key}-01-01`, fim: `${key}-12-31` }
+  }
+}
+
+/** O período do grupo cortado pelo período da tela (vazio = aberto), como a tabela corta por dia. */
+export function periodoDaCelula(
+  key: string, grouping: AgrupamentoDoFluxo, tela: { startDate: string; endDate: string },
+): { inicio: string; fim: string } {
+  const g = limitesDoGrupo(key, grouping)
+  return {
+    inicio: tela.startDate && tela.startDate > g.inicio ? tela.startDate : g.inicio,
+    fim: tela.endDate && tela.endDate < g.fim ? tela.endDate : g.fim,
+  }
 }

@@ -1,4 +1,4 @@
-import { and, eq, type SQL } from 'drizzle-orm'
+import { and, eq, or, type SQL } from 'drizzle-orm'
 import { transactions } from '@floow/db'
 import { effectiveAffectsCashFlow } from './affects-cash-flow'
 import { sqlPrevisaoAindaPorVencer } from './balance-sql'
@@ -25,8 +25,9 @@ export function condicoesDeCriterio(
     )
   }
   if (opts?.situacao === 'realizado') out.push(somenteRealizado)
-  if (opts?.situacao === 'previsto') {
-    out.push(and(eq(transactions.balanceApplied, false), sqlPrevisaoAindaPorVencer(hoje))!)
-  }
+  const previsao = () => and(eq(transactions.balanceApplied, false), sqlPrevisaoAindaPorVencer(hoje))!
+  if (opts?.situacao === 'previsto') out.push(previsao())
+  // Realizado ou previsão ainda por vencer: o que o Fluxo de caixa soma na visão Ambos.
+  if (opts?.situacao === 'ambos') out.push(or(somenteRealizado, previsao())!)
   return out
 }

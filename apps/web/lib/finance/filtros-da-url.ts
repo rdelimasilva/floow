@@ -1,8 +1,8 @@
-export type SituacaoDoFiltro = 'realizado' | 'previsto'
+export type SituacaoDoFiltro = 'realizado' | 'previsto' | 'ambos'
 
-/** Só `realizado` e `previsto` valem; qualquer outro valor da URL é ignorado. */
+/** Só realizado, previsto e ambos valem; qualquer outro valor da URL é ignorado. */
 export function situacaoDaUrl(valor?: string): SituacaoDoFiltro | undefined {
-  return valor === 'realizado' || valor === 'previsto' ? valor : undefined
+  return valor === 'realizado' || valor === 'previsto' || valor === 'ambos' ? valor : undefined
 }
 
 /** Teto de "selecionar todas do filtro": meses de extrato, sem mandar dezenas de milhares de ids. */

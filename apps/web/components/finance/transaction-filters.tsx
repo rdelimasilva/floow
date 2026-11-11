@@ -119,6 +119,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     soAnalises && { chave: 'caixa', texto: 'Só o que entra nas análises' },
     situacao === 'realizado' && { chave: 'situacao', texto: 'Só realizados' },
     situacao === 'previsto' && { chave: 'situacao', texto: 'Só previstos' },
+    situacao === 'ambos' && { chave: 'situacao', texto: 'Realizados e previstos' },
   ].filter(Boolean) as { chave: string; texto: string }[]
   // Quantos filtros estão escondidos atrás do botão no celular. O período com
   // atalho já aparece no seletor ao lado; a conta lembrada da última visita não.
