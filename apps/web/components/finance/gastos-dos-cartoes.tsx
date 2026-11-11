@@ -63,7 +63,7 @@ function Variacao({ atual, anterior }: { atual: number; anterior: number | undef
   )
 }
 
-export function GastosDosCartoes({ cartoes, hoje }: { cartoes: CartaoComGastos[]; hoje: string }) {
+export function GastosDosCartoes({ cartoes, metas, hoje }: { cartoes: CartaoComGastos[]; metas: Record<string, Record<string, number>>; hoje: string }) {
   const [cartao, setCartao] = useState(TODOS)
   const meses = useMemo(
     () => somarPorMes(cartao === TODOS ? cartoes : cartoes.filter((c) => c.id === cartao), hoje),
@@ -82,7 +82,8 @@ export function GastosDosCartoes({ cartoes, hoje }: { cartoes: CartaoComGastos[]
   // categoria continua mostrando a fatura inteira.
   const serie = categoriaDaSerie === TODAS
     ? meses
-    : meses.map((m) => ({ ...m, totalCents: m.porCategoria[categoriaDaSerie] ?? 0 }))
+    : meses.map((m) => ({ ...m, totalCents: m.porCategoria[categoriaDaSerie] ?? 0, metaCents: metas[m.mes]?.[categoriaDaSerie] }))
+  const temMeta = serie.some((m) => 'metaCents' in m && m.metaCents != null)
   const serieFechada = serie.filter((m) => !m.aberta)
   const mediaCents = serieFechada.length ? Math.round(serieFechada.reduce((s, m) => s + m.totalCents, 0) / serieFechada.length) : 0
   const [escolhido, setEscolhidoBruto] = useState<string | null>(null)
@@ -159,6 +160,7 @@ export function GastosDosCartoes({ cartoes, hoje }: { cartoes: CartaoComGastos[]
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Média das faturas fechadas: <span className="font-medium tabular-nums text-foreground">{formatBRL(mediaCents)}</span>.
+                {temMeta && ' A linha verde é a meta da categoria, que vale para o gasto em todas as contas.'}
                 {' '}Clique num mês para ver as categorias dele.
               </p>
               <label className="flex w-fit cursor-pointer items-center gap-1.5 pt-1 text-xs text-muted-foreground">
