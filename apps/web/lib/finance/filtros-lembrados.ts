@@ -47,7 +47,7 @@ export const PERIOD_GROUPS: { label: string; keys: PeriodKey[] }[] = [
 
 // Ordem de desempate do `detectActivePeriod`: o presente primeiro, para que em
 // 31/12 o intervalo jan–dez acenda "Este ano" e não "Últimos 12 meses".
-const PERIOD_KEYS: PeriodKey[] = [
+export const PERIOD_KEYS: PeriodKey[] = [
   ...PERIOD_GROUPS[1].keys, ...PERIOD_GROUPS[0].keys, ...PERIOD_GROUPS[2].keys,
 ]
 
