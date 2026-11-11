@@ -4,7 +4,8 @@ import { ArrowLeft, Banknote } from 'lucide-react'
 import { getOrgId, getAccountById, getTransactionsWithCount, getTransactionCount, getCategories, getAccounts } from '@/lib/finance/queries'
 import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
 import { hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
-import { TransactionList } from '@/components/finance/transaction-list'
+import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
+import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { Pagination } from '@/components/ui/pagination'
 import { Button } from '@/components/ui/button'
@@ -48,15 +49,9 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   valorDasPosicoesP.catch(() => {})
   ativosDaContaP.catch(() => {})
 
-  const filters = {
-    accountId,
-    search: sp.search,
-    startDate: sp.startDate,
-    endDate: sp.endDate,
-    // O toggle "Lançamentos futuros" também vive aqui, e antes o clique só
-    // mexia na URL: a página nunca lia `future`, então a lista não mudava.
-    includeFuture: sp.future === '1',
-  }
+  // Mesmo leitor de Transações: busca, período, futuros e os filtros de coluna
+  // (tipo, categoria, valor, ordem). A conta vem da rota, não da URL.
+  const filters = { ...filtrosDaUrl(sp), accountId }
 
   // O extrato da conta corre do mais antigo para o mais novo, como o de
   // transações, e abre na última página — onde está a data mais recente.
@@ -89,11 +84,9 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
+  // A paginação leva todo o recorte da URL, inclusive os filtros de coluna.
   const paginationParams: Record<string, string> = {}
-  if (sp.search) paginationParams.search = sp.search
-  if (sp.startDate) paginationParams.startDate = sp.startDate
-  if (sp.endDate) paginationParams.endDate = sp.endDate
-  if (filters.includeFuture) paginationParams.future = '1'
+  for (const [k, v] of Object.entries(sp)) if (v && k !== 'page') paginationParams[k] = v
 
   const config = ACCOUNT_TYPE_CONFIG[account.type] ?? { label: account.type, Icon: Banknote }
   const { Icon, label } = config
@@ -162,14 +155,17 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
       </p>
 
       {/* Transaction list */}
-      <TransactionList
+      <TransactionListWrapper
+        totalDoFiltro={totalCount}
         transactions={transactions.map((t) => ({
           ...t,
           date: t.date instanceof Date ? t.date.toISOString() : t.date,
         }))}
         accounts={allAccounts.map((a) => ({ id: a.id, name: a.name }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId }))}
-        sortDir="asc"
+        sortBy={filters.sortBy}
+        sortDir={filters.sortDir as 'asc' | 'desc'}
+        baseUrl={`/accounts/${accountId}`}
       />
 
       {/* Pagination */}

@@ -115,7 +115,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     if (values.future === '1') params.set('future', '1')
     if (values.cardDigits) params.set('cardDigits', values.cardDigits)
     for (const key of PARAMS_DA_TABELA) {
-      const v = searchParams.get(key)
+      const v = key in overrides ? overrides[key] : searchParams.get(key)
       if (v) params.set(key, v)
     }
     // Sem `page`: quem decide onde a lista abre é o servidor (`paginaQueAbre`),
@@ -169,6 +169,11 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     !activePeriod && (startDate || endDate),
     includeFuture,
   ].filter(Boolean).length
+  // Tipo, categoria e valor moram no cabeçalho da tabela, que não existe no
+  // celular. Sem esta pílula, um filtro lembrado ficava ativo e sem saída.
+  const filtrosDeColuna = ['types', 'categoryIds', 'minAmount', 'maxAmount']
+    .filter((k) => searchParams.get(k)).length
+  const limparFiltrosDeColuna = () => navigate({ types: '', categoryIds: '', minAmount: '', maxAmount: '' })
 
   return (
     <div className="space-y-2">
@@ -197,9 +202,9 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
         >
           <SlidersHorizontal className="h-4 w-4" />
           Filtros
-          {filtrosNoBotao > 0 && (
+          {filtrosNoBotao + filtrosDeColuna > 0 && (
             <span className="rounded-full bg-blue-600 px-1.5 text-xs font-semibold tabular-nums text-white">
-              {filtrosNoBotao}
+              {filtrosNoBotao + filtrosDeColuna}
             </span>
           )}
         </button>
@@ -331,6 +336,18 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
         >
           Lançamentos futuros
         </button>
+
+        {filtrosDeColuna > 0 && (
+          <button
+            type="button"
+            onClick={limparFiltrosDeColuna}
+            className={`${PILL_BASE} h-9 gap-1.5 whitespace-nowrap bg-gray-900 text-white md:hidden`}
+          >
+            Tipo, categoria ou valor
+            <X className="h-3.5 w-3.5" aria-hidden />
+            <span className="sr-only">Limpar</span>
+          </button>
+        )}
       </div>
     </div>
   )

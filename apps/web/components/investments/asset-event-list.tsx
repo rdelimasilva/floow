@@ -90,7 +90,7 @@ export function AssetEventList({ events, readOnly = false }: AssetEventListProps
                   <td className="py-2">
                     <div className="flex items-center gap-2">
                       <Link
-                        href={`/investments/events/${event.id}/edit`}
+                        href={`/investments/events/${event.id}/edit?voltar=ativo`}
                         className="text-xs text-gray-500 hover:text-gray-800 underline"
                       >
                         Editar

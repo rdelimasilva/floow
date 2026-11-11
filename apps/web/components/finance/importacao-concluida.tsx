@@ -55,7 +55,7 @@ export function ImportacaoConcluida({ resultado, accountId, onNovaImportacao }: 
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <Link href="/transactions">
+          <Link href={`/transactions?accountId=${accountId}`}>
             <Button variant="primary">Ver transações</Button>
           </Link>
           <Button variant="outline" onClick={onNovaImportacao}>

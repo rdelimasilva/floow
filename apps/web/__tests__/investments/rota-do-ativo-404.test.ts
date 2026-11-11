@@ -47,7 +47,7 @@ describe('rota de ativo inexistente vira 404', () => {
   })
 
   it('edição de evento com id que não é uuid é 404 sem consultar', async () => {
-    await expect(EdicaoDoEvento({ params: Promise.resolve({ eventId: 'abc' }) })).rejects.toThrow('NEXT_NOT_FOUND')
+    await expect(EdicaoDoEvento({ params: Promise.resolve({ eventId: 'abc' }), searchParams: Promise.resolve({}) })).rejects.toThrow('NEXT_NOT_FOUND')
     expect(getPortfolioEventById).not.toHaveBeenCalled()
   })
 })
