@@ -49,6 +49,7 @@ async function StatsSection({ orgId }: { orgId: string }) {
       incomeCents={currentMonthData?.income ?? 0}
       expenseCents={currentMonthData?.expense ?? 0}
       netCents={currentMonthData?.net ?? 0}
+      mes={currentMonth}
     />
   )
 }

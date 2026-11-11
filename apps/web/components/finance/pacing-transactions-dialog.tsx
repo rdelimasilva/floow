@@ -12,6 +12,7 @@ import {
 import { bulkCategorizeTransactions } from '@/lib/finance/transaction-actions'
 import { useToast } from '@/components/ui/toast'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { linkDeGastoDoMes } from '@/lib/finance/link-do-total'
 
 interface Props {
   /** Categoria orçada selecionada; null fecha o popup. */
@@ -112,6 +113,19 @@ export function PacingTransactionsDialog({ category, month, categoryOptions = []
               <p className="text-sm" style={{ color: '#6E6E6E' }}>
                 {rows.length} {rows.length === 1 ? 'transação' : 'transações'} ·{' '}
                 <span className="tabular-nums">{formatBRL(total)}</span>
+                {rows.length > 0 && (
+                  <>
+                    {' · '}
+                    <Link
+                      href={linkDeGastoDoMes(month, category.memberIds)}
+                      aria-label={`Ver todos os lançamentos de ${category.name} no mês`}
+                      className="hover:underline"
+                      style={{ color: '#4A5899' }}
+                    >
+                      Ver todos no mês
+                    </Link>
+                  </>
+                )}
               </p>
             )}
           </div>

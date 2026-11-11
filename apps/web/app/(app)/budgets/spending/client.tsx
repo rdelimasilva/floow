@@ -23,6 +23,7 @@ import { RealizadoDaMeta } from './realizado-da-meta'
 import { BudgetGoalSuggestionsCard } from '@/components/finance/budget-goal-suggestions-card'
 import type { BudgetGoalSuggestionRow } from '@/lib/finance/budget-goal-suggestion-queries'
 import { mensagemDeErro } from '@/lib/mensagem-de-erro'
+import { idsComFilhas, linkDeGastoDoMes } from '@/lib/finance/link-do-total'
 
 interface CategoryOption {
   id: string
@@ -54,6 +55,30 @@ interface SpendingClientProps {
   goalSuggestions: BudgetGoalSuggestionRow[]
 }
 
+/** O realizado da linha vira link para os lançamentos que o somam (filhas sem meta própria incluídas). */
+function RealizadoComLink({ entry, nome, cats, orcadas, mes, children }: {
+  entry: LinhaDeMeta
+  nome: string
+  cats: CategoryOption[]
+  orcadas: string[]
+  mes: string
+  children: React.ReactNode
+}) {
+  if (!entry.categoryId) return <>{children}</>
+  const [y, m] = mes.split('-').map(Number)
+  const mesPorExtenso = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const arvore = cats.map((c) => ({ id: c.id, parentId: c.parentId ?? null }))
+  return (
+    <Link
+      href={linkDeGastoDoMes(mes, idsComFilhas(entry.categoryId, arvore, orcadas))}
+      aria-label={`Ver lançamentos de ${nome} em ${mesPorExtenso}`}
+      className="cursor-pointer underline-offset-2 hover:underline"
+    >
+      {children}
+    </Link>
+  )
+}
+
 function formatMonth(monthStr: string): string {
   const [y, m] = monthStr.split('-').map(Number)
   const d = new Date(y, m - 1, 1)
@@ -83,6 +108,7 @@ export function SpendingClient({
 
   const [categories, setCategories] = useState(initialCategories)
 
+  const orcadas = entriesForMonth.flatMap((e) => (e.categoryId ? [e.categoryId] : []))
   const spendingMap = new Map(spending.map((s) => [s.categoryId, s.spent]))
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
 
@@ -201,7 +227,7 @@ export function SpendingClient({
                     </p>
                     <div className="flex items-start justify-between text-xs">
                       <span className="font-medium text-gray-900">Meta: {formatBRL(entry.plannedCents)}</span>
-                      <span className="text-right text-gray-700">Realizado: <RealizadoDaMeta realizado={actual} meta={entry.plannedCents} /></span>
+                      <span className="text-right text-gray-700">Realizado: <RealizadoComLink entry={entry} nome={cat?.name ?? 'categoria'} cats={categories} orcadas={orcadas} mes={selectedMonth}><RealizadoDaMeta realizado={actual} meta={entry.plannedCents} /></RealizadoComLink></span>
                     </div>
                   </CardContent>
                 </Card>
@@ -246,7 +272,7 @@ export function SpendingClient({
                             <ParcelasNaLinha parcelas={entry.categoryId ? parcelasAVencer[entry.categoryId] : undefined} />
                           </td>
                           <td className="px-4 py-2.5 text-sm text-right font-medium text-gray-900">{formatBRL(entry.plannedCents)}</td>
-                          <td className="px-4 py-2.5 text-sm text-right text-gray-900"><RealizadoDaMeta realizado={actual} meta={entry.plannedCents} /></td>
+                          <td className="px-4 py-2.5 text-sm text-right text-gray-900"><RealizadoComLink entry={entry} nome={cat?.name ?? 'categoria'} cats={categories} orcadas={orcadas} mes={selectedMonth}><RealizadoDaMeta realizado={actual} meta={entry.plannedCents} /></RealizadoComLink></td>
                         </tr>
                       )
                     })}

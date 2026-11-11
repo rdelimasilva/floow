@@ -3,7 +3,9 @@
 import { Fragment, useState, useMemo, useDeferredValue } from 'react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 import { CashFlowLancamentoDialog } from './cash-flow-lancamento-dialog'
+import { limitesDoMes, linkDoTotal } from '@/lib/finance/link-do-total'
 
 type Grouping = 'daily' | 'monthly' | 'quarterly' | 'semiannual' | 'annual'
 
@@ -31,6 +33,29 @@ interface AggregatedRow {
 
 interface CashFlowBreakdownProps {
   transactions: RawTransaction[]
+  /**
+   * Recorte da tela, para a célula abrir os lançamentos em Transações. Só vale
+   * no realizado com transferências ocultas: com elas à mostra a célula soma
+   * transferência pelo sinal, e `types` de Transações não reproduz isso.
+   */
+  recorte?: { startDate: string; endDate: string; accountIds: string[]; realizadoSemTransferencias: boolean }
+}
+
+/** Primeiro e último dia do período da chave de grupo. */
+function limitesDoGrupo(key: string, grouping: Grouping): { inicio: string; fim: string } {
+  switch (grouping) {
+    case 'daily': return { inicio: key, fim: key }
+    case 'monthly': return limitesDoMes(key)
+    case 'quarterly': {
+      const [y, q] = key.split('-Q').map(Number)
+      return { inicio: limitesDoMes(`${y}-${(q - 1) * 3 + 1}`).inicio, fim: limitesDoMes(`${y}-${q * 3}`).fim }
+    }
+    case 'semiannual': {
+      const [y, s] = key.split('-S').map(Number)
+      return { inicio: limitesDoMes(`${y}-${s === 1 ? 1 : 7}`).inicio, fim: limitesDoMes(`${y}-${s === 1 ? 6 : 12}`).fim }
+    }
+    case 'annual': return { inicio: `${key}-01-01`, fim: `${key}-12-31` }
+  }
 }
 
 const GROUPING_LABELS: Record<Grouping, string> = {
@@ -116,7 +141,7 @@ function aggregate(transactions: RawTransaction[], grouping: Grouping): Aggregat
     .sort((a, b) => b.key.localeCompare(a.key))
 }
 
-export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps) {
+export function CashFlowBreakdown({ transactions = [], recorte }: CashFlowBreakdownProps) {
   const [grouping, setGrouping] = useState<Grouping>('monthly')
   const [aberta, setAberta] = useState<Aberta | null>(null)
   const [detalhe, setDetalhe] = useState<string | null>(null)
@@ -136,6 +161,16 @@ export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps)
       .filter((t) => t.type === aberta.type && getGroupKey(t.date, grouping) === aberta.key)
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [aberta, deferredTransactions, grouping])
+
+  // O período da célula cortado pelo período da tela, como a tabela corta por dia.
+  function linkDaCelula(key: string, type: Aberta['type']) {
+    const g = limitesDoGrupo(key, grouping)
+    const inicio = recorte?.startDate && recorte.startDate > g.inicio ? recorte.startDate : g.inicio
+    const fim = recorte?.endDate && recorte.endDate < g.fim ? recorte.endDate : g.fim
+    return linkDoTotal({
+      inicio, fim, accountIds: recorte?.accountIds, tipos: [type], caixa: true, situacao: 'realizado',
+    })
+  }
 
   function alternar(key: string, type: Aberta['type']) {
     setAberta(aberta?.key === key && aberta.type === type ? null : { key, type })
@@ -215,6 +250,18 @@ export function CashFlowBreakdown({ transactions = [] }: CashFlowBreakdownProps)
                         <td colSpan={4} className="px-4 py-2">
                           <p className="mb-1 text-xs font-medium text-muted-foreground">
                             {aberta.type === 'income' ? 'Receitas' : 'Despesas'} de {r.label} · {lancamentos.length} lançamento{lancamentos.length === 1 ? '' : 's'}
+                            {recorte?.realizadoSemTransferencias && (
+                              <>
+                                {' · '}
+                                <Link
+                                  href={linkDaCelula(r.key, aberta.type)}
+                                  aria-label={`Ver lançamentos de ${aberta.type === 'income' ? 'receitas' : 'despesas'} de ${r.label}`}
+                                  className="text-[#4A5899] hover:underline"
+                                >
+                                  Ver em Transações
+                                </Link>
+                              </>
+                            )}
                           </p>
                           <ul className="divide-y divide-gray-100 text-sm">
                             {lancamentos.map((t, i) => (
