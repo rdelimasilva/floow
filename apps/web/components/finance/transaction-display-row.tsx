@@ -245,7 +245,8 @@ export const TransactionMobileCard = memo(function TransactionMobileCard({
             {tx.recurringTemplateId && <Repeat className="h-3 w-3 text-blue-400 shrink-0" />}
             {tx.description}
           </p>
-          <div className="flex items-center gap-2 mt-1">
+          {/* Quebra de linha: parcela, final e categoria juntos não cabem em 375 px. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
             <span className="text-xs text-gray-500">{formatDate(tx.date)}</span>
             {tx.categoryName && (
               <span
