@@ -10,12 +10,21 @@ import { UpdateValueForm } from './update-value-form'
 import { DeleteAssetButton } from './delete-asset-button'
 import { SellAssetForm } from './sell-asset-form'
 import dynamic from 'next/dynamic'
+import { intervaloDoMes } from '@/lib/cfo/rota-da-acao'
 import { formatarDia } from '@/lib/formatar-dia'
 import { formatarNumero } from '@/lib/formatar-numero'
 
 const AssetValueHistory = dynamic(() => import('@/components/fixed-assets/asset-value-history').then(m => ({ default: m.AssetValueHistory })), {
   loading: () => <div className="min-h-[200px] animate-pulse rounded-xl bg-gray-100" />,
 })
+
+// A busca sozinha cairia no período lembrado e o lançamento de outro mês sumiria:
+// o link leva o mês da data do lançamento.
+function linkDoLancamento(t: { description: string; date: Date | string }) {
+  const dia = t.date instanceof Date ? t.date.toISOString() : String(t.date)
+  const q = new URLSearchParams({ search: t.description, ...intervaloDoMes(dia.slice(0, 7)) })
+  return `/transactions?${q}`
+}
 
 export default async function FixedAssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -103,7 +112,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
           <CardHeader><CardTitle className="text-sm">Aquisição</CardTitle></CardHeader>
           <CardContent>
             <Link
-              href={`/transactions?search=${encodeURIComponent(acquisition.description)}`}
+              href={linkDoLancamento(acquisition)}
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm hover:underline"
             >
               <span className="text-gray-500">{formatarDia(acquisition.date)}</span>
@@ -123,7 +132,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
           <CardHeader><CardTitle className="text-sm">Venda</CardTitle></CardHeader>
           <CardContent>
             <Link
-              href={`/transactions?search=${encodeURIComponent(sale.description)}`}
+              href={linkDoLancamento(sale)}
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm hover:underline"
             >
               <span className="text-gray-500">{formatarDia(sale.date)}</span>

@@ -122,4 +122,20 @@ describe('chegada com recorte na URL', () => {
     expect(r?.startDate).toBe('2026-10-01')
     expect(r?.accountIds).toEqual(['acc-1', 'invest'])
   })
+
+  const gravado = () => lerRecorte({ recorte: /(?:^|; )recorte=([^;]*)/.exec(document.cookie)?.[1] })
+
+  it('link só com a conta (importação): o período antigo vira aberto', () => {
+    document.cookie = `recorte=${encodeURIComponent('v=1&startDate=2026-10-01&endDate=2026-10-31')}; path=/`
+    params = new URLSearchParams({ accountId: 'acc-1' })
+    render(<TransactionFilters accounts={CONTAS} />)
+    expect(gravado()).toMatchObject({ startDate: '', endDate: '', accountIds: ['acc-1'] })
+  })
+
+  it('link só com startDate: fim e contas ficam abertos', () => {
+    document.cookie = `recorte=${encodeURIComponent('v=1&startDate=2026-10-01&endDate=2026-10-31&accounts=acc-2')}; path=/`
+    params = new URLSearchParams({ startDate: '2026-09-01' })
+    render(<TransactionFilters accounts={CONTAS} />)
+    expect(gravado()).toMatchObject({ startDate: '2026-09-01', endDate: '', accountIds: [] })
+  })
 })

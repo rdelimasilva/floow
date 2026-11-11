@@ -14,6 +14,7 @@ import {
 } from './filtros-lembrados'
 
 export const RECORTE_COOKIE = 'recorte'
+export const EVENTO_RECORTE_GRAVADO = 'recorte-gravado'
 
 export type Recorte = { startDate: string; endDate: string; accountIds: string[] }
 
@@ -135,4 +136,6 @@ export function recorteDoNavegador(): Recorte | null {
 export function gravarRecorte(parcial: Partial<Recorte>): void {
   const r = fundirRecorte(recorteDoNavegador(), parcial)
   document.cookie = `${RECORTE_COOKIE}=${encodeURIComponent(serializarRecorte(r))}; path=/; max-age=31536000; SameSite=Lax`
+  // O menu lê o cookie na montagem; sem o aviso, o link dele ficaria com o recorte antigo.
+  window.dispatchEvent(new Event(EVENTO_RECORTE_GRAVADO))
 }

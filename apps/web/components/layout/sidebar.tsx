@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { X, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from './sidebar-context'
+import { EVENTO_RECORTE_GRAVADO } from '@/lib/finance/recorte'
 import { urlDeAnalises, urlDeOrcamento, urlDeTransacoes } from '@/lib/finance/url-do-menu'
 import { NAV_SECTIONS, itemDoMenu, type NavItem } from './nav-config'
 import { SidebarItem, someFechado, type DicaHandlers } from './sidebar-item'
@@ -106,7 +107,11 @@ export function Sidebar({ cfoBadgeCount, favoritosIniciais = SEM_FAVORITOS, mobi
   // O estado guarda strings: valor igual não re-renderiza, e o efeito não entra em laço.
   const [cookiesJson, setCookiesJson] = useState('{}')
   useEffect(() => {
-    setCookiesJson(JSON.stringify(lerCookies()))
+    const reler = () => setCookiesJson(JSON.stringify(lerCookies()))
+    reler()
+    // Chegada por link grava o recorte depois de o menu montar: ele relê ao ser avisado.
+    window.addEventListener(EVENTO_RECORTE_GRAVADO, reler)
+    return () => window.removeEventListener(EVENTO_RECORTE_GRAVADO, reler)
   }, [pathname, searchParams])
   const cookies: Record<string, string> = JSON.parse(cookiesJson)
   const hrefs = { transacoes: urlDeTransacoes(cookies), analises: urlDeAnalises(cookies), cookies }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { destinoSoComContasValidas, destinoDeTransacoes, urlDeAnalises, urlDeOrcamento, urlDeTransacoes } from '@/lib/finance/url-do-menu'
-import { serializarRecorte } from '@/lib/finance/recorte'
+import { destinoComRecorte, lerRecorte, serializarRecorte } from '@/lib/finance/recorte'
 
 const HOJE = '2026-11-11'
 const OUT = { startDate: '2026-10-01', endDate: '2026-10-31' }
@@ -85,5 +85,13 @@ describe('contas que Transações não conhece', () => {
   })
   it('tudo conhecido: não redireciona', () => {
     expect(destinoSoComContasValidas({ accountId: 'cc' }, ['cc'])).toBeNull()
+  })
+})
+
+describe('página da conta', () => {
+  it('com recorte de outubro e conta, redireciona com período e sem accountId', () => {
+    const r = lerRecorte(jar(['a']), HOJE)
+    expect(destinoComRecorte('/accounts/x', {}, r, 'intervalo'))
+      .toBe('/accounts/x?startDate=2026-10-01&endDate=2026-10-31')
   })
 })

@@ -6,7 +6,7 @@ import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
 import { CardDigitsFilter } from './card-digits-filter'
 import { PILULA_BASE, PILULA_OFF, PILULA_ON } from './filtros/pilula'
-import { gravarRecorte, recorteDaUrl, recorteDoNavegador, temRecorteNaUrl } from '@/lib/finance/recorte'
+import { gravarRecorte, recorteDaUrl, recorteDoNavegador, type Recorte } from '@/lib/finance/recorte'
 import { SeletorDePeriodo } from './filtros/seletor-de-periodo'
 import { useFiltrosNaUrl } from './filtros/use-filtros-na-url'
 import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
@@ -79,20 +79,25 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     if (baseUrl === '/transactions') lembrarFiltros(new URLSearchParams(searchParams.toString()))
   }, [baseUrl, searchParams])
 
-  // Chegada com recorte explícito na URL (link, menu) grava o recorte. Contas que
-  // esta tela não lista (investimento) ficam no cookie: ela não as aplica nem as apaga.
-  const urlToda = searchParams.toString()
+  // Chegada com recorte na URL (link, menu, importação) grava o recorte que a
+  // tela está mostrando: a URL é a fonte da verdade, então chave ausente é
+  // "aberto" (sem data / sem conta). Contas que esta tela não lista
+  // (investimento) ficam no cookie: ela não as aplica nem as apaga. A página da
+  // conta não tem filtro de conta, então as contas ficam como estão.
+  const chavesDoRecorte = [urlStart, urlEnd, searchParams.get('accountId') ?? '', ['startDate', 'endDate', 'accountId'].some((k) => searchParams.has(k))].join('|')
   useEffect(() => {
-    const p = new URLSearchParams(urlToda)
-    if (!temRecorteNaUrl(Object.fromEntries(p))) return
-    const parcial = recorteDaUrl(Object.fromEntries(p))
-    if (parcial.accountIds) {
-      const naoListadas = (recorteDoNavegador()?.accountIds ?? []).filter((id) => !accounts.some((a) => a.id === id))
-      parcial.accountIds = [...parcial.accountIds, ...naoListadas.filter((id) => !parcial.accountIds!.includes(id))]
+    const p = Object.fromEntries(new URLSearchParams(searchParams.toString()))
+    if (!['startDate', 'endDate', 'accountId'].some((k) => p[k] !== undefined)) return
+    const { startDate = '', endDate = '', accountIds } = recorteDaUrl(p)
+    const parcial: Partial<Recorte> = { startDate, endDate }
+    if (!hideAccountFilter) {
+      const doUrl = accountIds ?? []
+      const naoListadas = (recorteDoNavegador()?.accountIds ?? []).filter((id) => !accounts.some((a) => a.id === id) && !doUrl.includes(id))
+      parcial.accountIds = [...doUrl, ...naoListadas]
     }
     gravarRecorte(parcial)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `accounts` chega como array novo a cada render
-  }, [urlToda])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- só as chaves de recorte importam; `accounts` chega como array novo a cada render
+  }, [chavesDoRecorte])
 
   const activePeriod = detectActivePeriod(startDate, endDate)
 
