@@ -71,3 +71,12 @@ describe('brlCurto', () => {
     expect(norm(brlCurto(160_000))).toBe('R$ 1.600')
   })
 })
+
+describe('diagnosticar sem a R04', () => {
+  it('não mostra o alerta de colchão, mesmo com pouco dinheiro à mão', async () => {
+    const { diagnosticar } = await import('../../diagnostico')
+    const { contexto, caixa } = await import('./fabrica')
+    const r = diagnosticar(contexto({ caixa: [caixa(1)] }))
+    expect(r.achados.map((a) => a.ruleId)).not.toContain('R04')
+  })
+})
