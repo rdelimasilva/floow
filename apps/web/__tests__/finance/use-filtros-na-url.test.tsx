@@ -46,4 +46,18 @@ describe('useFiltrosNaUrl', () => {
     act(() => result.current.trocar({ search: 'y' }))
     expect(aoMudar.mock.calls[0][0].get('search')).toBe('y')
   })
+
+  it('desligar conta e período também fica lembrado', () => {
+    busca = 'accountId=a&startDate=2026-10-01'
+    const { result } = renderHook(() => useFiltrosNaUrl('/transactions'))
+    act(() => result.current.trocar({ accountId: '' }))
+    expect(lerRecorte({ recorte: cookieRecorte() })?.accountIds).toEqual([])
+    busca = 'startDate=2026-10-01'
+    const { result: r2 } = renderHook(() => useFiltrosNaUrl('/transactions'))
+    act(() => r2.current.trocar({ startDate: '', endDate: '' }))
+    const r = lerRecorte({ recorte: cookieRecorte() })
+    expect(r?.startDate).toBe('')
+    expect(r?.accountIds).toEqual([])
+    expect(replace).toHaveBeenLastCalledWith('/transactions?', { scroll: false })
+  })
 })
