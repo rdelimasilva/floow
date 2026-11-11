@@ -1,5 +1,9 @@
 import type { ChatTool, ToolCall } from '@floow/core-finance'
+import { and, eq, ilike, isNull, or } from 'drizzle-orm'
+import { categories } from '@floow/db'
+import { withUserDb } from '@/lib/db/rls'
 import { upsertBudgetGoal } from '@/lib/finance/budget-actions'
+import { urlDeTransacoes } from '@/lib/cfo/rota-da-acao'
 
 export const ALLOWED_TOOLS = ['create_budget', 'adjust_budget', 'view_transactions', 'view_account'] as const
 export type AllowedToolName = (typeof ALLOWED_TOOLS)[number]
@@ -79,10 +83,17 @@ export async function executeToolCall(
       }
     }
     case 'view_transactions': {
-      const query = new URLSearchParams()
-      if (params.category) query.set('category', String(params.category))
-      if (params.period) query.set('period', String(params.period))
-      return { success: true, message: 'Redirecionando para transações.', redirect: `/transactions${query.toString() ? `?${query}` : ''}` }
+      // O modelo manda o nome da categoria; Transações filtra por id.
+      let categoryId: string | undefined
+      if (params.category) {
+        const [row] = await withUserDb((db) => db
+          .select({ id: categories.id })
+          .from(categories)
+          .where(and(ilike(categories.name, String(params.category)), or(eq(categories.orgId, orgId), isNull(categories.orgId))))
+          .limit(1))
+        categoryId = row?.id
+      }
+      return { success: true, message: 'Redirecionando para transações.', redirect: urlDeTransacoes({ period: params.period, categoryId }) }
     }
     case 'view_account': {
       return { success: true, message: 'Redirecionando para conta.', redirect: `/accounts/${params.accountId}` }

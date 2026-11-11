@@ -185,7 +185,7 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
           <Card style={{ borderRadius: 14 }}>
             <CardContent className="py-8 text-center text-sm" style={{ color: '#6E6E6E' }}>
               Nenhum teto definido para este mês.{' '}
-              <a href="/budgets/spending" style={{ color: '#4A5899' }} className="underline">
+              <a href={`/budgets/spending?month=${selectedMonth}`} style={{ color: '#4A5899' }} className="underline">
                 Definir metas de gasto
               </a>
             </CardContent>

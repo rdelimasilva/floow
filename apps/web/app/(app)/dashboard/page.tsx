@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 import { PageHeader } from '@/components/ui/page-header'
 import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getCategories } from '@/lib/finance/queries'
 import { getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
@@ -41,8 +42,7 @@ async function AccountSection({ orgId }: { orgId: string }) {
 
 async function StatsSection({ orgId }: { orgId: string }) {
   const cashFlowData = await getMonthlyCashFlowSummary(orgId, 6)
-  const now = new Date()
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const currentMonth = hojeEmSaoPaulo().slice(0, 7)
   const currentMonthData = cashFlowData.find((d) => d.month === currentMonth)
   return (
     <QuickStatsRow
@@ -88,8 +88,10 @@ async function PatrimonySection({ orgId }: { orgId: string }) {
 
 async function BudgetAlertSection({ orgId }: { orgId: string }) {
   const now = new Date()
-  const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  // Mês do calendário do usuário: o servidor roda em UTC e virava o mês às 21h.
+  const [ano, mes] = hojeEmSaoPaulo().split('-').map(Number)
+  const currentMonth = new Date(ano, mes - 1, 1)
+  const currentMonthEnd = new Date(ano, mes, 0)
 
   // Metas de aporte: as da tela Meta de Investimentos (`budget_entries`), com
   // o aportado do mês pela mesma consulta que ela usa.

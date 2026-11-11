@@ -7,9 +7,10 @@ import { PageHeader } from '@/components/ui/page-header'
 
 interface Props {
   params: Promise<{ eventId: string }>
+  searchParams: Promise<{ voltar?: string }>
 }
 
-export default async function EditPortfolioEventPage({ params }: Props) {
+export default async function EditPortfolioEventPage({ params, searchParams }: Props) {
   const { eventId } = await params
   if (!ehIdDeRota(eventId)) notFound()
   const orgId = await getOrgId()
@@ -21,6 +22,9 @@ export default async function EditPortfolioEventPage({ params }: Props) {
   ])
 
   if (!event) notFound()
+  // Aberto pelo detalhe do ativo, volta para ele; senão, para Renda Passiva.
+  const { voltar } = await searchParams
+  const voltarPara = voltar === 'ativo' && event.assetId ? `/investments/${event.assetId}` : '/investments/income'
 
   return (
     <div className="space-y-6">
@@ -37,6 +41,7 @@ export default async function EditPortfolioEventPage({ params }: Props) {
           }}
           assets={assets}
           accounts={accounts}
+          voltarPara={voltarPara}
         />
       </div>
     </div>

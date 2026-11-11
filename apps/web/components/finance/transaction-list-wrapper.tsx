@@ -17,9 +17,11 @@ interface Props {
   sortBy: string
   sortDir: 'asc' | 'desc'
   faturas?: FaturaNoExtrato[]
+  /** Tela que a lista filtra. Só Transações grava o recorte lembrado. */
+  baseUrl?: string
 }
 
-export function TransactionListWrapper({ transactions, accounts, categories, sortBy, sortDir, faturas, totalDoFiltro }: Props) {
+export function TransactionListWrapper({ transactions, accounts, categories, sortBy, sortDir, faturas, totalDoFiltro, baseUrl = '/transactions' }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inlineForm = useContext(InlineFormContext)
@@ -34,11 +36,11 @@ export function TransactionListWrapper({ transactions, accounts, categories, sor
     // Sem `page`: o servidor reabre na página da data mais recente quando a
     // ordem é crescente (`paginaQueAbre`). Fixar 1 aqui jogava em 2019.
     params.delete('page')
-    lembrarFiltros(params)
+    if (baseUrl === '/transactions') lembrarFiltros(params)
     startTransition(() => {
-      router.replace(`/transactions?${params.toString()}`, { scroll: false })
+      router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
     })
-  }, [router, searchParams, startTransition])
+  }, [router, searchParams, startTransition, baseUrl])
 
   const activeTypes = (searchParams.get('types') ?? '').split(',').filter(Boolean)
   const activeCategoryIds = (searchParams.get('categoryIds') ?? '').split(',').filter(Boolean)

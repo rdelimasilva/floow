@@ -8,6 +8,7 @@ import { ChevronDown, ChevronUp, X, AlertTriangle, AlertCircle, Info, CheckCircl
 import { cn } from '@/lib/utils'
 import { dismissInsight, markInsightActedOn } from '@/lib/cfo/actions'
 import { ChatPanel } from './chat-panel'
+import { rotaDaAcao } from '@/lib/cfo/rota-da-acao'
 import type { CfoInsight } from '@floow/db'
 
 const SEVERITY_CONFIG = {
@@ -32,16 +33,6 @@ const SEVERITY_CONFIG = {
     label: 'Positivo',
   },
 } as const
-
-const ACTION_ROUTES: Record<string, (params: Record<string, unknown>) => string> = {
-  view_transactions: (p) => `/transactions${p.period ? `?period=${p.period}` : ''}${p.category ? `&category=${p.category}` : ''}`,
-  view_account: (p) => `/accounts/${p.accountId}`,
-  view_debts: () => '/debts',
-  view_investments: () => '/investments',
-  view_planning: () => '/planning',
-  create_budget: () => '/budgets/spending',
-  adjust_budget: (p) => `/budgets/spending${p.category ? `?highlight=${p.category}` : ''}`,
-}
 
 type SerializedInsight = {
   [K in keyof CfoInsight]: CfoInsight[K] extends Date ? string | Date : CfoInsight[K] extends Date | null ? string | Date | null : CfoInsight[K]
@@ -71,11 +62,9 @@ export function InsightCard({ insight, compact = false }: InsightCardProps) {
   async function handleAction() {
     if (insight.suggestedActionType) {
       await markInsightActedOn(insight.id)
-      const routeFn = ACTION_ROUTES[insight.suggestedActionType]
-      if (routeFn) {
-        const params = (insight.suggestedActionParams ?? {}) as Record<string, unknown>
-        router.push(routeFn(params))
-      }
+      const params = (insight.suggestedActionParams ?? {}) as Record<string, unknown>
+      const rota = rotaDaAcao(insight.suggestedActionType, params)
+      if (rota) router.push(rota)
     }
   }
 

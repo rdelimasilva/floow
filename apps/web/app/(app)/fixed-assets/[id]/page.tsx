@@ -103,7 +103,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
           <CardHeader><CardTitle className="text-sm">Aquisição</CardTitle></CardHeader>
           <CardContent>
             <Link
-              href={`/transactions?q=${encodeURIComponent(acquisition.description)}`}
+              href={`/transactions?search=${encodeURIComponent(acquisition.description)}`}
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm hover:underline"
             >
               <span className="text-gray-500">{formatarDia(acquisition.date)}</span>
@@ -123,7 +123,7 @@ export default async function FixedAssetDetailPage({ params }: { params: Promise
           <CardHeader><CardTitle className="text-sm">Venda</CardTitle></CardHeader>
           <CardContent>
             <Link
-              href={`/transactions?q=${encodeURIComponent(sale.description)}`}
+              href={`/transactions?search=${encodeURIComponent(sale.description)}`}
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm hover:underline"
             >
               <span className="text-gray-500">{formatarDia(sale.date)}</span>

@@ -52,6 +52,8 @@ interface PortfolioEventEditFormProps {
   event: SerializedEvent
   assets: Asset[]
   accounts: Account[]
+  /** Tela de onde a edição foi aberta: salvar e cancelar voltam para ela. */
+  voltarPara?: string
 }
 
 // ── Labels ─────────────────────────────────────────────────────────────────────
@@ -83,7 +85,7 @@ function showSplitRatio(type: EventType): boolean {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEventEditFormProps) {
+export function PortfolioEventEditForm({ event, assets, accounts, voltarPara = '/investments/income' }: PortfolioEventEditFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [eventType, setEventType] = useState<EventType>(event.eventType as EventType)
@@ -159,7 +161,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
     try {
       await updatePortfolioEvent(formData)
       toast('Evento atualizado com sucesso')
-      router.push('/investments/income')
+      router.push(voltarPara)
     } catch (e) {
       toast(mensagemDeErro(e, 'Erro ao atualizar evento'), 'error')
     }
@@ -353,7 +355,7 @@ export function PortfolioEventEditForm({ event, assets, accounts }: PortfolioEve
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={() => router.push('/investments/income')}>
+          <Button type="button" variant="outline" onClick={() => router.push(voltarPara)}>
             Cancelar
           </Button>
           <Button type="submit" variant="primary" disabled={isSubmitting}>
