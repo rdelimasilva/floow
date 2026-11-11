@@ -24,6 +24,9 @@ export function RECORTE_PADRAO(hoje: string = hojeEmSaoPaulo()): Recorte {
   return { ...getPeriodDates('month', hoje), accountIds: [] }
 }
 
+const MES = /^\d{4}-\d{2}-01$/
+const DIA = /^\d{4}-\d{2}-\d{2}$/
+
 const lista = (v: string | null | undefined) => (v ? v.split(',').filter(Boolean) : [])
 
 export function serializarRecorte(r: Recorte, hoje: string = hojeEmSaoPaulo()): string {
@@ -69,9 +72,10 @@ export function lerRecorte(cookies: Params, hoje: string = hojeEmSaoPaulo()): Re
 /** Só as chaves que a URL traz. `month=YYYY-MM-01` vira o mês inteiro. */
 export function recorteDaUrl(params: Params): Partial<Recorte> {
   const out: Partial<Recorte> = {}
-  if (params.month) Object.assign(out, mesInteiro(params.month.slice(0, 7), 0))
-  if (params.startDate !== undefined) out.startDate = params.startDate
-  if (params.endDate !== undefined) out.endDate = params.endDate
+  // Valor malformado na URL (link velho, digitado) é ignorado em vez de virar data inválida.
+  if (params.month && MES.test(params.month)) Object.assign(out, mesInteiro(params.month.slice(0, 7), 0))
+  if (params.startDate !== undefined && (params.startDate === '' || DIA.test(params.startDate))) out.startDate = params.startDate
+  if (params.endDate !== undefined && (params.endDate === '' || DIA.test(params.endDate))) out.endDate = params.endDate
   if (params.accountId !== undefined) out.accountIds = lista(params.accountId)
   return out
 }
@@ -87,7 +91,8 @@ export function contasValidas(ids: string[], permitidas: string[]): string[] {
 
 /** Telas de mês não aceitam ponta aberta: sem fim, vale o mês de hoje. */
 export function mesParaTelaDeMes(r: Recorte | null, hoje: string = hojeEmSaoPaulo()): string {
-  return `${(r?.endDate || hoje).slice(0, 7)}-01`
+  const fim = r?.endDate && DIA.test(r.endDate) ? r.endDate : hoje
+  return `${fim.slice(0, 7)}-01`
 }
 
 /**

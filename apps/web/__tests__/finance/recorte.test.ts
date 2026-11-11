@@ -58,3 +58,17 @@ describe('recorte', () => {
       .toEqual({ ...RECORTE_PADRAO('2026-11-11'), startDate: '2026-10-01' })
   })
 })
+
+describe('recorte malformado na URL', () => {
+  it('recorteDaUrl ignora month e datas fora do formato', () => {
+    expect(recorteDaUrl({ month: 'abc' })).toEqual({})
+    expect(recorteDaUrl({ month: '2026-02-15' })).toEqual({})
+    expect(recorteDaUrl({ startDate: 'lixo', endDate: '2026-1-1' })).toEqual({})
+  })
+  it('data vazia continua valendo como ponta aberta', () => {
+    expect(recorteDaUrl({ startDate: '', endDate: '' })).toEqual({ startDate: '', endDate: '' })
+  })
+  it('mesParaTelaDeMes cai no mês de hoje com endDate inválido', () => {
+    expect(mesParaTelaDeMes({ startDate: '', endDate: 'lixo', accountIds: [] }, '2026-11-11')).toBe('2026-11-01')
+  })
+})
