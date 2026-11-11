@@ -403,15 +403,24 @@ export async function getTransactionsWithCount(
 /**
  * Returns transactions from the last N months for cash flow chart aggregation.
  * Defaults to 6 months. Ordered by date descending.
+ * Com `{ inicio, fim }` (YYYY-MM-DD, ponta vazia = aberta) respeita o período
+ * pedido, sem corte de meses: é o "Todo o período" de Análises.
  * Wrapped in React cache() to deduplicate within a single request (e.g., dashboard
  * calls this twice from StatsSection and ChartSection — cache prevents double DB round-trip).
  */
-export const getRecentTransactions = cache(async function getRecentTransactions(orgId: string, months: number = 6) {
+export const getRecentTransactions = cache(async function getRecentTransactions(
+  orgId: string,
+  periodo: number | { inicio?: string; fim?: string } = 6,
+) {
+  const months = typeof periodo === 'number' ? periodo : 24
+  const janela = typeof periodo === 'number' ? null : periodo
   return unstable_cache(
     async () => {
       const db = getDb()
       const cutoff = new Date()
       cutoff.setMonth(cutoff.getMonth() - months)
+      const desde = janela ? (janela.inicio ? new Date(janela.inicio) : null) : cutoff
+      const ate = janela?.fim ? new Date(janela.fim) : null
 
       return db
         .select({
@@ -431,7 +440,8 @@ export const getRecentTransactions = cache(async function getRecentTransactions(
         .leftJoin(categories, eq(categories.id, transactions.categoryId))
         .where(and(
           eq(transactions.orgId, orgId),
-          gte(transactions.date, cutoff),
+          desde ? gte(transactions.date, desde) : undefined,
+          ate ? lte(transactions.date, ate) : undefined,
           eq(transactions.isIgnored, false),
           eq(transactions.balanceApplied, true),
           eq(transactions.reviewState, 'confirmed'),
@@ -439,7 +449,8 @@ export const getRecentTransactions = cache(async function getRecentTransactions(
         ))
         .orderBy(desc(transactions.date))
     },
-    ['finance-recent-transactions-v2', orgId, String(months)],
+    // Período usa a tag de 24 meses: as invalidações que já existem o alcançam.
+    ['finance-recent-transactions-v2', orgId, janela ? `${janela.inicio ?? ''}:${janela.fim ?? ''}` : String(months)],
     { tags: [recentTransactionsTag(orgId, months)], revalidate: 180 },
   )().then((rows) =>
     rows.map((row) => ({

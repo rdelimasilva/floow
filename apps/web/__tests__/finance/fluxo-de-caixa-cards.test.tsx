@@ -19,6 +19,12 @@ import React from 'react'
 HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
 HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
 
+const replace = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace }),
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 vi.mock('next/dynamic', () => ({
   default: () => () => React.createElement('div', { 'data-testid': 'grafico' }),
 }))
@@ -33,6 +39,9 @@ vi.mock('@/lib/finance/fluxo-de-caixa-actions', () => ({
 }))
 
 import { CashFlowClient } from '@/components/finance/cash-flow-client'
+
+// Período e contas chegam da URL; este é o "Últimos 12 meses" de 18/10/2026.
+const RECORTE = { startDate: '2025-11-01', endDate: '2026-10-18', accountIds: [] as string[] }
 
 describe('cards × total do detalhamento', () => {
   beforeEach(() => {
@@ -75,10 +84,11 @@ describe('cards × total do detalhamento', () => {
         transactions={transactions}
         futureTransactions={[]}
         accounts={[{ id: 'a1', name: 'Conta' }]}
+        {...RECORTE}
+        startDate="2026-10-18"
+        endDate="2026-10-18"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /^Período:/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Hoje' }))
 
     const tabela = totaisDoDetalhamento()
     expect(card(/^Receitas/)).toBe(tabela.receitas)
@@ -92,6 +102,7 @@ describe('cards × total do detalhamento', () => {
         transactions={[...transactions, tx('2026-10-10', 1000_00, 'transfer'), tx('2026-10-11', -400_00, 'transfer')]}
         futureTransactions={[]}
         accounts={[{ id: 'a1', name: 'Conta' }]}
+        {...RECORTE}
       />,
     )
     expect(card(/^Receitas/)).toContain('600,00')
@@ -106,6 +117,7 @@ describe('cards × total do detalhamento', () => {
         transactions={transactions.map((t, i) => ({ ...t, description: `Lançamento ${i}` }))}
         futureTransactions={[]}
         accounts={[{ id: 'a1', name: 'Conta' }]}
+        {...RECORTE}
       />,
     )
     const linha = screen.getByText('Outubro de 2026').closest('tr')!
@@ -116,18 +128,14 @@ describe('cards × total do detalhamento', () => {
     expect(screen.queryByText('Lançamento 0')).toBeNull()
   })
 
-  it('o período escolhido volta quando a pessoa retorna à tela', () => {
-    const tela = () => (
-      <CashFlowClient transactions={transactions} futureTransactions={[]} accounts={[{ id: 'a1', name: 'Conta' }]} />
+  it('escolher "Hoje" grava o período na URL, sem empilhar histórico', () => {
+    replace.mockClear()
+    render(
+      <CashFlowClient transactions={transactions} futureTransactions={[]} accounts={[{ id: 'a1', name: 'Conta' }]} {...RECORTE} />,
     )
-    const { unmount } = render(tela())
     fireEvent.click(screen.getByRole('button', { name: /^Período:/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Hoje' }))
-    unmount()
-
-    render(tela())
-    expect(card(/^Receitas/)).toContain('100,00')
-    expect(card(/^Receitas/)).not.toContain('600,00')
+    expect(replace).toHaveBeenCalledWith('/cash-flow?startDate=2026-10-18&endDate=2026-10-18', { scroll: false })
   })
 
   it('clicar num lançamento da lista abre o popup com os detalhes', async () => {
@@ -136,6 +144,7 @@ describe('cards × total do detalhamento', () => {
         transactions={transactions.map((t, i) => ({ ...t, id: `id-${i}`, description: `Lançamento ${i}` }))}
         futureTransactions={[]}
         accounts={[{ id: 'a1', name: 'Conta' }]}
+        {...RECORTE}
       />,
     )
     const linha = screen.getByText('Outubro de 2026').closest('tr')!

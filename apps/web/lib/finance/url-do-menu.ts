@@ -63,7 +63,7 @@ export function urlDeOrcamento(href: string, cookies: Params, hoje: string = hoj
  * Transações só aplica contas de lançamento. Id que a tela não conhece sai da
  * URL (sem `accountId` se nada sobrar); o cookie não é tocado.
  */
-export function destinoSoComContasValidas(params: Params, permitidas: string[]): string | null {
+export function destinoSoComContasValidas(params: Params, permitidas: string[], path: string = '/transactions'): string | null {
   if (params.accountId === undefined) return null
   const ids = params.accountId.split(',').filter(Boolean)
   const validas = contasValidas(ids, permitidas)
@@ -71,5 +71,5 @@ export function destinoSoComContasValidas(params: Params, permitidas: string[]):
   const q = new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => e[1] !== undefined))
   if (validas.length) q.set('accountId', validas.join(','))
   else q.delete('accountId')
-  return `/transactions?${q}`
+  return `${path}?${q}`
 }

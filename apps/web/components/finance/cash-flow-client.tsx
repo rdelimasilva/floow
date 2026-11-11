@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useMemo, useDeferredValue, useEffect } from 'react'
+import { useFiltrosNaUrl } from './filtros/use-filtros-na-url'
+import { useGravarRecorteNaChegada } from './filtros/use-gravar-recorte-na-chegada'
+import { visaoInicial, type ViewMode } from '@/lib/finance/visao-do-fluxo'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { SeletorDePeriodo } from './filtros/seletor-de-periodo'
 import { AccountFilter } from './account-filter'
 import { PILULA_BASE, PILULA_OFF, PILULA_ON } from './filtros/pilula'
-import { PERIOD_GROUPS, detectActivePeriod, getPeriodDates, hojeEmSaoPaulo, type PeriodKey } from '@/lib/finance/filtros-lembrados'
+import { PERIOD_GROUPS, getPeriodDates, hojeEmSaoPaulo, type PeriodKey } from '@/lib/finance/filtros-lembrados'
 import { CashFlowChartPicker, type ChartType } from './cash-flow-chart-picker'
 import dynamic from 'next/dynamic'
 
@@ -39,20 +42,14 @@ interface AccountOption {
   type?: string
 }
 
-type ViewMode = 'realized' | 'projected' | 'both'
-
-// Filtros e gráfico sobrevivem à troca de tela. Período de atalho fica
-// relativo (`periodKey`) e volta com as datas do dia da volta, como em Transações.
+// Gráfico e visão sobrevivem à troca de tela. Período e contas moram na URL e
+// no recorte compartilhado (cookie), não aqui.
 const PREFS_KEY = 'fluxo-de-caixa:preferencias'
 interface Prefs {
   chartType: ChartType
   showLabels: boolean
   hideTransfers: boolean
   viewMode: ViewMode
-  accountIds: string[]
-  periodKey: PeriodKey | null
-  startDate: string
-  endDate: string
 }
 
 const VIEW_LABELS: Record<ViewMode, string> = {
@@ -65,6 +62,10 @@ interface CashFlowClientProps {
   transactions: RawTransaction[]
   futureTransactions: RawTransaction[]
   accounts: AccountOption[]
+  /** Recorte vindo da URL; data vazia é ponta aberta. */
+  startDate: string
+  endDate: string
+  accountIds: string[]
 }
 
 function preparar(list: RawTransaction[]): PreparedTransaction[] {
@@ -104,9 +105,9 @@ function porMes(realizado: PreparedTransaction[], projetado: PreparedTransaction
   return [...map.values()].sort((a, b) => a.month.localeCompare(b.month))
 }
 
-export function CashFlowClient({ transactions, futureTransactions, accounts }: CashFlowClientProps) {
-  const [{ startDate, endDate }, setPeriodo] = useState(() => getPeriodDates('last12Months'))
-  const [accountIds, setAccountIds] = useState<string[]>([])
+export function CashFlowClient({ transactions, futureTransactions, accounts, startDate, endDate, accountIds }: CashFlowClientProps) {
+  const { trocar } = useFiltrosNaUrl('/cash-flow')
+  useGravarRecorteNaChegada(accounts)
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [viewMode, setViewMode] = useState<ViewMode>('realized')
   const [hideTransfers, setHideTransfers] = useState(true)
@@ -121,13 +122,9 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
       if (p.chartType) setChartType(p.chartType)
       if (typeof p.showLabels === 'boolean') setShowLabels(p.showLabels)
       if (typeof p.hideTransfers === 'boolean') setHideTransfers(p.hideTransfers)
-      if (p.viewMode && p.viewMode in VIEW_LABELS) setViewMode(p.viewMode)
-      // Conta excluída desde a última visita sairia filtrando nada.
-      if (Array.isArray(p.accountIds)) setAccountIds(p.accountIds.filter((id) => accounts.some((a) => a.id === id)))
-      if (p.periodKey) setPeriodo(getPeriodDates(p.periodKey))
-      else if (typeof p.startDate === 'string' && typeof p.endDate === 'string') {
-        setPeriodo({ startDate: p.startDate, endDate: p.endDate })
-      }
+      // A tela não abre vazia por causa de um recorte escolhido em outra tela.
+      const pref = p.viewMode && p.viewMode in VIEW_LABELS ? p.viewMode : 'realized'
+      setViewMode(visaoInicial(pref, startDate, endDate, hojeEmSaoPaulo()))
     } catch { /* sem preferência salva, fica o padrão */ }
     setCarregado(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só na montagem
@@ -136,14 +133,11 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
   // Só grava depois de ler, senão o padrão apagaria o que estava salvo.
   useEffect(() => {
     if (!carregado) return
-    const prefs: Prefs = {
-      chartType, showLabels, hideTransfers, viewMode, accountIds,
-      periodKey: detectActivePeriod(startDate, endDate), startDate, endDate,
-    }
+    const prefs: Prefs = { chartType, showLabels, hideTransfers, viewMode }
     try {
       localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
     } catch { /* navegador sem storage: vale só nesta visita */ }
-  }, [carregado, chartType, showLabels, hideTransfers, viewMode, accountIds, startDate, endDate])
+  }, [carregado, chartType, showLabels, hideTransfers, viewMode])
 
   const preparedTransactions = useMemo(() => preparar(transactions), [transactions])
   const preparedFutureTransactions = useMemo(() => preparar(futureTransactions), [futureTransactions])
@@ -177,14 +171,17 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
   }, [viewMode, filteredRealized, filteredFuture])
 
   function escolherPeriodo(p: { startDate: string; endDate: string }, key: PeriodKey | null) {
-    setPeriodo(p)
-    // Atalho de passado ou de futuro já leva ao modo que tem dado para ele.
+    // Atalho de passado ou de futuro já leva ao modo que tem dado para ele; seta e datas
+    // à mão seguem a mesma regra da abertura, para não cair num período vazio.
     if (key && PERIOD_GROUPS[0].keys.includes(key)) setViewMode('realized')
-    if (key && PERIOD_GROUPS[2].keys.includes(key)) setViewMode('projected')
+    else if (key && PERIOD_GROUPS[2].keys.includes(key)) setViewMode('projected')
+    else setViewMode((v) => visaoInicial(v, p.startDate, p.endDate, hojeEmSaoPaulo()))
+    trocar({ startDate: p.startDate, endDate: p.endDate })
   }
 
   // O caminho inverso: período que para em hoje não tem previsão nenhuma, e
-  // o que começa hoje não tem realizado. Trocar a visão estica o período.
+  // o que começa hoje não tem realizado. Trocar a visão estica o período e,
+  // como é um clique, grava o novo período no recorte.
   function trocarVisao(mode: ViewMode) {
     setViewMode(mode)
     const hoje = hojeEmSaoPaulo()
@@ -192,11 +189,11 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
     const passado = getPeriodDates('last12Months', hoje)
     const soPassado = Boolean(endDate) && endDate <= hoje
     const soFuturo = Boolean(startDate) && startDate >= hoje
-    if (mode === 'projected' && soPassado) setPeriodo(futuro)
-    else if (mode === 'realized' && soFuturo) setPeriodo(passado)
+    if (mode === 'projected' && soPassado) trocar(futuro)
+    else if (mode === 'realized' && soFuturo) trocar(passado)
     // "Ambos" precisa dos dois lados de hoje; vindo de Projetado, o período só tinha futuro.
     else if (mode === 'both' && (soPassado || soFuturo)) {
-      setPeriodo({
+      trocar({
         startDate: soFuturo ? passado.startDate : startDate,
         endDate: soPassado ? futuro.endDate : endDate,
       })
@@ -246,7 +243,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts }: C
       <div className="space-y-1.5 bg-gray-50 md:sticky md:top-[calc(3.5rem+env(safe-area-inset-top)+var(--altura-cabecalho,0px))] md:z-20 md:pb-2">
         <div className="flex flex-wrap items-center gap-2">
           <SeletorDePeriodo modo="intervalo" startDate={startDate} endDate={endDate} aoMudar={escolherPeriodo} />
-          <AccountFilter accounts={accounts} selected={accountIds} onChange={setAccountIds} />
+          <AccountFilter accounts={accounts} selected={accountIds} onChange={(ids) => trocar({ accountId: ids.join(',') })} />
           {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
             <button
               key={mode}
