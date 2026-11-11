@@ -109,7 +109,9 @@ export function CashFlowClient({ transactions, futureTransactions, accounts, sta
   const { trocar } = useFiltrosNaUrl('/cash-flow')
   useGravarRecorteNaChegada(accounts)
   const [chartType, setChartType] = useState<ChartType>('bar')
-  const [viewMode, setViewMode] = useState<ViewMode>('realized')
+  // Só o clique do usuário muda a preferência; a visão mostrada deriva dela e do período.
+  const [prefVisao, setPrefVisao] = useState<ViewMode>('realized')
+  const viewMode = visaoInicial(prefVisao, startDate, endDate, hojeEmSaoPaulo())
   const [hideTransfers, setHideTransfers] = useState(true)
   const [showLabels, setShowLabels] = useState(false)
 
@@ -122,9 +124,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts, sta
       if (p.chartType) setChartType(p.chartType)
       if (typeof p.showLabels === 'boolean') setShowLabels(p.showLabels)
       if (typeof p.hideTransfers === 'boolean') setHideTransfers(p.hideTransfers)
-      // A tela não abre vazia por causa de um recorte escolhido em outra tela.
-      const pref = p.viewMode && p.viewMode in VIEW_LABELS ? p.viewMode : 'realized'
-      setViewMode(visaoInicial(pref, startDate, endDate, hojeEmSaoPaulo()))
+      if (p.viewMode && p.viewMode in VIEW_LABELS) setPrefVisao(p.viewMode)
     } catch { /* sem preferência salva, fica o padrão */ }
     setCarregado(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só na montagem
@@ -133,11 +133,11 @@ export function CashFlowClient({ transactions, futureTransactions, accounts, sta
   // Só grava depois de ler, senão o padrão apagaria o que estava salvo.
   useEffect(() => {
     if (!carregado) return
-    const prefs: Prefs = { chartType, showLabels, hideTransfers, viewMode }
+    const prefs: Prefs = { chartType, showLabels, hideTransfers, viewMode: prefVisao }
     try {
       localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
     } catch { /* navegador sem storage: vale só nesta visita */ }
-  }, [carregado, chartType, showLabels, hideTransfers, viewMode])
+  }, [carregado, chartType, showLabels, hideTransfers, prefVisao])
 
   const preparedTransactions = useMemo(() => preparar(transactions), [transactions])
   const preparedFutureTransactions = useMemo(() => preparar(futureTransactions), [futureTransactions])
@@ -171,11 +171,10 @@ export function CashFlowClient({ transactions, futureTransactions, accounts, sta
   }, [viewMode, filteredRealized, filteredFuture])
 
   function escolherPeriodo(p: { startDate: string; endDate: string }, key: PeriodKey | null) {
-    // Atalho de passado ou de futuro já leva ao modo que tem dado para ele; seta e datas
-    // à mão seguem a mesma regra da abertura, para não cair num período vazio.
-    if (key && PERIOD_GROUPS[0].keys.includes(key)) setViewMode('realized')
-    else if (key && PERIOD_GROUPS[2].keys.includes(key)) setViewMode('projected')
-    else setViewMode((v) => visaoInicial(v, p.startDate, p.endDate, hojeEmSaoPaulo()))
+    // Atalho de passado ou de futuro é escolha explícita e leva ao modo que tem dado para ele;
+    // seta e datas à mão só mudam a visão mostrada (`visaoInicial`), não a preferência.
+    if (key && PERIOD_GROUPS[0].keys.includes(key)) setPrefVisao('realized')
+    else if (key && PERIOD_GROUPS[2].keys.includes(key)) setPrefVisao('projected')
     trocar({ startDate: p.startDate, endDate: p.endDate })
   }
 
@@ -183,7 +182,7 @@ export function CashFlowClient({ transactions, futureTransactions, accounts, sta
   // o que começa hoje não tem realizado. Trocar a visão estica o período e,
   // como é um clique, grava o novo período no recorte.
   function trocarVisao(mode: ViewMode) {
-    setViewMode(mode)
+    setPrefVisao(mode)
     const hoje = hojeEmSaoPaulo()
     const futuro = getPeriodDates('next6Months', hoje)
     const passado = getPeriodDates('last12Months', hoje)

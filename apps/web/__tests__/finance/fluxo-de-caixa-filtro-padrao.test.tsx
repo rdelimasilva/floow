@@ -48,18 +48,32 @@ describe('filtro de período do fluxo de caixa', () => {
 
   it('atalho de futuro troca para o modo Projetado e grava o período na URL', () => {
     replace.mockClear()
-    render(<CashFlowClient {...props} />)
+    const { rerender } = render(<CashFlowClient {...props} />)
     fireEvent.click(screen.getByRole('button', { name: /^Período:/ }))
     // A seta do mês tem o mesmo nome do atalho; o atalho é o que não tem aria-label.
     fireEvent.click(screen.getAllByRole('button', { name: 'Próximo mês' }).find((b) => !b.hasAttribute('aria-label'))!)
-    expect(screen.getByRole('button', { name: 'Projetado' }).getAttribute('aria-pressed')).toBe('true')
     expect(replace).toHaveBeenCalledWith(expect.stringContaining('/cash-flow?startDate='), { scroll: false })
+    // O servidor devolve a tela já no novo período.
+    const url = new URLSearchParams(String(replace.mock.calls.at(-1)![0]).split('?')[1])
+    rerender(<CashFlowClient {...props} startDate={url.get('startDate')!} endDate={url.get('endDate')!} />)
+    expect(screen.getByRole('button', { name: 'Projetado' }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('seta para um mês todo no futuro, em Realizado, passa para Projetado', () => {
-    render(<CashFlowClient {...props} startDate="2026-10-01" endDate="2026-10-31" />)
+    const { rerender } = render(<CashFlowClient {...props} startDate="2026-10-01" endDate="2026-10-31" />)
     fireEvent.click(screen.getAllByRole('button', { name: 'Próximo mês' }).find((b) => b.hasAttribute('aria-label'))!)
+    expect(replace).toHaveBeenLastCalledWith('/cash-flow?startDate=2026-11-01&endDate=2026-11-30', { scroll: false })
+    rerender(<CashFlowClient {...props} startDate="2026-11-01" endDate="2026-11-30" />)
     expect(screen.getByRole('button', { name: 'Projetado' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('recorte futuro não sobrescreve a preferência salva', () => {
+    const { rerender, unmount } = render(<CashFlowClient {...props} startDate="2026-12-01" endDate="2027-02-28" />)
+    expect(localStorage.getItem('fluxo-de-caixa:preferencias')).toContain('"viewMode":"realized"')
+    // Navegação no cliente com outro período: a visão acompanha, a partir da preferência.
+    rerender(<CashFlowClient {...props} />)
+    expect(screen.getByRole('button', { name: 'Realizado' }).getAttribute('aria-pressed')).toBe('true')
+    unmount()
   })
 
   it('abre em Projetado quando o recorte é todo no futuro', () => {

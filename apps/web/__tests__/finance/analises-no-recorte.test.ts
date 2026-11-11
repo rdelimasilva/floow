@@ -13,6 +13,9 @@ describe('visaoInicial', () => {
   it('período todo no passado com preferência Projetado abre em Realizado', () => {
     expect(visaoInicial('projected', '2026-01-01', '2026-03-31', '2026-11-11')).toBe('realized')
   })
+  it('período que termina hoje, com preferência Projetado, abre em Realizado', () => {
+    expect(visaoInicial('projected', '2025-11-01', '2026-11-11', '2026-11-11')).toBe('realized')
+  })
   it('fora disso fica a preferência', () => {
     expect(visaoInicial('both', '2026-12-01', '2027-02-28', '2026-11-11')).toBe('both')
     expect(visaoInicial('realized', '2026-01-01', '2026-03-31', '2026-11-11')).toBe('realized')

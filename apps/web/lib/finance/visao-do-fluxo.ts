@@ -8,6 +8,6 @@ export type ViewMode = 'realized' | 'projected' | 'both'
 export function visaoInicial(pref: ViewMode, startDate: string, endDate: string, hoje: string): ViewMode {
   if (pref === 'both') return pref
   if (startDate && startDate > hoje) return 'projected'
-  if (pref === 'projected' && endDate && endDate < hoje) return 'realized'
+  if (pref === 'projected' && endDate && endDate <= hoje) return 'realized'
   return pref
 }
