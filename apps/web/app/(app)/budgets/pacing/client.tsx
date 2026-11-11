@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { AlertTriangle, TrendingUp, Check, List } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
@@ -167,7 +168,10 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
                 categorias sem teto definido
               </span>
               <span style={{ color: '#666666' }}>
-                Fora da conta acima — defina um teto para acompanhá-las
+                Fora da conta acima.{' '}
+                <Link href="/budgets/spending" className="font-medium underline underline-offset-2" style={{ color: '#333' }}>
+                  Definir tetos
+                </Link>
               </span>
             </div>
           )}
