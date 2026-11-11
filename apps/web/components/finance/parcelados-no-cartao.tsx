@@ -1,6 +1,7 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useFiltrosNaUrl } from '@/components/finance/filtros/use-filtros-na-url'
+import { useGravarRecorteNaChegada } from '@/components/finance/filtros/use-gravar-recorte-na-chegada'
 import { SeletorDePeriodo } from '@/components/finance/filtros/seletor-de-periodo'
 import { Card, CardContent } from '@/components/ui/card'
 import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
@@ -26,7 +27,8 @@ interface Props {
 
 /** Só leitura: a lista sai das faturas do cartão, não do cadastro de dívidas. */
 export function ParceladosNoCartao({ parcelados, selectedMonth }: Props) {
-  const router = useRouter()
+  const { trocar } = useFiltrosNaUrl('/debts')
+  useGravarRecorteNaChegada(null)
   if (parcelados.length === 0) return null
 
   const mes = selectedMonth.slice(0, 7)
@@ -39,7 +41,7 @@ export function ParceladosNoCartao({ parcelados, selectedMonth }: Props) {
   const variosCartoes = new Set(parcelados.map((p) => p.accountId)).size > 1
 
   function navigateMonth(p: { startDate: string }) {
-    router.replace(`/debts?month=${p.startDate}`, { scroll: false })
+    trocar({ month: p.startDate })
   }
 
   return (

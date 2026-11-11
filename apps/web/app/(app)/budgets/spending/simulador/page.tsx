@@ -2,6 +2,7 @@ import { getOrgId, getCategories } from '@/lib/finance/queries'
 import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { carregarDadosDaSugestao } from '@/lib/finance/budget-goal-suggestion-queries'
 import { mediaMensalPorCategoria } from '@/lib/finance/simulador-orcamento'
+import { mesDaTela } from '@/lib/finance/mes-da-tela'
 import { SimuladorClient } from './client'
 
 interface Props {
@@ -12,9 +13,7 @@ export default async function SimuladorOrcamentarioPage({ searchParams }: Props)
   const params = await searchParams
   const orgId = await getOrgId()
 
-  // Mesmo mês padrão do Plano de Gastos (São Paulo, não UTC)
-  const defaultMonth = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7) + '-01'
-  const selectedMonth = params.month ?? defaultMonth
+  const selectedMonth = await mesDaTela('/budgets/spending/simulador', params)
   const [sy, sm] = selectedMonth.split('-').map(Number)
 
   const [categories, entriesForMonth, dadosDaSugestao] = await Promise.all([

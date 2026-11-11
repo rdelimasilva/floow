@@ -4,6 +4,7 @@ import {
   getAllBudgetEntries,
   getInvestmentContributions,
 } from '@/lib/finance/budget-queries'
+import { mesDaTela } from '@/lib/finance/mes-da-tela'
 import { InvestingClient } from './client'
 
 interface Props {
@@ -14,9 +15,7 @@ export default async function InvestingBudgetPage({ searchParams }: Props) {
   const params = await searchParams
   const orgId = await getOrgId()
 
-  // Mês de São Paulo: o servidor roda em UTC e virava o mês às 21h do último dia
-  const defaultMonth = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7) + '-01'
-  const selectedMonth = params.month ?? defaultMonth
+  const selectedMonth = await mesDaTela('/budgets/investing', params)
   const [sy, sm] = selectedMonth.split('-').map(Number)
   const monthDate = new Date(sy, sm - 1, 1)
   const monthEnd = new Date(sy, sm, 0)

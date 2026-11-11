@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
+import { useFiltrosNaUrl } from '@/components/finance/filtros/use-filtros-na-url'
+import { useGravarRecorteNaChegada } from '@/components/finance/filtros/use-gravar-recorte-na-chegada'
 import { SeletorDePeriodo } from '@/components/finance/filtros/seletor-de-periodo'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,7 +50,8 @@ export function InvestingClient({
   totalContributed,
   selectedMonth,
 }: InvestingClientProps) {
-  const router = useRouter()
+  const { trocar } = useFiltrosNaUrl('/budgets/investing')
+  useGravarRecorteNaChegada(null)
   const { toast } = useToast()
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -62,7 +64,7 @@ export function InvestingClient({
   const totalPlanned = entriesForMonth.reduce((sum, e) => sum + e.plannedCents, 0)
 
   function navigateMonth(p: { startDate: string }) {
-    router.replace(`/budgets/investing?month=${p.startDate}`, { scroll: false })
+    trocar({ month: p.startDate })
   }
 
   function startEdit(entry: AllEntry) {

@@ -4,7 +4,7 @@ import React from 'react'
 import { agruparParceladosNoCartao, type ParcelaDoCartao } from '@floow/core-finance'
 
 const replace = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }), useSearchParams: () => new URLSearchParams() }))
 
 const { ParceladosNoCartao } = await import('@/components/finance/parcelados-no-cartao')
 

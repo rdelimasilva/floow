@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { gravarRecorte, recorteDaUrl, recorteDoNavegador, type Recorte } from '@/lib/finance/recorte'
 
+const CHAVES = ['startDate', 'endDate', 'accountId', 'month']
+
 /**
  * Chegada com recorte na URL (link, menu, importação) grava o recorte que a
  * tela está mostrando: a URL é a fonte da verdade, então chave ausente é
@@ -13,13 +15,15 @@ import { gravarRecorte, recorteDaUrl, recorteDoNavegador, type Recorte } from '@
  */
 export function useGravarRecorteNaChegada(contasDaTela: { id: string }[] | null) {
   const searchParams = useSearchParams()
-  const chaves = ['startDate', 'endDate', 'accountId'].map((k) => searchParams.get(k) ?? '').concat(
-    String(['startDate', 'endDate', 'accountId'].some((k) => searchParams.has(k))),
+  const chaves = CHAVES.map((k) => searchParams.get(k) ?? '').concat(
+    String(CHAVES.some((k) => searchParams.has(k))),
   ).join('|')
   useEffect(() => {
     const p = Object.fromEntries(new URLSearchParams(searchParams.toString()))
-    if (!['startDate', 'endDate', 'accountId'].some((k) => p[k] !== undefined)) return
-    const { startDate = '', endDate = '', accountIds } = recorteDaUrl(p)
+    if (!CHAVES.some((k) => p[k] !== undefined)) return
+    const lido = recorteDaUrl(p)
+    if (!Object.keys(lido).length) return // `month` inválido não apaga o período
+    const { startDate = '', endDate = '', accountIds } = lido
     const parcial: Partial<Recorte> = { startDate, endDate }
     if (contasDaTela) {
       const doUrl = accountIds ?? []

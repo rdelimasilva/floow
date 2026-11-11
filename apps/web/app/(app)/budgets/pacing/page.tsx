@@ -11,6 +11,7 @@ import {
 } from '@floow/core-finance'
 import { saoPauloToday } from '@/lib/finance/sp-date'
 import { toCategoryOptions } from '@/lib/finance/category-options'
+import { mesDaTela } from '@/lib/finance/mes-da-tela'
 import { PacingClient } from './client'
 
 interface Props {
@@ -22,9 +23,7 @@ export default async function BudgetPacingPage({ searchParams }: Props) {
   const orgId = await getOrgId()
   const today = saoPauloToday()
 
-  // O mês analisado vem da query string; o padrão é o mês corrente em São Paulo.
-  const defaultMonth = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-01`
-  const selectedMonth = params.month ?? defaultMonth
+  const selectedMonth = await mesDaTela('/budgets/pacing', params)
   const [sy, sm] = selectedMonth.split('-').map(Number)
 
   // Datas do mês também em UTC, para casar com a convenção da função pura.

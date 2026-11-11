@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { AlertTriangle, TrendingUp, Check, List } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
+import { useFiltrosNaUrl } from '@/components/finance/filtros/use-filtros-na-url'
+import { useGravarRecorteNaChegada } from '@/components/finance/filtros/use-gravar-recorte-na-chegada'
 import { SeletorDePeriodo } from '@/components/finance/filtros/seletor-de-periodo'
 import { PacingTransactionsDialog } from '@/components/finance/pacing-transactions-dialog'
 import { formatBRL } from '@floow/core-finance/src/balance'
@@ -60,7 +61,8 @@ function StatusBadge({ status }: { status: PacingStatus }) {
 }
 
 export function PacingClient({ result, categoryNames, memberIds, categoryOptions, selectedMonth }: Props) {
-  const router = useRouter()
+  const { trocar } = useFiltrosNaUrl('/budgets/pacing')
+  useGravarRecorteNaChegada(null)
   const [openCategory, setOpenCategory] = useState<{
     id: string
     name: string
@@ -81,7 +83,7 @@ export function PacingClient({ result, categoryNames, memberIds, categoryOptions
   )
 
   function go(p: { startDate: string }) {
-    router.replace(`/budgets/pacing?month=${p.startDate}`, { scroll: false })
+    trocar({ month: p.startDate })
   }
 
   return (

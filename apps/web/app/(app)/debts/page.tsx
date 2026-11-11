@@ -3,6 +3,7 @@ import { getDebtsWithProgress } from '@/lib/finance/debt-queries'
 import { getParceladosNoCartao } from '@/lib/finance/parcelados-no-cartao-queries'
 import { ParceladosNoCartao } from '@/components/finance/parcelados-no-cartao'
 import { hojeEmSaoPaulo } from '@/lib/openfinance/parcelas-previstas'
+import { mesDaTela } from '@/lib/finance/mes-da-tela'
 import { DebtsClient } from './client'
 
 interface Props {
@@ -11,6 +12,8 @@ interface Props {
 
 export default async function DebtsPage({ searchParams }: Props) {
   const params = await searchParams
+  // Com recorte, abre no mês dele (redirect antes de consultar o banco).
+  const mesDaUrl = await mesDaTela('/debts', params, () => '')
   const orgId = await getOrgId()
   const [debtsData, categories, parcelados] = await Promise.all([
     getDebtsWithProgress(orgId),
@@ -18,11 +21,9 @@ export default async function DebtsPage({ searchParams }: Props) {
     getParceladosNoCartao(orgId),
   ])
 
-  // Sem `?month=`, abre na próxima fatura com parcela (a lista vem ordenada por vencimento).
+  // Sem recorte nem `?month=`, abre na próxima fatura com parcela (a lista vem ordenada por vencimento).
   const proximaFatura = parcelados[0]?.nextDueDate ?? hojeEmSaoPaulo()
-  const selectedMonth = /^\d{4}-\d{2}/.test(params.month ?? '')
-    ? `${params.month!.slice(0, 7)}-01`
-    : `${proximaFatura.slice(0, 7)}-01`
+  const selectedMonth = mesDaUrl || `${proximaFatura.slice(0, 7)}-01`
 
   const expenseCategories = categories
     .filter((c) => c.type === 'expense')

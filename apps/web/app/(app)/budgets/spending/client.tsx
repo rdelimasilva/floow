@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Gauge, FlaskConical } from 'lucide-react'
+import { useFiltrosNaUrl } from '@/components/finance/filtros/use-filtros-na-url'
+import { useGravarRecorteNaChegada } from '@/components/finance/filtros/use-gravar-recorte-na-chegada'
 import { SeletorDePeriodo } from '@/components/finance/filtros/seletor-de-periodo'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -68,7 +69,8 @@ export function SpendingClient({
   parcelasAVencer,
   goalSuggestions,
 }: SpendingClientProps) {
-  const router = useRouter()
+  const { trocar } = useFiltrosNaUrl('/budgets/spending')
+  useGravarRecorteNaChegada(null)
   const { toast } = useToast()
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -96,7 +98,7 @@ export function SpendingClient({
   )
 
   function navigateMonth(p: { startDate: string }) {
-    router.replace(`/budgets/spending?month=${p.startDate}`, { scroll: false })
+    trocar({ month: p.startDate })
   }
 
   function startEdit(entry: AllEntry) {

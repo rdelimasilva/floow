@@ -4,6 +4,7 @@ import { getSpendingPlanForMonth } from '@/lib/finance/recurring-budget-queries'
 import { getParcelasAVencerDoMes } from '@/lib/finance/parcelas-a-vencer-queries'
 import { carregarDadosDaSugestao, montarSugestoesDeMeta } from '@/lib/finance/budget-goal-suggestion-queries'
 import { rollUpSpendingToBudgeted } from '@/lib/finance/budgeted-spending'
+import { mesDaTela } from '@/lib/finance/mes-da-tela'
 import { SpendingClient } from './client'
 
 interface Props {
@@ -14,10 +15,7 @@ export default async function SpendingBudgetPage({ searchParams }: Props) {
   const params = await searchParams
   const orgId = await getOrgId()
 
-  // Determine selected month
-  // Mês de São Paulo: o servidor roda em UTC e virava o mês às 21h do último dia
-  const defaultMonth = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7) + '-01'
-  const selectedMonth = params.month ?? defaultMonth
+  const selectedMonth = await mesDaTela('/budgets/spending', params)
   const [sy, sm] = selectedMonth.split('-').map(Number)
   const monthDate = new Date(sy, sm - 1, 1)
   const monthEnd = new Date(sy, sm, 0)
