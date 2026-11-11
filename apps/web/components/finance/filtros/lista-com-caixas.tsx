@@ -20,6 +20,8 @@ interface ListaComCaixasProps<T extends string> {
   resumo?: (marcados: T[]) => string
   atalhos?: React.ReactNode
   alinhar?: 'esquerda' | 'direita'
+  /** Na gaveta do celular a lista vem aberta, como seção: popover ali fica cortado. */
+  naGaveta?: boolean
 }
 
 /**
@@ -37,6 +39,7 @@ export function ListaComCaixas<T extends string>({
   resumo,
   atalhos,
   alinhar = 'esquerda',
+  naGaveta = false,
 }: ListaComCaixasProps<T>) {
   const [aberto, setAberto] = useState(false)
   const caixaRef = useRef<HTMLDivElement>(null)
@@ -68,6 +71,15 @@ export function ListaComCaixas<T extends string>({
       : marcados.length === 1
         ? rotuloDe(opcoes.find((o) => o.valor === marcados[0])) ?? '1 selecionado'
         : `${marcados.length} selecionados`
+  }
+
+  if (naGaveta) {
+    return (
+      <div role="group" aria-label={rotulo} className="space-y-1.5">
+        <p className="text-xs font-medium text-gray-500">{rotulo}</p>
+        <CorpoDaLista rotuloTodos={rotuloTodos} opcoes={opcoes} marcados={marcados} aoMudar={aoMudar} atalhos={atalhos} semRolagem />
+      </div>
+    )
   }
 
   return (
@@ -116,10 +128,12 @@ interface CorpoProps<T extends string> {
   marcados: T[]
   aoMudar: (v: T[]) => void
   atalhos?: React.ReactNode
+  /** A gaveta já rola; rolagem aninhada trava o dedo. */
+  semRolagem?: boolean
 }
 
 /** Só a lista (item "todos", atalhos e caixas): o cabeçalho da coluna a usa direto no popover que já tem. */
-export function CorpoDaLista<T extends string>({ rotuloTodos, opcoes, marcados, aoMudar, atalhos }: CorpoProps<T>) {
+export function CorpoDaLista<T extends string>({ rotuloTodos, opcoes, marcados, aoMudar, atalhos, semRolagem }: CorpoProps<T>) {
   function alternar(valor: T) {
     aoMudar(marcados.includes(valor) ? marcados.filter((v) => v !== valor) : [...marcados, valor])
   }
@@ -143,7 +157,7 @@ export function CorpoDaLista<T extends string>({ rotuloTodos, opcoes, marcados, 
         </>
       )}
       <div className="my-1 h-px bg-gray-100" />
-      <div className="max-h-56 space-y-0.5 overflow-y-auto">
+      <div className={semRolagem ? 'space-y-0.5' : 'max-h-56 space-y-0.5 overflow-y-auto'}>
         {opcoes.map((opcao) => {
           const cabecalho = opcao.grupo !== grupoAtual && opcao.grupo
           grupoAtual = opcao.grupo

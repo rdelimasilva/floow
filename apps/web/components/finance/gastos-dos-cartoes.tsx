@@ -146,10 +146,11 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
   }
 
   // Os mesmos controles servem à linha do desktop e à gaveta do celular.
-  const filtros = () => (
+  const filtros = (naGaveta: boolean) => (
     <>
       {cartoes.length > 1 && (
         <ListaComCaixas
+          naGaveta={naGaveta}
           rotulo="Cartão"
           rotuloTodos="Todos os cartões"
           opcoes={cartoes.map((c) => ({ valor: c.id, rotulo: c.titular ? `${c.name} · ${c.titular}` : c.name }))}
@@ -159,6 +160,7 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
       )}
       {opcoesDeCategoria.length > 1 && (
         <ListaComCaixas
+          naGaveta={naGaveta}
           rotulo="Categoria"
           rotuloTodos="Todas as categorias"
           opcoes={opcoesDeCategoria.map((c) => ({ valor: c.id, rotulo: c.name }))}
@@ -180,11 +182,11 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
           aoMudar={(p) => { setEscolhido(null); trocar({ startDate: p.startDate, endDate: p.endDate }) }}
           acaoNoCelular={
             <GavetaDeFiltros contador={(cartoes.length > 1 && accountIds.length > 0 ? 1 : 0) + (opcoesDeCategoria.length > 1 && nomesEscolhidos.length > 0 ? 1 : 0)}>
-              <div className="flex flex-wrap items-center gap-2">{filtros()}</div>
+              <div className="space-y-4">{filtros(true)}</div>
             </GavetaDeFiltros>
           }
         />
-        <div className="hidden md:contents">{filtros()}</div>
+        <div className="hidden md:contents">{filtros(false)}</div>
       </div>
 
       {meses.length === 0 ? (

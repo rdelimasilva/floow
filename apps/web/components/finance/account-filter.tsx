@@ -12,6 +12,7 @@ interface AccountFilterProps {
   accounts: AccountOption[]
   selected: string[]
   onChange: (ids: string[]) => void
+  naGaveta?: boolean
 }
 
 /**
@@ -54,11 +55,12 @@ function rotulo(accounts: AccountOption[], selected: string[]): string {
  * mesma regra das outras pílulas do filtro: o controle é o próprio
  * interruptor.
  */
-export function AccountFilter({ accounts, selected, onChange }: AccountFilterProps) {
+export function AccountFilter({ accounts, selected, onChange, naGaveta }: AccountFilterProps) {
   const pessoas = contasPorTitular(accounts)
 
   return (
     <ListaComCaixas
+      naGaveta={naGaveta}
       rotulo="Conta"
       rotuloTodos="Todas as contas"
       opcoes={accounts.map((a) => ({ valor: a.id, rotulo: a.name }))}

@@ -37,6 +37,15 @@ export function GavetaDeFiltros({ contador, children }: Props) {
     }
   }, [aberta])
 
+  // Passou de 768 px com a gaveta aberta: o dialog some, mas seguiria modal.
+  useEffect(() => {
+    if (!aberta || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(min-width: 768px)')
+    const fechar = () => { if (mq.matches) setAberta(false) }
+    mq.addEventListener('change', fechar)
+    return () => mq.removeEventListener('change', fechar)
+  }, [aberta])
+
   return (
     <>
       <button

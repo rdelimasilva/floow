@@ -237,9 +237,9 @@ export function CashFlowClient({ transactions, futureTransactions, accounts, sta
     ), contas)
   }, [accounts, viewMode, preparedTransactions, preparedFutureTransactions, accountIds, startDate, endDate])
 
-  const opcoes = (
+  const opcoes = (naGaveta: boolean) => (
     <>
-      <AccountFilter accounts={accounts} selected={accountIds} onChange={(ids) => trocar({ accountId: ids.join(',') })} />
+      <AccountFilter accounts={accounts} selected={accountIds} onChange={(ids) => trocar({ accountId: ids.join(',') })} naGaveta={naGaveta} />
       {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
         <button
           key={mode}
@@ -275,11 +275,11 @@ export function CashFlowClient({ transactions, futureTransactions, accounts, sta
             aoMudar={escolherPeriodo}
             acaoNoCelular={
               <GavetaDeFiltros contador={[accountIds.length > 0, viewMode !== 'realized', !hideTransfers].filter(Boolean).length}>
-                <div className="flex flex-wrap items-center gap-2">{opcoes}</div>
+                <div className="space-y-4">{opcoes(true)}</div>
               </GavetaDeFiltros>
             }
           />
-          <div className="hidden md:contents">{opcoes}</div>
+          <div className="hidden md:contents">{opcoes(false)}</div>
         </div>
         {futureTransactions.length === 0 && (
           <p className="text-xs text-gray-500">

@@ -57,4 +57,18 @@ describe('gaveta de filtros', () => {
     fireEvent.click(gaveta.getByRole('button', { name: 'Ver resultados' }))
     expect(screen.queryByRole('button', { name: 'Ver resultados' })).toBeNull()
   })
+
+  it('valor digitado em reais vira centavos na URL', () => {
+    const gaveta = abrir()
+    fireEvent.change(gaveta.getByPlaceholderText('Mín'), { target: { value: '1.500,50' } })
+    fireEvent.click(gaveta.getByRole('button', { name: 'Aplicar' }))
+    expect(ultimaUrl().get('minAmount')).toBe('150050')
+  })
+
+  it('contas aparecem como lista aberta, sem popover', () => {
+    params = new URLSearchParams()
+    render(<TransactionFilters accounts={[{ id: 'x', name: 'Itaú' }]} categories={CATEGORIAS} />)
+    fireEvent.click(botao())
+    expect(within(screen.getByRole('dialog', { name: 'Filtros' })).getByRole('checkbox', { name: 'Itaú' })).toBeTruthy()
+  })
 })

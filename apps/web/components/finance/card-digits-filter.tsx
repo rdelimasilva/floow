@@ -7,6 +7,7 @@ interface CardDigitsFilterProps {
   options: FinalDoCartao[]
   selected: string[]
   onChange: (digits: string[]) => void
+  naGaveta?: boolean
 }
 
 function rotulo(selected: string[]): string {
@@ -21,9 +22,10 @@ function rotulo(selected: string[]): string {
  * no clique. A contagem ao lado ajuda a reconhecer o cartão físico (o final
  * com mais compras) no meio dos virtuais de uma compra só.
  */
-export function CardDigitsFilter({ options, selected, onChange }: CardDigitsFilterProps) {
+export function CardDigitsFilter({ options, selected, onChange, naGaveta }: CardDigitsFilterProps) {
   return (
     <ListaComCaixas
+      naGaveta={naGaveta}
       rotulo="Final do cartão"
       rotuloTodos="Todos os finais do cartão"
       opcoes={options.map((o) => ({

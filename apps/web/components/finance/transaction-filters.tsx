@@ -123,7 +123,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   const filtrosDeColuna = contarFiltrosDeColuna(searchParams)
 
   // Os mesmos controles servem à linha do desktop e à gaveta do celular.
-  const campos = (
+  const campos = (naGaveta: boolean) => (
     <>
       {/* Search */}
       <div className="relative w-full md:w-auto md:flex-1 md:min-w-[200px]">
@@ -162,13 +162,14 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
 
       {/* Contas — várias de uma vez, e a marcada se desmarca no clique */}
       {!hideAccountFilter && (
-        <AccountFilter accounts={accounts} selected={accountIds} onChange={trocarContas} />
+        <AccountFilter accounts={accounts} selected={accountIds} onChange={trocarContas} naGaveta={naGaveta} />
       )}
 
       {/* Final do cartão — só quando a fatura marcada tem mais de um */}
       {cardDigitsOptions.length > 1 && (
         <CardDigitsFilter
           options={cardDigitsOptions}
+          naGaveta={naGaveta}
           selected={finaisMarcados}
           onChange={(digits) => navigate({ cardDigits: digits.join(',') })}
         />
@@ -208,7 +209,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
               <span className="text-xs text-gray-500">até</span>
               <CampoDeData valor={endDate} rotulo="Data final" mudar={(v) => mudarPeriodo({ startDate, endDate: v })} />
             </div>
-            {campos}
+            {campos(true)}
             <CamposDeColunaNaGaveta params={searchParams} categories={categories} navigate={navigate} />
           </GavetaDeFiltros>
         }
@@ -216,7 +217,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
 
       {/* Desktop: filtros sempre em linha. */}
       <div className="hidden md:contents">
-        {campos}
+        {campos(false)}
       </div>
     </div>
   )
