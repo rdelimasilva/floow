@@ -3,8 +3,8 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import React from 'react'
 import { agruparParceladosNoCartao, type ParcelaDoCartao } from '@floow/core-finance'
 
-const push = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+const replace = vi.fn()
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }))
 
 const { ParceladosNoCartao } = await import('@/components/finance/parcelados-no-cartao')
 
@@ -38,7 +38,7 @@ describe('ParceladosNoCartao: comprometimento mês a mês', () => {
     expect(within(tabela).getByText('Total do mês').closest('tr')!.textContent).toContain('150,00')
 
     fireEvent.click(screen.getByRole('button', { name: 'Próximo mês' }))
-    expect(push).toHaveBeenCalledWith('/debts?month=2027-01-01', { scroll: false })
+    expect(replace).toHaveBeenCalledWith('/debts?month=2027-01-01', { scroll: false })
   })
 
   it('mês sem parcela diz isso em vez de lista vazia', () => {

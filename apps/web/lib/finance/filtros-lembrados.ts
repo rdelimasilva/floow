@@ -47,7 +47,7 @@ export const PERIOD_GROUPS: { label: string; keys: PeriodKey[] }[] = [
 
 // Ordem de desempate do `detectActivePeriod`: o presente primeiro, para que em
 // 31/12 o intervalo jan–dez acenda "Este ano" e não "Últimos 12 meses".
-const PERIOD_KEYS: PeriodKey[] = [
+export const PERIOD_KEYS: PeriodKey[] = [
   ...PERIOD_GROUPS[1].keys, ...PERIOD_GROUPS[0].keys, ...PERIOD_GROUPS[2].keys,
 ]
 
@@ -102,6 +102,12 @@ export function getPeriodDates(key: PeriodKey, hoje: string = hojeEmSaoPaulo()):
  */
 export function mesDoRecorte(startDate: string, endDate: string, hoje: string = hojeEmSaoPaulo()): string {
   return (startDate || endDate || hoje).slice(0, 7)
+}
+
+/** O primeiro dia do mês `delta` meses depois de "YYYY-MM" ou "YYYY-MM-01". */
+export function andarMes(mes: string, delta: number): string {
+  const [y, m1] = mes.split('-').map(Number)
+  return dia(y, m1 - 1 + delta, 1)
 }
 
 /** O mês inteiro `delta` meses depois de "YYYY-MM". */

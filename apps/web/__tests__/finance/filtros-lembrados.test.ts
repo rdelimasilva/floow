@@ -9,6 +9,7 @@ import {
   urlDeTransacoes,
   mesDoRecorte,
   mesInteiro,
+  andarMes,
 } from '@/lib/finance/filtros-lembrados'
 
 /**
@@ -196,5 +197,13 @@ describe('setas de mês', () => {
     expect(mesInteiro('2026-01', -1)).toEqual({ startDate: '2025-12-01', endDate: '2025-12-31' })
     expect(mesInteiro('2026-12', 1)).toEqual({ startDate: '2027-01-01', endDate: '2027-01-31' })
     expect(mesInteiro('2028-03', -1)).toEqual({ startDate: '2028-02-01', endDate: '2028-02-29' })
+  })
+})
+
+describe('andarMes', () => {
+  it('vira o ano nos dois sentidos e devolve o dia 1', () => {
+    expect(andarMes('2026-01-01', -1)).toBe('2025-12-01')
+    expect(andarMes('2026-12-01', 1)).toBe('2027-01-01')
+    expect(andarMes('2026-10', 3)).toBe('2027-01-01')
   })
 })

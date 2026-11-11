@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { MonthNavigator } from '@/components/finance/month-navigator'
+import { SeletorDePeriodo } from '@/components/finance/filtros/seletor-de-periodo'
 import { Card, CardContent } from '@/components/ui/card'
 import { BudgetProgressBar } from '@/components/finance/budget-progress-bar'
 import { formatBRL } from '@floow/core-finance/src/balance'
@@ -16,12 +16,6 @@ function formatMonth(monthStr: string): string {
   const [y, m] = monthStr.split('-').map(Number)
   const d = new Date(y, m - 1, 1)
   return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-}
-
-function shiftMonth(monthStr: string, delta: number): string {
-  const [y, m] = monthStr.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 
 interface Props {
@@ -44,8 +38,8 @@ export function ParceladosNoCartao({ parcelados, selectedMonth }: Props) {
   const saldoDevedor = parcelados.reduce((s, p) => s + p.remainingCents, 0)
   const variosCartoes = new Set(parcelados.map((p) => p.accountId)).size > 1
 
-  function navigateMonth(delta: number) {
-    router.push(`/debts?month=${shiftMonth(selectedMonth, delta)}`, { scroll: false })
+  function navigateMonth(p: { startDate: string }) {
+    router.replace(`/debts?month=${p.startDate}`, { scroll: false })
   }
 
   return (
@@ -57,7 +51,7 @@ export function ParceladosNoCartao({ parcelados, selectedMonth }: Props) {
         </p>
       </div>
 
-      <MonthNavigator month={selectedMonth} onShift={navigateMonth} />
+      <SeletorDePeriodo modo="mes" startDate={selectedMonth} endDate="" aoMudar={navigateMonth} />
 
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">

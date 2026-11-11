@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Gauge, FlaskConical } from 'lucide-react'
-import { MonthNavigator } from '@/components/finance/month-navigator'
+import { SeletorDePeriodo } from '@/components/finance/filtros/seletor-de-periodo'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -59,12 +59,6 @@ function formatMonth(monthStr: string): string {
   return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
-function shiftMonth(monthStr: string, delta: number): string {
-  const [y, m] = monthStr.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
-}
-
 export function SpendingClient({
   categories: initialCategories,
   entriesForMonth,
@@ -101,8 +95,8 @@ export function SpendingClient({
     (c) => c.type === 'expense' && !usedCategoryIds.has(c.id),
   )
 
-  function navigateMonth(delta: number) {
-    router.push(`/budgets/spending?month=${shiftMonth(selectedMonth, delta)}`)
+  function navigateMonth(p: { startDate: string }) {
+    router.replace(`/budgets/spending?month=${p.startDate}`, { scroll: false })
   }
 
   function startEdit(entry: AllEntry) {
@@ -164,7 +158,7 @@ export function SpendingClient({
         </Button>
       </PageHeader>
 
-      <MonthNavigator month={selectedMonth} onShift={navigateMonth} />
+      <SeletorDePeriodo modo="mes" startDate={selectedMonth} endDate="" aoMudar={navigateMonth} />
 
       <BudgetGoalSuggestionsCard suggestions={goalSuggestions} onCreate={handleCreateSuggestedGoal} />
 

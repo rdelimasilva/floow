@@ -40,7 +40,8 @@ describe('filtro de período do fluxo de caixa', () => {
   it('atalho de futuro troca para o modo Projetado', () => {
     render(<CashFlowClient {...props} />)
     fireEvent.click(screen.getByRole('button', { name: /^Período:/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Próximo mês' }))
+    // A seta do mês tem o mesmo nome do atalho; o atalho é o que não tem aria-label.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Próximo mês' }).find((b) => !b.hasAttribute('aria-label'))!)
     expect(screen.getByRole('button', { name: 'Projetado' }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByText('Despesas (projetado)', { selector: 'p' }).nextElementSibling!.textContent).toContain('80,00')
   })

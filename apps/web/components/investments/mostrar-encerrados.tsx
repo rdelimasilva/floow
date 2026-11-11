@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTransition } from 'react'
+import { PILULA_BASE, PILULA_OFF, PILULA_ON } from '@/components/finance/filtros/pilula'
 
 /**
  * A carteira abre só com o que tem saldo. Vencidos e resgatados ficam a um
@@ -25,9 +26,7 @@ export function MostrarEncerrados({ quantidade, ativo }: { quantidade: number; a
       type="button"
       aria-pressed={ativo}
       onClick={alternar}
-      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-        ativo ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-      }`}
+      className={`${PILULA_BASE} ${ativo ? PILULA_ON : PILULA_OFF}`}
     >
       {ativo ? 'Ocultar encerrados' : `Mostrar encerrados (${quantidade})`}
     </button>
