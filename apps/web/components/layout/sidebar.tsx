@@ -7,7 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { X, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from './sidebar-context'
-import { urlDeTransacoes } from '@/lib/finance/filtros-lembrados'
+import { urlDeAnalises, urlDeOrcamento, urlDeTransacoes } from '@/lib/finance/url-do-menu'
 import { NAV_SECTIONS, itemDoMenu, type NavItem } from './nav-config'
 import { SidebarItem, someFechado, type DicaHandlers } from './sidebar-item'
 import { SidebarRodape } from './sidebar-rodape'
@@ -102,14 +102,21 @@ export function Sidebar({ cfoBadgeCount, favoritosIniciais = SEM_FAVORITOS, mobi
   // Transações abre já no recorte lembrado (ver `urlDeTransacoes`). Lido
   // depois da montagem porque o cookie só existe no navegador; relido a cada
   // troca de URL, que é quando os filtros mudam.
-  const [hrefDeTransacoes, setHrefDeTransacoes] = useState('/transactions')
+  // Análises e Orçamentos seguem o mesmo recorte, pelo mesmo motivo.
+  // O estado guarda strings: valor igual não re-renderiza, e o efeito não entra em laço.
+  const [cookiesJson, setCookiesJson] = useState('{}')
   useEffect(() => {
-    setHrefDeTransacoes(urlDeTransacoes(lerCookies()))
+    setCookiesJson(JSON.stringify(lerCookies()))
   }, [pathname, searchParams])
+  const cookies: Record<string, string> = JSON.parse(cookiesJson)
+  const hrefs = { transacoes: urlDeTransacoes(cookies), analises: urlDeAnalises(cookies), cookies }
 
   function hrefDoItem(href: string) {
-    if (href === '/transactions') return hrefDeTransacoes
-    return mesDoOrcamento && href.startsWith('/budgets/') ? `${href}?month=${mesDoOrcamento}` : href
+    if (href === '/transactions') return hrefs.transacoes
+    if (href === '/cash-flow') return hrefs.analises
+    if (!href.startsWith('/budgets/')) return href
+    // Já dentro de Orçamentos, o mês da tela vale mais que o recorte.
+    return mesDoOrcamento ? `${href}?month=${mesDoOrcamento}` : urlDeOrcamento(href, hrefs.cookies)
   }
 
   useEffect(() => { onMobileClose() }, [pathname, onMobileClose])

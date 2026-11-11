@@ -1,12 +1,13 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useCallback, useRef, useEffect, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
 import { CardDigitsFilter } from './card-digits-filter'
 import { PILULA_BASE, PILULA_OFF, PILULA_ON } from './filtros/pilula'
 import { SeletorDePeriodo } from './filtros/seletor-de-periodo'
+import { useFiltrosNaUrl } from './filtros/use-filtros-na-url'
 import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
 import {
   detectActivePeriod,
@@ -34,21 +35,6 @@ interface TransactionFiltersProps {
 }
 
 /**
- * A escolha de conta atravessa a troca de menu.
- *
- * Só a URL não bastava: sair para o Dashboard e voltar em Transações voltava
- * para "todas as contas", e quem trabalha numa conta refazia o filtro a cada
- * volta. O cookie é escrito a TODA mudança, inclusive quando esvazia — senão
- * "todas as contas" seria impossível de pedir, porque o servidor leria o
- * cookie antigo e ressuscitaria a conta recém-desmarcada.
- */
-const ACCOUNTS_COOKIE = 'tx-accounts'
-
-function persistirContas(ids: string[]) {
-  document.cookie = `${ACCOUNTS_COOKIE}=${ids.join(',')}; path=/; max-age=31536000; SameSite=Lax`
-}
-
-/**
  * Cada filtro se desliga onde foi ligado.
  *
  * Antes havia um "Limpar" separado: longe do controle e com alcance total —
@@ -57,9 +43,15 @@ function persistirContas(ids: string[]) {
  * data tem o seu, então nenhum clique mexe em filtro que o usuário não tocou.
  */
 export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/transactions', includeFuture = false, cardDigitsOptions = [] }: TransactionFiltersProps) {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const [, startTransition] = useTransition()
+  // Período e contas vão para o recorte compartilhado; a busca e as colunas
+  // continuam lembradas só por Transações (`tx-filters`).
+  const { trocar } = useFiltrosNaUrl(baseUrl, {
+    aoMudar: (novos) => { if (baseUrl === '/transactions') lembrarFiltros(novos) },
+  })
+  // O timer da busca nasce de um render antigo: sem a ref, ele escreveria na URL de antes.
+  const trocarRef = useRef(trocar)
+  trocarRef.current = trocar
 
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const [accountIds, setAccountIds] = useState<string[]>(
@@ -88,37 +80,10 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
 
   const activePeriod = detectActivePeriod(startDate, endDate)
 
-  const navigate = useCallback((overrides: Record<string, string>) => {
-    const params = new URLSearchParams()
-    const values: Record<string, string> = {
-      search, startDate, endDate,
-      accountId: accountIds.join(','),
-      future: searchParams.get('future') ?? '',
-      cardDigits: searchParams.get('cardDigits') ?? '',
-      ...overrides,
-    }
-    if (values.search) params.set('search', values.search)
-    if (values.accountId) params.set('accountId', values.accountId)
-    if (values.startDate) params.set('startDate', values.startDate)
-    if (values.endDate) params.set('endDate', values.endDate)
-    const currentPageSize = searchParams.get('pageSize')
-    if (currentPageSize) params.set('pageSize', currentPageSize)
-    if (values.future === '1') params.set('future', '1')
-    if (values.cardDigits) params.set('cardDigits', values.cardDigits)
-    for (const key of PARAMS_DA_TABELA) {
-      const v = key in overrides ? overrides[key] : searchParams.get(key)
-      if (v) params.set(key, v)
-    }
-    // Sem `page`: quem decide onde a lista abre é o servidor (`paginaQueAbre`),
-    // e na ordem cronológica isso é a ÚLTIMA página. Fixar `page=1` aqui jogava
-    // o usuário em 2019 a cada mudança de filtro.
-    // Na tela de Transações a seleção fica lembrada para a próxima visita; a
-    // página da conta usa este mesmo componente e não entra nessa memória.
-    if (baseUrl === '/transactions') lembrarFiltros(params)
-    startTransition(() => {
-      router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
-    })
-  }, [router, baseUrl, search, accountIds, startDate, endDate, searchParams, startTransition])
+  // Sem `page`: quem decide onde a lista abre é o servidor (`paginaQueAbre`);
+  // o hook já a tira. Os demais parâmetros da URL (tamanho de página, colunas,
+  // futuros) atravessam a troca.
+  const navigate = (overrides: Record<string, string>) => trocarRef.current(overrides)
 
   function mudarPeriodo(p: { startDate: string; endDate: string }) {
     setStartDate(p.startDate)
@@ -134,7 +99,6 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
 
   function trocarContas(ids: string[]) {
     setAccountIds(ids)
-    persistirContas(ids)
     // O final pertence ao cartão: trocar a conta solta os finais escolhidos.
     navigate({ accountId: ids.join(','), cardDigits: '' })
   }

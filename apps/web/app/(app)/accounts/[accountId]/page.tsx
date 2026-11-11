@@ -1,9 +1,11 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, Banknote } from 'lucide-react'
 import { getOrgId, getAccountById, getTransactionsWithCount, getTransactionCount, getCategories, getAccounts } from '@/lib/finance/queries'
 import { paginaQueAbre, filtrosAteHoje } from '@/lib/finance/pagination'
 import { hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
+import { RECORTE_PADRAO, destinoComRecorte, lerRecorte } from '@/lib/finance/recorte'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
@@ -28,6 +30,13 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   const { accountId } = await params
   const sp = await searchParams
   const orgId = await getOrgId()
+
+  // Abre no período do recorte compartilhado. A conta vem da rota, então as
+  // contas do recorte ficam de fora (`contas: false`).
+  const jar = await cookies()
+  const lidos = Object.fromEntries(jar.getAll().map((c) => [c.name, c.value]))
+  const destino = destinoComRecorte(`/accounts/${accountId}`, sp, lerRecorte(lidos) ?? RECORTE_PADRAO(), 'intervalo')
+  if (destino) redirect(destino)
 
   // A conta, as categorias e a lista de contas não dependem da página: saem
   // junto com a contagem, e `notFound()` decide quando conta e contagem voltam.

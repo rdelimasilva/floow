@@ -9,7 +9,7 @@ import React from 'react'
  * Dashboard e voltar em Transações voltava para "todas as contas". Quem
  * trabalha numa conta refazia o filtro a cada volta.
  *
- * Agora a escolha vai para o cookie `tx-accounts` a cada mudança — inclusive
+ * Agora a escolha vai para o cookie `recorte` a cada mudança — inclusive
  * quando esvazia, senão "todas as contas" seria impossível de pedir: o
  * servidor leria o cookie antigo e ressuscitaria a conta que o usuário acabou
  * de desmarcar.
@@ -23,6 +23,8 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => params,
 }))
 
+import { lerRecorte } from '@/lib/finance/recorte'
+
 const { TransactionFilters } = await import('@/components/finance/transaction-filters')
 
 const CONTAS = [
@@ -33,6 +35,9 @@ const CONTAS = [
 
 const urlDoUltimoReplace = () => new URL(replace.mock.calls.at(-1)![0], 'http://x')
 const contasNaUrl = () => urlDoUltimoReplace().searchParams.get('accountId')
+
+const contasNoCookie = () =>
+  lerRecorte({ recorte: /(?:^|; )recorte=([^;]*)/.exec(document.cookie)?.[1] })?.accountIds
 
 const clicar = async (nome: string | RegExp) => {
   await act(async () => {
@@ -49,7 +54,7 @@ const marcar = async (nome: string) => {
 beforeEach(() => {
   replace.mockClear()
   params = new URLSearchParams()
-  document.cookie = 'tx-accounts=; path=/; max-age=0'
+  document.cookie = 'recorte=; path=/; max-age=0'
 })
 
 describe('filtro de contas', () => {
@@ -92,18 +97,17 @@ describe('filtro de contas', () => {
     await clicar(/Todas as contas/)
     await marcar('Nubank')
 
-    expect(document.cookie).toContain('tx-accounts=acc-2')
+    expect(contasNoCookie()).toEqual(['acc-2'])
   })
 
   it('desmarcar tudo esvazia o cookie, senão o servidor ressuscita a conta', async () => {
     params = new URLSearchParams({ accountId: 'acc-2' })
-    document.cookie = 'tx-accounts=acc-2; path=/'
     render(<TransactionFilters accounts={CONTAS} />)
 
     await clicar(/Nubank/)
     await marcar('Nubank')
 
     expect(contasNaUrl()).toBeNull()
-    expect(document.cookie).not.toContain('tx-accounts=acc-2')
+    expect(contasNoCookie()).toEqual([])
   })
 })

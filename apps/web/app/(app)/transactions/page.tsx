@@ -23,7 +23,9 @@ import { PendingQueuesSlot } from '@/components/finance/pending-queues-slot'
 import { BotaoConciliar, BotaoConciliarSlot } from '@/components/finance/botao-conciliar'
 import { getVerifiedIdentity } from '@/lib/auth/session'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
-import { FILTERS_COOKIE, restaurarFiltros, temFiltroNaUrl, hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
+import { hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
+import { lerRecorte, temRecorteNaUrl } from '@/lib/finance/recorte'
+import { destinoDeTransacoes } from '@/lib/finance/url-do-menu'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const
 const DEFAULT_PAGE_SIZE = 30
@@ -44,33 +46,21 @@ export default async function TransactionsPage({ searchParams }: Props) {
     ? requestedSize
     : DEFAULT_PAGE_SIZE
 
-  // A tela reabre com os filtros do último uso (`lib/finance/filtros-lembrados`).
-  // Só quando a URL chega sem recorte nenhum: link que já traz filtro é escolha
-  // de quem chegou. Cookie vazio é "o usuário limpou tudo" — não restaura.
-  const filtrosDoCookie = jar.get(FILTERS_COOKIE)?.value
-  if (filtrosDoCookie && !temFiltroNaUrl(params)) {
-    const destino = restaurarFiltros(filtrosDoCookie)
-    if (destino.toString()) {
-      if (params.pageSize) destino.set('pageSize', params.pageSize)
-      if (params.nova) destino.set('nova', params.nova)
-      redirect(`/transactions?${destino.toString()}`)
-    }
-  }
-
-  // A conta escolhida sobrevive à troca de menu: o filtro grava em
-  // `tx-accounts` e aqui o cookie reabre o que estava marcado.
+  // A tela reabre no recorte compartilhado (período + contas, ver
+  // `lib/finance/recorte`) e com a busca/colunas do último uso. Só quando a URL
+  // chega sem recorte: link que já traz filtro é escolha de quem chegou.
   //
   // Redireciona em vez de só aplicar por baixo porque a URL é a fonte única de
   // verdade do recorte — dela vivem os links de paginação, o export CSV e o
-  // casamento das linhas criadas na hora. Aplicar sem redirecionar deixaria a
-  // lista filtrada e o resto da tela achando que não havia filtro.
-  const contasDoCookie = jar.get('tx-accounts')?.value
-  if (params.accountId === undefined && contasDoCookie) {
-    const destino = new URLSearchParams(
-      Object.entries(params).filter((e): e is [string, string] => e[1] !== undefined),
-    )
-    destino.set('accountId', contasDoCookie)
-    redirect(`/transactions?${destino.toString()}`)
+  // casamento das linhas criadas na hora.
+  if (!temRecorteNaUrl(params)) {
+    const cookiesLidos = Object.fromEntries(jar.getAll().map((c) => [c.name, c.value]))
+    // Conta de investimento não existe nesta tela: só vale conta de lançamento.
+    // A consulta só roda quando há conta no recorte.
+    const comContas = (lerRecorte(cookiesLidos)?.accountIds.length ?? 0) > 0
+    const permitidas = comContas ? contasParaLancamento(await getAccounts(orgId)).map((a) => a.id) : null
+    const destino = destinoDeTransacoes(params, cookiesLidos, permitidas)
+    if (destino) redirect(destino)
   }
 
   const filters = filtrosDaUrl(params)

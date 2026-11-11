@@ -1,11 +1,12 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useContext, useMemo, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useContext, useMemo } from 'react'
 import { TransactionList } from './transaction-list'
 import { currencyToCents } from '@floow/core-finance/src/balance'
 import { InlineFormContext, type InlineCreatedTransaction } from './inline-transaction-form'
 import { lembrarFiltros } from '@/lib/finance/filtros-lembrados'
+import { useFiltrosNaUrl } from './filtros/use-filtros-na-url'
 import type { FaturaNoExtrato } from '@/lib/finance/intercalar-faturas'
 import { temRecorte } from '@/lib/finance/tem-recorte'
 
@@ -22,25 +23,13 @@ interface Props {
 }
 
 export function TransactionListWrapper({ transactions, accounts, categories, sortBy, sortDir, faturas, totalDoFiltro, baseUrl = '/transactions' }: Props) {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const inlineForm = useContext(InlineFormContext)
-  const [, startTransition] = useTransition()
-
-  const navigate = useCallback((overrides: Record<string, string>) => {
-    const params = new URLSearchParams(searchParams.toString())
-    for (const [key, value] of Object.entries(overrides)) {
-      if (value) params.set(key, value)
-      else params.delete(key)
-    }
-    // Sem `page`: o servidor reabre na página da data mais recente quando a
-    // ordem é crescente (`paginaQueAbre`). Fixar 1 aqui jogava em 2019.
-    params.delete('page')
-    if (baseUrl === '/transactions') lembrarFiltros(params)
-    startTransition(() => {
-      router.replace(`${baseUrl}?${params.toString()}`, { scroll: false })
-    })
-  }, [router, searchParams, startTransition, baseUrl])
+  // Filtro de coluna não é recorte: não grava o cookie compartilhado, só o `tx-filters`.
+  const { trocar: navigate } = useFiltrosNaUrl(baseUrl, {
+    gravaRecorte: false,
+    aoMudar: (novos) => { if (baseUrl === '/transactions') lembrarFiltros(novos) },
+  })
 
   const activeTypes = (searchParams.get('types') ?? '').split(',').filter(Boolean)
   const activeCategoryIds = (searchParams.get('categoryIds') ?? '').split(',').filter(Boolean)
