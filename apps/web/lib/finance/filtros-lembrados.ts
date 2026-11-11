@@ -55,7 +55,7 @@ export const PERIOD_KEYS: PeriodKey[] = [
 export const FILTER_KEYS = [
   'accountId', 'search', 'startDate', 'endDate', 'future',
   'types', 'categoryIds', 'minAmount', 'maxAmount', 'sortBy', 'sortDir', 'cardDigits',
-  'caixa', 'situacao',
+  'caixa', 'situacao', 'fatura',
 ] as const
 
 /** O dia de hoje no calendário do usuário, e não no UTC do servidor. */

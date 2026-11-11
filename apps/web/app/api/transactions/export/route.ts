@@ -1,4 +1,5 @@
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
+import { comFatura } from '@/lib/finance/fatura-do-filtro'
 import { NextRequest, NextResponse } from 'next/server'
 import { getTransactionsWithCount } from '@/lib/finance/queries'
 import { getVerifiedIdentity, getOrgId } from '@/lib/auth/session'
@@ -38,7 +39,8 @@ export async function GET(request: NextRequest) {
     const { transactions } = await getTransactionsWithCount(orgId, {
       limit: 10000,
       offset: 0,
-      ...filters,
+      // Os ids da fatura vão só para a consulta, não para o registro de auditoria.
+      ...(await comFatura(orgId, filters)),
     })
 
     const formato = params.get('format') === 'xlsx' ? 'xlsx' : 'csv'

@@ -42,6 +42,22 @@ describe('Cartões no recorte', () => {
     expect(grafico()).toBe('2026-09=150;2026-10=230')
   })
 
+  it('fatura e categoria viram link só com um cartão na tela', () => {
+    const lanc = (id: string, date: string, categoryName: string) => ({ id, date, description: id, amountCents: -100, categoryName, subcategoria: null })
+    const comLancamentos = cartoes.map((c) => ({
+      ...c, faturas: c.faturas.map((f) => ({ ...f, lancamentos: [lanc(`${c.id}a`, '2026-09-20', 'Mercado'), lanc(`${c.id}b`, '2026-10-17', 'Lazer')] })),
+    }))
+    const props = { ...base, cartoes: comLancamentos, arvoreDeCategorias: [{ id: 'k1', parentId: null }, { id: 'k1f', parentId: 'k1' }] }
+    const { unmount } = render(<GastosDosCartoes {...props} />)
+    expect(screen.queryByText('Ver os lançamentos da fatura')).toBeNull()
+    unmount()
+    render(<GastosDosCartoes {...props} accountIds={['c1']} />)
+    expect(screen.getByText('Ver os lançamentos da fatura').getAttribute('href'))
+      .toBe('/transactions?accountId=c1&startDate=2026-09-20&endDate=2026-10-17&fatura=2026-10-10')
+    fireEvent.click(screen.getAllByRole('button', { name: /Mercado/ }).find((b) => b.hasAttribute('aria-expanded'))!)
+    expect(screen.getByText('Ver em Transações').getAttribute('href')).toContain('categoryIds=k1%2Ck1f&fatura=2026-10-10')
+  })
+
   it('conta corrente do recorte sai da URL sem mexer no cookie', () => {
     const destino = destinoSoComContasValidas({ accountId: 'cc,c1', startDate: '2026-09-01' }, ['c1', 'c2'], '/cash-flow/cartoes')
     expect(destino).toBe('/cash-flow/cartoes?accountId=c1&startDate=2026-09-01')

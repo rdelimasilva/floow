@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { formatBRL } from '@floow/core-finance/src/balance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,6 +15,7 @@ import { SEM_CATEGORIA } from '@floow/core-finance/src/gastos-do-cartao'
 import type { CartaoComGastos, LancamentoDoGasto } from '@/lib/finance/queries-gastos-cartao'
 import dynamic from 'next/dynamic'
 import { nomeDoMes } from '@/lib/finance/nome-do-mes'
+import { idsComFilhas, linkDaFatura } from '@/lib/finance/link-do-total'
 import { CashFlowLancamentoDialog } from './cash-flow-lancamento-dialog'
 
 // recharts só chega depois da página, como nas outras telas com gráfico.
@@ -24,6 +26,8 @@ const GastosDosCartoesGrafico = dynamic(() => import('./gastos-dos-cartoes-grafi
 
 interface Mes {
   mes: string
+  /** Fechamento da última fatura somada; com um cartão só, é o da fatura. */
+  fechamento: string
   totalCents: number
   aberta: boolean
   porCategoria: Record<string, number>
@@ -39,7 +43,8 @@ function somarPorMes(cartoes: CartaoComGastos[], hoje: string): Mes[] {
   for (const c of cartoes) {
     for (const f of c.faturas) {
       const chave = f.fechamento.slice(0, 7)
-      const m = meses.get(chave) ?? { mes: chave, totalCents: 0, aberta: false, porCategoria: {}, lancamentos: [] as LancamentoDoGasto[] }
+      const m = meses.get(chave) ?? { mes: chave, fechamento: f.fechamento, totalCents: 0, aberta: false, porCategoria: {}, lancamentos: [] as LancamentoDoGasto[] }
+      m.fechamento = f.fechamento
       m.totalCents += f.totalCents
       m.aberta ||= f.fechamento >= hoje
       for (const [cat, v] of Object.entries(f.porCategoria)) m.porCategoria[cat] = (m.porCategoria[cat] ?? 0) + v
@@ -75,16 +80,19 @@ interface Props {
   /** Categorias de cima marcadas; vazio é todas. Não vai para o recorte. */
   categoryIds: string[]
   categoriasDeCima: { id: string; name: string }[]
+  /** Todas as categorias, para o link da categoria levar as filhas. */
+  arvoreDeCategorias?: { id: string; parentId: string | null }[]
 }
 
-export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, accountIds, categoryIds, categoriasDeCima }: Props) {
+export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, accountIds, categoryIds, categoriasDeCima, arvoreDeCategorias = [] }: Props) {
   const { trocar } = useFiltrosNaUrl('/cash-flow/cartoes')
   // Contas do recorte que não são cartão ficam no cookie: a tela só lista cartões.
   useGravarRecorteNaChegada(cartoes)
-  const meses = useMemo(
-    () => somarPorMes(accountIds.length ? cartoes.filter((c) => accountIds.includes(c.id)) : cartoes, hoje),
-    [cartoes, accountIds, hoje],
-  )
+  const visiveis = useMemo(() => (accountIds.length ? cartoes.filter((c) => accountIds.includes(c.id)) : cartoes), [cartoes, accountIds])
+  const meses = useMemo(() => somarPorMes(visiveis, hoje), [visiveis, hoje])
+  // A barra soma as faturas de todos os cartões do mês. Transações filtra a
+  // fatura de um cartão só, então o link só existe com um cartão na tela.
+  const cartaoDoLink = visiveis.length === 1 ? visiveis[0].id : null
   const fechadas = meses.filter((m) => !m.aberta)
   // Categorias do período, a de maior gasto primeiro, para o seletor.
   const opcoesDeCategoria = useMemo(() => {
@@ -119,6 +127,10 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
   const selecionado = meses.find((m) => m.mes === escolhido) ?? fechadas.at(-1) ?? meses.at(-1)
   const i = selecionado ? meses.indexOf(selecionado) : -1
   const anterior = i > 0 ? meses[i - 1] : undefined
+  const linkDoSelecionado = (categoryIds?: string[]) => (cartaoDoLink && selecionado
+    ? linkDaFatura({ cartaoId: cartaoDoLink, fechamento: selecionado.fechamento, datas: selecionado.lancamentos.map((t) => t.date), categoryIds })
+    : null)
+  const linkDaFaturaSelecionada = linkDoSelecionado()
 
   // Todas as categorias da fatura, a maior primeiro; a que sumiu no mês ainda
   // aparece, com zero, para a queda ficar visível.
@@ -268,6 +280,14 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
                     ? `Variação contra ${nomeDoMes(anterior.mes).toLowerCase()}.`
                     : 'Sem mês anterior para comparar.'}
                   {selecionado?.aberta && ' A fatura ainda está aberta.'}
+                  {linkDaFaturaSelecionada && (
+                    <>
+                      {' '}
+                      <Link href={linkDaFaturaSelecionada} className="font-medium text-foreground underline-offset-2 hover:underline">
+                        Ver os lançamentos da fatura
+                      </Link>
+                    </>
+                  )}
                 </p>
               </CardHeader>
               <CardContent>
@@ -278,6 +298,9 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
                     {categorias.map((c) => {
                       const parte = selecionado && selecionado.totalCents > 0 ? Math.max(0, c.atual) / selecionado.totalCents : 0
                       const aberta = categoriaAberta === c.cat
+                      // "Sem categoria" e categoria fora da lista de cima não têm id para filtrar.
+                      const idDaCategoria = categoriasDeCima.find((k) => k.name === c.cat)?.id
+                      const linkDaCategoria = aberta && idDaCategoria ? linkDoSelecionado(idsComFilhas(idDaCategoria, arvoreDeCategorias)) : null
                       return (
                         <li key={c.cat} className="text-sm">
                           <button
@@ -326,6 +349,11 @@ export function GastosDosCartoes({ cartoes, metas, hoje, startDate, endDate, acc
                                 ))}
                               </ul>
                             )
+                          )}
+                          {linkDaCategoria && (
+                            <Link href={linkDaCategoria} className="mb-2.5 ml-5 inline-block text-xs font-medium underline-offset-2 hover:underline">
+                              Ver em Transações
+                            </Link>
                           )}
                         </li>
                       )

@@ -2,6 +2,7 @@
 
 import { getOrgId, getTransactionsWithCount } from './queries'
 import { filtrosDaUrl, LIMITE_DA_SELECAO } from './filtros-da-url'
+import { comFatura } from './fatura-do-filtro'
 
 /**
  * Ids de todas as transações do filtro atual (não só da página), para as ações
@@ -11,7 +12,7 @@ export async function idsDoFiltro(query: string): Promise<{ ids: string[]; total
   const orgId = await getOrgId()
   const params = Object.fromEntries(new URLSearchParams(query).entries())
   const { transactions, totalCount } = await getTransactionsWithCount(orgId, {
-    ...filtrosDaUrl(params),
+    ...(await comFatura(orgId, filtrosDaUrl(params))),
     limit: LIMITE_DA_SELECAO,
     offset: 0,
   })

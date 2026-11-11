@@ -12,6 +12,7 @@ import { GavetaDeFiltros } from './filtros/gaveta-de-filtros'
 import { CamposDeColunaNaGaveta, contarFiltrosDeColuna } from './filtros/campos-de-coluna-na-gaveta'
 import { useFiltrosNaUrl } from './filtros/use-filtros-na-url'
 import type { FinalDoCartao } from '@/lib/finance/queries-final-do-cartao'
+import { nomeDoMes } from '@/lib/finance/nome-do-mes'
 import {
   detectActivePeriod,
   lembrarFiltros,
@@ -37,6 +38,8 @@ interface TransactionFiltersProps {
   cardDigitsOptions?: FinalDoCartao[]
   /** Categorias para o filtro dentro da gaveta do celular. */
   categories?: { id: string; name: string; parentId?: string | null }[]
+  /** Fechamento da fatura que o servidor aceitou (um cartão só em `accountId`). */
+  fatura?: string
 }
 
 /**
@@ -47,7 +50,7 @@ interface TransactionFiltersProps {
  * pílula ativa clicada volta ao neutro, a busca tem o × dentro do campo e cada
  * data tem o seu, então nenhum clique mexe em filtro que o usuário não tocou.
  */
-export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/transactions', includeFuture = false, cardDigitsOptions = [], categories = [] }: TransactionFiltersProps) {
+export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/transactions', includeFuture = false, cardDigitsOptions = [], categories = [], fatura }: TransactionFiltersProps) {
   const searchParams = useSearchParams()
   // Período e contas vão para o recorte compartilhado; a busca e as colunas
   // continuam lembradas só por Transações (`tx-filters`).
@@ -107,7 +110,8 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   function trocarContas(ids: string[]) {
     setAccountIds(ids)
     // O final pertence ao cartão: trocar a conta solta os finais escolhidos.
-    navigate({ accountId: ids.join(','), cardDigits: '' })
+    // A fatura também: ela é de um cartão só.
+    navigate({ accountId: ids.join(','), cardDigits: '', fatura: '' })
   }
 
   const finaisMarcados = (searchParams.get('cardDigits') ?? '').split(',').filter(Boolean)
@@ -120,6 +124,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     situacao === 'realizado' && { chave: 'situacao', texto: 'Só realizados' },
     situacao === 'previsto' && { chave: 'situacao', texto: 'Só previstos' },
     situacao === 'ambos' && { chave: 'situacao', texto: 'Realizados e previstos' },
+    fatura && { chave: 'fatura', texto: `Fatura de ${nomeDoMes(fatura.slice(0, 7)).toLowerCase()}` },
   ].filter(Boolean) as { chave: string; texto: string }[]
   // Quantos filtros estão escondidos atrás do botão no celular. O período com
   // atalho já aparece no seletor ao lado; a conta lembrada da última visita não.

@@ -24,6 +24,19 @@ export function linkDoTotal(o: OpcoesDoLink): string {
   return `/transactions?${q.toString()}`
 }
 
+/**
+ * Lançamentos de uma fatura do cartão (`fatura=` com o fechamento). O período
+ * vai da primeira à última data da fatura: parcela antiga e compra presa por
+ * `bill_id` caem fora do ciclo, e um corte de datas menor as perderia. Sem
+ * lançamento não há link.
+ */
+export function linkDaFatura(o: { cartaoId: string; fechamento: string; datas: string[]; categoryIds?: string[] }): string | null {
+  if (o.datas.length === 0) return null
+  const datas = [...o.datas].sort()
+  const url = linkDoTotal({ inicio: datas[0], fim: datas.at(-1)!, accountIds: [o.cartaoId], categoryIds: o.categoryIds })
+  return `${url}&fatura=${o.fechamento}`
+}
+
 /** Primeiro e último dia do mês de `mes` (`YYYY-MM` ou `YYYY-MM-DD`). */
 export function limitesDoMes(mes: string): { inicio: string; fim: string } {
   const [y, m] = mes.split('-').map(Number)

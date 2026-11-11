@@ -36,6 +36,8 @@ export interface TransactionFilterOpts {
   soAnalises?: boolean;
   /** `situacao`: só o realizado, ou só a previsão ainda por vencer. */
   situacao?: SituacaoDoFiltro;
+  /** `fatura`: fechamento do cartão; filtra pelos ids que `comFatura` resolveu antes. */
+  fatura?: string; idsDaFatura?: string[];
 }
 
 interface TransactionQueryOpts extends TransactionFilterOpts {
@@ -92,6 +94,7 @@ export function buildTransactionConditions(orgId: string, opts?: TransactionFilt
 
   const contas = contasDoFiltro(opts)
   if (contas.length > 0) conditions.push(condicaoDeConta(transactions.accountId, contas))
+  if (opts?.idsDaFatura) conditions.push(inArray(transactions.id, opts.idsDaFatura))
   if (opts?.search) conditions.push(ilike(transactions.description, `%${opts.search}%`))
   if (opts?.startDate) conditions.push(gte(transactions.date, new Date(opts.startDate)))
   if (opts?.endDate) conditions.push(lte(transactions.date, new Date(opts.endDate)))

@@ -23,6 +23,7 @@ import { PendingQueuesSlot } from '@/components/finance/pending-queues-slot'
 import { BotaoConciliar, BotaoConciliarSlot } from '@/components/finance/botao-conciliar'
 import { getVerifiedIdentity } from '@/lib/auth/session'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
+import { comFatura } from '@/lib/finance/fatura-do-filtro'
 import { hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 import { lerRecorte, temRecorteNaUrl } from '@/lib/finance/recorte'
 import { destinoDeTransacoes, destinoSoComContasValidas } from '@/lib/finance/url-do-menu'
@@ -69,7 +70,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
     if (destino) redirect(destino)
   }
 
-  const filters = filtrosDaUrl(params)
+  const filters = await comFatura(orgId, filtrosDaUrl(params))
 
   // O que não depende da página sai já, junto com a contagem abaixo. Só a
   // consulta das linhas precisa esperar o número da página.
@@ -146,6 +147,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (params.cardDigits) paginationParams.cardDigits = params.cardDigits
   if (filters.soAnalises) paginationParams.caixa = '1'
   if (filters.situacao) paginationParams.situacao = filters.situacao
+  if (filters.fatura) paginationParams.fatura = filters.fatura
   if (pageSize !== DEFAULT_PAGE_SIZE) paginationParams.pageSize = String(pageSize)
 
   const accountOptions = contasParaLancamento(accounts)
@@ -198,7 +200,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
         <PendingQueuesSlot orgId={orgId} userId={userId} />
       </Suspense>
 
-      <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} cardDigitsOptions={finaisDoCartao} categories={categoryOptions} />
+      <TransactionFilters accounts={accountOptions} includeFuture={filters.includeFuture} cardDigitsOptions={finaisDoCartao} categories={categoryOptions} fatura={filters.fatura} />
 
       {/* No celular a paginação fica só embaixo: em cima ocupava três linhas
           antes do primeiro lançamento. */}

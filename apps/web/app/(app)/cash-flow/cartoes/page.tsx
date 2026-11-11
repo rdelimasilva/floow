@@ -33,6 +33,7 @@ async function Conteudo({ orgId, startDate, endDate, accountIds, categoryIds }: 
       categoryIds={categoryIds}
       // O gráfico agrupa pela categoria de cima; o filtro escolhe entre elas.
       categoriasDeCima={categorias.filter((c) => !c.parentId).map((c) => ({ id: c.id, name: c.name }))}
+      arvoreDeCategorias={categorias.map((c) => ({ id: c.id, parentId: c.parentId ?? null }))}
     />
   )
 }

@@ -8,6 +8,7 @@ import { hojeEmSaoPaulo } from '@/lib/finance/filtros-lembrados'
 import { RECORTE_PADRAO, destinoComRecorte, lerRecorte } from '@/lib/finance/recorte'
 import { TransactionListWrapper } from '@/components/finance/transaction-list-wrapper'
 import { filtrosDaUrl } from '@/lib/finance/filtros-da-url'
+import { comFatura } from '@/lib/finance/fatura-do-filtro'
 import { TransactionFilters } from '@/components/finance/transaction-filters'
 import { Pagination } from '@/components/ui/pagination'
 import { Button } from '@/components/ui/button'
@@ -60,7 +61,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
 
   // Mesmo leitor de Transações: busca, período, futuros e os filtros de coluna
   // (tipo, categoria, valor, ordem). A conta vem da rota, não da URL.
-  const filters = { ...filtrosDaUrl(sp), accountId }
+  const filters = await comFatura(orgId, { ...filtrosDaUrl(sp), accountId })
 
   // O extrato da conta corre do mais antigo para o mais novo, como o de
   // transações, e abre na última página — onde está a data mais recente.
@@ -156,6 +157,7 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
         hideAccountFilter
         baseUrl={`/accounts/${accountId}`}
         includeFuture={filters.includeFuture}
+        fatura={filters.fatura}
         categories={categories.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }))}
       />
 

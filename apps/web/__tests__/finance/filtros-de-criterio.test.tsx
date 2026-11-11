@@ -80,6 +80,15 @@ describe('pílulas de critério', () => {
     expect(url).not.toContain('situacao')
   })
 
+  it('fatura aceita pelo servidor vira pílula que conta na gaveta e se desliga', () => {
+    params = new URLSearchParams({ accountId: 'c1', fatura: '2026-10-10' })
+    render(<TransactionFilters accounts={[]} hideAccountFilter fatura="2026-10-10" />)
+    expect(screen.getAllByText('Fatura de outubro de 2026').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /^Filtros/ }).textContent).toBe('Filtros1')
+    fireEvent.click(screen.getAllByText('Fatura de outubro de 2026')[0])
+    expect(String(replace.mock.calls.at(-1)![0])).not.toContain('fatura')
+  })
+
   it('sem os parâmetros, nenhuma pílula', () => {
     params = new URLSearchParams()
     render(<TransactionFilters accounts={[]} />)

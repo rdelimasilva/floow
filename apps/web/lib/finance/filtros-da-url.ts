@@ -32,5 +32,7 @@ export function filtrosDaUrl(params: Record<string, string | undefined>) {
     cardDigits: params.cardDigits,
     soAnalises: params.caixa === '1',
     situacao: situacaoDaUrl(params.situacao),
+    // Fechamento da fatura do cartão; os ids saem de `comFatura`, no servidor.
+    fatura: /^\d{4}-\d{2}-\d{2}$/.test(params.fatura ?? '') ? params.fatura : undefined,
   }
 }
