@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Search, X } from 'lucide-react'
 import { AccountFilter } from './account-filter'
 import { CardDigitsFilter } from './card-digits-filter'
-import { PILULA_BASE, PILULA_OFF } from './filtros/pilula'
+import { PILULA_BASE, PILULA_OFF, PILULA_ON } from './filtros/pilula'
 import { useGravarRecorteNaChegada } from './filtros/use-gravar-recorte-na-chegada'
 import { CampoDeData, SeletorDePeriodo } from './filtros/seletor-de-periodo'
 import { GavetaDeFiltros } from './filtros/gaveta-de-filtros'
@@ -111,6 +111,15 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
   }
 
   const finaisMarcados = (searchParams.get('cardDigits') ?? '').split(',').filter(Boolean)
+  // Critérios que vêm de um link das análises: só aparecem ligados, e cada um
+  // se desliga na própria pílula.
+  const soAnalises = searchParams.get('caixa') === '1'
+  const situacao = searchParams.get('situacao')
+  const criterios = [
+    soAnalises && { chave: 'caixa', texto: 'Só o que entra nas análises' },
+    situacao === 'realizado' && { chave: 'situacao', texto: 'Só realizados' },
+    situacao === 'previsto' && { chave: 'situacao', texto: 'Só previstos' },
+  ].filter(Boolean) as { chave: string; texto: string }[]
   // Quantos filtros estão escondidos atrás do botão no celular. O período com
   // atalho já aparece no seletor ao lado; a conta lembrada da última visita não.
   const filtrosNoBotao = [
@@ -119,6 +128,7 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
     finaisMarcados.length > 0,
     !activePeriod && (startDate || endDate),
     includeFuture,
+    ...criterios,
   ].filter(Boolean).length
   const filtrosDeColuna = contarFiltrosDeColuna(searchParams)
 
@@ -190,6 +200,20 @@ export function TransactionFilters({ accounts, hideAccountFilter, baseUrl = '/tr
       >
         Lançamentos futuros
       </button>
+
+      {criterios.map(({ chave, texto }) => (
+        <button
+          key={chave}
+          type="button"
+          aria-pressed
+          title="Clique para desligar este filtro"
+          onClick={() => navigate({ [chave]: '' })}
+          className={`${PILULA_BASE} ${PILULA_ON} inline-flex items-center gap-1.5`}
+        >
+          {texto}
+          <X className="h-3 w-3" aria-hidden />
+        </button>
+      ))}
     </>
   )
 

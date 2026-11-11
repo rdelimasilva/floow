@@ -52,9 +52,10 @@ export const PERIOD_KEYS: PeriodKey[] = [
 ]
 
 // Tudo que é recorte. `page`/`pageSize` ficam de fora de propósito.
-const FILTER_KEYS = [
+export const FILTER_KEYS = [
   'accountId', 'search', 'startDate', 'endDate', 'future',
   'types', 'categoryIds', 'minAmount', 'maxAmount', 'sortBy', 'sortDir', 'cardDigits',
+  'caixa', 'situacao',
 ] as const
 
 /** O dia de hoje no calendário do usuário, e não no UTC do servidor. */

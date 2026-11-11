@@ -1,3 +1,5 @@
+import { situacaoDaUrl } from './condicoes-de-criterio'
+
 /** Teto de "selecionar todas do filtro": meses de extrato, sem mandar dezenas de milhares de ids. */
 export const LIMITE_DA_SELECAO = 2000
 
@@ -23,5 +25,7 @@ export function filtrosDaUrl(params: Record<string, string | undefined>) {
     // `buildTransactionConditions`.
     includeFuture: params.future === '1',
     cardDigits: params.cardDigits,
+    soAnalises: params.caixa === '1',
+    situacao: situacaoDaUrl(params.situacao),
   }
 }

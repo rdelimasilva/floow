@@ -144,6 +144,8 @@ export default async function TransactionsPage({ searchParams }: Props) {
   if (params.minAmount) paginationParams.minAmount = params.minAmount
   if (params.maxAmount) paginationParams.maxAmount = params.maxAmount
   if (params.cardDigits) paginationParams.cardDigits = params.cardDigits
+  if (filters.soAnalises) paginationParams.caixa = '1'
+  if (filters.situacao) paginationParams.situacao = filters.situacao
   if (pageSize !== DEFAULT_PAGE_SIZE) paginationParams.pageSize = String(pageSize)
 
   const accountOptions = contasParaLancamento(accounts)

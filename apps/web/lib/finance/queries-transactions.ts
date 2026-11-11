@@ -6,6 +6,10 @@ import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { sqlPrevisaoAindaPorVencer, sqlValorNoSaldo } from './balance-sql'
 import { futureTransactionsTag, recentTransactionsTag } from '@/lib/cache-tags'
 import { effectiveAffectsCashFlow } from './affects-cash-flow'
+import { condicaoDeConta, contasDoFiltro, finaisDoFiltro } from './filtro-de-contas'
+import { condicoesDeCriterio, type SituacaoDoFiltro } from './condicoes-de-criterio'
+
+export { contasDoFiltro, finaisDoFiltro }
 
 /** Filter options shared between getTransactions queries. */
 export interface TransactionFilterOpts {
@@ -27,6 +31,10 @@ export interface TransactionFilterOpts {
    * materializa de uma vez.
    */
   includeFuture?: boolean;
+  /** `caixa=1`: só o que entra nas análises. Exige o join com categories. */
+  soAnalises?: boolean;
+  /** `situacao`: só o realizado, ou só a previsão ainda por vencer. */
+  situacao?: SituacaoDoFiltro;
 }
 
 interface TransactionQueryOpts extends TransactionFilterOpts {
@@ -61,35 +69,10 @@ export function buildBalanceScopeConditions(
   return conditions
 }
 
-/**
- * As contas marcadas no filtro, em lista.
- *
- * O parâmetro carrega uma ou várias (`conta-1,conta-2`); vazio significa
- * "todas", que é a ausência de condição e não uma lista vazia no SQL.
- */
-export function contasDoFiltro(opts?: Pick<TransactionFilterOpts, 'accountId'>): string[] {
-  if (!opts?.accountId) return []
-  return [...new Set(opts.accountId.split(',').filter(Boolean))]
-}
-
-/** Uma conta vira igualdade; várias, um `IN`. */
-function condicaoDeConta(coluna: AnyPgColumn, contas: string[]) {
-  return contas.length === 1 ? eq(coluna, contas[0]) : inArray(coluna, contas)
-}
-
 /** Builds WHERE conditions for transaction queries — single source of truth. */
 /** Hoje em Sao Paulo, e nao no fuso do servidor do banco. */
 function hojeSP(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-}
-
-/**
- * Finais de cartão do filtro, só os de quatro dígitos: o valor vem da URL e
- * vai para um IN, então o que não tiver a forma de um final fica de fora.
- */
-export function finaisDoFiltro(opts?: Pick<TransactionFilterOpts, 'cardDigits'>): string[] {
-  if (!opts?.cardDigits) return []
-  return [...new Set(opts.cardDigits.split(',').filter((f) => /^\d{4}$/.test(f)))]
 }
 
 export function buildTransactionConditions(orgId: string, opts?: TransactionFilterOpts) {
@@ -103,6 +86,8 @@ export function buildTransactionConditions(orgId: string, opts?: TransactionFilt
   // previsão com `matched_transaction_id` já não soma (`sqlPrevisaoAindaPorVencer`
   // em `balance-sql.ts`), então tirá-la da lista não move nenhum número.
   conditions.push(isNull(transactions.matchedTransactionId))
+
+  conditions.push(...condicoesDeCriterio(opts, hojeSP()))
 
   const contas = contasDoFiltro(opts)
   if (contas.length > 0) conditions.push(condicaoDeConta(transactions.accountId, contas))
@@ -123,7 +108,8 @@ export function buildTransactionConditions(orgId: string, opts?: TransactionFilt
   // ou pelo toggle de previsoes.
   //
   // `endDate` explicito manda: quem pediu 2031 quer ver 2031.
-  if (!opts?.includeFuture && !opts?.endDate) {
+  // `previsto` é o futuro por definição: o corte em hoje o esvaziaria.
+  if (!opts?.includeFuture && !opts?.endDate && opts?.situacao !== 'previsto') {
     conditions.push(lte(transactions.date, sql`${hojeSP()}::date`))
   }
 
@@ -206,6 +192,8 @@ export async function getTransactionCount(orgId: string, opts?: TransactionFilte
   const [row] = await db
     .select({ total: count() })
     .from(transactions)
+    // `soAnalises` lê categories.affects_cash_flow.
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(and(...buildTransactionConditions(orgId, opts)))
 
   return Number(row?.total ?? 0)
