@@ -155,8 +155,19 @@ describe('deriveResourceIdentity — payloads reais do Itaú', () => {
       },
     })
 
-    expect(id.label).toBe('Conta · ag 7069 · final 4506')
+    expect(id.label).toBe('Conta corrente · ag 7069 · final 4506')
     expect(id.digits).toBe('4506')
+  })
+
+  it('separa corrente e poupança com a mesma agência e o mesmo número', () => {
+    const conta = (type: string) => deriveResourceIdentity({
+      resourceType: 'ACCOUNT',
+      polpResourceId: '01a1c547-0000-0000-0000-000000007742',
+      detail: { number: '00077420', branch_code: '5283', identification: { type, number: '00077420', branch_code: '5283' } },
+    })
+
+    expect(conta('CONTA_DEPOSITO_A_VISTA').label).toBe('Conta corrente · ag 5283 · final 7420')
+    expect(conta('CONTA_POUPANCA').label).toBe('Poupança · ag 5283 · final 7420')
   })
 
   it('distingue dois cartões da mesma instituição', () => {

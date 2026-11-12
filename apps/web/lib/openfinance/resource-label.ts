@@ -46,6 +46,17 @@ const TYPE_LABEL: Record<string, string> = {
   CREDIT_CARD_ACCOUNT: 'Cartão',
 }
 
+/**
+ * Tipo da conta no padrão Open Finance (`type` do detalhe). Corrente e
+ * poupança do mesmo cliente costumam ter a mesma agência e o mesmo número, e
+ * sem o tipo as duas viravam "Conta · ag 5283 · final 7742".
+ */
+const ACCOUNT_KIND_LABEL: Record<string, string> = {
+  CONTA_DEPOSITO_A_VISTA: 'Conta corrente',
+  CONTA_POUPANCA: 'Poupança',
+  CONTA_PAGAMENTO_PRE_PAGA: 'Conta de pagamento',
+}
+
 /** Agência, quando o recurso é conta: distingue duas contas no mesmo banco. */
 const BRANCH_KEYS = ['branch_code', 'branchCode']
 
@@ -103,7 +114,8 @@ export interface DeriveInput {
 }
 
 export function deriveResourceIdentity(input: DeriveInput): ResourceIdentity {
-  const tipo = TYPE_LABEL[input.resourceType] ?? input.resourceType
+  const tipo = (input.resourceType === 'ACCOUNT' ? accountKind(input.detail) : null)
+    ?? TYPE_LABEL[input.resourceType] ?? input.resourceType
   const detailKeys = collectKeys(input.detail)
 
   const doDetalhe = extract(input.detail)
@@ -135,6 +147,14 @@ export function deriveResourceIdentity(input: DeriveInput): ResourceIdentity {
     source: 'fallback',
     detailKeys,
   }
+}
+
+function accountKind(payload: unknown): string | null {
+  for (const escopo of scopesOf(payload)) {
+    const valor = escopo.type
+    if (typeof valor === 'string' && ACCOUNT_KIND_LABEL[valor]) return ACCOUNT_KIND_LABEL[valor]
+  }
+  return null
 }
 
 function compose(tipo: string, name: string | null, digits: string | null): string {
