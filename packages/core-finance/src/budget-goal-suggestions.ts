@@ -87,10 +87,6 @@ export function suggestBudgetGoals(input: SuggestBudgetGoalsInput): BudgetGoalSu
     return c?.parentId && porId.has(c.parentId) ? c.parentId : id
   }
 
-  // Meta na principal ou em qualquer filha: o usuário já controla aquela área,
-  // sugerir a principal contaria a filha duas vezes.
-  const raizesComMeta = new Set([...input.categoriesWithGoal].filter((id) => porId.has(id)).map(raizDe))
-
   const indiceMes = new Map(input.months.map((m, i) => [m, i]))
   const series = new Map<string, number[]>()
   for (const r of input.rows) {
@@ -98,7 +94,12 @@ export function suggestBudgetGoals(input: SuggestBudgetGoalsInput): BudgetGoalSu
     const i = indiceMes.get(r.month)
     if (i === undefined) continue
     const raiz = raizDe(r.categoryId)
-    if (raizesComMeta.has(raiz) || input.dismissedCategories?.has(raiz) || isGenericCategory({ ...porId.get(raiz)!, polpRef: null })) continue
+    // Gasto que já cai num teto (o da própria categoria ou o da principal)
+    // fica de fora. Filha com teto não bloqueia a principal: o teto da
+    // principal pega só o resto, porque o Ritmo e o Plano de Gastos levam
+    // cada gasto ao teto mais próximo.
+    if (input.categoriesWithGoal.has(r.categoryId) || input.categoriesWithGoal.has(raiz)) continue
+    if (input.dismissedCategories?.has(raiz) || isGenericCategory({ ...porId.get(raiz)!, polpRef: null })) continue
     const serie = series.get(raiz) ?? new Array<number>(input.months.length).fill(0)
     serie[i] += r.cents
     series.set(raiz, serie)

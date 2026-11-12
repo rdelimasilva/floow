@@ -45,12 +45,17 @@ describe('suggestBudgetGoals', () => {
     expect(suggestBudgetGoals({ ...base, rows })).toEqual([])
   })
 
-  it('categoria com meta, ou com filha com meta, fica de fora', () => {
+  it('categoria com meta fica de fora', () => {
     const rows = [...todoMes('casa', 1000), ...todoMes('saude', 400)]
-    const comMetaNaFilha = suggestBudgetGoals({ ...base, rows, categoriesWithGoal: new Set(['limpeza']) })
-    expect(comMetaNaFilha.map((s) => s.categoryId)).toEqual(['saude'])
     const comMetaNaMae = suggestBudgetGoals({ ...base, rows, categoriesWithGoal: new Set(['casa']) })
     expect(comMetaNaMae.map((s) => s.categoryId)).toEqual(['saude'])
+  })
+
+  it('filha com meta não bloqueia a principal: sugere só o gasto que ficou sem teto', () => {
+    // Limpeza já tem teto; o aluguel lançado em Casa não tem nenhum.
+    const rows = [...todoMes('casa', 1000), ...todoMes('limpeza', 350)]
+    const [s] = suggestBudgetGoals({ ...base, rows, categoriesWithGoal: new Set(['limpeza']) })
+    expect(s).toMatchObject({ categoryId: 'casa', medianCents: 100_000 })
   })
 
   it('ignora sem categoria, categoria genérica e valores irrisórios', () => {
