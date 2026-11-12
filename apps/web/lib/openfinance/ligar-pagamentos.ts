@@ -1,5 +1,5 @@
-import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, sql } from 'drizzle-orm'
-import { accounts, transactions } from '@floow/db'
+import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm'
+import { accounts, categories, transactions } from '@floow/db'
 import type { Db } from './persist-page'
 import type { PagamentoDoBanco } from './faturas-do-banco'
 import { buildTransferLegRow } from './transfer-leg'
@@ -24,6 +24,13 @@ import { buildTransferLegRow } from './transfer-leg'
  *  - senão, a saída sem par de outra conta (não cartão), do mesmo valor, até
  *    3 dias, a mais próxima, ganha a perna no cartão. A perna entra no saldo
  *    junto com a saída: quem diz que o pagamento aconteceu é o banco.
+ *
+ * A saída pode ser transferência ou despesa na categoria "Pagamento de fatura
+ * de cartão de crédito". No setup, um usuário classificou assim os boletos do
+ * Itaú, e os dois cartões dele ficaram sem nenhum pagamento: R$ 178 mil de
+ * dívida que não existia. Quando o banco confirma o pagamento, a despesa vira
+ * transferência para o cartão daquela fatura. O cartão sai da fatura, e não da
+ * regra, porque o mesmo CNPJ do Itaú pagava os dois.
  *
  * Cada crédito e cada saída servem a um pagamento só.
  */
@@ -118,6 +125,15 @@ export async function ligarPagamentosAoCartao(
       aguardando: c.aguardaExtrato && !c.balanceApplied,
     }))
 
+  // A de sistema e a cópia que a org tenha feito dela.
+  const categoriasDePagamentoDeFatura = db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(and(
+      eq(categories.polpRef, 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT'),
+      or(isNull(categories.orgId), eq(categories.orgId, orgId)),
+    ))
+
   const linhasDeSaida = await db
     .select({
       id: transactions.id,
@@ -133,7 +149,10 @@ export async function ligarPagamentosAoCartao(
       eq(transactions.orgId, orgId),
       ne(transactions.accountId, cartaoId),
       ne(accounts.type, 'credit_card'),
-      eq(transactions.type, 'transfer'),
+      or(
+        eq(transactions.type, 'transfer'),
+        and(eq(transactions.type, 'expense'), inArray(transactions.categoryId, categoriasDePagamentoDeFatura)),
+      ),
       lt(transactions.amountCents, 0),
       eq(transactions.isIgnored, false),
       isNull(transactions.transferGroupId),
@@ -170,7 +189,9 @@ export async function ligarPagamentosAoCartao(
       // A saída só ganha o par se ainda não tem: outro sync pode ter ligado.
       const [marcada] = await tx
         .update(transactions)
-        .set({ transferGroupId: grupo, transferAccountId: cartaoId })
+        // A despesa de pagamento de fatura vira transferência; o valor e o
+        // saldo da conta não mudam.
+        .set({ transferGroupId: grupo, transferAccountId: cartaoId, type: 'transfer', categoryId: null, isAutoCategorized: false })
         .where(and(eq(transactions.id, id), eq(transactions.orgId, orgId), isNull(transactions.transferGroupId)))
         .returning({ id: transactions.id })
       if (!marcada) continue
