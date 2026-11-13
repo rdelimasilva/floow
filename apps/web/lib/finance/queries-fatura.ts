@@ -1,8 +1,12 @@
 import { faturasDoBanco, transactions } from '@floow/db'
+import type { RlsTx } from '@floow/db'
 import { withUserDb } from '@/lib/db/rls'
 import { and, eq, gte, inArray, lte } from 'drizzle-orm'
 import { fechamentoNoMes, totaisPorFatura, vencimentoDaFatura } from '@floow/core-finance/src/fatura'
 import { fechamentosDoIntervalo, type FaturaNoExtrato, type IntervaloDaPagina } from './intercalar-faturas'
+
+/** Onde as consultas rodam: RLS do usuário por padrão; o cron, sem sessão, passa o banco direto. */
+export type Executar = <T>(fn: (db: Pick<RlsTx, 'select'>) => Promise<T>) => Promise<T>
 
 interface ContaDoFiltro {
   id: string
@@ -29,6 +33,7 @@ export async function getFaturasDoExtrato(
   orgId: string,
   contasMarcadas: readonly ContaDoFiltro[],
   intervalo: IntervaloDaPagina | null,
+  executar: Executar = withUserDb,
 ): Promise<FaturaNoExtrato[]> {
   if (!intervalo) return []
   const cartoes = contasMarcadas
@@ -47,7 +52,7 @@ export async function getFaturasDoExtrato(
   const de = fechamentoNoMes(a0, m0 - 2, 1)
   const ate = fechamentoNoMes(a1, m1 + 2, 31)
 
-  const linhas = await withUserDb((db) => db
+  const linhas = await executar((db) => db
     .select({
       accountId: transactions.accountId,
       date: transactions.date,
@@ -72,7 +77,7 @@ export async function getFaturasDoExtrato(
     )))
 
   // Fatura fechada vale o total que o banco informou (`totaisPorFatura`).
-  const doBanco = await withUserDb((db) => db
+  const doBanco = await executar((db) => db
     .select({
       accountId: faturasDoBanco.accountId,
       fechamento: faturasDoBanco.fechamento,
@@ -113,9 +118,13 @@ export async function getFaturasDoExtrato(
  * banco, e o saldo não: a parcela do banco tem a data do vencimento e só entra
  * no saldo nesse dia, embora o banco já a ponha na fatura aberta.
  */
-export async function getFaturasAbertas(orgId: string, contas: readonly ContaDoFiltro[]): Promise<Map<string, number>> {
+export async function getFaturasAbertas(
+  orgId: string,
+  contas: readonly ContaDoFiltro[],
+  executar: Executar = withUserDb,
+): Promise<Map<string, number>> {
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const faturas = await getFaturasDoExtrato(orgId, contas, { inicio: hoje, fim: hoje, limite: null, incluirProximo: true })
+  const faturas = await getFaturasDoExtrato(orgId, contas, { inicio: hoje, fim: hoje, limite: null, incluirProximo: true }, executar)
   // Por cartão vem o fechamento de hoje (se houver) e depois o seguinte: o primeiro é o aberto.
   const abertas = new Map<string, number>()
   for (const f of faturas) if (!abertas.has(f.accountId)) abertas.set(f.accountId, f.totalCents)

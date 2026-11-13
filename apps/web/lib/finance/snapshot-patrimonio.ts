@@ -4,6 +4,7 @@ import { getPatrimonioAtual } from './patrimonio-queries'
 import type { Patrimonio } from './patrimonio'
 import { revalidateSnapshotData } from './revalidate'
 import { consultarValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
+import { getFaturasAbertas } from './queries-fatura'
 
 /**
  * Grava o snapshot do patrimônio da org — o ponto do gráfico de evolução e o
@@ -47,9 +48,13 @@ export async function gravarSnapshotDoPatrimonio(orgId: string, patrimonio: Patr
 
 /**
  * Snapshot sem sessão, para o cron: mesma regra do botão (`getPatrimonioAtual`),
- * só que as posições do Open Finance são lidas direto, sem `withUserDb`.
+ * só que as posições do Open Finance e as faturas são lidas direto, sem `withUserDb`.
  */
 export async function gravarSnapshotDoServico(orgId: string) {
-  const patrimonio = await getPatrimonioAtual(orgId, (org) => consultarValorDasContasDeInvestimento(getDb(), org))
+  const patrimonio = await getPatrimonioAtual(
+    orgId,
+    (org) => consultarValorDasContasDeInvestimento(getDb(), org),
+    (org, contas) => getFaturasAbertas(org, contas, (fn) => fn(getDb())),
+  )
   return gravarSnapshotDoPatrimonio(orgId, patrimonio)
 }

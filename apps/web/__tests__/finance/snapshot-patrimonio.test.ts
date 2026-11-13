@@ -105,7 +105,7 @@ describe('gravarSnapshotDoServico', () => {
 
     await gravarSnapshotDoServico('org-9')
 
-    expect(h.getPatrimonioAtual).toHaveBeenCalledWith('org-9', expect.any(Function))
+    expect(h.getPatrimonioAtual).toHaveBeenCalledWith('org-9', expect.any(Function), expect.any(Function))
     expect(h.consultarValor).toHaveBeenCalledWith(expect.anything(), 'org-9')
     expect(h.passos.map((p) => p.op)).toEqual(['delete', 'insert'])
     expect(h.passos[1].values).toMatchObject({ orgId: 'org-9', netWorthCents: 66434639 })
