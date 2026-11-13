@@ -17,6 +17,7 @@ import { formatBRL } from '@floow/core-finance'
 import { ACCOUNT_TYPE_CONFIG } from '@/lib/finance/account-types'
 import { getAtivosDaContaDeInvestimento, getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
 import { getPositions } from '@/lib/investments/queries'
+import { getFaturasAbertas } from '@/lib/finance/queries-fatura'
 import { PositionTable } from '@/components/investments/position-table'
 
 const PAGE_SIZE = 30
@@ -103,7 +104,12 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
   // Conta de investimentos do Open Finance vale o que as posições valem; o
   // saldo de lançamentos dela fica zerado numa conexão só de investimentos.
   const valorDasPosicoesCents = (await valorDasPosicoesP).get(account.id)
-  const saldoExibidoCents = valorDasPosicoesCents ?? account.balanceCents
+  // Cartão vale a fatura aberta, como na tela Contas: o saldo deixa de fora a
+  // parcela que o banco já pôs na fatura com data do vencimento.
+  const faturaAbertaCents = account.type === 'credit_card'
+    ? (await getFaturasAbertas(orgId, [account])).get(account.id)
+    : undefined
+  const saldoExibidoCents = faturaAbertaCents ?? valorDasPosicoesCents ?? account.balanceCents
   const isNegative = saldoExibidoCents < 0
   // Conta de investimentos abre nos ativos: o extrato dela costuma estar vazio.
   const ativosDaConta = new Set(await ativosDaContaP)
@@ -134,6 +140,9 @@ export default async function AccountDetailPage({ params, searchParams }: Props)
           <p className={`text-lg font-semibold ${isNegative ? 'text-red-600' : 'text-green-700'}`}>
             {formatBRL(saldoExibidoCents)}
           </p>
+          {faturaAbertaCents !== undefined && (
+            <p className="text-xs text-gray-500">Fatura aberta</p>
+          )}
           {valorDasPosicoesCents !== undefined && (
             <p className="text-xs text-gray-500">Valor das posições informadas pelo banco</p>
           )}
