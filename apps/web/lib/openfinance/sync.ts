@@ -25,6 +25,7 @@ import { sugestaoDaFilaDeps } from './sugestao-da-fila-deps'
 import { completarParcelas } from './completar-parcelas'
 import { VERSAO_DO_SYNC, precisaReler, relerHistorico } from './releitura'
 import { registrarSaldoDeAbertura, somarExtratoAte } from './saldo-de-abertura'
+import { estornarParcelasCanceladas } from './estorno-de-parcela'
 import { carregarFaturasDoBanco, completarMesDaFatura, gravarFaturasDoBanco, mesesDasFaturas as mesesPorBill, pagamentosDoBanco } from './faturas-do-banco'
 import { reclassificarPagamentosDeFatura } from './pagamento-de-fatura'
 import { ligarPagamentosAoCartao } from './ligar-pagamentos'
@@ -214,6 +215,11 @@ export async function syncConnectionTransactions(
         await completarParcelas(db, connection.orgId, resource.accountId)
       } catch (error) {
         console.error('[sync] falha ao completar parcelas previstas:', error)
+      }
+      try {
+        await estornarParcelasCanceladas(db, connection.orgId, resource.accountId)
+      } catch (error) {
+        console.error('[sync] falha ao estornar parcelas canceladas:', error)
       }
     }
 

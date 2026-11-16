@@ -1,9 +1,10 @@
 import { cache } from 'react'
-import { and, eq, gt, isNotNull, or } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, lt, or } from 'drizzle-orm'
 import { accounts, recurringTemplates, transactions } from '@floow/db'
 import { agruparParceladosNoCartao, type ParceladoNoCartao } from '@floow/core-finance'
 import { withUserDb } from '@/lib/db/rls'
 import { hojeEmSaoPaulo } from '@/lib/openfinance/parcelas-previstas'
+import { parcelaNaoEstornada } from '@/lib/openfinance/estorno-de-parcela'
 
 /**
  * Compras parceladas no cartão que ainda têm parcela a vencer, para
@@ -41,6 +42,9 @@ export const getParceladosNoCartao = cache(async function getParceladosNoCartao(
           gt(transactions.installmentTotal, 1),
           isNotNull(transactions.installmentNumber),
           or(isNotNull(transactions.purchaseDate), eq(recurringTemplates.endMode, 'count')),
+          // O estorno da parcela é despesa positiva; a parcela estornada não é dívida.
+          lt(transactions.amountCents, 0),
+          parcelaNaoEstornada,
         ),
       ),
   )

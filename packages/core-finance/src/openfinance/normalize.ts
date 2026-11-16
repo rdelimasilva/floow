@@ -357,6 +357,9 @@ function cardType(tx: PolpCardTransaction): { type: NormalizedPolpTransaction['t
       return { type: 'income', natureConfirmed: true }
     default:
       if (tx.credit_debit_type === 'DEBITO') return { type: 'expense', natureConfirmed: true }
+      // Crédito com número de parcela é parcela cancelada ("CANC PARCELA" do
+      // Itaú, que vem sem a marca ESTORNO): abate o gasto da compra.
+      if ((tx.charge_number ?? 0) > 1) return { type: 'expense', natureConfirmed: true }
       return { type: 'income', natureConfirmed: false }
   }
 }

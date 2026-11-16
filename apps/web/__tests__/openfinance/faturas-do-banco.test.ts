@@ -57,8 +57,12 @@ describe('completarMesDaFatura', () => {
     expect(completarMesDaFatura({ billId: OUTUBRO, billForecastMonth: null }, meses).billForecastMonth).toBe('2026-10')
   })
 
-  it('o mês que a transação traz vale mais', () => {
-    expect(completarMesDaFatura({ billId: OUTUBRO, billForecastMonth: '2026-11' }, meses).billForecastMonth).toBe('2026-11')
+  it('o mês anterior ao da fatura que a transação traz continua valendo', () => {
+    expect(completarMesDaFatura({ billId: OUTUBRO, billForecastMonth: '2026-09' }, meses).billForecastMonth).toBe('2026-09')
+  })
+
+  it('parcela antecipada para a fatura fechada sai do mês previsto', () => {
+    expect(completarMesDaFatura({ billId: OUTUBRO, billForecastMonth: '2027-03' }, meses).billForecastMonth).toBe('2026-10')
   })
 
   it('sem bill_id ou com fatura desconhecida, nada muda', () => {

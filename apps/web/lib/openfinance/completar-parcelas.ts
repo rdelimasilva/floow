@@ -1,4 +1,4 @@
-import { and, eq, gt, isNotNull, sql } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, lt, sql } from 'drizzle-orm'
 import { transactions } from '@floow/db'
 import { planejarParcelasFaltantes, type ParcelaConhecida, type ParcelaPlanejada } from '@floow/core-finance'
 import type { Db } from './persist-page'
@@ -88,6 +88,8 @@ export async function completarParcelas(db: Db, orgId: string, accountId: string
           isNotNull(transactions.purchaseDate),
           gt(transactions.installmentTotal, 1),
           isNotNull(transactions.installmentNumber),
+          // Só cobrança: o crédito da parcela cancelada não pede previsão.
+          lt(transactions.amountCents, 0),
         ),
       )
 

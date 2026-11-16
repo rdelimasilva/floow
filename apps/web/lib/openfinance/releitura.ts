@@ -42,7 +42,8 @@ import { registrarSaldoDeAbertura, somarExtratoAte } from './saldo-de-abertura'
 // 7: saldo de abertura refeito uma última vez; dali em diante fica (`saldo-de-abertura.ts`).
 // 8: saldo de abertura da conta conectada depois da 4, que nascia na versão atual e nunca o recebia.
 // 9: saldo do banco com a aplicação automática; refaz a abertura só dessas contas.
-export const VERSAO_DO_SYNC = 9
+// 10: parcela antecipada vai para a fatura fechada do `bill_id` (`completarMesDaFatura`).
+export const VERSAO_DO_SYNC = 10
 
 /**
  * A releitura que refaz o saldo de abertura. A 6 o refez com o extrato

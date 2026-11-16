@@ -38,7 +38,8 @@ export function mesesDasFaturas(faturas: readonly PolpCardBill[]): Map<string, s
 }
 
 /**
- * Mês da fatura pelo `bill_id`, para a parcela que chega sem data.
+ * Mês da fatura pelo `bill_id`, para a parcela que chega sem data ou com
+ * mês posterior ao da fatura fechada.
  *
  * Na virada da fatura de outubro do Master Black, Airbnb 3/6 e Diroma 3/5
  * vieram com `bill_post_date` igual à data da compra (fatura falsa, descartada
@@ -46,15 +47,19 @@ export function mesesDasFaturas(faturas: readonly PolpCardBill[]): Map<string, s
  * parcela ia para o dia da compra, em julho. O `bill_id` delas aponta a
  * fatura, e a fatura diz o vencimento.
  *
- * Só preenche o que falta: o mês que a própria transação traz vale mais.
+ * Mês posterior ao da fatura fechada também cede a ela. Na compra
+ * cancelada (On Sportswear 12x, Master Black, nov/26), o banco antecipou as
+ * parcelas 3 a 12 para a fatura de novembro e a Polp manteve o mês previsto
+ * de cada uma (dez/26 a set/27). Só com elas em novembro a soma bate com o
+ * total do banco. Mês anterior ao da fatura continua valendo.
  */
 export function completarMesDaFatura<T extends Pick<NormalizedPolpTransaction, 'billId' | 'billForecastMonth'>>(
   tx: T,
   meses: ReadonlyMap<string, string>,
 ): T {
-  if (tx.billForecastMonth || !tx.billId) return tx
-  const mes = meses.get(tx.billId)
-  return mes ? { ...tx, billForecastMonth: mes } : tx
+  const mes = tx.billId ? meses.get(tx.billId) : undefined
+  if (!mes || (tx.billForecastMonth && tx.billForecastMonth <= mes)) return tx
+  return { ...tx, billForecastMonth: mes }
 }
 
 export interface PagamentoDoBanco {

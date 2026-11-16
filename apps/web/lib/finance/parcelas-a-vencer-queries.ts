@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
-import { and, eq, gt, gte, isNotNull, lte } from 'drizzle-orm'
+import { and, eq, gt, gte, isNotNull, lt, lte } from 'drizzle-orm'
 import { transactions, categories, type RlsTx } from '@floow/db'
 import { budgetSpendingTag } from '@/lib/cache-tags'
 import { requireIdentity } from '@/lib/auth/session'
@@ -44,6 +44,8 @@ export async function buscarParcelasAVencer(
         eq(transactions.balanceApplied, false),
         isNotNull(transactions.purchaseDate),
         gt(transactions.installmentTotal, 1),
+        // O estorno de parcela também é despesa, mas positiva: não é a vencer.
+        lt(transactions.amountCents, 0),
         isNotNull(transactions.categoryId),
         // Mesmo universo do gasto: aplicação em investimento não conta como gasto nem como a vencer.
         effectiveAffectsCashFlow,

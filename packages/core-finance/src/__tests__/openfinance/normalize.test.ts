@@ -251,6 +251,16 @@ describe('camada 1 no cartão: débito fora dos 3 casos explícitos é despesa',
     expect(t.type).toBe('income')
   })
 
+  it('crédito de parcela é parcela cancelada: abate o gasto', () => {
+    const t = normalizeCardTransaction(cardTx({
+      transaction_type: 'OUTROS', credit_debit_type: 'CREDITO', transaction_name: 'CANC PARCELA SEM J03/12',
+      charge_identificator: 3, charge_number: 12,
+    }))
+    expect(t.type).toBe('expense')
+    expect(t.natureConfirmed).toBe(true)
+    expect(t.amountCents).toBe(5990)
+  })
+
   it('os 3 casos explícitos continuam confirmados', () => {
     expect(normalizeCardTransaction(cardTx({ transaction_type: 'PAGAMENTO_FATURA', credit_debit_type: 'CREDITO' })).natureConfirmed).toBe(true)
     expect(normalizeCardTransaction(cardTx({ transaction_type: 'ESTORNO', credit_debit_type: 'CREDITO' })).natureConfirmed).toBe(true)
