@@ -4,6 +4,7 @@ import { withUserDb } from '@/lib/db/rls'
 import { and, eq, gte, inArray, lte } from 'drizzle-orm'
 import { fechamentoNoMes, totaisPorFatura, vencimentoDaFatura } from '@floow/core-finance/src/fatura'
 import { fechamentosDoIntervalo, type FaturaNoExtrato, type IntervaloDaPagina } from './intercalar-faturas'
+import { faturasAPagar } from './fatura-a-pagar'
 
 /** Onde as consultas rodam: RLS do usuário por padrão; o cron, sem sessão, passa o banco direto. */
 export type Executar = <T>(fn: (db: Pick<RlsTx, 'select'>) => Promise<T>) => Promise<T>
@@ -114,9 +115,10 @@ export async function getFaturasDoExtrato(
 }
 
 /**
- * A fatura em aberto de cada cartão, pelo mesmo cálculo do extrato. Bate com o
- * banco, e o saldo não: a parcela do banco tem a data do vencimento e só entra
- * no saldo nesse dia, embora o banco já a ponha na fatura aberta.
+ * A fatura atual de cada cartão, pelo mesmo cálculo do extrato: a fechada até
+ * o vencimento, enquanto não foi paga, e depois a aberta (`faturasAPagar`).
+ * Bate com o banco, e o saldo não: a parcela do banco tem a data do vencimento
+ * e só entra no saldo nesse dia, embora o banco já a ponha na fatura.
  */
 export async function getFaturasAbertas(
   orgId: string,
@@ -124,9 +126,27 @@ export async function getFaturasAbertas(
   executar: Executar = withUserDb,
 ): Promise<Map<string, number>> {
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const faturas = await getFaturasDoExtrato(orgId, contas, { inicio: hoje, fim: hoje, limite: null, incluirProximo: true }, executar)
-  // Por cartão vem o fechamento de hoje (se houver) e depois o seguinte: o primeiro é o aberto.
-  const abertas = new Map<string, number>()
-  for (const f of faturas) if (!abertas.has(f.accountId)) abertas.set(f.accountId, f.totalCents)
-  return abertas
+  const mesPassado = new Date(`${hoje}T00:00:00Z`)
+  mesPassado.setUTCDate(mesPassado.getUTCDate() - 35)
+  const inicio = mesPassado.toISOString().slice(0, 10)
+  const faturas = await getFaturasDoExtrato(orgId, contas, { inicio, fim: hoje, limite: null, incluirProximo: true }, executar)
+  if (faturas.length === 0) return new Map()
+
+  // Pagamento de fatura entra no cartão como transferência.
+  const pagamentos = await executar((db) => db
+    .select({ accountId: transactions.accountId, date: transactions.date, amountCents: transactions.amountCents })
+    .from(transactions)
+    .where(and(
+      eq(transactions.orgId, orgId),
+      inArray(transactions.accountId, [...new Set(faturas.map((f) => f.accountId))]),
+      eq(transactions.type, 'transfer'),
+      eq(transactions.isIgnored, false),
+      gte(transactions.date, new Date(`${inicio}T00:00:00Z`)),
+    )))
+
+  return faturasAPagar(
+    faturas,
+    pagamentos.map((p) => ({ accountId: p.accountId, date: iso(p.date)!, amountCents: p.amountCents })),
+    hoje,
+  )
 }

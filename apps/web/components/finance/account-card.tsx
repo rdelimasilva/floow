@@ -331,7 +331,7 @@ export function AccountCard({ account, tipoTravado = false, valorDasPosicoesCent
             <p className="mt-1 text-xs text-gray-500">Valor das posições informadas pelo banco</p>
           )}
           {faturaAbertaCents !== undefined && (
-            <p className="mt-1 text-xs text-gray-500">Fatura aberta</p>
+            <p className="mt-1 text-xs text-gray-500">Fatura atual</p>
           )}
           {(account.branch || account.accountNumber) && (
             <p className="mt-1 text-xs text-gray-500">

@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { getOrgId, getAccounts, getMonthlyCashFlowSummary, getCategories } from '@/lib/finance/queries'
 import { getValorDasContasDeInvestimento } from '@/lib/openfinance/queries'
 import { getPatrimonioAtual } from '@/lib/finance/patrimonio-queries'
+import { getFaturasAbertas } from '@/lib/finance/queries-fatura'
 import { refreshSnapshot } from '@/lib/finance/account-actions'
 import { AccountSummaryRow } from '@/components/finance/account-summary-row'
 import { QuickStatsRow } from '@/components/finance/quick-stats-row'
@@ -37,7 +38,9 @@ async function AccountSection({ orgId }: { orgId: string }) {
     getAccounts(orgId),
     getValorDasContasDeInvestimento(orgId),
   ])
-  return <AccountSummaryRow accounts={userAccounts} valorDasPosicoes={valorDasPosicoes} />
+  // Cartão vale a fatura atual, como na tela Contas.
+  const faturas = await getFaturasAbertas(orgId, userAccounts)
+  return <AccountSummaryRow accounts={userAccounts} valorDasPosicoes={new Map([...valorDasPosicoes, ...faturas])} />
 }
 
 async function StatsSection({ orgId }: { orgId: string }) {

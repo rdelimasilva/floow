@@ -7,7 +7,7 @@ import { valorDaConta } from '@/lib/finance/patrimonio'
 
 interface AccountSummaryRowProps {
   accounts: Account[]
-  /** Valor das posições das contas de investimento do Open Finance (ver `valorDaConta`). */
+  /** Valor que substitui o saldo: posições das contas de investimento do Open Finance e fatura atual dos cartões (ver `valorDaConta`). */
   valorDasPosicoes?: Map<string, number>
 }
 
