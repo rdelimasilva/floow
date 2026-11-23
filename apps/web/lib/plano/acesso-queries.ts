@@ -5,8 +5,13 @@ import { and, count, eq } from 'drizzle-orm'
 import { getOrgId } from '@/lib/auth/session'
 import { calcularAcesso, mensagemDeUpgrade, LIMITE_DE_CONTAS_FREE, type Acesso, type Recurso } from './acesso'
 
+/** Ligar de volta quando o checkout do Stripe funcionar de ponta a ponta. */
+const COBRANCA_ATIVA = false
+
 /** Acesso da org ao Pro: assinatura do Stripe ou trial de 30 dias. */
 export const getAcesso = cache(async function getAcesso(orgId: string): Promise<Acesso> {
+  // Cobrança desligada até a integração com o Stripe ficar pronta: todos têm o Pro.
+  if (!COBRANCA_ATIVA) return { pro: true, trialAte: null, motivo: 'trial' }
   const [linha] = await withUserDb((tx) => tx
     .select({ criadaEm: orgs.createdAt, planTier: subscriptions.planTier, status: subscriptions.status })
     .from(orgs)
