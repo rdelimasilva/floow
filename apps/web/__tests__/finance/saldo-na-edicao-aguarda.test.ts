@@ -17,3 +17,15 @@ describe('deveAplicarSaldoNaEdicao com aguarda_extrato', () => {
     expect(deveAplicarSaldoNaEdicao({ ...MANUAL, aguardaExtrato: false }, '2026-09-01', '2026-09-28')).toBe(true)
   })
 })
+
+/**
+ * Previsão de recorrência nunca entra no saldo, nem com a data já passada:
+ * quem soma é o realizado que a cumpre. Editar a "Energia (2/61)" vencida a
+ * punha no saldo, e aí ela sumia da conciliação (que só olha previsão fora do
+ * saldo) e a conta de luz contava duas vezes.
+ */
+describe('deveAplicarSaldoNaEdicao com previsão de recorrência', () => {
+  it('data passada: continua fora do saldo', () => {
+    expect(deveAplicarSaldoNaEdicao({ ...MANUAL, recurringTemplateId: 'rt-1' }, '2026-11-17', '2026-11-23')).toBe(false)
+  })
+})
