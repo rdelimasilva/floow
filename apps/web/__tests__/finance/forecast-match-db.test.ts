@@ -36,7 +36,7 @@ function chain(result: unknown[], current?: { payload?: Record<string, unknown> 
   const c: any = {
     then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
   }
-  for (const m of ['from', 'limit', 'returning', 'orderBy', 'onConflictDoNothing']) {
+  for (const m of ['from', 'innerJoin', 'limit', 'returning', 'orderBy', 'onConflictDoNothing']) {
     c[m] = () => chain(result, current)
   }
   c.where = (condicao: SQL) => {
@@ -99,6 +99,23 @@ beforeEach(() => {
 })
 
 describe('criarPropostasDeConciliacao', () => {
+  it('a série aprende com o vínculo: Enel × Energia, sem nome em comum e 27% acima, vira proposta', async () => {
+    selectQueue.push([{ id: 'energia', amountCents: -25_000, date: new Date('2026-12-17T00:00:00Z'), description: 'Energia (3/61)', recurringTemplateId: 'serie-energia' }])
+    selectQueue.push([{ id: 'enel', amountCents: -31_674, date: new Date('2026-12-17T00:00:00Z'), description: 'Enel Distribuicao Sao Paulo', counterpartyId: 'cp-enel' }])
+    selectQueue.push([{ templateId: 'serie-energia', counterpartyId: 'cp-enel' }]) // quem já cumpriu a série
+
+    expect(await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)).toBe(1)
+    expect(inserts[0].payload).toMatchObject({ forecastTransactionId: 'energia', realizedTransactionId: 'enel' })
+  })
+
+  it('sem vínculo anterior, a mesma Enel não vira proposta', async () => {
+    selectQueue.push([{ id: 'energia', amountCents: -25_000, date: new Date('2026-12-17T00:00:00Z'), description: 'Energia (3/61)', recurringTemplateId: 'serie-energia' }])
+    selectQueue.push([{ id: 'enel', amountCents: -31_674, date: new Date('2026-12-17T00:00:00Z'), description: 'Enel Distribuicao Sao Paulo', counterpartyId: 'cp-enel' }])
+    selectQueue.push([])
+
+    expect(await criarPropostasDeConciliacao(mockDb as never, 'org-1', CONTA)).toBe(0)
+  })
+
   it('propõe o par previsto×realizado que o casamento encontrou', async () => {
     selectQueue.push([PREVISTO_SALARIO]) // previstos abertos
     selectQueue.push([REAL_SALARIO]) // realizados que nenhuma previsão reivindicou

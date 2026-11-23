@@ -132,3 +132,29 @@ describe('temPalavraEmComum', () => {
     expect(temPalavraEmComum('PIX 1234', 'Pix 1234')).toBe(false)
   })
 })
+
+/**
+ * A série aprende com o vínculo: a contraparte de quem já cumpriu uma previsão
+ * dela prova o fornecedor melhor que o nome. Caso real: "Energia" R$ 250,00 e
+ * a Enel, que variou de R$ 163,67 a R$ 316,74 em quatro meses.
+ */
+describe('matchForecast com a contraparte da série', () => {
+  const ENERGIA: ForecastCandidate = {
+    id: 'energia', amountCents: -25_000, date: data('2026-12-17'), description: 'Energia (3/61)', contrapartes: ['enel'],
+  }
+  const enel = (amountCents: number, counterpartyId: string | null = 'enel'): RealizedTransaction => ({
+    amountCents, date: data('2026-12-17'), description: 'Enel Distribuicao Sao Paulo', counterpartyId,
+  })
+
+  it('mesma contraparte casa sem palavra em comum, até 50% de diferença', () => {
+    expect(matchForecast(enel(-31_674), [ENERGIA])?.id).toBe('energia')
+    expect(matchForecast(enel(-16_367), [ENERGIA])?.id).toBe('energia')
+  })
+  it('mesma contraparte acima de 50% não casa', () => {
+    expect(matchForecast(enel(-38_000), [ENERGIA])).toBeNull()
+  })
+  it('outra contraparte segue a regra do nome', () => {
+    expect(matchForecast(enel(-31_674, 'tim'), [ENERGIA])).toBeNull()
+    expect(matchForecast(enel(-31_674, null), [ENERGIA])).toBeNull()
+  })
+})

@@ -1,4 +1,4 @@
-import { temPalavraEmComum } from '@floow/core-finance/src/forecast-match'
+import { temPalavraEmComum, TOLERANCIA_MESMA_CONTRAPARTE } from '@floow/core-finance/src/forecast-match'
 import { JANELA_BUSCA_DIAS } from '@/lib/finance/forecast-match-db'
 
 /** Sem nome em comum, só vale como palpite o valor praticamente igual. */
@@ -35,7 +35,7 @@ export interface PrevisaoAberta {
   categoriaNome: string | null
   /** Recorrência vencida sem vínculo: busca ampliada. Não vai para a tela. */
   antiga?: boolean
-  /** Contrapartes dos lançamentos que já cumpriram a série. Não vai para a tela. */
+  /** Contrapartes dos lançamentos que já cumpriram a série (prova o fornecedor). Não vai para a tela. */
   contrapartes?: string[]
   /** Não vai para a tela. */
   categoryId?: string | null
@@ -59,8 +59,9 @@ const mesmoMes = (a: string, b: string) => a.slice(0, 7) === b.slice(0, 7)
  * consulta mora em `fila-db.ts`. Spec 2026-10-01 §4, card v2 §A.
  *
  * Mesma conta, mesmo sinal, ±10 dias e — o que segura palpite ruim — nome
- * com palavra em comum, mesma categoria com valor até 20% diferente, OU valor
- * até 2% diferente. Previsão antiga também
+ * com palavra em comum, contraparte que já cumpriu a série com valor até 50%
+ * diferente, mesma categoria com valor até 20% diferente, OU valor até 2%
+ * diferente. Previsão antiga também
  * entra pela busca ampliada (`JANELA_PREVISAO_ANTIGA_DIAS`). Ordem: mesma
  * contraparte da série, nome parecido, diferença de valor, dias. A proposta
  * que o sync gravou é a candidata 1 se passar nesse filtro: é o palpite que
@@ -93,7 +94,9 @@ export function escolherCandidatas(
     .filter(({ candidata: c, antiga, mesmaContraparte, mesmaCategoria }) => {
       // Mesma categoria vale como o nome, mas com teto: "Enel Distribuicao" × "Energia".
       const daCategoria = mesmaCategoria && c.diferencaCents <= valor * TOLERANCIA_VALOR_ANTIGA
-      const comum = c.diasDeDiferenca <= JANELA_BUSCA_DIAS && (c.nomeParecido || daCategoria || c.diferencaCents <= quaseIgual)
+      // Mesmo teto do sync (`matchForecast`): a série já conhece este fornecedor.
+      const daSerie = mesmaContraparte && c.diferencaCents <= valor * TOLERANCIA_MESMA_CONTRAPARTE
+      const comum = c.diasDeDiferenca <= JANELA_BUSCA_DIAS && (c.nomeParecido || daSerie || daCategoria || c.diferencaCents <= quaseIgual)
       if (comum || !antiga) return comum
       const perto = c.diasDeDiferenca <= JANELA_PREVISAO_ANTIGA_DIAS || mesmoMes(c.date, lancamento.date)
       const conhecido = c.nomeParecido || mesmaContraparte || mesmaCategoria

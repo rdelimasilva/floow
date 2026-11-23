@@ -20,7 +20,8 @@
  *   Distribuicao" (R$ 163,67) — fornecedores diferentes, mesmo cartão, mesma
  *   semana. Aconteceu de verdade num heurístico de investigação.
  *
- * Acima disso, nunca casa.
+ * Acima disso, nunca casa — exceto com a contraparte que a série já conhece
+ * (`TOLERANCIA_MESMA_CONTRAPARTE`).
  */
 
 const DIA_EM_MS = 24 * 60 * 60 * 1000
@@ -33,6 +34,13 @@ const TOLERANCIA_ESTREITA = 0.01
 
 /** Acima disso só casa com palavra em comum na descrição. */
 const TOLERANCIA_AMPLA = 0.08
+
+/**
+ * Contraparte de quem já cumpriu uma previsão da série prova o fornecedor:
+ * dispensa o nome e aceita a variação de conta de consumo (a Enel foi de
+ * R$ 163,67 a R$ 316,74 em quatro meses contra R$ 250,00 previstos).
+ */
+export const TOLERANCIA_MESMA_CONTRAPARTE = 0.5
 
 /**
  * Palavras que o banco põe em quase toda descrição. Sem removê-las,
@@ -118,12 +126,15 @@ export interface ForecastCandidate {
   amountCents: number
   date: Date
   description: string
+  /** Contrapartes dos lançamentos que já cumpriram previsões desta série. */
+  contrapartes?: string[]
 }
 
 export interface RealizedTransaction {
   amountCents: number
   date: Date
   description: string
+  counterpartyId?: string | null
 }
 
 function mesmoSinal(a: number, b: number): boolean {
@@ -161,13 +172,12 @@ export function matchForecast(
     if (distanciaDias > JANELA_DIAS) continue
 
     const diferenca = diferencaRelativa(candidato.amountCents, realizado.amountCents)
-    if (diferenca > TOLERANCIA_AMPLA) continue
-
-    if (
-      diferenca > TOLERANCIA_ESTREITA &&
-      !temPalavraEmComum(candidato.description, realizado.description)
-    ) {
-      continue
+    const conhecida = Boolean(realizado.counterpartyId && candidato.contrapartes?.includes(realizado.counterpartyId))
+    if (conhecida) {
+      if (diferenca > TOLERANCIA_MESMA_CONTRAPARTE) continue
+    } else {
+      if (diferenca > TOLERANCIA_AMPLA) continue
+      if (diferenca > TOLERANCIA_ESTREITA && !temPalavraEmComum(candidato.description, realizado.description)) continue
     }
 
     if (diferenca < menorDiferenca) {

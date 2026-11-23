@@ -17,27 +17,6 @@ export function ehPrevisaoAntiga(p: { recurringTemplateId: string | null; date: 
   return p.recurringTemplateId !== null && Date.parse(p.date.slice(0, 10)) < hoje.getTime() - JANELA_BUSCA_DIAS * DIA_EM_MS
 }
 
-/** Por série: as contrapartes dos lançamentos que já cumpriram alguma previsão dela. */
-export async function lerContrapartesDasSeries(db: RlsTx, orgId: string, templateIds: string[]): Promise<Map<string, string[]>> {
-  const porSerie = new Map<string, string[]>()
-  if (templateIds.length === 0) return porSerie
-  const realizado = alias(transactions, 'realizado')
-  const linhas = await db
-    .select({ templateId: transactions.recurringTemplateId, counterpartyId: realizado.counterpartyId })
-    .from(transactions)
-    .innerJoin(realizado, eq(realizado.id, transactions.matchedTransactionId))
-    .where(and(
-      eq(transactions.orgId, orgId), inArray(transactions.recurringTemplateId, templateIds), isNotNull(realizado.counterpartyId),
-    ))
-  for (const l of linhas) {
-    if (!l.templateId || !l.counterpartyId) continue
-    const lista = porSerie.get(l.templateId) ?? []
-    if (!lista.includes(l.counterpartyId)) lista.push(l.counterpartyId)
-    porSerie.set(l.templateId, lista)
-  }
-  return porSerie
-}
-
 /**
  * Lançamentos do banco anteriores à janela da fila (`antesDe`) que podem
  * cumprir uma previsão antiga: mesmas contas, em volta das datas delas.

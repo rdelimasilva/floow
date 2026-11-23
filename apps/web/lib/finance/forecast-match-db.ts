@@ -1,6 +1,6 @@
-import { and, eq, gte, isNotNull, isNull, lte, notExists, or, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, isNull, lte, notExists, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
-import { getDb, transactions, forecastMatchProposals } from '@floow/db'
+import { getDb, transactions, forecastMatchProposals, type RlsTx } from '@floow/db'
 import { matchForecast, type ForecastCandidate } from '@floow/core-finance'
 import { condicaoDePernaPrevista, condicaoNaoEPernaPrevista, SUFIXO_PERNA_PREVISTA } from '@/lib/openfinance/perna-prevista'
 
@@ -152,6 +152,27 @@ export function condicaoDeRealizadoLivre(orgId: string, accountId: string, inici
   )
 }
 
+/** Por série: as contrapartes dos lançamentos que já cumpriram alguma previsão dela. */
+export async function lerContrapartesDasSeries(db: Db | RlsTx, orgId: string, templateIds: string[]): Promise<Map<string, string[]>> {
+  const porSerie = new Map<string, string[]>()
+  if (templateIds.length === 0) return porSerie
+  const realizado = alias(transactions, 'realizado_da_serie')
+  const linhas = await db
+    .select({ templateId: transactions.recurringTemplateId, counterpartyId: realizado.counterpartyId })
+    .from(transactions)
+    .innerJoin(realizado, eq(realizado.id, transactions.matchedTransactionId))
+    .where(and(
+      eq(transactions.orgId, orgId), inArray(transactions.recurringTemplateId, templateIds), isNotNull(realizado.counterpartyId),
+    ))
+  for (const l of linhas) {
+    if (!l.templateId || !l.counterpartyId) continue
+    const lista = porSerie.get(l.templateId) ?? []
+    if (!lista.includes(l.counterpartyId)) lista.push(l.counterpartyId)
+    porSerie.set(l.templateId, lista)
+  }
+  return porSerie
+}
+
 /**
  * Propõe, nesta conta, o par previsto×realizado que o casamento encontrar.
  *
@@ -182,6 +203,7 @@ export async function criarPropostasDeConciliacao(
       amountCents: transactions.amountCents,
       date: transactions.date,
       description: transactions.description,
+      recurringTemplateId: transactions.recurringTemplateId,
     })
     .from(transactions)
     .where(
@@ -217,17 +239,23 @@ export async function criarPropostasDeConciliacao(
       amountCents: transactions.amountCents,
       date: transactions.date,
       description: transactions.description,
+      counterpartyId: transactions.counterpartyId,
     })
     .from(transactions)
     .where(condicaoDeRealizadoLivre(orgId, accountId, inicio, fim))
 
   if (realizados.length === 0) return 0
 
+  // A série aprende com o vínculo: quem já cumpriu uma previsão dela vale como prova.
+  const series = [...new Set(previstos.map((p) => p.recurringTemplateId).filter((id): id is string => Boolean(id)))]
+  const contrapartes = await lerContrapartesDasSeries(db, orgId, series)
+
   const abertos: ForecastCandidate[] = previstos.map((p) => ({
     id: p.id,
     amountCents: p.amountCents,
     date: new Date(p.date),
     description: p.description,
+    contrapartes: p.recurringTemplateId ? contrapartes.get(p.recurringTemplateId) : undefined,
   }))
 
   const reivindicados = new Set<string>()
@@ -242,6 +270,7 @@ export async function criarPropostasDeConciliacao(
         amountCents: realizado.amountCents,
         date: new Date(realizado.date),
         description: realizado.description,
+        counterpartyId: realizado.counterpartyId,
       },
       disponiveis,
     )

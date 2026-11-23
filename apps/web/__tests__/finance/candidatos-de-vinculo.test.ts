@@ -115,4 +115,14 @@ describe('escolherCandidatas', () => {
     const lanc = { ...LANC, description: 'Escola', categoryId: 'casa' }
     expect(escolherCandidatas(lanc, [prev({ description: 'Condomínio', amountCents: -185000, categoryId: 'casa' })])).toEqual([])
   })
+  it('previsão recente: contraparte que já cumpriu a série entra com 27% de diferença', () => {
+    const lanc = { id: 'r', accountId: 'itau', date: '2026-12-17', amountCents: -31674, description: 'Enel Distribuicao Sao Paulo', counterpartyId: 'enel' }
+    const r = escolherCandidatas(lanc, [prev({ id: 'e', date: '2026-12-17', amountCents: -25000, description: 'Energia (3/61)', contrapartes: ['enel'] })])
+    expect(r.map((c) => c.id)).toEqual(['e'])
+    expect(r[0]).not.toHaveProperty('contrapartes')
+  })
+  it('previsão recente: outra contraparte com 27% de diferença não entra', () => {
+    const lanc = { id: 'r', accountId: 'itau', date: '2026-12-17', amountCents: -31674, description: 'Enel Distribuicao Sao Paulo', counterpartyId: 'tim' }
+    expect(escolherCandidatas(lanc, [prev({ date: '2026-12-17', amountCents: -25000, description: 'Energia (3/61)', contrapartes: ['enel'] })])).toEqual([])
+  })
 })

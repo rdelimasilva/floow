@@ -4,10 +4,10 @@ import { withUserDb, withUserDbFor } from '@/lib/db/rls'
 import { lerDuplicatasPendentes } from '@/lib/finance/duplicata-queries'
 import { lerPropostasPendentes } from '@/lib/finance/forecast-match-queries'
 import { lerGruposPendentes } from '@/lib/openfinance/counterparty-queries'
-import { condicaoDeRealizadoSemVinculo, JANELA_BUSCA_DIAS } from '@/lib/finance/forecast-match-db'
+import { condicaoDeRealizadoSemVinculo, JANELA_BUSCA_DIAS, lerContrapartesDasSeries } from '@/lib/finance/forecast-match-db'
 import { meioDoLancamento } from '@/lib/openfinance/meio-do-lancamento'
 import { escolherCandidatas, type Candidata, type PrevisaoAberta } from './candidatos'
-import { ehPrevisaoAntiga, lerContrapartesDasSeries, lerLancamentosParaAntigas } from './previsoes-antigas'
+import { ehPrevisaoAntiga, lerLancamentosParaAntigas } from './previsoes-antigas'
 import { montarFila, LOTE_DA_FILA, JANELA_FILA_DIAS, type ItemDaFila, type LancamentoBase } from './fila'
 
 /**
@@ -59,10 +59,13 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
   const datadas = previsoes.map((p) => ({ ...p, date: iso(p.date)! }))
   const antigas = datadas.filter((p) => ehPrevisaoAntiga(p, hoje))
   const idsAntigos = new Set(antigas.map((a) => a.id))
-  const contrapartes = await lerContrapartesDasSeries(db, orgId, [...new Set(antigas.map((p) => p.recurringTemplateId!))])
-  const abertas: PrevisaoAberta[] = datadas.map(({ recurringTemplateId, ...p }) => (
-    idsAntigos.has(p.id) ? { ...p, antiga: true, contrapartes: contrapartes.get(recurringTemplateId!) ?? [] } : p
-  ))
+  const series = [...new Set(datadas.map((p) => p.recurringTemplateId).filter((id): id is string => Boolean(id)))]
+  const contrapartes = await lerContrapartesDasSeries(db, orgId, series)
+  const abertas: PrevisaoAberta[] = datadas.map(({ recurringTemplateId, ...p }) => ({
+    ...p,
+    antiga: idsAntigos.has(p.id),
+    contrapartes: recurringTemplateId ? contrapartes.get(recurringTemplateId) ?? [] : [],
+  }))
   // O lançamento do banco que cumpre a previsão antiga pode ser anterior à
   // janela da fila: entra também, só para ela.
   const doBanco = [...recentes, ...await lerLancamentosParaAntigas(db, orgId, antigas, desde)]
