@@ -57,7 +57,7 @@ export async function lerLancamentosParaAntigas(
   return db
     .select({
       id: transactions.id, accountId: transactions.accountId, date: transactions.date, amountCents: transactions.amountCents,
-      description: transactions.description, counterpartyId: transactions.counterpartyId,
+      description: transactions.description, counterpartyId: transactions.counterpartyId, categoryId: transactions.categoryId,
     })
     .from(transactions)
     .where(and(

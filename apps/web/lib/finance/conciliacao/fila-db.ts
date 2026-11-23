@@ -29,7 +29,7 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
   const recentes = await db
     .select({
       id: transactions.id, accountId: transactions.accountId, date: transactions.date, amountCents: transactions.amountCents,
-      description: transactions.description, counterpartyId: transactions.counterpartyId,
+      description: transactions.description, counterpartyId: transactions.counterpartyId, categoryId: transactions.categoryId,
     })
     .from(transactions)
     .where(and(
@@ -41,7 +41,7 @@ export async function lerFila(db: RlsTx, orgId: string, hoje = new Date()): Prom
     .select({
       id: transactions.id, accountId: transactions.accountId, contaNome: accounts.name, date: transactions.date,
       amountCents: transactions.amountCents, description: transactions.description, categoriaNome: categories.name,
-      recurringTemplateId: transactions.recurringTemplateId,
+      recurringTemplateId: transactions.recurringTemplateId, categoryId: transactions.categoryId,
     })
     .from(transactions)
     .innerJoin(accounts, eq(accounts.id, transactions.accountId))

@@ -105,4 +105,14 @@ describe('escolherCandidatas', () => {
     })
     expect(r).toEqual([])
   })
+  it('caso real: Enel × Energia, nomes sem relação e 6% de diferença, entra pela mesma categoria', () => {
+    const lanc = { id: 'r', accountId: 'itau', date: '2026-11-17', amountCents: -23444, description: 'Enel Distribuicao Sao Paulo', categoryId: 'luz' }
+    const r = escolherCandidatas(lanc, [prev({ id: 'e', date: '2026-11-17', amountCents: -25000, description: 'Energia (2/61)', categoryId: 'luz' })])
+    expect(r.map((c) => c.id)).toEqual(['e'])
+    expect(r[0]).not.toHaveProperty('categoryId')
+  })
+  it('mesma categoria não passa de 20% de diferença', () => {
+    const lanc = { ...LANC, description: 'Escola', categoryId: 'casa' }
+    expect(escolherCandidatas(lanc, [prev({ description: 'Condomínio', amountCents: -185000, categoryId: 'casa' })])).toEqual([])
+  })
 })

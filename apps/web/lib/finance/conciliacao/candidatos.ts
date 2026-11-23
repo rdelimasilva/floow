@@ -22,6 +22,7 @@ export interface LancamentoDoBanco {
   amountCents: number
   description: string
   counterpartyId?: string | null
+  categoryId?: string | null
 }
 
 export interface PrevisaoAberta {
@@ -36,9 +37,11 @@ export interface PrevisaoAberta {
   antiga?: boolean
   /** Contrapartes dos lançamentos que já cumpriram a série. Não vai para a tela. */
   contrapartes?: string[]
+  /** Não vai para a tela. */
+  categoryId?: string | null
 }
 
-export interface Candidata extends Omit<PrevisaoAberta, 'antiga' | 'contrapartes'> {
+export interface Candidata extends Omit<PrevisaoAberta, 'antiga' | 'contrapartes' | 'categoryId'> {
   diasDeDiferenca: number
   diferencaCents: number
   outraConta: boolean
@@ -56,7 +59,8 @@ const mesmoMes = (a: string, b: string) => a.slice(0, 7) === b.slice(0, 7)
  * consulta mora em `fila-db.ts`. Spec 2026-10-01 §4, card v2 §A.
  *
  * Mesma conta, mesmo sinal, ±10 dias e — o que segura palpite ruim — nome
- * com palavra em comum OU valor até 2% diferente. Previsão antiga também
+ * com palavra em comum, mesma categoria com valor até 20% diferente, OU valor
+ * até 2% diferente. Previsão antiga também
  * entra pela busca ampliada (`JANELA_PREVISAO_ANTIGA_DIAS`). Ordem: mesma
  * contraparte da série, nome parecido, diferença de valor, dias. A proposta
  * que o sync gravou é a candidata 1 se passar nesse filtro: é o palpite que
@@ -73,7 +77,7 @@ export function escolherCandidatas(
     .filter((p) => p.accountId === lancamento.accountId)
     .filter((p) => Math.sign(p.amountCents) === Math.sign(lancamento.amountCents))
     .filter((p) => !opcoes.recusadas?.has(p.id))
-    .map(({ antiga, contrapartes, ...p }) => ({
+    .map(({ antiga, contrapartes, categoryId, ...p }) => ({
       candidata: {
         ...p,
         diasDeDiferenca: Math.round(Math.abs(dia(p.date) - dia(lancamento.date)) / DIA_EM_MS),
@@ -84,16 +88,20 @@ export function escolherCandidatas(
       },
       antiga: Boolean(antiga),
       mesmaContraparte: Boolean(lancamento.counterpartyId && contrapartes?.includes(lancamento.counterpartyId)),
+      mesmaCategoria: Boolean(lancamento.categoryId && lancamento.categoryId === categoryId),
     }))
-    .filter(({ candidata: c, antiga, mesmaContraparte }) => {
-      const comum = c.diasDeDiferenca <= JANELA_BUSCA_DIAS && (c.nomeParecido || c.diferencaCents <= quaseIgual)
+    .filter(({ candidata: c, antiga, mesmaContraparte, mesmaCategoria }) => {
+      // Mesma categoria vale como o nome, mas com teto: "Enel Distribuicao" × "Energia".
+      const daCategoria = mesmaCategoria && c.diferencaCents <= valor * TOLERANCIA_VALOR_ANTIGA
+      const comum = c.diasDeDiferenca <= JANELA_BUSCA_DIAS && (c.nomeParecido || daCategoria || c.diferencaCents <= quaseIgual)
       if (comum || !antiga) return comum
       const perto = c.diasDeDiferenca <= JANELA_PREVISAO_ANTIGA_DIAS || mesmoMes(c.date, lancamento.date)
-      const conhecido = c.nomeParecido || mesmaContraparte
+      const conhecido = c.nomeParecido || mesmaContraparte || mesmaCategoria
       return perto && (c.diferencaCents <= quaseIgual || (conhecido && c.diferencaCents <= valor * TOLERANCIA_VALOR_ANTIGA))
     })
     .sort((a, b) => Number(b.mesmaContraparte) - Number(a.mesmaContraparte)
       || Number(b.candidata.nomeParecido) - Number(a.candidata.nomeParecido)
+      || Number(b.mesmaCategoria) - Number(a.mesmaCategoria)
       || a.candidata.diferencaCents - b.candidata.diferencaCents
       || a.candidata.diasDeDiferenca - b.candidata.diasDeDiferenca)
     .map((e) => e.candidata)
