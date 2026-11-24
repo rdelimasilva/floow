@@ -173,3 +173,25 @@ describe('contaNoSaldoProjetado e o lancamento ignorado', () => {
     ).toBe(true)
   })
 })
+
+/**
+ * O aluguel de R$ 8.800 venceu em 23/11 e o Itaú ainda não debitou. Tirá-lo da
+ * projeção deixava o fim do mês R$ 8.800 mais alto: a recorrência vencida
+ * segue somando até ser conciliada, ignorada ou apagada.
+ */
+describe('previsão de recorrência vencida', () => {
+  it('sem par: continua no saldo projetado', () => {
+    expect(contaNoSaldoProjetado(previsao({ date: '2026-09-10', recurringTemplateId: 'rt-1' }), HOJE)).toBe(true)
+  })
+
+  it('vencendo hoje: continua no saldo projetado', () => {
+    expect(contaNoSaldoProjetado(previsao({ date: '2026-09-19', recurringTemplateId: 'rt-1' }), HOJE)).toBe(true)
+  })
+
+  it('ignorada, conciliada ou com proposta aberta: sai', () => {
+    const vencida = { date: '2026-09-10', recurringTemplateId: 'rt-1' }
+    expect(contaNoSaldoProjetado(previsao({ ...vencida, isIgnored: true }), HOJE)).toBe(false)
+    expect(contaNoSaldoProjetado(previsao({ ...vencida, matchedTransactionId: 'real-1' }), HOJE)).toBe(false)
+    expect(contaNoSaldoProjetado(previsao({ ...vencida, hasPendingMatchProposal: true }), HOJE)).toBe(false)
+  })
+})

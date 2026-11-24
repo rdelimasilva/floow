@@ -122,3 +122,10 @@ describe('sqlContaNoSaldo e o lancamento ignorado', () => {
     expect(comAlias).toContain('"tx_saldo"."is_ignored"')
   })
 })
+
+describe('regra de saldo no SQL e a recorrência vencida', () => {
+  it('soma previsão de recorrência vencida sem par', () => {
+    expect(gerado).toContain('"recurring_template_id" is not null')
+    expect(gerado).toContain('<=')
+  })
+})

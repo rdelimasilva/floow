@@ -19,6 +19,7 @@ type Refs = {
     balanceApplied: AnyPgColumn
     isIgnored: AnyPgColumn
     matchedTransactionId: AnyPgColumn
+    recurringTemplateId: AnyPgColumn
     date: AnyPgColumn
     amountCents: AnyPgColumn
   }
@@ -62,9 +63,10 @@ export type OpcoesDoSaldo = {
  *     real deu -R$ 4.290,37 onde o saldo era R$ 6.151,18.
  *  3. O que ja foi aplicado no saldo soma — e o realizado.
  *  4. Previsao AINDA POR VENCER soma: e a projecao, o que responde "como fecho
- *     o mes". Previsao vencida nao soma, porque dali em diante quem diz o que
- *     aconteceu e o extrato. Previsao ja casada tambem nao, porque quem soma
- *     nesse caso e o realizado.
+ *     o mes". Previsao de recorrencia VENCIDA tambem soma, ate ser conciliada,
+ *     ignorada ou apagada: o aluguel que o banco ainda nao debitou vai sair.
+ *     As outras previsoes vencidas nao somam. Previsao ja casada tambem nao,
+ *     porque quem soma nesse caso e o realizado.
  *  5. Previsao com proposta de conciliacao ABERTA nao soma. O realizado que a
  *     proposta aponta ja entrou no saldo, e o vinculo so e gravado quando o
  *     usuario aprova na fila: e o salario adiantado — previsao de R$ 32.500 no
@@ -94,7 +96,25 @@ export function sqlContaNoSaldo(
     AND (
       ${refs.tx.balanceApplied}
       OR ${sqlPrevisaoAindaPorVencer(hoje, refs)}
+      OR ${sqlRecorrenciaVencidaPendente(hoje, refs)}
     )
+  )`
+}
+
+/**
+ * Previsao de recorrencia que venceu sem par e sem proposta aberta. Soma no
+ * saldo da listagem, e so nele: o fluxo de caixa continua com
+ * `sqlPrevisaoAindaPorVencer`, porque la a recorrencia criada com inicio no
+ * passado contaria dobrado nos meses que ja fecharam.
+ */
+function sqlRecorrenciaVencidaPendente(hoje: string, refs: Pick<Refs, 'tx'>) {
+  return sql`(
+    ${refs.tx.recurringTemplateId} IS NOT NULL
+    AND ${refs.tx.matchedTransactionId} IS NULL
+    AND ${refs.tx.date} <= ${hoje}::date
+    AND NOT EXISTS (select 1 from ${forecastMatchProposals}
+       where ${forecastMatchProposals.forecastTransactionId} = ${refs.tx.id}
+         and ${forecastMatchProposals.status} = 'pending')
   )`
 }
 

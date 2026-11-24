@@ -8,10 +8,12 @@
  * - o saldo corrido da listagem — quanto vai existir. Soma a previsão futura,
  *   que é justamente o que serve para planejar o mês.
  *
- * A previsão sai da projeção no dia em que vence. Dali em diante quem diz o
- * que aconteceu é o extrato, e enquanto ele não traz o par a linha fica
- * marcada como não conciliada na tela. Mantê-la somando seria repetir, na
- * projeção, o defeito que tirou R$ 126.746,00 de estimativa do saldo real.
+ * A previsão de recorrência continua na projeção depois de vencer, até ser
+ * conciliada, ignorada ou apagada. O aluguel que venceu e o banco ainda não
+ * debitou é dinheiro que vai sair: tirá-lo deixava o fim do mês R$ 8.800,00
+ * mais alto. Ela segue fora de `accounts.balance_cents` e ganha o selo "não
+ * confirmado". As outras previsões (parcela, linha do banco esperando o
+ * extrato) saem da projeção no dia em que vencem.
  *
  * A previsão também sai quando existe proposta de conciliação aberta para
  * ela: o realizado que a proposta aponta já entrou no saldo, então somar as
@@ -44,6 +46,8 @@ interface LinhaProjetavel {
    * listagem o campo chega pronto, por subquery (`getTransactionsWithCount`).
    */
   hasPendingMatchProposal?: boolean
+  /** Previsão de recorrência: continua projetando depois de vencer. */
+  recurringTemplateId?: string | null
   /**
    * `accounts.type` da conta da linha. Ausente conta como transacional: dado
    * que falta nunca deve fazer saldo sumir em silêncio.
@@ -55,6 +59,11 @@ interface LinhaProjetavel {
 function diaDe(valor: Date | string): number {
   const d = valor instanceof Date ? valor : new Date(`${String(valor).slice(0, 10)}T00:00:00`)
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+}
+
+/** A data da linha já chegou (hoje conta como vencido). */
+export function venceu(data: Date | string, hoje: Date): boolean {
+  return diaDe(data) <= diaDe(hoje)
 }
 
 export function contaNoSaldoProjetado(
@@ -90,5 +99,9 @@ export function contaNoSaldoProjetado(
   if (linha.hasPendingMatchProposal) return false
 
   // Previsão ainda por vencer: é a projeção.
-  return diaDe(linha.date) > diaDe(hoje)
+  if (!venceu(linha.date, hoje)) return true
+
+  // Recorrência vencida sem par: o compromisso segue de pé até alguém
+  // conciliar, ignorar ou apagar.
+  return Boolean(linha.recurringTemplateId)
 }

@@ -7,7 +7,7 @@ import { formatBRL } from '@floow/core-finance/src/balance'
 import { formatDate, amountColorClass, TYPE_LABELS, type TransactionRowData } from './transaction-list-types'
 import { MenuDeAcoes, itensDaLinha } from './menu-de-acoes-da-linha'
 import { affectsCashFlowState } from '@/lib/finance/affects-cash-flow-cycle'
-import { contaNoSaldoProjetado } from '@/lib/finance/projected-balance'
+import { venceu } from '@/lib/finance/projected-balance'
 import { corDeTextoSobreTinta } from '@/lib/cor-legivel'
 
 interface RowActions {
@@ -117,9 +117,10 @@ function SeloDeParcela({ tx }: { tx: TransactionRowData }) {
  * de uma conta cujo saldo real era R$ 190,84, com 21 linhas contando dobrado
  * junto com o realizado.
  *
- * Agora a previsão nunca entra em `accounts.balance_cents`, e a vencida sem
- * par sai também do saldo projetado da listagem. Ela não soma em lugar
- * nenhum — então precisa aparecer, porque depende de uma decisão do usuário.
+ * Agora a previsão nunca entra em `accounts.balance_cents`. A vencida sem par
+ * de recorrência continua no saldo projetado até ser resolvida; as outras saem
+ * dele. Nos dois casos ela precisa aparecer, porque depende de uma decisão do
+ * usuário.
  * Aparece como previsão (linha apagada, valor sem verde/vermelho), mas em tom
  * laranja — fundo e selo "não confirmado" — porque exige ação.
  */
@@ -166,11 +167,13 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
 
   // O selo fala do estado da previsão, não do tipo da conta: previsão futura
   // em corretora é "previsto", não "não confirmado".
-  if (!contaNoSaldoProjetado(tx, new Date(), { incluirInvestimento: true })) {
+  if (tx.isIgnored === true || venceu(tx.date, new Date())) {
     return (
       <span
         className="inline-flex shrink-0 items-center rounded border border-orange-300 bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700"
-        title="A data chegou e o banco não trouxe o lançamento correspondente. Não entra em saldo nenhum até ser confirmada."
+        title={tx.recurringTemplateId
+          ? 'A data chegou e o banco não trouxe o lançamento correspondente. Continua descontando no saldo projetado até você conciliar, ignorar ou apagar.'
+          : 'A data chegou e o banco não trouxe o lançamento correspondente. Não entra em saldo nenhum até ser confirmada.'}
       >
         não confirmado
       </span>
@@ -192,7 +195,8 @@ function ForecastBadge({ tx }: { tx: TransactionRowData }) {
 }
 
 /**
- * Previsao vencida que o extrato nao confirmou: nao soma em saldo nenhum.
+ * Previsao vencida que o extrato nao confirmou. A de recorrencia ainda soma no
+ * saldo projetado; as outras nao somam em saldo nenhum.
  * Apagada como toda previsao, mas em tom laranja: exige acao.
  */
 function naoConfirmada(tx: TransactionRowData): boolean {
@@ -201,7 +205,7 @@ function naoConfirmada(tx: TransactionRowData): boolean {
     !tx.matchedTransactionId &&
     !tx.hasPendingMatchProposal &&
     !tx.aguardaExtrato &&
-    !contaNoSaldoProjetado(tx, new Date(), { incluirInvestimento: true })
+    (tx.isIgnored === true || venceu(tx.date, new Date()))
   )
 }
 
